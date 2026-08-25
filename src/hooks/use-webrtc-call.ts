@@ -32,10 +32,9 @@ const requestMediaPermissions = async (screenShare = false): Promise<MediaStream
     try {
       return await navigator.mediaDevices.getDisplayMedia({ 
         video: { 
-          cursor: "always",
           width: { ideal: 1280 },
           height: { ideal: 720 }
-        }, 
+        } as any, 
         audio: true 
       });
     } catch (displayErr) {
@@ -43,10 +42,9 @@ const requestMediaPermissions = async (screenShare = false): Promise<MediaStream
       // Fallback: try screen share without audio, then add microphone separately
       const screenStream = await navigator.mediaDevices.getDisplayMedia({ 
         video: { 
-          cursor: "always",
           width: { ideal: 1280 },
           height: { ideal: 720 }
-        }, 
+        } as any, 
         audio: false 
       });
       
@@ -163,7 +161,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         stream = await requestMediaPermissions(screenShare);
       } catch (mediaErr) {
         console.error("Media permissions error:", mediaErr);
-        const errorMessage = isCapacitor 
+        const errorMessage = isCapacitor() 
           ? "Camera and microphone permissions are required. Please enable them in app settings."
           : "Camera and microphone access is required for video calls.";
         setSession((prev) => ({ ...prev, error: errorMessage }));
@@ -208,7 +206,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         stream = await requestMediaPermissions(false);
       } catch (mediaErr) {
         console.error("Media permissions error:", mediaErr);
-        const errorMessage = isCapacitor 
+        const errorMessage = isCapacitor() 
           ? "Camera and microphone permissions are required. Please enable them in app settings."
           : "Camera and microphone access is required for video calls.";
         setSession((prev) => ({ ...prev, error: errorMessage }));
