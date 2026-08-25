@@ -295,7 +295,7 @@ function AdminChats() {
                           <select
                             className={`${inputClass} h-8 text-[11px]`}
                             value={active.status}
-                            onChange={(e) => void requestsApi.updateRequestStatus(active.id, e.target.value as DbRequestStatus).then(refresh)}
+                            onChange={(e) => void requestsApi.updateRequestStatus(active.id, e.target.value as DbRequestStatus).then(() => refresh())}
                           >
                             {STATUSES.map((s) => (
                               <option key={s} value={s}>{STATUS_LABEL[s]}</option>

@@ -67,7 +67,7 @@ function AdminLogin() {
                   value={username}
                   autoComplete="username"
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="admin"
+                  placeholder="Enter username"
                 />
               </div>
             </Field>
@@ -99,11 +99,6 @@ function AdminLogin() {
             </Button>
           </form>
 
-          <p className="mt-5 flex items-start gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-text-secondary">
-            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand" aria-hidden="true" />
-            Temporary credentials: <strong className="text-white">admin</strong> / <strong className="text-white">ADMIN@2026</strong>. These
-            will be replaced by Supabase admin accounts.
-          </p>
         </div>
       </div>
     </main>

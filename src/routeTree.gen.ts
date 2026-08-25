@@ -13,6 +13,8 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as HelpRouteImport } from './routes/help'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as TeamRouteImport } from './routes/team'
 import { Route as AdminShellRouteImport } from './routes/admin/_shell'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
@@ -56,6 +58,16 @@ const AppRoute = AppRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HelpRoute = HelpRouteImport.update({
+  id: '/help',
+  path: '/help',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TeamRoute = TeamRouteImport.update({
@@ -182,6 +194,8 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteWithChildren
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
+  '/help': typeof HelpRoute
+  '/privacy': typeof PrivacyRoute
   '/team': typeof TeamRouteWithChildren
   '/admin/login': typeof AdminLoginRoute
   '/app/documents': typeof AppDocumentsRoute
@@ -209,6 +223,8 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminShellIndexRoute
   '/auth': typeof AuthRoute
+  '/help': typeof HelpRoute
+  '/privacy': typeof PrivacyRoute
   '/team': typeof TeamShellIndexRoute
   '/admin/login': typeof AdminLoginRoute
   '/app/documents': typeof AppDocumentsRoute
@@ -236,6 +252,8 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
+  '/help': typeof HelpRoute
+  '/privacy': typeof PrivacyRoute
   '/team': typeof TeamRouteWithChildren
   '/admin/_shell': typeof AdminShellRouteWithChildren
   '/admin/login': typeof AdminLoginRoute
@@ -268,6 +286,8 @@ export interface FileRouteTypes {
     | '/admin'
     | '/app'
     | '/auth'
+    | '/help'
+    | '/privacy'
     | '/team'
     | '/admin/login'
     | '/app/documents'
@@ -295,6 +315,8 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/auth'
+    | '/help'
+    | '/privacy'
     | '/team'
     | '/admin/login'
     | '/app/documents'
@@ -321,6 +343,8 @@ export interface FileRouteTypes {
     | '/admin'
     | '/app'
     | '/auth'
+    | '/help'
+    | '/privacy'
     | '/team'
     | '/admin/_shell'
     | '/admin/login'
@@ -352,6 +376,8 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRouteWithChildren
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRoute
+  HelpRoute: typeof HelpRoute
+  PrivacyRoute: typeof PrivacyRoute
   TeamRoute: typeof TeamRouteWithChildren
 }
 
@@ -383,6 +409,20 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/help': {
+      id: '/help'
+      path: '/help'
+      fullPath: '/help'
+      preLoaderRoute: typeof HelpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/team': {
@@ -651,6 +691,8 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRouteWithChildren,
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRoute,
+  HelpRoute: HelpRoute,
+  PrivacyRoute: PrivacyRoute,
   TeamRoute: TeamRouteWithChildren,
 }
 export const routeTree = rootRouteImport

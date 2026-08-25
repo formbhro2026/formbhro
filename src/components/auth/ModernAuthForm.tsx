@@ -421,13 +421,13 @@ export function ModernAuthForm({
             Team Login
           </Link>
           <span className="text-gray-100">|</span>
-          <a href="#" className="text-brand hover:underline">
+          <Link to="/privacy" className="hover:text-gray-900 transition-colors">
             Privacy Policy
-          </a>
+          </Link>
           <span className="text-gray-100">|</span>
-          <a href="#" className="hover:text-gray-900 transition-colors">
+          <Link to="/help" className="hover:text-gray-900 transition-colors">
             Help
-          </a>
+          </Link>
         </div>
         <p className="text-gray-300">© 2026 Formbhro. Haryana's No.1 Digital CSC.</p>
       </div>

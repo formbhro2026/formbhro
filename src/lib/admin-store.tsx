@@ -53,7 +53,7 @@ interface AdminStore extends AdminData {
   } | null;
   signIn: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   signOut: () => Promise<void>;
-  refresh: () => Promise<void>;
+  refresh: (silent?: boolean) => Promise<void>;
   profileOf: (id: string | null | undefined) => ProfileRow | undefined;
   roleOf: (id: string | null | undefined) => string;
 }
@@ -104,17 +104,21 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const [stats, setStats] = useState<AdminStore["stats"]>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
+
+  const refresh = useCallback(async (silent = false) => {
+    // Silent refresh: don't show loading spinner (used for real-time updates)
+    if (!silent) setLoading(true);
     try {
       const [allData, statsData] = await Promise.all([loadAll(), getAdminAnalytics()]);
       setData(allData);
       setStats(statsData);
       setError(null);
+      setHasLoaded(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load admin data");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
@@ -136,7 +140,8 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     if (!authed) return;
     const schedule = () => {
       if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => void refresh(), 400);
+      // Use silent=true so the UI doesn't flicker on real-time updates
+      timer.current = setTimeout(() => void refresh(true), 400);
     };
     const channel = supabase.channel("admin-live");
     const tables = [

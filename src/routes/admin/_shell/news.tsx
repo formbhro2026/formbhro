@@ -116,7 +116,7 @@ function AdminNews() {
                   variant="danger"
                   onClick={() => {
                     if (window.confirm("Delete this announcement?")) {
-                      void notificationsApi.deleteNews(n.id).then(refresh);
+                      void notificationsApi.deleteNews(n.id).then(() => refresh());
                     }
                   }}
                 >
