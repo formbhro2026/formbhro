@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.formbhro.app",
+      "sha256_cert_fingerprints": [
+        "BA:BA:4A:60:83:C1:C9:36:C6:34:49:00:AF:C8:7C:B7:C0:22:19:8B:8F:D6:A7:51:F3:E8:32:5C:DC:B8:A4:5F"
+      ]
+    }
+  }
+]

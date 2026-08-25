@@ -1,0 +1,7 @@
+project_id = "ogjhvmucklbxcewpkiai"
+
+[auth]
+# Additional redirect URLs allowed for OAuth callbacks.
+# com.formbhro.app://oauth-callback is the Android deep-link scheme used
+# by Capacitor to return the user to the app after Google sign-in.
+additional_redirect_urls = ["com.formbhro.app://oauth-callback"]

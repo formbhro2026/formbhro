@@ -1,0 +1,640 @@
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import * as requestsApi from "@/lib/api/requests";
+import * as messagesApi from "@/lib/api/messages";
+import * as documentsApi from "@/lib/api/documents";
+import * as notificationsApi from "@/lib/api/notifications";
+import * as realtimeApi from "@/lib/api/realtime";
+import * as authApi from "@/lib/api/auth";
+import type {
+  DbRequestStatus,
+  DocumentRow,
+  MessageRow,
+  NotificationRow,
+  RequestRow,
+} from "@/lib/api/types";
+import { UserStoreContext, type Profile, type UserStore } from "@/lib/user-store-context";
+import type {
+  AppNotification,
+  NewsItem,
+  ChatMessage,
+  FileKind,
+  RequestStatus,
+  SupportRequest,
+  UserDocument,
+} from "@/data/user-module";
+import { useSession } from "@/lib/session";
+
+const STATUS_MAP: Record<DbRequestStatus, RequestStatus> = {
+  pending: "pending",
+  assigned: "assigned",
+  waiting_documents: "waiting-documents",
+  under_review: "under-review",
+  in_progress: "in-progress",
+  completed: "completed",
+  cancelled: "completed",
+};
+
+function time(iso?: string | null) {
+  return new Date(iso ?? Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+function day(iso?: string | null) {
+  return new Date(iso ?? Date.now()).toLocaleDateString([], {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+}
+function sizeLabel(bytes?: number | null) {
+  const b = bytes ?? 0;
+  if (b >= 1024 * 1024) return `${(b / (1024 * 1024)).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(b / 1024))} KB`;
+}
+function fileKind(kind?: string | null): FileKind {
+  return kind === "image" || kind === "pdf" ? kind : "doc";
+}
+function initialsOf(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+let seq = 0;
+function uid(prefix: string) {
+  seq += 1;
+  return `${prefix}-${Date.now()}-${seq}`;
+}
+
+export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
+  const { user, profile: dbProfile, refresh } = useSession();
+
+  const [requests, setRequests] = useState<SupportRequest[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [documents, setDocuments] = useState<UserDocument[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [news, setNews] = useState<NewsItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  /** bumped whenever the room map changes so realtime subscriptions re-attach. */
+  const [roomsVersion, setRoomsVersion] = useState(0);
+  /** reference -> peer (team member) currently typing. */
+  const [typingIn, setTypingIn] = useState<Record<string, boolean>>({});
+  const typingToken = useRef<Record<string, number>>({});
+  const lastTypingSent = useRef<Record<string, number>>({});
+
+  /** reference (UI id) -> { requestId, chatRoomId } */
+  const rooms = useRef<
+    Record<string, { requestId: string; chatRoomId: string | null; title: string }>
+  >({});
+  /** request uuid -> UI reference, so notifications can deep-link into the right chat. */
+  const referenceById = useRef<Record<string, string>>({});
+  /** assigned team member uuid -> display name. */
+  const teamNames = useRef<Record<string, string>>({});
+
+  const profile = useMemo<Profile>(() => {
+    const name = dbProfile?.full_name ?? user?.user_metadata?.full_name ?? user?.email ?? "You";
+    return {
+      id: user?.id ?? "USR-001",
+      name,
+      full_name: name,
+      initials: initialsOf(name) || "U",
+      email: dbProfile?.email ?? user?.email ?? "",
+      phone: dbProfile?.phone ?? "",
+      createdAt: day(dbProfile?.created_at ?? user?.created_at),
+      authProvider: (dbProfile?.auth_provider === "password" ? "password" : "google") as
+        "google" | "password",
+    };
+  }, [dbProfile, user]);
+
+  const mapRequest = useCallback((row: RequestRow): SupportRequest => {
+    return {
+      id: row.reference || row.id,
+      reference: row.reference || row.id,
+      title: row.title,
+      status: STATUS_MAP[row.status] ?? "pending",
+      createdAt: day(row.created_at),
+      assignedTo: row.assigned_team_id
+        ? (teamNames.current[row.assigned_team_id] ?? "Support Team")
+        : "Awaiting assignment",
+      assigneeOnline: Boolean(row.assigned_team_id),
+      lastUpdate: time(row.last_activity_at ?? row.created_at),
+      lastMessage:
+        row.last_message ?? "Request created. A support member will connect with you shortly.",
+      unread: 0,
+      progress: row.progress ?? 0,
+      notes: [],
+      activity: [{ label: "Request Created", time: time(row.created_at) }],
+    };
+  }, []);
+
+  const mapMessage = useCallback(
+    (row: MessageRow & { attachment?: DocumentRow | null }, reference: string): ChatMessage => ({
+      id: row.id,
+      requestId: reference,
+      author: row.sender_role === "user" ? "user" : "support",
+      authorName:
+        row.sender_role === "user"
+          ? "You"
+          : row.sender_role === "system"
+            ? "Formbhro"
+            : "Support Team",
+      time: time(row.created_at),
+      text: row.body ?? undefined,
+      file: row.attachment
+        ? {
+            id: row.attachment.id,
+            name: row.attachment.file_name,
+            kind: fileKind(row.attachment.kind),
+            size: sizeLabel(row.attachment.size_bytes),
+            storagePath: row.attachment.storage_path,
+          }
+        : undefined,
+      state: row.seen ? "read" : "delivered",
+    }),
+    [],
+  );
+
+  const mapDocument = useCallback(
+    (row: DocumentRow, reference: string, title: string): UserDocument => ({
+      id: row.id,
+      name: row.file_name,
+      kind: fileKind(row.kind),
+      size: sizeLabel(row.size_bytes),
+      requestId: reference,
+      requestTitle: title,
+      uploadedBy: row.uploader_role === "user" ? "You" : "Support Team",
+      date: day(row.created_at),
+      storagePath: row.storage_path,
+    }),
+    [],
+  );
+
+  const mapNotification = useCallback((row: NotificationRow): AppNotification => {
+    const type = (["message", "document", "status", "completed", "announcement"] as const).includes(
+      row.type as never,
+    )
+      ? (row.type as AppNotification["type"])
+      : "message";
+    return {
+      id: row.id,
+      type,
+      text: row.title || row.body || "Update",
+      time: time(row.created_at),
+      read: Boolean(row.is_read),
+      requestId: row.request_id ? referenceById.current[row.request_id] : undefined,
+      to: type === "announcement" ? "news" : "chat",
+    };
+  }, []);
+
+  const hydrate = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const [rows, notes, newsRows, docRows] = await Promise.all([
+        requestsApi.listRequests({ limit: 20 }),
+        notificationsApi.listNotifications(30),
+        notificationsApi.listNews(),
+        documentsApi.listDocuments({ limit: 100 }),
+      ]);
+
+      const uniqueTeamIds = Array.from(
+        new Set(rows.map((r) => r.assigned_team_id).filter((id): id is string => Boolean(id))),
+      );
+      const profilesById =
+        uniqueTeamIds.length > 0 ? await authApi.getProfilesByIds(uniqueTeamIds) : {};
+
+      teamNames.current = Object.fromEntries(
+        Object.entries(profilesById).map(([id, p]) => [id, p.full_name || "Support Team"]),
+      );
+      referenceById.current = Object.fromEntries(rows.map((r) => [r.id, r.reference || r.id]));
+      const mappedRequests = rows.map(mapRequest);
+      setRequests(mappedRequests);
+
+      const nextRooms: typeof rooms.current = {};
+
+      // Fetch data for all requests in parallel
+      const roomResults = await Promise.all(
+        rows.map(async (row) => {
+          const reference = row.reference || row.id;
+          const room = await requestsApi.getChatRoom(row.id);
+          return { reference, row, room };
+        }),
+      );
+
+      const allMessages: ChatMessage[] = [];
+
+      // Fetch messages for rooms that exist
+      await Promise.all(
+        roomResults.map(async ({ reference, row, room }) => {
+          nextRooms[reference] = {
+            requestId: row.id,
+            chatRoomId: room?.id ?? null,
+            title: row.title,
+          };
+          if (!room) return;
+
+          const msgs = await messagesApi.listMessages(room.id, { limit: 50 });
+          allMessages.push(...msgs.map((m) => mapMessage(m, reference)));
+        }),
+      );
+
+      rooms.current = nextRooms;
+      setRoomsVersion((v) => v + 1);
+
+      const requestMap = Object.fromEntries(rows.map((r) => [r.id, r]));
+      const allDocuments: UserDocument[] = docRows.map((doc) => {
+        const req = doc.request_id ? requestMap[doc.request_id] : undefined;
+        const ref = req ? req.reference || req.id : "";
+        const title = req ? req.title : "Personal Document";
+        return mapDocument(doc, ref, title);
+      });
+
+      // De-duplicate messages that might have arrived via realtime during fetch
+      setMessages((prev) => {
+        const existingIds = new Set(prev.map((m) => m.id));
+        const newMsgs = allMessages.filter((m) => !existingIds.has(m.id));
+        return [...prev, ...newMsgs];
+      });
+
+      setDocuments((prev) => {
+        const existingIds = new Set(prev.map((d) => d.id));
+        const newDocs = allDocuments.filter((d) => !existingIds.has(d.id));
+        return [...prev, ...newDocs];
+      });
+
+      setNotifications(notes.map(mapNotification));
+      setNews(
+        newsRows.map((n) => ({
+          id: n.id,
+          title: n.title,
+          description: n.description,
+          date: day(n.published_at),
+          category: n.category,
+          featured: n.featured,
+        })),
+      );
+    } catch (err) {
+      console.error("[LiveUserStore] Hydration failed:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [user, mapRequest, mapMessage, mapDocument, mapNotification]);
+
+  useEffect(() => {
+    void hydrate();
+  }, [hydrate]);
+
+  // Live updates for every room the user owns.
+  useEffect(() => {
+    if (!user) return;
+    const entries = Object.entries(rooms.current).filter(([, r]) => r.chatRoomId);
+    const unsubscribers = entries.map(([reference, room]) =>
+      realtimeApi.subscribeToRoom(room.chatRoomId as string, {
+        onMessage: (row) => {
+          setMessages((prev) =>
+            prev.some((m) => m.id === row.id) ? prev : [...prev, mapMessage(row, reference)],
+          );
+        },
+        onMessageUpdate: (row) => {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === row.id ? mapMessage(row, reference) : m)),
+          );
+        },
+        onDocument: (row) => {
+          setDocuments((prev) =>
+            prev.some((d) => d.id === row.id)
+              ? prev
+              : [mapDocument(row, reference, room.title), ...prev],
+          );
+        },
+        onTyping: (p) => {
+          if (!p?.typing || p.userId === user.id) return;
+          const token = (typingToken.current[reference] ?? 0) + 1;
+          typingToken.current[reference] = token;
+          setTypingIn((t) => ({ ...t, [reference]: true }));
+          setTimeout(() => {
+            if (typingToken.current[reference] !== token) return;
+            setTypingIn((t) => ({ ...t, [reference]: false }));
+          }, 2500);
+        },
+      }),
+    );
+    return () => unsubscribers.forEach((off) => off());
+  }, [user, loading, roomsVersion, mapMessage, mapDocument]);
+
+  // Request status / progress changes pushed from the team panel.
+  useEffect(() => {
+    if (!user) return;
+    return realtimeApi.subscribeToRequests((row) => {
+      setRequests((prev) => {
+        const mapped = mapRequest(row);
+        const exists = prev.some((r) => r.id === mapped.id);
+        return exists
+          ? prev.map((r) => (r.id === mapped.id ? { ...mapped, notes: r.notes } : r))
+          : [mapped, ...prev];
+      });
+    });
+  }, [user, mapRequest]);
+
+  const activeRequest = useMemo(
+    () => requests.find((r) => r.status !== "completed") ?? null,
+    [requests],
+  );
+
+  const getRequest = useCallback((id: string) => requests.find((r) => r.id === id), [requests]);
+  const messagesFor = useCallback(
+    (id: string) => messages.filter((m) => m.requestId === id),
+    [messages],
+  );
+  const documentsFor = useCallback(
+    (id: string) => documents.filter((d) => d.requestId === id),
+    [documents],
+  );
+
+  const updateProfile = useCallback(
+    (patch: Partial<Profile>) => {
+      void authApi
+        .updateMyProfile({
+          ...(patch.name ? { full_name: patch.name } : {}),
+          ...(patch.phone !== undefined ? { phone: patch.phone } : {}),
+        })
+        .then(() => refresh())
+        .catch((err) => console.error("Profile update failed:", err));
+    },
+    [refresh],
+  );
+
+  const createRequest = useCallback(
+    async (title: string = "Form Assistance") => {
+      const request = await requestsApi.createNewRequest({ title, category: title });
+      const reference = request.reference || request.id;
+      const room = await requestsApi.getChatRoom(request.id);
+      rooms.current[reference] = {
+        requestId: request.id,
+        chatRoomId: room?.id ?? null,
+        title: request.title,
+      };
+      referenceById.current[request.id] = reference;
+      setRoomsVersion((v) => v + 1);
+      const mapped = mapRequest(request);
+      setRequests((prev) => (prev.some((r) => r.id === mapped.id) ? prev : [mapped, ...prev]));
+      if (room) {
+        const list = await messagesApi.listMessages(room.id, { limit: 50 });
+        setMessages((prev) => {
+          const known = new Set(prev.map((m) => m.id));
+          return [
+            ...prev,
+            ...list.filter((m) => !known.has(m.id)).map((m) => mapMessage(m, reference)),
+          ];
+        });
+      }
+      return mapped;
+    },
+    [mapRequest, mapMessage],
+  );
+
+  const sendMessage = useCallback((reference: string, text: string) => {
+    const room = rooms.current[reference];
+    if (!room?.chatRoomId) return;
+    const tempId = uid("m");
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: tempId,
+        requestId: reference,
+        author: "user",
+        authorName: "You",
+        time: time(),
+        text,
+        state: "sending",
+      },
+    ]);
+    setRequests((prev) =>
+      prev.map((r) => (r.id === reference ? { ...r, lastMessage: text, lastUpdate: time() } : r)),
+    );
+    void messagesApi
+      .sendMessageWithRetry(
+        {
+          chatRoomId: room.chatRoomId,
+          requestId: room.requestId,
+          body: text,
+          senderRole: "user",
+        },
+        5,
+      )
+      .then((row) => {
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === row.id)) return prev.filter((m) => m.id !== tempId);
+          return prev.map((m) => (m.id === tempId ? { ...m, id: row.id, state: "delivered" } : m));
+        });
+      })
+      .catch(() => {
+        setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, state: "failed" } : m)));
+      });
+  }, []);
+
+  const retryMessage = useCallback(
+    (messageId: string) => {
+      const failed = messages.find((m) => m.id === messageId);
+      if (!failed?.text) return;
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      sendMessage(failed.requestId, failed.text);
+    },
+    [messages, sendMessage],
+  );
+
+  const attachFile = useCallback<UserStore["attachFile"]>(
+    (reference, name, kind, size, preview, file) => {
+      const room = rooms.current[reference];
+      if (!room) return;
+      if (!file) return; // Live mode uploads the real file only.
+      void (async () => {
+        try {
+          const doc = await documentsApi.uploadDocument({
+            file,
+            requestId: room.requestId,
+            chatRoomId: room.chatRoomId ?? undefined,
+            uploaderRole: "user",
+          });
+          setDocuments((prev) =>
+            prev.some((d) => d.id === doc.id)
+              ? prev
+              : [mapDocument(doc, reference, room.title), ...prev],
+          );
+          if (room.chatRoomId) {
+            await messagesApi.sendMessageWithRetry({
+              chatRoomId: room.chatRoomId,
+              requestId: room.requestId,
+              attachmentId: doc.id,
+              senderRole: "user",
+            });
+          }
+        } catch {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: uid("m"),
+              requestId: reference,
+              author: "user",
+              authorName: "You",
+              time: time(),
+              text: `Upload failed for ${name}. Please try again.`,
+              state: "failed",
+            },
+          ]);
+        }
+      })();
+    },
+    [mapDocument],
+  );
+
+  const uploadPersonalDocument = useCallback(
+    async (file: File, name: string) => {
+      const ext = file.name.includes(".")
+        ? file.name.slice(file.name.lastIndexOf("."))
+        : file.type === "image/png"
+          ? ".png"
+          : ".jpg";
+      let finalName = name.trim() || file.name;
+      if (!finalName.toLowerCase().endsWith(ext.toLowerCase())) {
+        finalName = `${finalName}${ext}`;
+      }
+      const doc = await documentsApi.uploadDocument({
+        file,
+        fileName: finalName,
+        uploaderRole: "user",
+      });
+      setDocuments((prev) =>
+        prev.some((d) => d.id === doc.id)
+          ? prev
+          : [mapDocument(doc, "", "Personal Document"), ...prev],
+      );
+    },
+    [mapDocument],
+  );
+
+  const addNote = useCallback((reference: string, note: string) => {
+    setRequests((prev) =>
+      prev.map((r) => (r.id === reference ? { ...r, notes: [...r.notes, note] } : r)),
+    );
+  }, []);
+
+  const markRead = useCallback((reference: string) => {
+    const room = rooms.current[reference];
+    setRequests((prev) => prev.map((r) => (r.id === reference ? { ...r, unread: 0 } : r)));
+    if (room?.chatRoomId)
+      void messagesApi.markMessagesSeen(room.chatRoomId, "user").catch(() => undefined);
+  }, []);
+
+  const markNotificationRead = useCallback((id: string) => {
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    void notificationsApi.markNotificationRead(id).catch(() => undefined);
+  }, []);
+
+  const markAllNotificationsRead = useCallback(() => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    void notificationsApi.markAllNotificationsRead().catch(() => undefined);
+  }, []);
+
+  // Notification fan-out from the backend triggers.
+  useEffect(() => {
+    if (!user) return;
+    return realtimeApi.subscribeToMyNotifications(user.id, (row) => {
+      setNotifications((prev) =>
+        prev.some((n) => n.id === row.id) ? prev : [mapNotification(row), ...prev],
+      );
+    });
+  }, [user, mapNotification]);
+
+  // Document fan-out for personal documents.
+  useEffect(() => {
+    if (!user) return;
+    return realtimeApi.subscribeToMyDocuments(user.id, (row) => {
+      setDocuments((prev) => {
+        if (prev.some((d) => d.id === row.id)) return prev;
+        const ref = row.request_id ? referenceById.current[row.request_id] || row.request_id : "";
+        const title =
+          row.request_id && rooms.current[ref] ? rooms.current[ref].title : "Personal Document";
+        return [mapDocument(row, ref, title), ...prev];
+      });
+    });
+  }, [user, mapDocument]);
+
+  const isPeerTyping = useCallback((requestId: string) => Boolean(typingIn[requestId]), [typingIn]);
+
+  const notifyTyping = useCallback(
+    (requestId: string) => {
+      const room = rooms.current[requestId];
+      if (!room?.chatRoomId || !user) return;
+      const now = Date.now();
+      if (now - (lastTypingSent.current[requestId] ?? 0) < 1200) return;
+      lastTypingSent.current[requestId] = now;
+      void realtimeApi
+        .sendTyping(room.chatRoomId, { userId: user.id, name: profile.name, typing: true })
+        .catch(() => undefined);
+    },
+    [user, profile.name],
+  );
+
+  const value = useMemo<UserStore>(
+    () => ({
+      profile,
+      updateProfile,
+      requests,
+      messages,
+      documents,
+      notifications,
+      news,
+      activeRequest,
+      getRequest,
+      messagesFor,
+      documentsFor,
+      createRequest,
+      sendMessage,
+      retryMessage,
+      attachFile,
+      uploadPersonalDocument,
+      addNote,
+      markRead,
+      markNotificationRead,
+      markAllNotificationsRead,
+      rooms,
+      isPeerTyping,
+      notifyTyping,
+      live: true,
+      loading,
+      sidebarOpen,
+      setSidebarOpen,
+    }),
+    [
+      profile,
+      updateProfile,
+      requests,
+      messages,
+      documents,
+      notifications,
+      activeRequest,
+      getRequest,
+      messagesFor,
+      documentsFor,
+      createRequest,
+      sendMessage,
+      retryMessage,
+      attachFile,
+      uploadPersonalDocument,
+      addNote,
+      markRead,
+      markNotificationRead,
+      markAllNotificationsRead,
+      news,
+      loading,
+      sidebarOpen,
+      isPeerTyping,
+      notifyTyping,
+    ],
+  );
+
+  return <UserStoreContext.Provider value={value}>{children}</UserStoreContext.Provider>;
+}

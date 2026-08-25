@@ -1,0 +1,119 @@
+@import "tailwindcss";
+@source "../src";
+@import "tw-animate-css";
+
+@theme {
+  --color-bg: #050505;
+  --color-surface-1: #0A0A0A;
+  --color-surface-2: #111111;
+  --color-surface-3: #1A1A1A;
+  --color-text: #FFFFFF;
+  --color-text-secondary: #A3A3A3;
+  --color-text-muted: #737373;
+  --color-border-subtle: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 122, 0, 0.45);
+  --color-brand: #FF8A1F;
+  --color-brand-light: #FFA24D;
+  --color-brand-dark: #FF6A00;
+  --color-danger: #FF6B60;
+  --color-success: #10B981;
+  --color-warning: #FF7A00;
+  
+  /* WhatsApp Dark Tokens */
+  --color-chat-bg: #0B141A;
+  --color-chat-out: #005C4B;
+  --color-chat-in: #202C33;
+  --color-chat-text: #E9EDEF;
+  --color-chat-meta: #8696A0;
+  --color-chat-accent: #53BDEB;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+html, body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.app-light-mode {
+  /* Reverting internal app to match Dark System as per request */
+  --color-bg: #050505;
+  --color-surface-1: #0A0A0A;
+  --color-surface-2: #111111;
+  --color-surface-3: #1A1A1A;
+  --color-text: #FFFFFF;
+  --color-text-secondary: #A3A3A3;
+  --color-text-muted: #737373;
+  --color-border-subtle: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 122, 0, 0.45);
+}
+
+.app-light-mode * {
+  border-color: var(--color-border-subtle);
+}
+
+.dark * {
+  border-color: var(--color-border-subtle);
+}
+
+* {
+  border-color: var(--color-border-subtle, transparent);
+}
+
+/* Consistent, high-contrast focus indicator for keyboard users only */
+:focus {
+  outline: none;
+}
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Skip link */
+.skip-link {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translateY(-120%);
+  padding: 0.75rem 1rem;
+  background: var(--color-brand);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.875rem;
+  z-index: 100;
+  transition: transform 150ms ease;
+}
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+::selection {
+  background: rgba(255, 122, 0, 0.35);
+  color: #fff;
+}
+
+/* Defer rendering + layout of below-the-fold sections until scrolled near */
+@utility cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 1px 600px;
+}
+
+/* Hide Lovable badge if present */
+a[href*="lovable.ai"],
+.lovable-badge,
+[class*="lovable"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  position: absolute !important;
+  clip: rect(0, 0, 0, 0) !important;
+}
+
+
+
