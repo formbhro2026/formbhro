@@ -1,28 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Eye, EyeOff, Info, Lock, Mail, ShieldCheck } from "lucide-react";
+import { Info, Lock, ShieldCheck } from "lucide-react";
 import logoAsset from "@/assets/logo.png.asset.json";
 import { useTeamStore } from "@/lib/team-store";
-
-export const Route = createFileRoute("/team/login")({
-  ssr: false,
-  component: TeamLogin,
-  head: () => ({
-    meta: [
-      { title: "Team Sign In — Formbhro" },
-      {
-        name: "description",
-        content:
-          "Formbhro team members sign in with the credentials issued by their administrator.",
-      },
-      { property: "og:title", content: "Team Sign In — Formbhro" },
-      { property: "og:description", content: "Secure sign in for Formbhro support team members." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-      { name: "robots", content: "noindex" },
-    ],
-  }),
-});
 
 function TeamLogin() {
   const { signInWithCode, member, hydrated } = useTeamStore();
@@ -158,3 +138,25 @@ function TeamLogin() {
     </main>
   );
 }
+
+export const Route = createFileRoute("/team/login")({
+  ssr: false,
+  component: TeamLogin,
+  head: () => ({
+    meta: [
+      { title: "Team Sign In — Formbhro" },
+      {
+        name: "description",
+        content:
+          "Formbhro team members sign in with the credentials issued by their administrator.",
+      },
+      { property: "og:title", content: "Team Sign In — Formbhro" },
+      { property: "og:description", content: "Secure sign in for Formbhro support team members." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "robots", content: "noindex" },
+    ],
+  }),
+});
+
+

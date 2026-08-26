@@ -4,11 +4,6 @@ import { useTeamStore } from "@/lib/team-store";
 import { TeamSidebar } from "@/components/team/TeamSidebar";
 import { TeamBottomNav } from "@/components/team/TeamBottomNav";
 
-export const Route = createFileRoute("/team/_shell")({
-  ssr: false,
-  component: TeamShell,
-});
-
 function TeamShell() {
   const { member, hydrated } = useTeamStore();
   const navigate = useNavigate();
@@ -38,3 +33,10 @@ function TeamShell() {
     </div>
   );
 }
+
+export const Route = createFileRoute("/team/_shell")({
+  ssr: false,
+  component: TeamShell,
+});
+
+
