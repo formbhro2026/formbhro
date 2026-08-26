@@ -174,11 +174,16 @@ function Profile() {
                   />
                   <input
                     id="p-phone"
+                    type="tel"
+                    maxLength={10}
                     value={form.phone}
                     disabled={!editing}
-                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "");
+                      if (val.length <= 10) setForm({ ...form, phone: val });
+                    }}
                     className={cn(field, "pl-11")}
-                    placeholder="Phone number"
+                    placeholder="10-digit phone number"
                   />
                 </div>
               </div>

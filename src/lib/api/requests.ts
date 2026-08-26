@@ -128,12 +128,25 @@ export async function updateRequestStatus(
   progress?: number,
 ) {
   const patch = typeof progress === "number" ? { status, progress } : { status };
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("requests")
     .update(patch)
     .eq("id", requestId)
     .select()
     .single();
+
+  if (error && error.message.includes("tuple to be updated was already modified")) {
+    // Retry once if it was a transient trigger conflict
+    const retry = await supabase
+      .from("requests")
+      .update(patch)
+      .eq("id", requestId)
+      .select()
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
+
   if (error) throw new ApiError(error.message, error.code);
   return data;
 }

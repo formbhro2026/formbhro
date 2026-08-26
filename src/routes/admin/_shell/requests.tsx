@@ -75,6 +75,8 @@ function AdminRequests() {
     try {
       await fn();
       await refresh();
+    } catch (e) {
+      console.error("ACT_ERROR:", e);
     } finally {
       setBusy(false);
     }

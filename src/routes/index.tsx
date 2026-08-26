@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { isCapacitor } from "@/lib/fcm";
 import { Navbar } from "@/components/Navbar";
 import { Hero } from "@/components/Hero";
@@ -35,7 +36,14 @@ function Index() {
   useEffect(() => {
     if (isCapacitor()) {
       void navigate({ to: "/app", replace: true });
+      return;
     }
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) {
+        void navigate({ to: "/app", replace: true });
+      }
+    });
   }, [navigate]);
 
   if (typeof window !== "undefined" && isCapacitor()) {

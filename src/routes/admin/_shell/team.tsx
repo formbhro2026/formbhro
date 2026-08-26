@@ -142,7 +142,13 @@ function AdminTeam() {
               <input
                 className={inputClass}
                 value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                type="tel"
+                maxLength={10}
+                placeholder="10-digit mobile number"
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, "");
+                  if (val.length <= 10) setForm({ ...form, phone: val });
+                }}
               />
             </Field>
             <Field label="Photo URL">

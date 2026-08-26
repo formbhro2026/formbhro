@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, FileText, Info, Monitor, Phone } from "lucide-react";
+import { Capacitor } from "@capacitor/core";
 import type { SupportRequest } from "@/data/user-module";
 
 export function ChatHeader({
@@ -49,14 +50,17 @@ export function ChatHeader({
           >
             <Phone className="h-4 w-4" />
           </button>
-          <button
-            type="button"
-            onClick={() => onStartCall?.(true)}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 hover:text-brand"
-            title="Share Screen"
-          >
-            <Monitor className="h-4 w-4" />
-          </button>
+          
+          {typeof window !== "undefined" && !Capacitor.isNativePlatform() && (
+            <button
+              type="button"
+              onClick={() => onStartCall?.(true)}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 hover:text-brand"
+              title="Share Screen"
+            >
+              <Monitor className="h-4 w-4" />
+            </button>
+          )}
 
           {onOpenDocuments && (
             <button
