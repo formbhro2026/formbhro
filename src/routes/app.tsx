@@ -73,8 +73,17 @@ function AppShell() {
   if (!user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg text-text-secondary">
-        <Loader2 className="h-5 w-5 animate-spin text-brand" aria-hidden="true" />
+        <Loader2 className="h-6 w-6 animate-spin" aria-hidden="true" />
         <span className="sr-only">Redirecting to sign in</span>
+      </div>
+    );
+  }
+
+  // Prevent rendering the User UI while redirecting an admin/team member
+  if (role === "admin" || role === "team") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-bg text-brand">
+        <Loader2 className="h-6 w-6 animate-spin" />
       </div>
     );
   }

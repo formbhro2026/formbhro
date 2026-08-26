@@ -38,12 +38,28 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setRole(null);
       return;
     }
-    const [profileResult, rolesResult] = await Promise.all([
-      supabase.from("profiles").select("*").eq("id", nextUser.id).maybeSingle(),
-      supabase.from("user_roles").select("role").eq("user_id", nextUser.id),
-    ]);
-    setProfile(profileResult.data ?? null);
-    const roles = (rolesResult.data ?? []).map((r) => r.role);
+    let retries = 3;
+    let profileResult, rolesResult;
+
+    while (retries > 0) {
+      [profileResult, rolesResult] = await Promise.all([
+        supabase.from("profiles").select("*").eq("id", nextUser.id).maybeSingle(),
+        supabase.from("user_roles").select("role").eq("user_id", nextUser.id),
+      ]);
+
+      if (!profileResult.error && !rolesResult.error) {
+        break;
+      }
+      
+      retries--;
+      if (retries > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    }
+
+    setProfile(profileResult?.data ?? null);
+    const roles = (rolesResult?.data ?? []).map((r) => r.role);
+    if (rolesResult?.error) console.error("[Session] roles error:", rolesResult.error);
     setRole(roles.includes("admin") ? "admin" : roles.includes("team") ? "team" : "user");
   }, []);
 
