@@ -19,7 +19,10 @@ export function ListSkeleton({ rows = 3 }: { rows?: number }) {
   return (
     <div className="space-y-3">
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="flex items-center gap-3 rounded-2xl border border-border-subtle bg-bg p-4">
+        <div
+          key={i}
+          className="flex items-center gap-3 rounded-2xl border border-border-subtle bg-bg p-4"
+        >
           <Bar className="h-10 w-10 shrink-0 rounded-xl" />
           <div className="min-w-0 flex-1">
             <Bar className="h-3.5 w-1/2" />

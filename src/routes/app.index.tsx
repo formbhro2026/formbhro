@@ -16,10 +16,15 @@ export const Route = createFileRoute("/app/")({
       { title: "Home — Formbhro Support Dashboard" },
       {
         name: "description",
-        content: "Start a form assistance request, continue your chat with the Formbhro support team, and track your request status.",
+        content:
+          "Start a form assistance request, continue your chat with the Formbhro support team, and track your request status.",
       },
       { property: "og:title", content: "Formbhro — Your Support Dashboard" },
-      { property: "og:description", content: "Start a request, chat with support, share documents and track progress in one place." },
+      {
+        property: "og:description",
+        content:
+          "Start a request, chat with support, share documents and track progress in one place.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "robots", content: "noindex" },

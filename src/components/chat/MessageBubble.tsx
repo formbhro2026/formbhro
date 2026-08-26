@@ -15,14 +15,19 @@ export function MessageBubble({
   const isUser = message.author === "user";
 
   return (
-    <div className={cn("flex flex-col gap-1 w-full animate-in fade-in slide-in-from-bottom-2 duration-300", isUser ? "items-end" : "items-start")}>
+    <div
+      className={cn(
+        "flex flex-col gap-1 w-full animate-in fade-in slide-in-from-bottom-2 duration-300",
+        isUser ? "items-end" : "items-start",
+      )}
+    >
       <div
         className={cn(
           "relative max-w-[85%] px-3 py-1.5 text-[15px] leading-relaxed shadow-sm sm:max-w-[75%] lg:max-w-[65%] border-none transition-all duration-200",
           isUser
             ? "rounded-[18px] rounded-tr-[4px] bg-chat-out text-chat-text"
             : "rounded-[18px] rounded-tl-[4px] bg-chat-in text-chat-text",
-          message.file && "p-0.5 pb-0"
+          message.file && "p-0.5 pb-0",
         )}
       >
         {message.file ? (
@@ -43,13 +48,26 @@ export function MessageBubble({
           <div className="flex flex-col">
             <span className="whitespace-pre-wrap break-words">{message.text}</span>
             <div className="flex items-center justify-end gap-1 mt-0.5 ml-8 self-end">
-              <span className="text-[10px] text-chat-meta font-medium leading-none">{message.time}</span>
+              <span className="text-[10px] text-chat-meta font-medium leading-none">
+                {message.time}
+              </span>
               {isUser && message.state && (
                 <span className="flex items-center ml-0.5">
-                  {message.state === "sending" && <Clock className="h-3 w-3 text-chat-meta opacity-70" />}
-                  {message.state === "sent" && <Check className="h-3.5 w-3.5 text-chat-meta opacity-70" strokeWidth={1.5} />}
-                  {message.state === "delivered" && <CheckCheck className="h-3.5 w-3.5 text-chat-meta opacity-70" strokeWidth={1.5} />}
-                  {message.state === "read" && <CheckCheck className="h-3.5 w-3.5 text-chat-accent" strokeWidth={2} />}
+                  {message.state === "sending" && (
+                    <Clock className="h-3 w-3 text-chat-meta opacity-70" />
+                  )}
+                  {message.state === "sent" && (
+                    <Check className="h-3.5 w-3.5 text-chat-meta opacity-70" strokeWidth={1.5} />
+                  )}
+                  {message.state === "delivered" && (
+                    <CheckCheck
+                      className="h-3.5 w-3.5 text-chat-meta opacity-70"
+                      strokeWidth={1.5}
+                    />
+                  )}
+                  {message.state === "read" && (
+                    <CheckCheck className="h-3.5 w-3.5 text-chat-accent" strokeWidth={2} />
+                  )}
                 </span>
               )}
             </div>

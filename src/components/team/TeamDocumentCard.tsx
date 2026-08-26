@@ -28,7 +28,9 @@ export function TeamDocumentCard({
         </span>
         <div className="min-w-0">
           <h3 className="truncate text-sm font-semibold text-white">{doc.name}</h3>
-          <p className="mt-0.5 truncate text-[11px] text-text-muted">{requestTitle ?? doc.requestId}</p>
+          <p className="mt-0.5 truncate text-[11px] text-text-muted">
+            {requestTitle ?? doc.requestId}
+          </p>
         </div>
       </div>
       <p className="mt-3 text-[11px] text-text-secondary">

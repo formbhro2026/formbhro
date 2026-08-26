@@ -41,8 +41,8 @@ export function RequestDetailsSheet({
       if (e.key !== "Tab" || !panelRef.current) return;
       const focusables = Array.from(
         panelRef.current.querySelectorAll<HTMLElement>(
-          'button, [href], input:not([disabled]), textarea, select, [tabindex]:not([tabindex="-1"])'
-        )
+          'button, [href], input:not([disabled]), textarea, select, [tabindex]:not([tabindex="-1"])',
+        ),
       ).filter((el) => el.offsetParent !== null);
       if (focusables.length === 0) return;
       const first = focusables[0];
@@ -66,12 +66,20 @@ export function RequestDetailsSheet({
 
   const tabClass = (active: boolean) =>
     `inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-all duration-200 ${
-      active ? "bg-brand/10 text-brand shadow-sm" : "text-text-secondary hover:bg-surface-3 hover:text-white"
+      active
+        ? "bg-brand/10 text-brand shadow-sm"
+        : "text-text-secondary hover:bg-surface-3 hover:text-white"
     }`;
 
   return (
     <div className="fixed inset-0 z-[65] flex items-end justify-end bg-black/80 backdrop-blur-sm duration-200 animate-in fade-in 2xl:hidden">
-      <button type="button" tabIndex={-1} aria-hidden="true" onClick={onClose} className="absolute inset-0 cursor-default" />
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-hidden="true"
+        onClick={onClose}
+        className="absolute inset-0 cursor-default"
+      />
       <div
         ref={panelRef}
         role="dialog"
@@ -80,11 +88,16 @@ export function RequestDetailsSheet({
         className="relative flex max-h-[88dvh] w-full flex-col rounded-t-[32px] border border-border-subtle bg-surface-1 duration-200 animate-in slide-in-from-bottom-6 sm:h-full sm:max-h-none sm:max-w-sm sm:rounded-none sm:rounded-l-[32px] sm:slide-in-from-right-4"
       >
         <div className="shrink-0 border-b border-border-subtle px-4 pb-4 pt-4">
-          <span aria-hidden className="mx-auto mb-4 block h-1.5 w-12 rounded-full bg-surface-3 sm:hidden" />
+          <span
+            aria-hidden
+            className="mx-auto mb-4 block h-1.5 w-12 rounded-full bg-surface-3 sm:hidden"
+          />
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="truncate text-base font-bold text-white">{request.title}</p>
-              <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{request.reference || request.id}</p>
+              <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider">
+                {request.reference || request.id}
+              </p>
             </div>
             <button
               type="button"
@@ -131,7 +144,9 @@ export function RequestDetailsSheet({
               className={tabClass(tab === "documents")}
             >
               <FileText className="h-3.5 w-3.5" aria-hidden="true" /> Documents
-              <span className="rounded-full bg-brand/10 px-1.5 text-[10px] text-brand font-bold ml-1">{documents.length}</span>
+              <span className="rounded-full bg-brand/10 px-1.5 text-[10px] text-brand font-bold ml-1">
+                {documents.length}
+              </span>
             </button>
           </div>
         </div>

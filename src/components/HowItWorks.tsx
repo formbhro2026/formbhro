@@ -22,7 +22,9 @@ export function HowItWorks() {
     <section id="how-it-works" className="scroll-mt-24 py-20 sm:py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand">How It Works</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand">
+            How It Works
+          </p>
           <h2 className="mt-3 text-3xl font-extrabold text-text sm:text-4xl">
             Your Journey to Hassle-Free Applications
           </h2>

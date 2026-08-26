@@ -41,9 +41,7 @@ function AppShell() {
       const search = location.searchStr?.startsWith("?")
         ? location.searchStr.slice(1)
         : location.searchStr;
-      const redirectTo = encodeURIComponent(
-        location.pathname + (search ? `?${search}` : "")
-      );
+      const redirectTo = encodeURIComponent(location.pathname + (search ? `?${search}` : ""));
       void navigate({ to: "/auth", search: { redirect_to: redirectTo }, replace: true });
       return;
     }

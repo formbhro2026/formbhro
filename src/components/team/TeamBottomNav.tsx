@@ -14,7 +14,8 @@ const ITEMS = [
 export function TeamBottomNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { totalUnread } = useTeamStore();
-  const isActive = (to: string, exact: boolean) => (exact ? pathname === to : pathname.startsWith(to));
+  const isActive = (to: string, exact: boolean) =>
+    exact ? pathname === to : pathname.startsWith(to);
 
   return (
     <nav
@@ -31,11 +32,15 @@ export function TeamBottomNav() {
               aria-current={active ? "page" : undefined}
               className={cn(
                 "flex min-h-11 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 py-1.5 text-[10px] font-medium transition-colors duration-200",
-                active ? "text-white" : "text-text-muted"
+                active ? "text-white" : "text-text-muted",
               )}
             >
               <span className="relative">
-                <Icon className={cn("h-5 w-5", active ? "text-brand" : "text-text-muted")} strokeWidth={1.75} aria-hidden="true" />
+                <Icon
+                  className={cn("h-5 w-5", active ? "text-brand" : "text-text-muted")}
+                  strokeWidth={1.75}
+                  aria-hidden="true"
+                />
                 {to === "/team/work" && totalUnread > 0 && (
                   <span className="absolute -right-2 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[9px] font-bold text-white">
                     {totalUnread}

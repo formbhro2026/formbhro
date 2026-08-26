@@ -18,7 +18,8 @@ export function SplashScreen() {
 
     // 2. Only show splash screen once per session on mobile to prevent delays on navigation
     const isMobile = window.innerWidth < 768 || isCapacitor();
-    const hasSeenSplash = typeof sessionStorage !== "undefined" && sessionStorage.getItem("formbhro:splash_dismissed");
+    const hasSeenSplash =
+      typeof sessionStorage !== "undefined" && sessionStorage.getItem("formbhro:splash_dismissed");
 
     if (isMobile && !hasSeenSplash) {
       setIsVisible(true);
@@ -67,11 +68,14 @@ export function SplashScreen() {
         {/* Loading bar */}
         <div className="flex flex-col items-center gap-3 z-10 px-10 max-w-[240px]">
           <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
-            <div className="h-full bg-brand shadow-[0_0_12px_var(--color-brand)] will-change-transform"
+            <div
+              className="h-full bg-brand shadow-[0_0_12px_var(--color-brand)] will-change-transform"
               style={{ animation: "loadingBar 1.2s ease-in-out forwards" }}
             />
           </div>
-          <span className="text-brand font-bold text-[10px] tracking-[0.2em] uppercase">Loading...</span>
+          <span className="text-brand font-bold text-[10px] tracking-[0.2em] uppercase">
+            Loading...
+          </span>
         </div>
       </div>
 

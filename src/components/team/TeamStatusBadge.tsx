@@ -1,5 +1,10 @@
 import { Clock, CircleCheck, Hourglass, Search, type LucideIcon } from "lucide-react";
-import { PRIORITY_META, TEAM_STATUS_META, type Priority, type TeamStatus } from "@/data/team-module";
+import {
+  PRIORITY_META,
+  TEAM_STATUS_META,
+  type Priority,
+  type TeamStatus,
+} from "@/data/team-module";
 import { cn } from "@/lib/utils";
 
 const ICONS: Record<string, LucideIcon> = { Clock, CircleCheck, Hourglass, Search };
@@ -19,7 +24,7 @@ export function TeamStatusBadge({ status, className }: { status: TeamStatus; cla
       className={cn(
         "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium",
         TONES[meta.tone],
-        className
+        className,
       )}
     >
       <Icon className="h-3 w-3" aria-hidden="true" strokeWidth={2} />
@@ -36,7 +41,7 @@ export function PriorityBadge({ priority, className }: { priority: Priority; cla
       className={cn(
         "inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
         meta.className,
-        className
+        className,
       )}
     >
       <span className="sr-only">Priority: </span>

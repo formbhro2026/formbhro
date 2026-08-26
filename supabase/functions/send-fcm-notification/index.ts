@@ -119,7 +119,7 @@ async function getFirebaseAccessToken(serviceAccountJson: string): Promise<strin
     }),
   });
 
-  const tokenData = await tokenResponse.json() as { access_token: string };
+  const tokenData = (await tokenResponse.json()) as { access_token: string };
   return tokenData.access_token;
 }
 
@@ -183,7 +183,7 @@ Deno.serve(async (req) => {
   // Parse the webhook payload
   let payload: WebhookPayload;
   try {
-    payload = await req.json() as WebhookPayload;
+    payload = (await req.json()) as WebhookPayload;
   } catch {
     return new Response("Invalid JSON", { status: 400 });
   }
@@ -264,8 +264,8 @@ Deno.serve(async (req) => {
 
   console.info(`[FCM] Sent ${sent}/${results.length} notifications, ${failed} failed`);
 
-  return new Response(
-    JSON.stringify({ sent, failed, total: results.length }),
-    { status: 200, headers: { "Content-Type": "application/json" } },
-  );
+  return new Response(JSON.stringify({ sent, failed, total: results.length }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
 });

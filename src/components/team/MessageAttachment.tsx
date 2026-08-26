@@ -22,7 +22,7 @@ export function MessageAttachment({
     <div
       className={cn(
         "mt-1.5 overflow-hidden rounded-xl border",
-        mine ? "border-white/25 bg-white/10" : "border-border-subtle bg-surface-3"
+        mine ? "border-white/25 bg-white/10" : "border-border-subtle bg-surface-3",
       )}
     >
       {doc.kind === "image" && imageUrl && (
@@ -45,7 +45,7 @@ export function MessageAttachment({
         <span
           className={cn(
             "grid h-8 w-8 shrink-0 place-items-center rounded-lg",
-            mine ? "bg-white/15" : "bg-white/5"
+            mine ? "bg-white/15" : "bg-white/5",
           )}
         >
           <Icon className="h-4 w-4" aria-hidden="true" />
@@ -63,7 +63,7 @@ export function MessageAttachment({
             aria-label={`Preview ${doc.name}`}
             className={cn(
               "grid h-8 w-8 place-items-center rounded-lg transition-colors",
-              mine ? "hover:bg-white/20" : "hover:bg-white/10"
+              mine ? "hover:bg-white/20" : "hover:bg-white/10",
             )}
           >
             <Eye className="h-3.5 w-3.5" aria-hidden="true" />
@@ -74,7 +74,7 @@ export function MessageAttachment({
             aria-label={`Download ${doc.name}`}
             className={cn(
               "grid h-8 w-8 place-items-center rounded-lg transition-colors",
-              mine ? "hover:bg-white/20" : "hover:bg-white/10"
+              mine ? "hover:bg-white/20" : "hover:bg-white/10",
             )}
           >
             <Download className="h-3.5 w-3.5" aria-hidden="true" />

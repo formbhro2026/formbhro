@@ -1,7 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useAdmin } from "@/lib/admin-store";
-import { Button, EmptyRow, Panel, Pill, SearchBox, TableWrap, formatDate, inputClass, Field } from "@/components/admin/AdminUI";
+import {
+  Button,
+  EmptyRow,
+  Panel,
+  Pill,
+  SearchBox,
+  TableWrap,
+  formatDate,
+  inputClass,
+  Field,
+} from "@/components/admin/AdminUI";
 import { STATUS_LABEL, type DbRequestStatus } from "@/lib/api/types";
 import { assignRequestToTeam } from "@/lib/api/admin.functions";
 import * as requestsApi from "@/lib/api/requests";
@@ -75,22 +85,26 @@ function AdminRequests() {
       {open ? (
         <div className="fixed inset-0 z-50 flex flex-col bg-bg lg:left-60 xl:left-64 top-14">
           <div className="flex-1 flex flex-col overflow-hidden p-4">
-            <Panel 
-              title={detail?.reference || "Request Details"} 
+            <Panel
+              title={detail?.reference || "Request Details"}
               className="flex-1 flex flex-col overflow-hidden"
               action={
-                <Button variant="ghost" className="h-8 px-3" onClick={() => setOpen(null)}>Close</Button>
+                <Button variant="ghost" className="h-8 px-3" onClick={() => setOpen(null)}>
+                  Close
+                </Button>
               }
             >
               <div className="flex-1 grid gap-6 p-4 lg:grid-cols-2 overflow-y-auto">
                 <div className="space-y-6">
                   <section className="space-y-3 rounded-2xl border border-border-subtle bg-surface-2 p-4 shadow-sm">
                     <header className="border-b border-white/5 pb-3">
-                      <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-brand mb-2">Basic Information</h4>
+                      <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-brand mb-2">
+                        Basic Information
+                      </h4>
                       <p className="text-sm font-bold text-white leading-tight">{detail?.title}</p>
                       <p className="text-[10px] font-mono text-text-muted mt-1">{detail?.id}</p>
                     </header>
-                    
+
                     <div className="grid grid-cols-2 gap-4 pt-1">
                       <Field label="User">
                         <div className="flex items-center gap-2 mt-1">
@@ -103,7 +117,9 @@ function AdminRequests() {
                         </div>
                       </Field>
                       <Field label="Category">
-                        <p className="text-xs font-medium text-text-secondary mt-1">{detail?.category}</p>
+                        <p className="text-xs font-medium text-text-secondary mt-1">
+                          {detail?.category}
+                        </p>
                       </Field>
                       <Field label="Priority">
                         <div className="mt-1">
@@ -113,24 +129,41 @@ function AdminRequests() {
                       <Field label="Progress">
                         <div className="flex items-center gap-2 mt-1.5">
                           <div className="h-1.5 flex-1 bg-surface-3 rounded-full overflow-hidden">
-                            <div className="h-full bg-brand transition-all duration-500" style={{ width: `${detail?.progress}%` }} />
+                            <div
+                              className="h-full bg-brand transition-all duration-500"
+                              style={{ width: `${detail?.progress}%` }}
+                            />
                           </div>
-                          <span className="text-[10px] font-bold tabular-nums text-text-muted">{detail?.progress}%</span>
+                          <span className="text-[10px] font-bold tabular-nums text-text-muted">
+                            {detail?.progress}%
+                          </span>
                         </div>
                       </Field>
                     </div>
                   </section>
 
                   <section className="space-y-4 rounded-2xl border border-border-subtle bg-surface-2 p-4 shadow-sm">
-                    <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-brand">Workflow Control</h4>
-                    
+                    <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-brand">
+                      Workflow Control
+                    </h4>
+
                     <div className="grid gap-4">
                       <Field label="Current Status">
                         <select
-                          className={cn(inputClass, "mt-1 border-border-strong bg-surface-3 h-10 text-xs font-medium")}
+                          className={cn(
+                            inputClass,
+                            "mt-1 border-border-strong bg-surface-3 h-10 text-xs font-medium",
+                          )}
                           value={detail?.status}
                           disabled={busy}
-                          onChange={(e) => void act(() => requestsApi.updateRequestStatus(detail!.id, e.target.value as DbRequestStatus))}
+                          onChange={(e) =>
+                            void act(() =>
+                              requestsApi.updateRequestStatus(
+                                detail!.id,
+                                e.target.value as DbRequestStatus,
+                              ),
+                            )
+                          }
                         >
                           {STATUSES.map((s) => (
                             <option key={s} value={s}>
@@ -139,16 +172,26 @@ function AdminRequests() {
                           ))}
                         </select>
                       </Field>
-                      
+
                       <Field label="Assigned Team Member">
                         <div className="relative mt-1">
                           <select
-                            className={cn(inputClass, "border-border-strong bg-surface-3 h-10 text-xs font-medium")}
+                            className={cn(
+                              inputClass,
+                              "border-border-strong bg-surface-3 h-10 text-xs font-medium",
+                            )}
                             value={detail?.assigned_team_id ?? ""}
                             disabled={busy}
                             onChange={async (e) => {
                               const teamId = e.target.value;
-                              await act(() => assignRequestToTeam({ data: { request_id: detail!.id, team_member_id: teamId || null as any } }));
+                              await act(() =>
+                                assignRequestToTeam({
+                                  data: {
+                                    request_id: detail!.id,
+                                    team_member_id: teamId || (null as any),
+                                  },
+                                }),
+                              );
                             }}
                           >
                             <option value="">Unassigned</option>
@@ -174,7 +217,9 @@ function AdminRequests() {
 
                 <div className="space-y-6">
                   <section className="space-y-4 rounded-2xl border border-border-subtle bg-surface-2 p-4 shadow-sm flex-1 flex flex-col">
-                    <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-brand">Activity Timeline</h4>
+                    <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-brand">
+                      Activity Timeline
+                    </h4>
                     <div className="relative border-l border-border-subtle ml-2 space-y-6 pb-2">
                       {activity
                         .filter((a) => a.request_id === detail?.id)
@@ -182,12 +227,18 @@ function AdminRequests() {
                         .map((a) => (
                           <div key={a.id} className="ml-5 relative">
                             <span className="absolute -left-[25px] top-1.5 h-2 w-2 rounded-full bg-brand ring-4 ring-surface-2" />
-                            <p className="text-[11px] font-bold text-white leading-tight">{a.label ?? a.action}</p>
-                            <time className="text-[9px] text-text-muted uppercase font-medium mt-1 block">{formatDate(a.created_at)}</time>
+                            <p className="text-[11px] font-bold text-white leading-tight">
+                              {a.label ?? a.action}
+                            </p>
+                            <time className="text-[9px] text-text-muted uppercase font-medium mt-1 block">
+                              {formatDate(a.created_at)}
+                            </time>
                           </div>
                         ))}
-                      {!activity.some(a => a.request_id === detail?.id) && (
-                        <div className="ml-5 py-4 text-[10px] text-text-muted uppercase italic">No recent activity</div>
+                      {!activity.some((a) => a.request_id === detail?.id) && (
+                        <div className="ml-5 py-4 text-[10px] text-text-muted uppercase italic">
+                          No recent activity
+                        </div>
                       )}
                     </div>
                   </section>
@@ -198,10 +249,23 @@ function AdminRequests() {
         </div>
       ) : null}
 
-      <Panel title={`All requests (${list.length})`} className="h-[calc(100vh-10rem)] overflow-y-auto">
+      <Panel
+        title={`All requests (${list.length})`}
+        className="h-[calc(100vh-10rem)] overflow-y-auto"
+      >
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <SearchBox value={q} onChange={setQ} label="Search requests" placeholder="Request ID, user, team…" />
-          <select className={`${inputClass} sm:w-44`} value={status} onChange={(e) => setStatus(e.target.value as typeof status)} aria-label="Filter status">
+          <SearchBox
+            value={q}
+            onChange={setQ}
+            label="Search requests"
+            placeholder="Request ID, user, team…"
+          />
+          <select
+            className={`${inputClass} sm:w-44`}
+            value={status}
+            onChange={(e) => setStatus(e.target.value as typeof status)}
+            aria-label="Filter status"
+          >
             <option value="all">All statuses</option>
             {STATUSES.map((s) => (
               <option key={s} value={s}>
@@ -209,7 +273,12 @@ function AdminRequests() {
               </option>
             ))}
           </select>
-          <select className={`${inputClass} sm:w-36`} value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label="Sort requests">
+          <select
+            className={`${inputClass} sm:w-36`}
+            value={sort}
+            onChange={(e) => setSort(e.target.value as typeof sort)}
+            aria-label="Sort requests"
+          >
             <option value="newest">Newest</option>
             <option value="oldest">Oldest</option>
             <option value="priority">Priority</option>
@@ -229,8 +298,8 @@ function AdminRequests() {
           </thead>
           <tbody>
             {list.map((r) => (
-              <tr 
-                key={r.id} 
+              <tr
+                key={r.id}
                 className="border-t border-border-subtle/50 transition-colors cursor-pointer hover:bg-white/5"
                 onClick={() => setOpen(r.id)}
               >
@@ -238,7 +307,9 @@ function AdminRequests() {
                   <span className="text-xs font-semibold text-white">{r.title}</span>
                   <div className="text-[11px] text-text-muted">{r.reference}</div>
                 </td>
-                <td className="px-3 py-2.5 text-text-secondary">{profileOf(r.user_id)?.full_name ?? "—"}</td>
+                <td className="px-3 py-2.5 text-text-secondary">
+                  {profileOf(r.user_id)?.full_name ?? "—"}
+                </td>
                 <td className="px-3 py-2.5 text-text-secondary">
                   {r.assigned_team_id ? (
                     <div className="flex items-center gap-1.5">
@@ -253,7 +324,13 @@ function AdminRequests() {
                   )}
                 </td>
                 <td className="px-3 py-2.5">
-                  <Pill tone={r.status === "completed" ? "ok" : r.status === "pending" ? "warn" : "brand"}>{STATUS_LABEL[r.status]}</Pill>
+                  <Pill
+                    tone={
+                      r.status === "completed" ? "ok" : r.status === "pending" ? "warn" : "brand"
+                    }
+                  >
+                    {STATUS_LABEL[r.status]}
+                  </Pill>
                 </td>
                 <td className="px-3 py-2.5 capitalize text-text-secondary">{r.priority}</td>
                 <td className="px-3 py-2.5 text-text-muted">{formatDate(r.last_activity_at)}</td>

@@ -10,7 +10,11 @@ export const Route = createFileRoute("/team/login")({
   head: () => ({
     meta: [
       { title: "Team Sign In — Formbhro" },
-      { name: "description", content: "Formbhro team members sign in with the credentials issued by their administrator." },
+      {
+        name: "description",
+        content:
+          "Formbhro team members sign in with the credentials issued by their administrator.",
+      },
       { property: "og:title", content: "Team Sign In — Formbhro" },
       { property: "og:description", content: "Secure sign in for Formbhro support team members." },
       { property: "og:type", content: "website" },
@@ -68,22 +72,34 @@ function TeamLogin() {
 
           <form onSubmit={(e) => void onSubmit(e)} className="mt-6 space-y-4" noValidate>
             {error && (
-              <p role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-[11px] text-red-400">
+              <p
+                role="alert"
+                className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-[11px] text-red-400"
+              >
                 {error}
               </p>
             )}
             {notice && (
-              <p role="status" className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-zinc-400">
+              <p
+                role="status"
+                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-zinc-400"
+              >
                 {notice}
               </p>
             )}
 
             <div>
-              <label htmlFor="team-code" className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
+              <label
+                htmlFor="team-code"
+                className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider"
+              >
                 Team Access Code
               </label>
               <div className="relative mt-1.5">
-                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" aria-hidden="true" />
+                <Lock
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"
+                  aria-hidden="true"
+                />
                 <input
                   id="team-code"
                   type="text"
@@ -120,18 +136,23 @@ function TeamLogin() {
           <div className="mt-5 flex items-start gap-2 rounded-xl border border-white/5 bg-white/5 px-3 py-2.5">
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-500" aria-hidden="true" />
             <p className="text-[11px] leading-relaxed text-zinc-400">
-              Only authorized team members can access this area. If you don't have a code, contact your supervisor.
+              Only authorized team members can access this area. If you don't have a code, contact
+              your supervisor.
             </p>
           </div>
         </div>
 
         <div className="mt-8 text-center">
-            <button 
-                onClick={() => setNotice("Please contact your administrator to receive your special team access code.")}
-                className="text-[11px] font-medium text-zinc-500 hover:text-[#ff7a00] transition-colors"
-            >
-                Need help accessing your account?
-            </button>
+          <button
+            onClick={() =>
+              setNotice(
+                "Please contact your administrator to receive your special team access code.",
+              )
+            }
+            className="text-[11px] font-medium text-zinc-500 hover:text-[#ff7a00] transition-colors"
+          >
+            Need help accessing your account?
+          </button>
         </div>
       </div>
     </main>

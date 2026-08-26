@@ -24,12 +24,17 @@ export const ensureAdminAccount = createServerFn({ method: "POST" })
     z.object({ username: z.string().max(120), password: z.string().max(200) }).parse(input),
   )
   .handler(async ({ data }) => {
-    if (data.username.trim().toLowerCase() !== ADMIN_GATE_USERNAME || data.password !== ADMIN_GATE_PASSWORD) {
+    if (
+      data.username.trim().toLowerCase() !== ADMIN_GATE_USERNAME ||
+      data.password !== ADMIN_GATE_PASSWORD
+    ) {
       return { ok: false as const };
     }
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server").catch(err => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server").catch((err) => {
       console.error("Failed to load supabaseAdmin:", err);
-      throw new Error("Admin service is currently unavailable. Please check backend configuration.");
+      throw new Error(
+        "Admin service is currently unavailable. Please check backend configuration.",
+      );
     });
 
     const { data: list } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
@@ -42,16 +47,22 @@ export const ensureAdminAccount = createServerFn({ method: "POST" })
         email_confirm: true,
         user_metadata: { full_name: "Super Admin", role: "admin" },
       });
-      if (error || !created.user) throw new Error(error?.message ?? "Could not prepare the admin account");
+      if (error || !created.user)
+        throw new Error(error?.message ?? "Could not prepare the admin account");
       userId = created.user.id;
     } else {
       await supabaseAdmin.auth.admin.updateUserById(userId, { password: ADMIN_GATE_PASSWORD });
     }
 
-    await supabaseAdmin.from("user_roles").upsert({ user_id: userId, role: "admin" }, { onConflict: "user_id,role" });
+    await supabaseAdmin
+      .from("user_roles")
+      .upsert({ user_id: userId, role: "admin" }, { onConflict: "user_id,role" });
     await supabaseAdmin
       .from("profiles")
-      .upsert({ id: userId, full_name: "Super Admin", email: ADMIN_GATE_EMAIL }, { onConflict: "id" });
+      .upsert(
+        { id: userId, full_name: "Super Admin", email: ADMIN_GATE_EMAIL },
+        { onConflict: "id" },
+      );
 
     return { ok: true as const, email: ADMIN_GATE_EMAIL, password: ADMIN_GATE_PASSWORD };
   });
@@ -79,27 +90,31 @@ export const createTeamMember = createServerFn({ method: "POST" })
 
     // Generate a proper sequential unique team code FBH-YYMMDD-XXX
     const now = new Date();
-    const datePart = now.getFullYear().toString().slice(-2) + 
-                     (now.getMonth() + 1).toString().padStart(2, '0') + 
-                     now.getDate().toString().padStart(2, '0');
-    
+    const datePart =
+      now.getFullYear().toString().slice(-2) +
+      (now.getMonth() + 1).toString().padStart(2, "0") +
+      now.getDate().toString().padStart(2, "0");
+
     // Get count of members today for sequence
-    const startOfDay = new Date(now.setHours(0,0,0,0)).toISOString();
+    const startOfDay = new Date(now.setHours(0, 0, 0, 0)).toISOString();
     const { count } = await supabaseAdmin
       .from("team_members")
       .select("id", { count: "exact", head: true })
       .gte("created_at", startOfDay);
-    
-    const sequence = ((count || 0) + 1).toString().padStart(3, '0');
+
+    const sequence = ((count || 0) + 1).toString().padStart(3, "0");
     const teamCode = `FBH-${datePart}-${sequence}`;
-
-
 
     const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
       email: data.email,
       password: data.password,
       email_confirm: true,
-      user_metadata: { full_name: data.full_name, role: data.role, job_title: data.job_title, team_code: teamCode },
+      user_metadata: {
+        full_name: data.full_name,
+        role: data.role,
+        job_title: data.job_title,
+        team_code: teamCode,
+      },
     });
     if (error || !created.user) throw new Error(error?.message ?? "Could not create the account");
 
@@ -113,23 +128,20 @@ export const createTeamMember = createServerFn({ method: "POST" })
       })
       .eq("id", created.user.id);
 
-    await supabaseAdmin
-      .from("team_members")
-      .upsert(
-        { 
-          id: created.user.id, 
-          job_title: data.job_title, 
-          created_by: context.userId, 
-          is_active: data.active,
-          team_code: teamCode
-        },
-        { onConflict: "id" },
-      );
-
-    await supabaseAdmin.from("user_roles").upsert(
-      { user_id: created.user.id, role: data.role },
-      { onConflict: "user_id,role" }
+    await supabaseAdmin.from("team_members").upsert(
+      {
+        id: created.user.id,
+        job_title: data.job_title,
+        created_by: context.userId,
+        is_active: data.active,
+        team_code: teamCode,
+      },
+      { onConflict: "id" },
     );
+
+    await supabaseAdmin
+      .from("user_roles")
+      .upsert({ user_id: created.user.id, role: data.role }, { onConflict: "user_id,role" });
 
     await supabaseAdmin.from("activity_logs").insert({
       actor_id: context.userId,
@@ -138,7 +150,12 @@ export const createTeamMember = createServerFn({ method: "POST" })
       label: `${data.full_name} (${data.email}) - Code: ${teamCode}`,
     });
 
-    return { id: created.user.id, email: data.email, full_name: data.full_name, team_code: teamCode };
+    return {
+      id: created.user.id,
+      email: data.email,
+      full_name: data.full_name,
+      team_code: teamCode,
+    };
   });
 
 export const updateTeamMember = createServerFn({ method: "POST" })
@@ -179,7 +196,9 @@ export const resetTeamPassword = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.id, { password: data.password });
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.id, {
+      password: data.password,
+    });
     if (error) throw new Error(error.message);
     await supabaseAdmin.from("activity_logs").insert({
       actor_id: context.userId,
@@ -197,7 +216,10 @@ export const deleteTeamMember = createServerFn({ method: "POST" })
     await assertAdmin(context);
     if (data.id === context.userId) throw new Error("You cannot delete your own account");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await supabaseAdmin.from("requests").update({ assigned_team_id: null }).eq("assigned_team_id", data.id);
+    await supabaseAdmin
+      .from("requests")
+      .update({ assigned_team_id: null })
+      .eq("assigned_team_id", data.id);
     const { error } = await supabaseAdmin.auth.admin.deleteUser(data.id);
     if (error) throw new Error(error.message);
     await supabaseAdmin.from("activity_logs").insert({
@@ -211,7 +233,9 @@ export const deleteTeamMember = createServerFn({ method: "POST" })
 
 export const setTeamMemberActive = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((input: unknown) => z.object({ id: z.string().uuid(), active: z.boolean() }).parse(input))
+  .validator((input: unknown) =>
+    z.object({ id: z.string().uuid(), active: z.boolean() }).parse(input),
+  )
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -223,7 +247,9 @@ export const setTeamMemberActive = createServerFn({ method: "POST" })
 /** Suspend / activate an end user. */
 export const setUserActive = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((input: unknown) => z.object({ id: z.string().uuid(), active: z.boolean() }).parse(input))
+  .validator((input: unknown) =>
+    z.object({ id: z.string().uuid(), active: z.boolean() }).parse(input),
+  )
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -264,27 +290,28 @@ export const assignRequestToTeam = createServerFn({ method: "POST" })
 
     const { error } = await supabaseAdmin
       .from("requests")
-      .update({ 
+      .update({
         assigned_team_id: data.team_member_id,
         status: "assigned" as any,
         assigned_at: new Date().toISOString(),
-        last_activity_at: new Date().toISOString()
+        last_activity_at: new Date().toISOString(),
       })
       .eq("id", data.request_id);
-    
+
     if (error) {
       if (error.message.includes("tuple to be updated was already modified")) {
         // Retry once if it was a transient trigger conflict
         const { error: retryError } = await supabaseAdmin
           .from("requests")
-          .update({ 
+          .update({
             assigned_team_id: data.team_member_id,
             status: "assigned" as any,
             assigned_at: new Date().toISOString(),
-            last_activity_at: new Date().toISOString()
+            last_activity_at: new Date().toISOString(),
           })
           .eq("id", data.request_id);
-        if (retryError) throw new Error(`Conflict: ${retryError.message}. Please refresh and try again.`);
+        if (retryError)
+          throw new Error(`Conflict: ${retryError.message}. Please refresh and try again.`);
       } else {
         throw new Error(error.message);
       }
@@ -302,7 +329,9 @@ export const assignRequestToTeam = createServerFn({ method: "POST" })
         role: "team",
         type: "assignment",
         title: "Request transferred away",
-        body: data.reason ? `${before?.reference ?? ""} — ${data.reason}` : (before?.reference ?? "Request transferred"),
+        body: data.reason
+          ? `${before?.reference ?? ""} — ${data.reason}`
+          : (before?.reference ?? "Request transferred"),
         request_id: data.request_id,
         chat_room_id: room?.id ?? null,
       });
@@ -321,7 +350,9 @@ export const assignRequestToTeam = createServerFn({ method: "POST" })
 /** Master notification centre — admins see every notification in the system. */
 export const listAllNotifications = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((input: unknown) => z.object({ limit: z.number().min(1).max(300).default(120) }).parse(input))
+  .validator((input: unknown) =>
+    z.object({ limit: z.number().min(1).max(300).default(120) }).parse(input),
+  )
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -394,7 +425,10 @@ export const deleteDocument = createServerFn({ method: "POST" })
     if (!doc) throw new Error("Document not found");
 
     await supabaseAdmin.storage.from("request-documents").remove([doc.storage_path]);
-    await supabaseAdmin.from("messages").update({ attachment_id: null }).eq("attachment_id", data.id);
+    await supabaseAdmin
+      .from("messages")
+      .update({ attachment_id: null })
+      .eq("attachment_id", data.id);
     const { error } = await supabaseAdmin.from("documents").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
 
@@ -451,7 +485,10 @@ export const getAdminAnalytics = createServerFn({ method: "GET" })
       countOf(),
       countOf("pending"),
       countOf("completed"),
-      supabaseAdmin.from("user_roles").select("id", { count: "exact", head: true }).eq("role", "user"),
+      supabaseAdmin
+        .from("user_roles")
+        .select("id", { count: "exact", head: true })
+        .eq("role", "user"),
       supabaseAdmin.from("team_members").select("id", { count: "exact", head: true }),
       supabaseAdmin.from("documents").select("id", { count: "exact", head: true }),
     ]);
@@ -470,24 +507,26 @@ export const verifyTeamCode = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     // We use the publishable client for initial check, but we need admin client to get email/password
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    
+
     // 1. Find the team member by code
     const { data: member, error } = await supabaseAdmin
       .from("team_members")
       .select("id, team_code, is_active")
       .eq("team_code", data.code)
       .maybeSingle();
-      
+
     if (error || !member) {
       throw new Error("Invalid team code.");
     }
-    
+
     if (!member.is_active) {
       throw new Error("This team account has been suspended.");
     }
-    
+
     // 2. Get the auth user to get email (for the login response/process)
-    const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.getUserById(member.id);
+    const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.getUserById(
+      member.id,
+    );
     if (authError || !authUser.user) {
       throw new Error("Team account configuration error.");
     }
@@ -496,10 +535,10 @@ export const verifyTeamCode = createServerFn({ method: "POST" })
     // In a real production app, we might use a one-time token or custom claim.
     // For this flow, we'll return the email and the "special" status.
     // The client-side TeamStore will then use a dedicated signIn method.
-    
-    return { 
-      ok: true, 
+
+    return {
+      ok: true,
       email: authUser.user.email,
-      id: member.id
+      id: member.id,
     };
   });

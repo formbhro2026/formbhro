@@ -28,18 +28,22 @@ export function TeamHeader({ title, onOpenNav }: { title?: string; onOpenNav?: (
           )}
           <div className="hidden lg:block">
             <h1 className="text-base font-bold text-white">
-              {title === "Home" ? (
-                <>
-                  Good Morning, {member?.name.split(" ")[0]} 👋
-                </>
-              ) : title}
+              {title === "Home" ? <>Good Morning, {member?.name.split(" ")[0]} 👋</> : title}
             </h1>
             {title === "Home" && (
-              <p className="text-[10px] text-text-muted">Here's what's happening with your assigned requests today.</p>
+              <p className="text-[10px] text-text-muted">
+                Here's what's happening with your assigned requests today.
+              </p>
             )}
           </div>
           <Link to="/team" aria-label="Formbhro team home" className="shrink-0 lg:hidden">
-            <img src={logoAsset.url} alt="Formbhro" width={140} height={40} className="h-6 w-auto" />
+            <img
+              src={logoAsset.url}
+              alt="Formbhro"
+              width={140}
+              height={40}
+              className="h-6 w-auto"
+            />
           </Link>
         </div>
 
@@ -56,7 +60,10 @@ export function TeamHeader({ title, onOpenNav }: { title?: string; onOpenNav?: (
               Search anything...
             </label>
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" aria-hidden="true" />
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted"
+                aria-hidden="true"
+              />
               <input
                 id="team-global-search"
                 value={query}
@@ -88,7 +95,6 @@ export function TeamHeader({ title, onOpenNav }: { title?: string; onOpenNav?: (
               )}
             </div>
 
-
             <div className="flex items-center gap-2 rounded-full border border-border-subtle bg-surface-2 py-1 pl-1 pr-3">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
                 <span className="h-1 w-1 rounded-full bg-emerald-400" /> Online
@@ -99,8 +105,12 @@ export function TeamHeader({ title, onOpenNav }: { title?: string; onOpenNav?: (
                   {member?.initials}
                 </div>
                 <div className="hidden xl:block text-left">
-                  <p className="text-[10px] font-bold text-white leading-tight group-hover:text-brand-light transition-colors">{member?.name}</p>
-                  <p className="text-[9px] text-text-muted leading-tight uppercase tracking-wider">{member?.role}</p>
+                  <p className="text-[10px] font-bold text-white leading-tight group-hover:text-brand-light transition-colors">
+                    {member?.name}
+                  </p>
+                  <p className="text-[9px] text-text-muted leading-tight uppercase tracking-wider">
+                    {member?.role}
+                  </p>
                 </div>
               </Link>
             </div>
@@ -110,4 +120,3 @@ export function TeamHeader({ title, onOpenNav }: { title?: string; onOpenNav?: (
     </header>
   );
 }
-

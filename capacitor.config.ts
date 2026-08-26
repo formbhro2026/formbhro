@@ -14,7 +14,7 @@ const config: CapacitorConfig = {
       "*.vercel.app",
       "oauth.lovable.app",
       "accounts.google.com",
-      "*.google.com"
+      "*.google.com",
     ],
   },
   appendUserAgent: "CapacitorFormbhro",

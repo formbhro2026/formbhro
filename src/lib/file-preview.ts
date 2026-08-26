@@ -46,7 +46,10 @@ async function pdfPreview(file: File): Promise<FilePreview> {
   return { previewUrl, pageCount: doc.numPages, dimensions };
 }
 
-export async function buildFilePreview(file: File, kind: "image" | "pdf" | "doc"): Promise<FilePreview> {
+export async function buildFilePreview(
+  file: File,
+  kind: "image" | "pdf" | "doc",
+): Promise<FilePreview> {
   if (typeof window === "undefined") return {};
   try {
     if (kind === "image") return await imagePreview(file);

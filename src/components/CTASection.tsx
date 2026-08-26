@@ -1,7 +1,6 @@
 import { ArrowRight, ClipboardCheck, ShieldCheck, PenLine, CheckCircle2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
-
 export function CTASection() {
   return (
     <section id="pricing" className="scroll-mt-24 py-12 sm:py-16">
@@ -14,13 +13,16 @@ export function CTASection() {
           />
           <div className="relative grid grid-cols-1 items-center gap-8 lg:grid-cols-[1.3fr_1fr]">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand">Ready to Get Started?</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand">
+                Ready to Get Started?
+              </p>
               <h2 className="mt-3 text-3xl font-extrabold leading-tight text-text sm:text-4xl">
                 Let Us Handle the Forms,
                 <br /> You Focus on What Matters.
               </h2>
               <p className="mt-4 max-w-lg text-sm leading-relaxed text-text-secondary sm:text-base">
-                Start your request now and experience a smooth, secure, and stress-free application process.
+                Start your request now and experience a smooth, secure, and stress-free application
+                process.
               </p>
               <Link
                 to="/app"
@@ -30,7 +32,6 @@ export function CTASection() {
               >
                 Fill Now <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Link>
-
             </div>
 
             {/* Decorative document illustration */}

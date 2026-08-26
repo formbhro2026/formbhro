@@ -1,5 +1,11 @@
 import { supabase } from "@/integrations/supabase/client";
-import { ApiError, type NewsRow, type NotificationRow, type QuickReplyRow, type UserSettingsRow } from "./types";
+import {
+  ApiError,
+  type NewsRow,
+  type NotificationRow,
+  type QuickReplyRow,
+  type UserSettingsRow,
+} from "./types";
 
 /* ---------------- Notifications ---------------- */
 
@@ -28,7 +34,10 @@ export async function markNotificationRead(id: string, isRead = true) {
 }
 
 export async function markAllNotificationsRead() {
-  const { error } = await supabase.from("notifications").update({ is_read: true }).eq("is_read", false);
+  const { error } = await supabase
+    .from("notifications")
+    .update({ is_read: true })
+    .eq("is_read", false);
   if (error) throw new ApiError(error.message, error.code);
 }
 
@@ -57,7 +66,12 @@ export async function createNews(input: {
   return data;
 }
 
-export async function updateNews(id: string, patch: Partial<Pick<NewsRow, "title" | "description" | "category" | "featured" | "published" | "image_url">>) {
+export async function updateNews(
+  id: string,
+  patch: Partial<
+    Pick<NewsRow, "title" | "description" | "category" | "featured" | "published" | "image_url">
+  >,
+) {
   const { data, error } = await supabase.from("news").update(patch).eq("id", id).select().single();
   if (error) throw new ApiError(error.message, error.code);
   return data;
@@ -95,12 +109,18 @@ export async function getMySettings(): Promise<UserSettingsRow | null> {
   const { data: userData } = await supabase.auth.getUser();
   const uid = userData.user?.id;
   if (!uid) return null;
-  const { data, error } = await supabase.from("user_settings").select("*").eq("user_id", uid).maybeSingle();
+  const { data, error } = await supabase
+    .from("user_settings")
+    .select("*")
+    .eq("user_id", uid)
+    .maybeSingle();
   if (error) throw new ApiError(error.message, error.code);
   return data;
 }
 
-export async function updateMySettings(patch: Partial<Omit<UserSettingsRow, "user_id" | "updated_at">>) {
+export async function updateMySettings(
+  patch: Partial<Omit<UserSettingsRow, "user_id" | "updated_at">>,
+) {
   const { data: userData } = await supabase.auth.getUser();
   const uid = userData.user?.id;
   if (!uid) throw new ApiError("Session expired.", "unauthenticated");

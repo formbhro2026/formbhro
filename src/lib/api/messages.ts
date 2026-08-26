@@ -80,7 +80,10 @@ export async function markMessagesSeen(chatRoomId: string, myRole: SenderRole) {
   if (error) throw new ApiError(error.message, error.code);
 }
 
-export async function unreadCountForRequest(requestId: string, myRole: SenderRole): Promise<number> {
+export async function unreadCountForRequest(
+  requestId: string,
+  myRole: SenderRole,
+): Promise<number> {
   const { count, error } = await supabase
     .from("messages")
     .select("id", { count: "exact", head: true })

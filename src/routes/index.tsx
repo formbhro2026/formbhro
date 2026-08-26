@@ -22,7 +22,8 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: "Formbhro — Smart Form Assistance Platform" },
       {
         property: "og:description",
-        content: "Get expert help with your forms, share documents securely, and track your application in real time.",
+        content:
+          "Get expert help with your forms, share documents securely, and track your application in real time.",
       },
     ],
   }),
@@ -50,10 +51,18 @@ function Index() {
       <Navbar />
       <main id="main-content" tabIndex={-1}>
         <Hero />
-        <div className="cv-auto bg-surface-1/50"><HowItWorks /></div>
-        <div className="cv-auto"><Features /></div>
-        <div className="cv-auto bg-surface-1/50"><Stats /></div>
-        <div className="cv-auto"><CTASection /></div>
+        <div className="cv-auto bg-surface-1/50">
+          <HowItWorks />
+        </div>
+        <div className="cv-auto">
+          <Features />
+        </div>
+        <div className="cv-auto bg-surface-1/50">
+          <Stats />
+        </div>
+        <div className="cv-auto">
+          <CTASection />
+        </div>
       </main>
       <Footer />
     </div>

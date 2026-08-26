@@ -3,7 +3,13 @@ import { FileImage, FileText, File, Camera } from "lucide-react";
 
 export type PickKind = "image" | "pdf" | "doc";
 
-const OPTIONS: { label: string; kind: PickKind; icon: typeof File; accept: string; capture?: "environment" }[] = [
+const OPTIONS: {
+  label: string;
+  kind: PickKind;
+  icon: typeof File;
+  accept: string;
+  capture?: "environment";
+}[] = [
   { label: "Take Photo", kind: "image", icon: Camera, accept: "image/*", capture: "environment" },
   { label: "Upload Image", kind: "image", icon: FileImage, accept: "image/*" },
   { label: "Upload PDF", kind: "pdf", icon: FileText, accept: "application/pdf" },
@@ -11,7 +17,8 @@ const OPTIONS: { label: string; kind: PickKind; icon: typeof File; accept: strin
     label: "Upload Document",
     kind: "doc",
     icon: File,
-    accept: ".doc,.docx,.txt,.rtf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    accept:
+      ".doc,.docx,.txt,.rtf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   },
 ];
 
@@ -27,7 +34,8 @@ export function AttachmentMenu({
   onCloseRef.current = onClose;
 
   useEffect(() => {
-    const items = () => Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+    const items = () =>
+      Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
     items()[0]?.focus();
 
     const onKeyDown = (e: KeyboardEvent) => {

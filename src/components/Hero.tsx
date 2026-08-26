@@ -12,7 +12,10 @@ const benefits = [
 
 export function Hero() {
   return (
-    <section id="home" className="scroll-mt-24 relative overflow-hidden pt-28 pb-16 sm:pt-32 lg:pb-24">
+    <section
+      id="home"
+      className="scroll-mt-24 relative overflow-hidden pt-28 pb-16 sm:pt-32 lg:pb-24"
+    >
       <div
         aria-hidden
         className="pointer-events-none absolute -top-40 left-1/2 -z-10 h-[600px] w-[900px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,122,0,0.12),transparent_60%)]"
@@ -30,8 +33,8 @@ export function Hero() {
             </span>
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-text-secondary sm:text-lg lg:mx-0">
-            Get expert help with your forms, share documents securely, and track your application in real time — all
-            from one trusted platform.
+            Get expert help with your forms, share documents securely, and track your application in
+            real time — all from one trusted platform.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
@@ -57,8 +60,15 @@ export function Hero() {
             {benefits.map((b) => {
               const Icon = b.icon;
               return (
-                <li key={b.label} className="flex min-w-0 flex-col items-center gap-2 lg:items-start">
-                  <Icon className="h-5 w-5 shrink-0 text-brand" strokeWidth={1.75} aria-hidden="true" />
+                <li
+                  key={b.label}
+                  className="flex min-w-0 flex-col items-center gap-2 lg:items-start"
+                >
+                  <Icon
+                    className="h-5 w-5 shrink-0 text-brand"
+                    strokeWidth={1.75}
+                    aria-hidden="true"
+                  />
                   <span className="text-xs font-medium text-text-secondary">{b.label}</span>
                 </li>
               );

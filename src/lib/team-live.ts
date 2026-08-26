@@ -3,7 +3,13 @@ import * as requestsApi from "@/lib/api/requests";
 import * as messagesApi from "@/lib/api/messages";
 import * as documentsApi from "@/lib/api/documents";
 import * as notificationsApi from "@/lib/api/notifications";
-import type { DbRequestStatus, DocumentRow, MessageRow, NotificationRow, RequestRow } from "@/lib/api/types";
+import type {
+  DbRequestStatus,
+  DocumentRow,
+  MessageRow,
+  NotificationRow,
+  RequestRow,
+} from "@/lib/api/types";
 import type {
   Priority,
   TeamDocument,
@@ -74,7 +80,7 @@ export function mapTeamRequest(row: RequestRow, assigneeId: string, userName: st
 export function mapTeamMessage(
   row: MessageRow & { attachment?: DocumentRow | null },
   reference: string,
-  memberName: string
+  memberName: string,
 ): TeamMessage {
   const mine = row.sender_role === "team" || row.sender_role === "admin";
   return {
@@ -106,10 +112,12 @@ export function mapTeamDocument(row: DocumentRow, reference: string): TeamDocume
 
 export function mapTeamNotification(
   row: NotificationRow,
-  refByRequestId?: Record<string, string>
+  refByRequestId?: Record<string, string>,
 ): TeamNotification {
   const allowed = ["assigned", "message", "document", "status", "admin"] as const;
-  const type = (allowed as readonly string[]).includes(row.type) ? (row.type as TeamNotification["type"]) : "message";
+  const type = (allowed as readonly string[]).includes(row.type)
+    ? (row.type as TeamNotification["type"])
+    : "message";
   return {
     id: row.id,
     type,
@@ -122,14 +130,20 @@ export function mapTeamNotification(
 }
 
 /** Loads everything the signed-in team member is allowed to see (RLS scoped). */
-export async function loadTeamSnapshot(memberId: string, memberName: string): Promise<LiveTeamSnapshot> {
+export async function loadTeamSnapshot(
+  memberId: string,
+  memberName: string,
+): Promise<LiveTeamSnapshot> {
   // Load both assigned and unassigned (pool) requests
   const rows = await requestsApi.listRequests({ archived: false, limit: 100 });
 
   const userIds = Array.from(new Set(rows.map((r) => r.user_id).filter(Boolean)));
   const names: Record<string, string> = {};
   if (userIds.length) {
-    const { data } = await supabase.from("profiles").select("id, full_name, email").in("id", userIds);
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, full_name, email")
+      .in("id", userIds);
     for (const p of data ?? []) names[p.id] = p.full_name || p.email || "User";
   }
 

@@ -10,7 +10,12 @@ export const TEAM_STATUS_META: Record<
   completed: { label: "Completed", icon: "CircleCheck", tone: "green" },
 };
 
-export const TEAM_STATUS_ORDER: TeamStatus[] = ["pending", "waiting-user", "under-review", "completed"];
+export const TEAM_STATUS_ORDER: TeamStatus[] = [
+  "pending",
+  "waiting-user",
+  "under-review",
+  "completed",
+];
 
 export type Priority = "low" | "medium" | "high";
 
@@ -47,7 +52,6 @@ export type TeamReadReceipt = { name: string; initials: string; role: "user" | "
 /** One saved revision of a message body, oldest first (index 0 = original). */
 export type TeamMessageVersion = { text: string; at: string };
 
-
 export type TeamMessage = {
   id: string;
   requestId: string;
@@ -81,7 +85,6 @@ export type TeamMessage = {
   /** Time label of when the message was pinned. */
   pinnedAt?: string;
 };
-
 
 export type TeamTimelineEntry = { label: string; time: string };
 
@@ -161,4 +164,3 @@ export const TEAM_DOCUMENTS: TeamDocument[] = [];
 export const TEAM_MESSAGES: TeamMessage[] = [];
 
 export const TEAM_NOTIFICATIONS: TeamNotification[] = [];
-

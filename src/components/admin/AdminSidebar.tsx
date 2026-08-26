@@ -41,10 +41,16 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
             aria-current={active ? "page" : undefined}
             className={cn(
               "flex min-h-10 items-center gap-3 rounded-xl px-3 text-xs font-medium transition-colors duration-200",
-              active ? "bg-brand/10 text-white" : "text-text-secondary hover:bg-white/5 hover:text-white",
+              active
+                ? "bg-brand/10 text-white"
+                : "text-text-secondary hover:bg-white/5 hover:text-white",
             )}
           >
-            <Icon className={cn("h-4 w-4 shrink-0", active ? "text-brand" : "text-text-muted")} strokeWidth={1.75} aria-hidden="true" />
+            <Icon
+              className={cn("h-4 w-4 shrink-0", active ? "text-brand" : "text-text-muted")}
+              strokeWidth={1.75}
+              aria-hidden="true"
+            />
             <span className="truncate">{label}</span>
           </Link>
         );
@@ -126,9 +132,14 @@ export function AdminTopbar({ title }: { title: string }) {
             )}
           </div>
 
-
           <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-text-muted">
-            <span className={cn("h-1.5 w-1.5 rounded-full", loading ? "bg-amber-400" : "bg-emerald-400")} aria-hidden="true" />
+            <span
+              className={cn(
+                "h-1.5 w-1.5 rounded-full",
+                loading ? "bg-amber-400" : "bg-emerald-400",
+              )}
+              aria-hidden="true"
+            />
             {loading ? "Syncing" : "Live"}
           </span>
         </div>
@@ -136,12 +147,28 @@ export function AdminTopbar({ title }: { title: string }) {
 
       {navOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
-          <button type="button" aria-label="Close navigation" onClick={() => setNavOpen(false)} className="absolute inset-0 bg-black/70" />
+          <button
+            type="button"
+            aria-label="Close navigation"
+            onClick={() => setNavOpen(false)}
+            className="absolute inset-0 bg-black/70"
+          />
 
           <div className="absolute inset-y-0 left-0 flex w-64 flex-col border-r border-border-subtle bg-bg">
             <div className="flex h-14 items-center justify-between border-b border-border-subtle px-4">
-              <img src={logoAsset.url} alt="Formbhro" width={120} height={32} className="h-6 w-auto" />
-              <button type="button" onClick={() => setNavOpen(false)} aria-label="Close navigation" className="text-text-secondary">
+              <img
+                src={logoAsset.url}
+                alt="Formbhro"
+                width={120}
+                height={32}
+                className="h-6 w-auto"
+              />
+              <button
+                type="button"
+                onClick={() => setNavOpen(false)}
+                aria-label="Close navigation"
+                className="text-text-secondary"
+              >
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
@@ -149,7 +176,6 @@ export function AdminTopbar({ title }: { title: string }) {
             <div className="border-t border-border-subtle">
               <SignOutButton onDone={() => setNavOpen(false)} />
             </div>
-
           </div>
         </div>
       )}

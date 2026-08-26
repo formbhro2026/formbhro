@@ -9,9 +9,16 @@ export const Route = createFileRoute("/app/news")({
   head: () => ({
     meta: [
       { title: "News & Updates — Formbhro" },
-      { name: "description", content: "Platform announcements, service updates and new form availability from the Formbhro team." },
+      {
+        name: "description",
+        content:
+          "Platform announcements, service updates and new form availability from the Formbhro team.",
+      },
       { property: "og:title", content: "News & Updates — Formbhro" },
-      { property: "og:description", content: "Platform announcements and service updates from Formbhro." },
+      {
+        property: "og:description",
+        content: "Platform announcements and service updates from Formbhro.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "robots", content: "noindex" },
@@ -28,7 +35,9 @@ function NewsUpdates() {
     <>
       <UserHeader title="News & Updates" />
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 pb-28 pt-5 sm:px-6 lg:pb-10">
-        <h1 className="text-xl font-extrabold tracking-tight text-white sm:text-2xl">News &amp; Updates</h1>
+        <h1 className="text-xl font-extrabold tracking-tight text-white sm:text-2xl">
+          News &amp; Updates
+        </h1>
         <p className="mt-1 text-sm text-text-secondary">Announcements from the Formbhro team.</p>
 
         <div className="mt-5 space-y-4">
@@ -45,8 +54,12 @@ function NewsUpdates() {
                   <span className="inline-flex rounded-full border border-brand/40 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-brand-light">
                     {featured.category}
                   </span>
-                  <h2 className="mt-3 text-base font-bold text-white sm:text-lg">{featured.title}</h2>
-                  <p className="mt-1.5 text-sm leading-relaxed text-text-secondary">{featured.description}</p>
+                  <h2 className="mt-3 text-base font-bold text-white sm:text-lg">
+                    {featured.title}
+                  </h2>
+                  <p className="mt-1.5 text-sm leading-relaxed text-text-secondary">
+                    {featured.description}
+                  </p>
                   <p className="mt-3 text-[11px] text-text-muted">{featured.date}</p>
                 </article>
               )}
@@ -62,7 +75,9 @@ function NewsUpdates() {
                         <span className="text-[11px] text-text-muted">{n.date}</span>
                       </div>
                       <h3 className="mt-2 text-sm font-semibold text-white">{n.title}</h3>
-                      <p className="mt-1 text-xs leading-relaxed text-text-secondary">{n.description}</p>
+                      <p className="mt-1 text-xs leading-relaxed text-text-secondary">
+                        {n.description}
+                      </p>
                     </article>
                   </li>
                 ))}

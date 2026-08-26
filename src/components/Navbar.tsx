@@ -23,9 +23,9 @@ export function Navbar() {
 
   // Scroll-spy: highlight the section currently in view
   useEffect(() => {
-    const elements = SECTION_IDS
-      .map((id) => document.getElementById(id))
-      .filter((el): el is HTMLElement => Boolean(el));
+    const elements = SECTION_IDS.map((id) => document.getElementById(id)).filter(
+      (el): el is HTMLElement => Boolean(el),
+    );
     if (!elements.length) return;
 
     const visibility = new Map<string, number>();
@@ -47,7 +47,7 @@ export function Navbar() {
       {
         rootMargin: "-96px 0px -55% 0px",
         threshold: [0, 0.25, 0.5, 0.75, 1],
-      }
+      },
     );
     elements.forEach((el) => observer.observe(el));
 
@@ -75,8 +75,8 @@ export function Navbar() {
       panel
         ? Array.from(
             panel.querySelectorAll<HTMLElement>(
-              'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
-            )
+              'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+            ),
           ).filter((el) => !el.hasAttribute("disabled") && el.offsetParent !== null)
         : [];
 
@@ -117,21 +117,17 @@ export function Navbar() {
 
   const closeMenu = useCallback(() => setOpen(false), []);
 
-  const handleNavClick = useCallback(
-    (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
-      const id = href.startsWith("#") ? href.slice(1) : "";
-      const el = id ? document.getElementById(id) : null;
-      if (!el) return;
-      e.preventDefault();
-      const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      el.scrollIntoView({ behavior: prefersReduced ? "auto" : "smooth", block: "start" });
-      history.replaceState(null, "", href);
-      setActiveId(id);
-      setOpen(false);
-    },
-    []
-  );
-
+  const handleNavClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    const id = href.startsWith("#") ? href.slice(1) : "";
+    const el = id ? document.getElementById(id) : null;
+    if (!el) return;
+    e.preventDefault();
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollIntoView({ behavior: prefersReduced ? "auto" : "smooth", block: "start" });
+    history.replaceState(null, "", href);
+    setActiveId(id);
+    setOpen(false);
+  }, []);
 
   return (
     <header
@@ -196,7 +192,11 @@ export function Navbar() {
             onClick={() => setOpen((o) => !o)}
             className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-white/10 text-white hover:bg-white/5 lg:hidden"
           >
-            {open ? <X className="h-5 w-5" aria-hidden="true" /> : <Menu className="h-5 w-5" aria-hidden="true" />}
+            {open ? (
+              <X className="h-5 w-5" aria-hidden="true" />
+            ) : (
+              <Menu className="h-5 w-5" aria-hidden="true" />
+            )}
           </button>
         </div>
       </nav>
@@ -245,11 +245,9 @@ export function Navbar() {
             >
               Fill Now <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
-
           </li>
         </ul>
       </div>
     </header>
   );
 }
-

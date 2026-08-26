@@ -19,9 +19,11 @@ function isToday(value?: string | null) {
 function AdminDashboard() {
   const { requests, roles, team, profileOf, stats, activity } = useAdmin();
 
-  const totalUsers = (stats as any)?.users ?? (roles as any[]).filter((r: any) => r.role === "user").length;
-  const pending = stats?.requests.pending ?? requests.filter(r => r.status === 'pending').length;
-  const completed = stats?.requests.completed ?? requests.filter(r => r.status === 'completed').length;
+  const totalUsers =
+    (stats as any)?.users ?? (roles as any[]).filter((r: any) => r.role === "user").length;
+  const pending = stats?.requests.pending ?? requests.filter((r) => r.status === "pending").length;
+  const completed =
+    stats?.requests.completed ?? requests.filter((r) => r.status === "completed").length;
   const active = (stats?.requests.total ?? requests.length) - completed;
 
   return (
@@ -39,27 +41,42 @@ function AdminDashboard() {
         <Panel title="Platform Summary" className="lg:col-span-2">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
             <div className="rounded-2xl bg-surface-2 p-4 border border-border-subtle">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-text-muted">Pending</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
+                Pending
+              </p>
               <p className="mt-1 text-2xl font-bold text-white">{pending}</p>
             </div>
             <div className="rounded-2xl bg-surface-2 p-4 border border-border-subtle">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-text-muted">Response Time</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
+                Response Time
+              </p>
               <p className="mt-1 text-2xl font-bold text-white">~2.4h</p>
             </div>
             <div className="rounded-2xl bg-surface-2 p-4 border border-border-subtle">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-text-muted">New Today</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
+                New Today
+              </p>
               <p className="mt-1 text-2xl font-bold text-white">
-                {requests.filter(r => isToday(r.created_at)).length}
+                {requests.filter((r) => isToday(r.created_at)).length}
               </p>
             </div>
           </div>
-          
+
           <div className="mt-6">
             <h3 className="text-xs font-bold text-white mb-4">Request Status Distribution</h3>
             <div className="flex h-2 w-full overflow-hidden rounded-full bg-surface-3">
-              <div className="bg-amber-500" style={{ width: `${(pending / (requests.length || 1)) * 100}%` }} />
-              <div className="bg-brand" style={{ width: `${((active - pending) / (requests.length || 1)) * 100}%` }} />
-              <div className="bg-emerald-500" style={{ width: `${(completed / (requests.length || 1)) * 100}%` }} />
+              <div
+                className="bg-amber-500"
+                style={{ width: `${(pending / (requests.length || 1)) * 100}%` }}
+              />
+              <div
+                className="bg-brand"
+                style={{ width: `${((active - pending) / (requests.length || 1)) * 100}%` }}
+              />
+              <div
+                className="bg-emerald-500"
+                style={{ width: `${(completed / (requests.length || 1)) * 100}%` }}
+              />
             </div>
             <div className="mt-3 flex flex-wrap gap-4">
               <div className="flex items-center gap-1.5 text-[10px] font-medium text-text-secondary">
@@ -76,7 +93,17 @@ function AdminDashboard() {
         </Panel>
 
         {/* Quick Actions / Activity */}
-        <Panel title="Recent Activity" action={<Link to="/admin/requests" className="text-[10px] font-bold text-brand uppercase tracking-wider">All Requests</Link>}>
+        <Panel
+          title="Recent Activity"
+          action={
+            <Link
+              to="/admin/requests"
+              className="text-[10px] font-bold text-brand uppercase tracking-wider"
+            >
+              All Requests
+            </Link>
+          }
+        >
           <ul className="space-y-3">
             {activity.slice(0, 5).map((a) => (
               <li key={a.id} className="flex gap-3 text-xs">
@@ -87,13 +114,27 @@ function AdminDashboard() {
                 </div>
               </li>
             ))}
-            {!activity.length && <li className="py-4 text-center text-[10px] text-text-muted uppercase">No recent activity</li>}
+            {!activity.length && (
+              <li className="py-4 text-center text-[10px] text-text-muted uppercase">
+                No recent activity
+              </li>
+            )}
           </ul>
         </Panel>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Panel title="Latest Requests" action={<Link to="/admin/requests" className="text-[10px] font-bold text-brand uppercase tracking-wider">View All</Link>}>
+        <Panel
+          title="Latest Requests"
+          action={
+            <Link
+              to="/admin/requests"
+              className="text-[10px] font-bold text-brand uppercase tracking-wider"
+            >
+              View All
+            </Link>
+          }
+        >
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
@@ -107,9 +148,13 @@ function AdminDashboard() {
                 {requests.slice(0, 5).map((r) => (
                   <tr key={r.id} className="border-b border-border-subtle/50 last:border-0">
                     <td className="py-3 pr-2 font-medium text-white">{r.reference}</td>
-                    <td className="py-3 px-2 text-text-secondary">{profileOf(r.user_id)?.full_name || 'User'}</td>
+                    <td className="py-3 px-2 text-text-secondary">
+                      {profileOf(r.user_id)?.full_name || "User"}
+                    </td>
                     <td className="py-3 px-2">
-                      <Pill tone={r.status === 'completed' ? 'ok' : 'brand'}>{STATUS_LABEL[r.status]}</Pill>
+                      <Pill tone={r.status === "completed" ? "ok" : "brand"}>
+                        {STATUS_LABEL[r.status]}
+                      </Pill>
                     </td>
                   </tr>
                 ))}
@@ -127,12 +172,14 @@ function AdminDashboard() {
                 </div>
                 <div>
                   <p className="text-xs font-bold text-white">Database Connection</p>
-                  <p className="text-[10px] text-text-muted uppercase tracking-tight">Active & Stable</p>
+                  <p className="text-[10px] text-text-muted uppercase tracking-tight">
+                    Active & Stable
+                  </p>
                 </div>
               </div>
               <span className="h-2 w-2 rounded-full bg-emerald-500" />
             </div>
-            
+
             <div className="flex items-center justify-between rounded-xl bg-surface-2 p-3 border border-border-subtle">
               <div className="flex items-center gap-3">
                 <div className="h-8 w-8 rounded-lg bg-brand/10 flex items-center justify-center text-brand">
@@ -140,7 +187,9 @@ function AdminDashboard() {
                 </div>
                 <div>
                   <p className="text-xs font-bold text-white">Realtime Service</p>
-                  <p className="text-[10px] text-text-muted uppercase tracking-tight">Operational</p>
+                  <p className="text-[10px] text-text-muted uppercase tracking-tight">
+                    Operational
+                  </p>
                 </div>
               </div>
               <span className="h-2 w-2 rounded-full bg-brand" />
@@ -150,7 +199,9 @@ function AdminDashboard() {
       </div>
 
       <div className="mt-8 opacity-50 grayscale hover:opacity-100 hover:grayscale-0 transition-all">
-        <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-text-muted px-1">Infrastructure Connection</h2>
+        <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-text-muted px-1">
+          Infrastructure Connection
+        </h2>
         <ConnectionGuide />
       </div>
     </div>

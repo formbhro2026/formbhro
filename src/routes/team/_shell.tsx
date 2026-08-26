@@ -19,7 +19,10 @@ function TeamShell() {
 
   if (!hydrated || !member) {
     return (
-      <div className="grid min-h-screen place-items-center bg-bg text-xs text-text-muted" role="status">
+      <div
+        className="grid min-h-screen place-items-center bg-bg text-xs text-text-muted"
+        role="status"
+      >
         Loading your workspace…
       </div>
     );

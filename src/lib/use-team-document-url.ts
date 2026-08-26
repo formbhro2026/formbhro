@@ -7,7 +7,9 @@ import { resolveDocumentUrl } from "@/lib/doc-access";
  * Live documents live in a private bucket, so we mint a short-lived signed URL
  * on mount; demo documents just use their inline preview URL.
  */
-export function useTeamDocumentUrl(doc: Pick<TeamDocument, "name" | "previewUrl" | "storagePath"> | null | undefined) {
+export function useTeamDocumentUrl(
+  doc: Pick<TeamDocument, "name" | "previewUrl" | "storagePath"> | null | undefined,
+) {
   const [url, setUrl] = useState<string | null>(doc?.previewUrl ?? null);
   const storagePath = doc?.storagePath;
   const previewUrl = doc?.previewUrl;

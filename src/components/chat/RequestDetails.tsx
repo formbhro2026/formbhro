@@ -25,7 +25,9 @@ export function RequestDetails({
   return (
     <div className="space-y-8 bg-surface-1 p-5">
       <section>
-        <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-text-muted">Request Info</h2>
+        <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-text-muted">
+          Request Info
+        </h2>
         <dl className="mt-4 space-y-4 text-xs font-bold">
           <div className="flex items-start justify-between gap-3">
             <dt className="text-text-secondary">Reference ID</dt>
@@ -49,41 +51,47 @@ export function RequestDetails({
       </section>
 
       {!hideDocuments && (
-      <section>
-        <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-text-muted">Shared Assets</h2>
-        {documents.length === 0 ? (
-          <p className="mt-4 text-xs text-text-muted italic">No documents shared yet.</p>
-        ) : (
-          <ul className="mt-4 space-y-2.5">
-            {documents.map((d) => {
-              const Icon = ICONS[d.kind] ?? File;
-              return (
-                <li key={d.id}>
-                  <button
-                    type="button"
-                    onClick={() => onViewDocument(d.id)}
-                    className="flex w-full items-center gap-3 rounded-2xl border border-border-subtle bg-surface-2 p-3 text-left transition-all hover:bg-surface-3 hover:border-brand/30 group"
-                  >
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-surface-3 text-brand">
-                      <Icon className="h-5 w-5" strokeWidth={2} aria-hidden="true" />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-bold text-white group-hover:text-brand transition-colors">{d.name}</span>
-                      <span className="block text-[10px] text-text-muted font-bold mt-0.5">
-                        {d.size} • {d.uploadedBy}
+        <section>
+          <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-text-muted">
+            Shared Assets
+          </h2>
+          {documents.length === 0 ? (
+            <p className="mt-4 text-xs text-text-muted italic">No documents shared yet.</p>
+          ) : (
+            <ul className="mt-4 space-y-2.5">
+              {documents.map((d) => {
+                const Icon = ICONS[d.kind] ?? File;
+                return (
+                  <li key={d.id}>
+                    <button
+                      type="button"
+                      onClick={() => onViewDocument(d.id)}
+                      className="flex w-full items-center gap-3 rounded-2xl border border-border-subtle bg-surface-2 p-3 text-left transition-all hover:bg-surface-3 hover:border-brand/30 group"
+                    >
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-surface-3 text-brand">
+                        <Icon className="h-5 w-5" strokeWidth={2} aria-hidden="true" />
                       </span>
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-bold text-white group-hover:text-brand transition-colors">
+                          {d.name}
+                        </span>
+                        <span className="block text-[10px] text-text-muted font-bold mt-0.5">
+                          {d.size} • {d.uploadedBy}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
       )}
 
       <section>
-        <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-text-muted">Audit Trail</h2>
+        <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-text-muted">
+          Audit Trail
+        </h2>
         <div className="mt-4">
           <RequestTimeline activity={request.activity} />
         </div>
@@ -95,7 +103,10 @@ export function RequestDetails({
         </h2>
         <ul className="mt-4 space-y-2.5">
           {request.notes.map((n, i) => (
-            <li key={i} className="rounded-2xl border border-border-subtle bg-surface-2 p-4 text-xs font-medium leading-relaxed text-text-secondary">
+            <li
+              key={i}
+              className="rounded-2xl border border-border-subtle bg-surface-2 p-4 text-xs font-medium leading-relaxed text-text-secondary"
+            >
               {n}
             </li>
           ))}

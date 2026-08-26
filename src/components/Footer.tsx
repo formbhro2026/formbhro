@@ -14,8 +14,8 @@ export function Footer() {
           <div>
             <Logo />
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-text-secondary">
-              Smart form assistance platform that connects you with experts, simplifies processes, and delivers
-              results.
+              Smart form assistance platform that connects you with experts, simplifies processes,
+              and delivers results.
             </p>
             <div className="mt-5 flex items-center gap-3">
               {[Facebook, Instagram, Twitter, Linkedin].map((Icon, i) => (

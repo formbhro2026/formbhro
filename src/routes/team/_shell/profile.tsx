@@ -11,7 +11,10 @@ export const Route = createFileRoute("/team/_shell/profile")({
   head: () => ({
     meta: [
       { title: "My Team Profile — Formbhro" },
-      { name: "description", content: "Your Formbhro team member profile, performance summary and account actions." },
+      {
+        name: "description",
+        content: "Your Formbhro team member profile, performance summary and account actions.",
+      },
       { property: "og:title", content: "My Team Profile — Formbhro" },
       { property: "og:description", content: "Team member profile and performance summary." },
       { property: "og:type", content: "website" },
@@ -70,7 +73,10 @@ function TeamProfile() {
 
           <dl className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
             {details.map((d) => (
-              <div key={d.label} className="rounded-xl border border-border-subtle bg-surface-2 px-3.5 py-2.5">
+              <div
+                key={d.label}
+                className="rounded-xl border border-border-subtle bg-surface-2 px-3.5 py-2.5"
+              >
                 <dt className="text-[11px] text-text-muted">{d.label}</dt>
                 <dd className="mt-0.5 truncate text-xs font-semibold text-white">{d.value}</dd>
               </div>
@@ -82,7 +88,10 @@ function TeamProfile() {
           <h3 className="text-sm font-semibold text-white">Performance</h3>
           <dl className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-3">
             {performance.map((p) => (
-              <div key={p.label} className="rounded-xl border border-border-subtle bg-surface-2 px-3.5 py-3">
+              <div
+                key={p.label}
+                className="rounded-xl border border-border-subtle bg-surface-2 px-3.5 py-3"
+              >
                 <dd className="text-base font-bold tabular-nums text-white">{p.value}</dd>
                 <dt className="mt-0.5 text-[11px] leading-tight text-text-muted">{p.label}</dt>
               </div>
@@ -103,7 +112,11 @@ function TeamProfile() {
           </button>
           <button
             type="button"
-            onClick={() => toast.info("Password changes are admin controlled. Please contact your administrator.")}
+            onClick={() =>
+              toast.info(
+                "Password changes are admin controlled. Please contact your administrator.",
+              )
+            }
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border-strong px-4 text-xs font-semibold text-white transition-colors hover:bg-white/5"
           >
             <KeyRound className="h-3.5 w-3.5" aria-hidden="true" /> Change Password

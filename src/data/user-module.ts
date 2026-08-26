@@ -7,7 +7,10 @@ export type RequestStatus =
   | "under-review"
   | "completed";
 
-export const STATUS_META: Record<RequestStatus, { label: string; icon: string; tone: "amber" | "orange" | "green" | "neutral" }> = {
+export const STATUS_META: Record<
+  RequestStatus,
+  { label: string; icon: string; tone: "amber" | "orange" | "green" | "neutral" }
+> = {
   new: { label: "New", icon: "Sparkle", tone: "neutral" },
   pending: { label: "Pending", icon: "Clock", tone: "amber" },
   assigned: { label: "Assigned", icon: "UserCheck", tone: "neutral" },
@@ -17,7 +20,14 @@ export const STATUS_META: Record<RequestStatus, { label: string; icon: string; t
   completed: { label: "Completed", icon: "CircleCheck", tone: "green" },
 };
 
-export const ACTIVE_STATUSES: RequestStatus[] = ["new", "pending", "assigned", "in-progress", "waiting-documents", "under-review"];
+export const ACTIVE_STATUSES: RequestStatus[] = [
+  "new",
+  "pending",
+  "assigned",
+  "in-progress",
+  "waiting-documents",
+  "under-review",
+];
 
 export type FileKind = "pdf" | "image" | "doc";
 
@@ -115,7 +125,6 @@ export const SEED_REQUESTS: SupportRequest[] = [];
 export const SEED_MESSAGES: ChatMessage[] = [];
 export const SEED_DOCUMENTS: UserDocument[] = [];
 export const SEED_NOTIFICATIONS: AppNotification[] = [];
-
 
 export const NEWS_ITEMS: NewsItem[] = [];
 

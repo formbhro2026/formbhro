@@ -15,7 +15,9 @@ export function Panel({
   className?: string;
 }) {
   return (
-    <section className={cn("rounded-2xl border border-border-subtle bg-surface-1 p-4 sm:p-5", className)}>
+    <section
+      className={cn("rounded-2xl border border-border-subtle bg-surface-1 p-4 sm:p-5", className)}
+    >
       {(title || action) && (
         <header className="mb-4 flex items-center justify-between gap-3">
           {title && <h2 className="text-sm font-semibold text-white">{title}</h2>}
@@ -65,7 +67,10 @@ export function SearchBox({
 }) {
   return (
     <div className="relative w-full sm:max-w-xs">
-      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" aria-hidden="true" />
+      <Search
+        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
+        aria-hidden="true"
+      />
       <input
         type="search"
         value={value}
@@ -78,7 +83,13 @@ export function SearchBox({
   );
 }
 
-export function Pill({ tone = "neutral", children }: { tone?: "neutral" | "brand" | "ok" | "warn" | "bad"; children: ReactNode }) {
+export function Pill({
+  tone = "neutral",
+  children,
+}: {
+  tone?: "neutral" | "brand" | "ok" | "warn" | "bad";
+  children: ReactNode;
+}) {
   const tones = {
     neutral: "border-border-strong bg-surface-1 text-text-secondary",
     brand: "border-brand/40 bg-brand/10 text-brand-light",
@@ -87,7 +98,12 @@ export function Pill({ tone = "neutral", children }: { tone?: "neutral" | "brand
     bad: "border-red-400/30 bg-red-400/10 text-red-300",
   } as const;
   return (
-    <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold", tones[tone])}>
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold",
+        tones[tone],
+      )}
+    >
       {children}
     </span>
   );

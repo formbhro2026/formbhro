@@ -13,9 +13,15 @@ export const Route = createFileRoute("/team/_shell/documents")({
   head: () => ({
     meta: [
       { title: "Assigned Documents — Formbhro Team" },
-      { name: "description", content: "Preview and download the documents uploaded on your assigned Formbhro requests." },
+      {
+        name: "description",
+        content: "Preview and download the documents uploaded on your assigned Formbhro requests.",
+      },
       { property: "og:title", content: "Assigned Documents — Formbhro Team" },
-      { property: "og:description", content: "Documents from your assigned requests, ready to preview or download." },
+      {
+        property: "og:description",
+        content: "Documents from your assigned requests, ready to preview or download.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "robots", content: "noindex" },
@@ -47,7 +53,9 @@ function TeamDocuments() {
     return documents.filter((d) => {
       if (filter !== "all" && d.kind !== filter) return false;
       if (!q) return true;
-      return `${d.name} ${d.requestId} ${d.uploadedBy} ${titleFor(d.requestId)}`.toLowerCase().includes(q);
+      return `${d.name} ${d.requestId} ${d.uploadedBy} ${titleFor(d.requestId)}`
+        .toLowerCase()
+        .includes(q);
     });
   }, [documents, filter, query, titleFor]);
 
@@ -58,14 +66,19 @@ function TeamDocuments() {
       <TeamHeader title="Documents" />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-28 pt-6 sm:px-6 lg:pb-10">
         <h2 className="text-lg font-bold text-white">Assigned Documents</h2>
-        <p className="mt-1 text-xs text-text-secondary">Only documents from requests assigned to you are shown.</p>
+        <p className="mt-1 text-xs text-text-secondary">
+          Only documents from requests assigned to you are shown.
+        </p>
 
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="relative min-w-0 flex-1">
             <label htmlFor="doc-search" className="sr-only">
               Search documents
             </label>
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" aria-hidden="true" />
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
+              aria-hidden="true"
+            />
             <input
               id="doc-search"
               value={query}
@@ -83,7 +96,9 @@ function TeamDocuments() {
                 aria-pressed={filter === f.key}
                 className={cn(
                   "min-h-9 shrink-0 rounded-full border px-3 text-[11px] font-semibold transition-colors",
-                  filter === f.key ? "border-brand/40 bg-brand/10 text-brand-light" : "border-border-strong text-text-secondary hover:bg-white/5"
+                  filter === f.key
+                    ? "border-brand/40 bg-brand/10 text-brand-light"
+                    : "border-border-strong text-text-secondary hover:bg-white/5",
                 )}
               >
                 {f.label}
@@ -94,12 +109,21 @@ function TeamDocuments() {
 
         {visible.length === 0 ? (
           <div className="mt-5">
-            <EmptyState icon={FileText} title="No documents uploaded." description="Documents shared on your assigned requests will appear here." />
+            <EmptyState
+              icon={FileText}
+              title="No documents uploaded."
+              description="Documents shared on your assigned requests will appear here."
+            />
           </div>
         ) : (
           <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {visible.map((d) => (
-              <TeamDocumentCard key={d.id} document={d} requestTitle={titleFor(d.requestId)} onPreview={() => setPreviewId(d.id)} />
+              <TeamDocumentCard
+                key={d.id}
+                document={d}
+                requestTitle={titleFor(d.requestId)}
+                onPreview={() => setPreviewId(d.id)}
+              />
             ))}
           </div>
         )}

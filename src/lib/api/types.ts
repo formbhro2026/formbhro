@@ -48,7 +48,10 @@ export class ApiError extends Error {
   }
 }
 
-export function unwrap<T>(result: { data: T | null; error: { message: string; code?: string } | null }): T {
+export function unwrap<T>(result: {
+  data: T | null;
+  error: { message: string; code?: string } | null;
+}): T {
   if (result.error) throw new ApiError(result.error.message, result.error.code);
   if (result.data === null) throw new ApiError("No data returned");
   return result.data;

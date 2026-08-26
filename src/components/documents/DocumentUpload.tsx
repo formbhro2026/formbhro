@@ -27,7 +27,7 @@ type Props = {
     kind: UserDocument["kind"],
     size: string,
     preview?: { previewUrl?: string; pageCount?: number; dimensions?: string },
-    file?: File
+    file?: File,
   ) => void;
 };
 
@@ -65,7 +65,10 @@ export function DocumentUpload({ requests, onUpload }: Props) {
   if (!requests.length) return null;
 
   return (
-    <section aria-labelledby="upload-heading" className="rounded-2xl border border-border-subtle bg-surface-1 p-5 shadow-lg shadow-black/10">
+    <section
+      aria-labelledby="upload-heading"
+      className="rounded-2xl border border-border-subtle bg-surface-1 p-5 shadow-lg shadow-black/10"
+    >
       <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,16rem)] sm:items-end">
         <div>
           <h2 id="upload-heading" className="text-sm font-bold text-white tracking-tight uppercase">
@@ -107,9 +110,9 @@ export function DocumentUpload({ requests, onUpload }: Props) {
         }}
         className={cn(
           "mt-5 rounded-2xl border-2 border-dashed p-8 text-center transition-all duration-300",
-          dragging 
-            ? "border-brand bg-brand/5 scale-[0.99]" 
-            : "border-border-subtle hover:border-text-muted hover:bg-white/5"
+          dragging
+            ? "border-brand bg-brand/5 scale-[0.99]"
+            : "border-border-subtle hover:border-text-muted hover:bg-white/5",
         )}
       >
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-surface-2 text-brand shadow-lg shadow-black/20 transition-transform duration-300 group-hover:scale-110">
@@ -143,9 +146,9 @@ export function DocumentUpload({ requests, onUpload }: Props) {
           role="status"
           className={cn(
             "mt-4 flex items-center justify-between rounded-xl border px-4 py-2.5 transition-all animate-in fade-in slide-in-from-top-2",
-            status.tone === "error" 
-              ? "border-red-500/20 bg-red-500/5 text-red-400" 
-              : "border-brand/20 bg-brand/5 text-brand"
+            status.tone === "error"
+              ? "border-red-500/20 bg-red-500/5 text-red-400"
+              : "border-brand/20 bg-brand/5 text-brand",
           )}
         >
           <span className="text-[10px] font-bold uppercase tracking-wider">{status.text}</span>

@@ -1,6 +1,15 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useDialogA11y } from "@/lib/use-dialog-a11y";
-import { Bell, BellOff, CheckCheck, FileUp, MessageSquareText, Megaphone, CircleCheck, RefreshCw } from "lucide-react";
+import {
+  Bell,
+  BellOff,
+  CheckCheck,
+  FileUp,
+  MessageSquareText,
+  Megaphone,
+  CircleCheck,
+  RefreshCw,
+} from "lucide-react";
 import { useUserStore } from "@/lib/user-store";
 import { EmptyState } from "@/components/common/EmptyState";
 import type { AppNotification } from "@/data/user-module";
@@ -22,7 +31,8 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
     if (!n.read) markNotificationRead(n.id);
     onClose();
     if (n.to === "news") navigate({ to: "/app/news" });
-    else if (n.requestId) navigate({ to: "/app/chats/$requestId", params: { requestId: n.requestId } });
+    else if (n.requestId)
+      navigate({ to: "/app/chats/$requestId", params: { requestId: n.requestId } });
   };
 
   return (
@@ -44,7 +54,6 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
         </button>
       </div>
 
-
       {notifications.length === 0 ? (
         <div className="p-3">
           <EmptyState icon={BellOff} title="You're all caught up." />
@@ -64,7 +73,9 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
                     <Icon className="h-4 w-4 text-brand" strokeWidth={1.75} aria-hidden="true" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-xs leading-relaxed text-text-secondary">{n.text}</span>
+                    <span className="block text-xs leading-relaxed text-text-secondary">
+                      {n.text}
+                    </span>
                     <span className="mt-1 block text-[11px] text-text-muted">{n.time}</span>
                   </span>
 

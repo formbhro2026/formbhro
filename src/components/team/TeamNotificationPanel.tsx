@@ -1,4 +1,15 @@
-import { BellOff, Check, CheckCheck, FileText, MessageSquareText, RefreshCw, ShieldCheck, Trash2, Undo2, UserPlus } from "lucide-react";
+import {
+  BellOff,
+  Check,
+  CheckCheck,
+  FileText,
+  MessageSquareText,
+  RefreshCw,
+  ShieldCheck,
+  Trash2,
+  Undo2,
+  UserPlus,
+} from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useDialogA11y } from "@/lib/use-dialog-a11y";
@@ -28,7 +39,7 @@ export function TeamNotificationPanel({ onClose }: { onClose: () => void }) {
 
   const list = useMemo(
     () => (tab === "unread" ? notifications.filter((n) => !n.read) : notifications),
-    [notifications, tab]
+    [notifications, tab],
   );
 
   return (
@@ -36,17 +47,25 @@ export function TeamNotificationPanel({ onClose }: { onClose: () => void }) {
       ref={panelRef}
       role="dialog"
       aria-modal="true"
-      aria-label={unreadNotifications > 0 ? `Notifications, ${unreadNotifications} unread` : "Notifications"}
+      aria-label={
+        unreadNotifications > 0 ? `Notifications, ${unreadNotifications} unread` : "Notifications"
+      }
       className="w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-border-subtle bg-bg shadow-2xl"
     >
       <div className="flex items-center justify-between gap-2 border-b border-border-subtle px-4 py-3">
         <h2 className="text-sm font-semibold text-white">
           Notifications
           {unreadNotifications > 0 && (
-            <span className="ml-2 rounded-full bg-brand px-1.5 py-0.5 text-[10px] font-bold text-white">{unreadNotifications}</span>
+            <span className="ml-2 rounded-full bg-brand px-1.5 py-0.5 text-[10px] font-bold text-white">
+              {unreadNotifications}
+            </span>
           )}
         </h2>
-        <button type="button" onClick={onClose} className="text-[11px] font-semibold text-brand-light hover:underline">
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-[11px] font-semibold text-brand-light hover:underline"
+        >
           Close
         </button>
       </div>
@@ -60,7 +79,9 @@ export function TeamNotificationPanel({ onClose }: { onClose: () => void }) {
             onClick={() => setTab(key)}
             className={cn(
               "min-h-8 rounded-full border px-2.5 text-[11px] font-semibold capitalize transition-colors",
-              tab === key ? "border-brand/40 bg-brand/10 text-brand-light" : "border-border-strong px-2.5 text-text-secondary hover:bg-white/5"
+              tab === key
+                ? "border-brand/40 bg-brand/10 text-brand-light"
+                : "border-border-strong px-2.5 text-text-secondary hover:bg-white/5",
             )}
           >
             {key}
@@ -95,14 +116,32 @@ export function TeamNotificationPanel({ onClose }: { onClose: () => void }) {
                   <Icon className="h-3.5 w-3.5 text-brand" aria-hidden="true" strokeWidth={1.75} />
                 </span>
                 <span className="min-w-0">
-                  <span className={cn("block text-xs leading-relaxed", n.read ? "text-text-secondary" : "text-white")}>{n.text}</span>
+                  <span
+                    className={cn(
+                      "block text-xs leading-relaxed",
+                      n.read ? "text-text-secondary" : "text-white",
+                    )}
+                  >
+                    {n.text}
+                  </span>
                   <span className="mt-0.5 block text-[10px] text-text-muted">{n.time}</span>
                 </span>
-                {!n.read && <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-brand" aria-hidden="true" />}
+                {!n.read && (
+                  <span
+                    className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-brand"
+                    aria-hidden="true"
+                  />
+                )}
               </span>
             );
             return (
-              <li key={n.id} className={cn("border-b border-border-strong/20 last:border-0", !n.read && "bg-brand/5")}>
+              <li
+                key={n.id}
+                className={cn(
+                  "border-b border-border-strong/20 last:border-0",
+                  !n.read && "bg-brand/5",
+                )}
+              >
                 <div className="flex items-start gap-1 pr-2">
                   {n.requestId ? (
                     <Link
@@ -125,12 +164,22 @@ export function TeamNotificationPanel({ onClose }: { onClose: () => void }) {
                   )}
                   <button
                     type="button"
-                    onClick={() => (n.read ? markNotificationUnread(n.id) : markNotificationRead(n.id))}
-                    aria-label={n.read ? `Mark notification as unread: ${n.text}` : `Mark notification as read: ${n.text}`}
+                    onClick={() =>
+                      n.read ? markNotificationUnread(n.id) : markNotificationRead(n.id)
+                    }
+                    aria-label={
+                      n.read
+                        ? `Mark notification as unread: ${n.text}`
+                        : `Mark notification as read: ${n.text}`
+                    }
                     title={n.read ? "Mark as unread" : "Mark as read"}
                     className="mt-2 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-white/5 hover:text-white"
                   >
-                    {n.read ? <Undo2 className="h-3.5 w-3.5" aria-hidden="true" /> : <Check className="h-4 w-4" aria-hidden="true" />}
+                    {n.read ? (
+                      <Undo2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    ) : (
+                      <Check className="h-4 w-4" aria-hidden="true" />
+                    )}
                   </button>
                 </div>
               </li>

@@ -6,26 +6,41 @@ import { cn } from "@/lib/utils";
 
 const ICONS = { pdf: FileText, image: FileImage, doc: File };
 
-export function DocumentCard({ document: doc, onView }: { document: UserDocument; onView: () => void }) {
+export function DocumentCard({
+  document: doc,
+  onView,
+}: {
+  document: UserDocument;
+  onView: () => void;
+}) {
   const Icon = ICONS[doc.kind] ?? File;
   const thumbUrl = useDocumentUrl(doc);
-  
+
   return (
     <article className="group flex flex-col rounded-2xl border border-border-subtle bg-surface-1 p-5 transition-all duration-200 hover:border-text-muted hover:bg-surface-2 hover:shadow-xl hover:shadow-black/20">
       <div className="flex items-start gap-4">
         <span className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl bg-surface-3 text-brand transition-transform group-hover:scale-105">
           {thumbUrl && doc.kind === "image" ? (
-            <img src={thumbUrl} alt={`Preview of ${doc.name}`} loading="lazy" className="h-full w-full object-cover" />
+            <img
+              src={thumbUrl}
+              alt={`Preview of ${doc.name}`}
+              loading="lazy"
+              className="h-full w-full object-cover"
+            />
           ) : (
             <Icon className="h-6 w-6" strokeWidth={2.5} aria-hidden="true" />
           )}
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-sm font-bold text-white transition-colors group-hover:text-brand">{doc.name}</h3>
-          <p className="mt-0.5 truncate text-[10px] font-bold text-brand uppercase tracking-wider">{doc.requestTitle}</p>
+          <h3 className="truncate text-sm font-bold text-white transition-colors group-hover:text-brand">
+            {doc.name}
+          </h3>
+          <p className="mt-0.5 truncate text-[10px] font-bold text-brand uppercase tracking-wider">
+            {doc.requestTitle}
+          </p>
         </div>
       </div>
-      
+
       <div className="mt-4 space-y-1">
         <p className="text-[10px] font-bold text-text-muted uppercase tracking-tight">
           Uploaded by <span className="text-text-secondary">{doc.uploadedBy}</span>

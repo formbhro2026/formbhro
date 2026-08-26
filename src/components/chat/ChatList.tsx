@@ -39,7 +39,10 @@ export function ChatList({
   return (
     <div className="flex min-h-0 flex-col bg-bg">
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" aria-hidden="true" />
+        <Search
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
+          aria-hidden="true"
+        />
         <input
           type="search"
           value={query}
@@ -61,7 +64,7 @@ export function ChatList({
               "shrink-0 rounded-full border px-4 py-2 text-[10px] font-bold uppercase tracking-wider transition-all duration-200",
               filter === f
                 ? "border-brand/40 bg-brand/10 text-brand shadow-lg shadow-brand/5"
-                : "border-border-subtle text-text-muted hover:border-text-secondary hover:text-white"
+                : "border-border-subtle text-text-muted hover:border-text-secondary hover:text-white",
             )}
           >
             {f}
@@ -69,7 +72,12 @@ export function ChatList({
         ))}
       </div>
 
-      <div className={cn("mt-4 min-h-0 space-y-3 cv-auto", compact && "overflow-y-auto pr-1 custom-scrollbar")}>
+      <div
+        className={cn(
+          "mt-4 min-h-0 space-y-3 cv-auto",
+          compact && "overflow-y-auto pr-1 custom-scrollbar",
+        )}
+      >
         {filtered.length === 0 ? (
           <div className="py-10">
             <EmptyState

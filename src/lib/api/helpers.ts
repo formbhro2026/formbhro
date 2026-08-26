@@ -6,12 +6,14 @@ import { supabase } from "@/integrations/supabase/client";
  */
 
 export const initialsOf = (name: string) => {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]!.toUpperCase())
-    .join("") || "U";
+  return (
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w) => w[0]!.toUpperCase())
+      .join("") || "U"
+  );
 };
 
 export const timeLabel = (iso?: string | null) => {
@@ -19,7 +21,11 @@ export const timeLabel = (iso?: string | null) => {
 };
 
 export const dayLabel = (iso?: string | null) => {
-  return new Date(iso ?? Date.now()).toLocaleDateString([], { day: "2-digit", month: "long", year: "numeric" });
+  return new Date(iso ?? Date.now()).toLocaleDateString([], {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
 };
 
 export const sizeLabel = (bytes?: number | null) => {
@@ -27,7 +33,6 @@ export const sizeLabel = (bytes?: number | null) => {
   if (b >= 1024 * 1024) return `${(b / (1024 * 1024)).toFixed(1)} MB`;
   return `${Math.max(1, Math.round(b / 1024))} KB`;
 };
-
 
 export async function fetchUserNames(userIds: string[]) {
   if (!userIds.length) return {};

@@ -31,7 +31,13 @@ export function ModernAuthForm({
     setError(null);
     try {
       const res = await signInWithGoogle();
-      if (res && ("user" in res || "session" in res || (res as any)?.data?.user || (res as any)?.data?.session)) {
+      if (
+        res &&
+        ("user" in res ||
+          "session" in res ||
+          (res as any)?.data?.user ||
+          (res as any)?.data?.session)
+      ) {
         onSuccess?.();
       }
     } catch (err) {

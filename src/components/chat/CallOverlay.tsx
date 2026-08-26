@@ -36,18 +36,13 @@ export function CallOverlay({
         "fixed z-[100] flex flex-col items-center justify-center bg-black/90 transition-all duration-300 backdrop-blur-md",
         isMaximized
           ? "inset-0"
-          : "bottom-20 right-4 w-72 h-48 rounded-2xl overflow-hidden shadow-2xl border border-white/10 sm:w-80 sm:h-52 lg:w-96 lg:h-64"
+          : "bottom-20 right-4 w-72 h-48 rounded-2xl overflow-hidden shadow-2xl border border-white/10 sm:w-80 sm:h-52 lg:w-96 lg:h-64",
       )}
     >
       {/* Remote Video (Full Size) */}
       <div className="relative w-full h-full bg-surface-3 flex items-center justify-center">
         {session.remoteStream ? (
-          <video
-            ref={remoteVideoRef}
-            autoPlay
-            playsInline
-            className="w-full h-full object-cover"
-          />
+          <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
         ) : (
           <div className="flex flex-col items-center gap-4 text-center p-6">
             <div className="h-20 w-20 rounded-full bg-brand/20 flex items-center justify-center animate-pulse">
@@ -116,14 +111,18 @@ export function CallOverlay({
                   onClick={() => setIsMaximized(!isMaximized)}
                   className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
                 >
-                  {isMaximized ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
+                  {isMaximized ? (
+                    <Minimize2 className="h-5 w-5" />
+                  ) : (
+                    <Maximize2 className="h-5 w-5" />
+                  )}
                 </button>
               </>
             )}
           </div>
         </div>
       </div>
-      
+
       <style>{`
         .mirror {
           transform: scaleX(-1);

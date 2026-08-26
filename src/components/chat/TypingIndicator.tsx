@@ -1,5 +1,11 @@
 /** WhatsApp-style animated "typing…" bubble shown while the other side types. */
-export function TypingIndicator({ name = "Support team", initials = "FB" }: { name?: string; initials?: string }) {
+export function TypingIndicator({
+  name = "Support team",
+  initials = "FB",
+}: {
+  name?: string;
+  initials?: string;
+}) {
   return (
     <div className="flex items-end gap-2" role="status" aria-live="polite">
       <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-chat-in text-[10px] font-bold text-chat-text">

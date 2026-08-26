@@ -24,7 +24,13 @@ export function ConfirmDialog({
   const panelRef = useDialogA11y<HTMLDivElement>(onClose);
   return (
     <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/75 backdrop-blur-sm sm:items-center sm:p-4">
-      <button type="button" tabIndex={-1} aria-hidden="true" onClick={onClose} className="absolute inset-0 cursor-default" />
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-hidden="true"
+        onClick={onClose}
+        className="absolute inset-0 cursor-default"
+      />
       <div
         ref={panelRef}
         role="dialog"
@@ -35,7 +41,9 @@ export function ConfirmDialog({
         <h2 id="confirm-dialog-title" className="text-sm font-semibold text-white">
           {title}
         </h2>
-        {description && <p className="mt-2 text-xs leading-relaxed text-text-secondary">{description}</p>}
+        {description && (
+          <p className="mt-2 text-xs leading-relaxed text-text-secondary">{description}</p>
+        )}
         {children}
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button
@@ -50,7 +58,9 @@ export function ConfirmDialog({
             onClick={onConfirm}
             className={cn(
               "min-h-11 rounded-xl px-4 text-xs font-semibold text-white transition-transform active:scale-95",
-              tone === "danger" ? "bg-red-500/90 hover:bg-red-500" : "bg-gradient-to-r from-brand-dark to-brand-light"
+              tone === "danger"
+                ? "bg-red-500/90 hover:bg-red-500"
+                : "bg-gradient-to-r from-brand-dark to-brand-light",
             )}
           >
             {confirmLabel}

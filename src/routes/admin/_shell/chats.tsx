@@ -11,7 +11,6 @@ import { STATUS_LABEL, type DbRequestStatus } from "@/lib/api/types";
 import { useWebRTCCall } from "@/hooks/use-webrtc-call";
 import { CallOverlay } from "@/components/chat/CallOverlay";
 
-
 export const Route = createFileRoute("/admin/_shell/chats")({
   component: AdminChats,
   validateSearch: (search: Record<string, unknown>) => ({
@@ -42,7 +41,6 @@ function AdminChats() {
   const endRef = useRef<HTMLDivElement>(null);
   const { session, startCall, acceptCall, hangup } = useWebRTCCall(activeId);
 
-
   const threads = useMemo(() => {
     const term = q.trim().toLowerCase();
     return requests.filter((r) => {
@@ -71,11 +69,15 @@ function AdminChats() {
 
     const channel = supabase
       .channel(`admin-room-${room.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "messages", filter: `chat_room_id=eq.${room.id}` }, () => {
-        void messagesApi.listMessages(room.id, { limit: 100 }).then((rows) => {
-          if (alive) setMessages(rows);
-        });
-      })
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "messages", filter: `chat_room_id=eq.${room.id}` },
+        () => {
+          void messagesApi.listMessages(room.id, { limit: 100 }).then((rows) => {
+            if (alive) setMessages(rows);
+          });
+        },
+      )
       .subscribe();
 
     return () => {
@@ -92,7 +94,12 @@ function AdminChats() {
     if (!draft.trim() || !room || !active) return;
     setBusy(true);
     try {
-      await messagesApi.sendMessage({ chatRoomId: room.id, requestId: active.id, body: draft.trim(), senderRole: "admin" });
+      await messagesApi.sendMessage({
+        chatRoomId: room.id,
+        requestId: active.id,
+        body: draft.trim(),
+        senderRole: "admin",
+      });
       setDraft("");
     } finally {
       setBusy(false);
@@ -112,10 +119,14 @@ function AdminChats() {
   return (
     <div className="fixed inset-0 lg:left-60 xl:left-64 top-14 z-10 bg-bg overflow-hidden">
       <div className="grid h-full gap-4 p-4 xl:grid-cols-[320px_1fr]">
-
         <Panel title="Conversations" className="h-full overflow-y-auto">
           <div className="mb-3">
-            <SearchBox value={q} onChange={setQ} label="Search chats" placeholder="User, request…" />
+            <SearchBox
+              value={q}
+              onChange={setQ}
+              label="Search chats"
+              placeholder="User, request…"
+            />
           </div>
           <ul className="space-y-2">
             {threads.map((r) => (
@@ -124,24 +135,34 @@ function AdminChats() {
                   type="button"
                   onClick={() => setActiveId(r.id)}
                   className={`w-full rounded-xl border px-3 py-3 text-left transition-all ${
-                    active?.id === r.id 
-                      ? "border-brand bg-brand/10 shadow-sm shadow-brand/10" 
+                    active?.id === r.id
+                      ? "border-brand bg-brand/10 shadow-sm shadow-brand/10"
                       : "border-border-subtle bg-bg hover:border-border-strong"
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <p className="truncate text-xs font-bold text-white">{profileOf(r.user_id)?.full_name ?? "User"}</p>
-                    <time className="text-[9px] text-text-muted">{formatDate(r.last_activity_at)}</time>
+                    <p className="truncate text-xs font-bold text-white">
+                      {profileOf(r.user_id)?.full_name ?? "User"}
+                    </p>
+                    <time className="text-[9px] text-text-muted">
+                      {formatDate(r.last_activity_at)}
+                    </time>
                   </div>
-                  <p className="truncate text-[11px] text-text-secondary">{r.last_message ?? r.title}</p>
+                  <p className="truncate text-[11px] text-text-secondary">
+                    {r.last_message ?? r.title}
+                  </p>
                   <div className="mt-2 flex items-center justify-between">
                     <span className="text-[10px] text-text-muted font-mono">{r.reference}</span>
-                    <Pill tone={r.status === "completed" ? "ok" : "brand"}>{STATUS_LABEL[r.status]}</Pill>
+                    <Pill tone={r.status === "completed" ? "ok" : "brand"}>
+                      {STATUS_LABEL[r.status]}
+                    </Pill>
                   </div>
                 </button>
               </li>
             ))}
-            {!threads.length && <li className="py-6 text-center text-xs text-text-muted">No conversations.</li>}
+            {!threads.length && (
+              <li className="py-6 text-center text-xs text-text-muted">No conversations.</li>
+            )}
           </ul>
         </Panel>
 
@@ -156,7 +177,9 @@ function AdminChats() {
                     <button
                       onClick={() => setChatType("monitor")}
                       className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${
-                        chatType === "monitor" ? "bg-brand text-white shadow-sm" : "text-text-muted hover:text-white"
+                        chatType === "monitor"
+                          ? "bg-brand text-white shadow-sm"
+                          : "text-text-muted hover:text-white"
                       }`}
                     >
                       Monitoring
@@ -164,7 +187,9 @@ function AdminChats() {
                     <button
                       onClick={() => setChatType("team")}
                       className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${
-                        chatType === "team" ? "bg-brand text-white shadow-sm" : "text-text-muted hover:text-white"
+                        chatType === "team"
+                          ? "bg-brand text-white shadow-sm"
+                          : "text-text-muted hover:text-white"
                       }`}
                     >
                       Team Private
@@ -185,7 +210,6 @@ function AdminChats() {
                     >
                       <Monitor className="h-3.5 w-3.5" />
                     </button>
-
                   </div>
                 </div>
               )
@@ -213,7 +237,10 @@ function AdminChats() {
                         {messages.map((m) => {
                           const mine = m.sender_role === "admin";
                           return (
-                            <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+                            <div
+                              key={m.id}
+                              className={`flex ${mine ? "justify-end" : "justify-start"}`}
+                            >
                               <div
                                 className={`max-w-[85%] rounded-2xl border px-4 py-3 text-xs shadow-sm ${
                                   m.is_system
@@ -225,16 +252,28 @@ function AdminChats() {
                               >
                                 {!m.is_system && (
                                   <div className="flex items-center justify-between gap-4 mb-1 border-b border-white/5 pb-1">
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-brand">{m.sender_role}</span>
-                                    <span className="text-[8px] text-text-muted">{formatDate(m.created_at)}</span>
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-brand">
+                                      {m.sender_role}
+                                    </span>
+                                    <span className="text-[8px] text-text-muted">
+                                      {formatDate(m.created_at)}
+                                    </span>
                                   </div>
                                 )}
-                                {m.body && <p className="whitespace-pre-wrap break-words leading-relaxed">{m.body}</p>}
+                                {m.body && (
+                                  <p className="whitespace-pre-wrap break-words leading-relaxed">
+                                    {m.body}
+                                  </p>
+                                )}
                                 {m.attachment && (
                                   <div className="mt-2 p-2 rounded-lg bg-black/20 border border-white/5 flex items-center gap-2">
                                     <Paperclip className="h-3 w-3 text-brand" />
-                                    <span className="text-[10px] truncate flex-1 text-text-muted">{m.attachment.file_name}</span>
-                                    <span className="text-[8px] font-bold text-brand uppercase">Restricted</span>
+                                    <span className="text-[10px] truncate flex-1 text-text-muted">
+                                      {m.attachment.file_name}
+                                    </span>
+                                    <span className="text-[8px] font-bold text-brand uppercase">
+                                      Restricted
+                                    </span>
                                   </div>
                                 )}
                               </div>
@@ -253,9 +292,9 @@ function AdminChats() {
 
                   <div className="mt-auto border-t border-border-subtle pt-4 bg-surface-1/50 -mx-4 px-4 pb-2">
                     <div className="flex items-end gap-2">
-                      <Button 
-                        variant="ghost" 
-                        onClick={() => alert("Restricted: Admin cannot upload documents.")} 
+                      <Button
+                        variant="ghost"
+                        onClick={() => alert("Restricted: Admin cannot upload documents.")}
                         disabled={busy}
                         className="h-10 w-10 p-0 rounded-xl"
                       >
@@ -274,8 +313,8 @@ function AdminChats() {
                         placeholder="Type a message as admin..."
                         className={`${inputClass} min-h-10 max-h-32 resize-none py-2.5 flex-1`}
                       />
-                      <Button 
-                        onClick={() => void send()} 
+                      <Button
+                        onClick={() => void send()}
                         disabled={busy || !draft.trim()}
                         className="h-10 w-10 p-0 rounded-xl"
                       >
@@ -288,35 +327,53 @@ function AdminChats() {
                 <div className="w-72 border-l border-border-subtle pl-4 hidden xl:block overflow-y-auto">
                   <div className="space-y-6">
                     <section>
-                      <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-brand mb-3">Request Info</h4>
+                      <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-brand mb-3">
+                        Request Info
+                      </h4>
                       <div className="space-y-2.5">
                         <div className="p-3 rounded-xl bg-surface-2 border border-border-subtle">
-                          <p className="text-[10px] text-text-muted uppercase font-bold mb-1">Status</p>
+                          <p className="text-[10px] text-text-muted uppercase font-bold mb-1">
+                            Status
+                          </p>
                           <select
                             className={`${inputClass} h-8 text-[11px]`}
                             value={active.status}
-                            onChange={(e) => void requestsApi.updateRequestStatus(active.id, e.target.value as DbRequestStatus).then(() => refresh())}
+                            onChange={(e) =>
+                              void requestsApi
+                                .updateRequestStatus(active.id, e.target.value as DbRequestStatus)
+                                .then(() => refresh())
+                            }
                           >
                             {STATUSES.map((s) => (
-                              <option key={s} value={s}>{STATUS_LABEL[s]}</option>
+                              <option key={s} value={s}>
+                                {STATUS_LABEL[s]}
+                              </option>
                             ))}
                           </select>
                         </div>
                         <div className="p-3 rounded-xl bg-surface-2 border border-border-subtle space-y-2">
                           <div>
                             <p className="text-[10px] text-text-muted uppercase font-bold">User</p>
-                            <p className="text-xs text-white font-medium">{profileOf(active.user_id)?.full_name ?? "—"}</p>
+                            <p className="text-xs text-white font-medium">
+                              {profileOf(active.user_id)?.full_name ?? "—"}
+                            </p>
                           </div>
                           <div>
-                            <p className="text-[10px] text-text-muted uppercase font-bold">Team Member</p>
-                            <p className="text-xs text-white font-medium">{profileOf(active.assigned_team_id)?.full_name ?? "Unassigned"}</p>
+                            <p className="text-[10px] text-text-muted uppercase font-bold">
+                              Team Member
+                            </p>
+                            <p className="text-xs text-white font-medium">
+                              {profileOf(active.assigned_team_id)?.full_name ?? "Unassigned"}
+                            </p>
                           </div>
                         </div>
                       </div>
                     </section>
 
                     <section>
-                      <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-brand mb-3">Timeline</h4>
+                      <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-brand mb-3">
+                        Timeline
+                      </h4>
                       <div className="space-y-3 relative before:absolute before:left-1 before:top-2 before:bottom-0 before:w-px before:bg-border-subtle">
                         {activity
                           .filter((a) => a.request_id === active.id)
@@ -324,17 +381,24 @@ function AdminChats() {
                           .map((a) => (
                             <div key={a.id} className="pl-4 relative">
                               <div className="absolute left-0 top-1.5 w-2 h-2 rounded-full bg-brand ring-4 ring-bg" />
-                              <p className="text-[10px] text-white font-medium leading-tight">{a.label ?? a.action}</p>
-                              <p className="text-[8px] text-text-muted uppercase mt-0.5">{formatDate(a.created_at)}</p>
+                              <p className="text-[10px] text-white font-medium leading-tight">
+                                {a.label ?? a.action}
+                              </p>
+                              <p className="text-[8px] text-text-muted uppercase mt-0.5">
+                                {formatDate(a.created_at)}
+                              </p>
                             </div>
                           ))}
                       </div>
                     </section>
 
                     <div className="p-3 rounded-xl bg-brand/5 border border-brand/20">
-                      <p className="text-[9px] font-bold text-brand uppercase mb-1">Privacy Restricted</p>
+                      <p className="text-[9px] font-bold text-brand uppercase mb-1">
+                        Privacy Restricted
+                      </p>
                       <p className="text-[9px] text-text-muted leading-relaxed italic">
-                        Documents and personal files are hidden from administrative view to comply with privacy standards.
+                        Documents and personal files are hidden from administrative view to comply
+                        with privacy standards.
                       </p>
                     </div>
                   </div>
@@ -347,7 +411,8 @@ function AdminChats() {
                 </div>
                 <h3 className="text-sm font-bold text-white mb-2">Select a Conversation</h3>
                 <p className="text-xs text-text-muted max-w-[240px]">
-                  Pick a chat from the left panel to monitor the conversation and view request details.
+                  Pick a chat from the left panel to monitor the conversation and view request
+                  details.
                 </p>
               </div>
             )}
@@ -358,4 +423,3 @@ function AdminChats() {
     </div>
   );
 }
-

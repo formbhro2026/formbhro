@@ -1,5 +1,12 @@
 import { createContext } from "react";
-import type { USER_PROFILE, AppNotification, ChatMessage, NewsItem, SupportRequest, UserDocument } from "@/data/user-module";
+import type {
+  USER_PROFILE,
+  AppNotification,
+  ChatMessage,
+  NewsItem,
+  SupportRequest,
+  UserDocument,
+} from "@/data/user-module";
 
 export type Profile = typeof USER_PROFILE;
 
@@ -24,7 +31,7 @@ export type UserStore = {
     kind: UserDocument["kind"],
     size: string,
     preview?: { previewUrl?: string; pageCount?: number; dimensions?: string },
-    file?: File
+    file?: File,
   ) => void;
   /** Uploads a standalone document to "My Documents" without creating a request. */
   uploadPersonalDocument: (file: File, name: string) => Promise<void>;

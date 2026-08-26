@@ -2,7 +2,17 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { UserPlus } from "lucide-react";
 import { useAdmin } from "@/lib/admin-store";
-import { Button, EmptyRow, Field, Panel, Pill, SearchBox, TableWrap, formatDate, inputClass } from "@/components/admin/AdminUI";
+import {
+  Button,
+  EmptyRow,
+  Field,
+  Panel,
+  Pill,
+  SearchBox,
+  TableWrap,
+  formatDate,
+  inputClass,
+} from "@/components/admin/AdminUI";
 import {
   createTeamMember,
   deleteTeamMember,
@@ -24,7 +34,6 @@ const BLANK = {
   role: "team" as "team" | "admin",
   active: true,
 };
-
 
 function AdminTeam() {
   const { team, profiles, requests, refresh, profileOf } = useAdmin();
@@ -54,7 +63,9 @@ function AdminTeam() {
   const detail = team.find((t) => t.id === selected) ?? null;
   const detailProfile = profileOf(detail?.id);
   const detailRequests = requests.filter((r) => r.assigned_team_id === detail?.id);
-  const unassigned = requests.filter((r) => !r.assigned_team_id && !["completed", "cancelled"].includes(r.status));
+  const unassigned = requests.filter(
+    (r) => !r.assigned_team_id && !["completed", "cancelled"].includes(r.status),
+  );
 
   const run = async (fn: () => Promise<unknown>, ok: string) => {
     setBusy(true);
@@ -73,7 +84,9 @@ function AdminTeam() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     await run(async () => {
-      await createTeamMember({ data: { ...form, phone: form.phone || undefined, avatar_url: form.avatar_url || undefined } });
+      await createTeamMember({
+        data: { ...form, phone: form.phone || undefined, avatar_url: form.avatar_url || undefined },
+      });
       setForm({ ...BLANK });
       setShowForm(false);
     }, "Team member created. Share their special access code for them to sign in.");
@@ -85,7 +98,9 @@ function AdminTeam() {
         <p
           role="status"
           className={`rounded-xl border px-3 py-2 text-[11px] ${
-            msg.tone === "ok" ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300" : "border-red-400/30 bg-red-400/10 text-red-300"
+            msg.tone === "ok"
+              ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
+              : "border-red-400/30 bg-red-400/10 text-red-300"
           }`}
         >
           {msg.text}
@@ -96,39 +111,81 @@ function AdminTeam() {
         title={`Team members (${team.length})`}
         action={
           <Button onClick={() => setShowForm((s) => !s)}>
-            <UserPlus className="h-3.5 w-3.5" aria-hidden="true" /> {showForm ? "Cancel" : "Add member"}
+            <UserPlus className="h-3.5 w-3.5" aria-hidden="true" />{" "}
+            {showForm ? "Cancel" : "Add member"}
           </Button>
         }
       >
         {showForm && (
-          <form onSubmit={(e) => void submit(e)} className="mb-4 grid gap-3 rounded-xl border border-border-subtle bg-bg p-3 sm:grid-cols-2">
+          <form
+            onSubmit={(e) => void submit(e)}
+            className="mb-4 grid gap-3 rounded-xl border border-border-subtle bg-bg p-3 sm:grid-cols-2"
+          >
             <Field label="Full name">
-              <input required className={inputClass} value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
+              <input
+                required
+                className={inputClass}
+                value={form.full_name}
+                onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+              />
             </Field>
             <Field label="Email">
-              <input required type="email" className={inputClass} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+              <input
+                required
+                type="email"
+                className={inputClass}
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+              />
             </Field>
             <Field label="Phone">
-              <input className={inputClass} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              <input
+                className={inputClass}
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              />
             </Field>
             <Field label="Photo URL">
-              <input className={inputClass} value={form.avatar_url} onChange={(e) => setForm({ ...form, avatar_url: e.target.value })} />
+              <input
+                className={inputClass}
+                value={form.avatar_url}
+                onChange={(e) => setForm({ ...form, avatar_url: e.target.value })}
+              />
             </Field>
             <Field label="Password (Default for new members)">
-              <input required minLength={8} type="text" className={`${inputClass} font-mono text-brand-light opacity-80`} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+              <input
+                required
+                minLength={8}
+                type="text"
+                className={`${inputClass} font-mono text-brand-light opacity-80`}
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+              />
             </Field>
 
             <Field label="Department / job title">
-              <input className={inputClass} value={form.job_title} onChange={(e) => setForm({ ...form, job_title: e.target.value })} />
+              <input
+                className={inputClass}
+                value={form.job_title}
+                onChange={(e) => setForm({ ...form, job_title: e.target.value })}
+              />
             </Field>
             <Field label="Role">
-              <select className={inputClass} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as "team" | "admin" })}>
+              <select
+                className={inputClass}
+                value={form.role}
+                onChange={(e) => setForm({ ...form, role: e.target.value as "team" | "admin" })}
+              >
                 <option value="team">Team</option>
                 <option value="admin">Admin</option>
               </select>
             </Field>
             <Field label="Status">
-              <select className={inputClass} value={form.active ? "active" : "suspended"} onChange={(e) => setForm({ ...form, active: e.target.value === "active" })}>
+              <select
+                className={inputClass}
+                value={form.active ? "active" : "suspended"}
+                onChange={(e) => setForm({ ...form, active: e.target.value === "active" })}
+              >
                 <option value="active">Active</option>
                 <option value="suspended">Suspended</option>
               </select>
@@ -142,7 +199,12 @@ function AdminTeam() {
         )}
 
         <div className="mb-3">
-          <SearchBox value={q} onChange={setQ} label="Search team" placeholder="Name, email, code…" />
+          <SearchBox
+            value={q}
+            onChange={setQ}
+            label="Search team"
+            placeholder="Name, email, code…"
+          />
         </div>
 
         <TableWrap>
@@ -162,21 +224,27 @@ function AdminTeam() {
               return (
                 <tr key={member.id} className="border-t border-border-subtle/50">
                   <td className="px-3 py-2.5">
-                    <button type="button" onClick={() => setSelected(member.id)} className="text-left text-xs font-semibold text-white hover:text-brand-light">
+                    <button
+                      type="button"
+                      onClick={() => setSelected(member.id)}
+                      className="text-left text-xs font-semibold text-white hover:text-brand-light"
+                    >
                       {profile?.full_name || "Unnamed"}
                     </button>
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] font-mono font-bold text-[#ff7a00] bg-[#ff7a00]/10 border border-[#ff7a00]/20 px-1.5 py-0.5 rounded shadow-[0_0_10px_rgba(255,122,0,0.1)]">
                         {member.team_code}
                       </span>
-                      <button 
+                      <button
                         onClick={(e) => {
                           e.stopPropagation();
                           navigator.clipboard.writeText(member.team_code);
                           const btn = e.currentTarget;
                           const oldText = btn.innerText;
                           btn.innerText = "Copied!";
-                          setTimeout(() => { btn.innerText = oldText; }, 2000);
+                          setTimeout(() => {
+                            btn.innerText = oldText;
+                          }, 2000);
                         }}
                         className="text-[9px] font-medium text-text-muted hover:text-brand-light transition-colors px-1.5 py-0.5 bg-surface-2 rounded border border-border-subtle"
                         title="Copy Code"
@@ -184,17 +252,19 @@ function AdminTeam() {
                         Copy
                       </button>
                       <span className="text-[10px] text-text-muted">·</span>
-                      <span className="text-[10px] text-text-muted font-mono">{profile?.email}</span>
-
+                      <span className="text-[10px] text-text-muted font-mono">
+                        {profile?.email}
+                      </span>
                     </div>
-
                   </td>
                   <td className="px-3 py-2.5 text-text-secondary">{member.job_title}</td>
                   <td className="px-3 py-2.5 text-text-secondary">
                     {mine.length} · {mine.filter((r) => r.status === "completed").length} done
                   </td>
                   <td className="px-3 py-2.5">
-                    <Pill tone={member.is_active ? "ok" : "bad"}>{member.is_active ? "Active" : "Suspended"}</Pill>
+                    <Pill tone={member.is_active ? "ok" : "bad"}>
+                      {member.is_active ? "Active" : "Suspended"}
+                    </Pill>
                   </td>
                   <td className="px-3 py-2.5 text-text-muted">{formatDate(member.created_at)}</td>
                   <td className="px-3 py-2.5 text-right">
@@ -222,10 +292,12 @@ function AdminTeam() {
           <div className="grid gap-4 lg:grid-cols-3">
             <div className="space-y-3 rounded-xl border border-border-subtle bg-bg p-3 text-xs">
               <div>
-                <p className="text-[10px] font-medium uppercase tracking-wider text-text-muted">Team Access Code</p>
+                <p className="text-[10px] font-medium uppercase tracking-wider text-text-muted">
+                  Team Access Code
+                </p>
                 <div className="mt-1.5 flex items-center justify-between rounded-lg border border-[#ff7a00]/20 bg-[#ff7a00]/5 p-2 font-mono text-[11px]">
                   <span className="text-[#ff7a00] font-bold">{detail.team_code}</span>
-                  <button 
+                  <button
                     onClick={() => {
                       navigator.clipboard.writeText(detail.team_code);
                       alert("Code copied to clipboard!");
@@ -245,7 +317,11 @@ function AdminTeam() {
               <p className="text-text-secondary">
                 Completion rate:{" "}
                 {detailRequests.length
-                  ? Math.round((detailRequests.filter((r) => r.status === "completed").length / detailRequests.length) * 100)
+                  ? Math.round(
+                      (detailRequests.filter((r) => r.status === "completed").length /
+                        detailRequests.length) *
+                        100,
+                    )
                   : 0}
                 %
               </p>
@@ -253,7 +329,13 @@ function AdminTeam() {
                 <Button
                   variant={detail.is_active ? "danger" : "primary"}
                   disabled={busy}
-                  onClick={() => void run(() => setTeamMemberActive({ data: { id: detail.id, active: !detail.is_active } }), "Status updated.")}
+                  onClick={() =>
+                    void run(
+                      () =>
+                        setTeamMemberActive({ data: { id: detail.id, active: !detail.is_active } }),
+                      "Status updated.",
+                    )
+                  }
                 >
                   {detail.is_active ? "Suspend" : "Activate"}
                 </Button>
@@ -262,7 +344,11 @@ function AdminTeam() {
                   disabled={busy}
                   onClick={() => {
                     const pwd = window.prompt("New password (min 8 characters)");
-                    if (pwd) void run(() => resetTeamPassword({ data: { id: detail.id, password: pwd } }), "Password reset.");
+                    if (pwd)
+                      void run(
+                        () => resetTeamPassword({ data: { id: detail.id, password: pwd } }),
+                        "Password reset.",
+                      );
                   }}
                 >
                   Reset password
@@ -272,7 +358,11 @@ function AdminTeam() {
                   disabled={busy}
                   onClick={() => {
                     const title = window.prompt("Department / job title", detail.job_title);
-                    if (title) void run(() => updateTeamMember({ data: { id: detail.id, job_title: title } }), "Team member updated.");
+                    if (title)
+                      void run(
+                        () => updateTeamMember({ data: { id: detail.id, job_title: title } }),
+                        "Team member updated.",
+                      );
                   }}
                 >
                   Edit
@@ -281,8 +371,13 @@ function AdminTeam() {
                   variant="danger"
                   disabled={busy}
                   onClick={() => {
-                    if (window.confirm("Delete this team member? Their requests will be unassigned.")) {
-                      void run(() => deleteTeamMember({ data: { id: detail.id } }), "Team member removed.");
+                    if (
+                      window.confirm("Delete this team member? Their requests will be unassigned.")
+                    ) {
+                      void run(
+                        () => deleteTeamMember({ data: { id: detail.id } }),
+                        "Team member removed.",
+                      );
                       setSelected(null);
                     }
                   }}
@@ -296,7 +391,12 @@ function AdminTeam() {
               <div className="rounded-xl border border-border-subtle bg-bg p-3">
                 <h3 className="mb-2 text-xs font-semibold text-white">Assign a request</h3>
                 <div className="flex flex-wrap gap-2">
-                  <select className={`${inputClass} sm:max-w-xs`} value={assignTo} onChange={(e) => setAssignTo(e.target.value)} aria-label="Select request">
+                  <select
+                    className={`${inputClass} sm:max-w-xs`}
+                    value={assignTo}
+                    onChange={(e) => setAssignTo(e.target.value)}
+                    aria-label="Select request"
+                  >
                     <option value="">Select an unassigned request…</option>
                     {unassigned.map((r) => (
                       <option key={r.id} value={r.id}>
@@ -308,7 +408,9 @@ function AdminTeam() {
                     disabled={!assignTo || busy}
                     onClick={() =>
                       void run(async () => {
-                        await assignRequestToTeam({ data: { request_id: assignTo, team_member_id: detail.id } });
+                        await assignRequestToTeam({
+                          data: { request_id: assignTo, team_member_id: detail.id },
+                        });
                         setAssignTo("");
                       }, "Request assigned.")
                     }
@@ -319,10 +421,15 @@ function AdminTeam() {
               </div>
 
               <div>
-                <h3 className="mb-2 text-xs font-semibold text-white">Assigned requests ({detailRequests.length})</h3>
+                <h3 className="mb-2 text-xs font-semibold text-white">
+                  Assigned requests ({detailRequests.length})
+                </h3>
                 <ul className="space-y-2">
                   {detailRequests.map((r) => (
-                    <li key={r.id} className="rounded-xl border border-border-subtle bg-bg px-3 py-2.5 text-xs">
+                    <li
+                      key={r.id}
+                      className="rounded-xl border border-border-subtle bg-bg px-3 py-2.5 text-xs"
+                    >
                       <div className="flex items-center justify-between gap-2">
                         <span className="truncate font-semibold text-white">{r.title}</span>
                         <Pill tone={r.status === "completed" ? "ok" : "brand"}>{r.status}</Pill>
@@ -332,7 +439,11 @@ function AdminTeam() {
                       </p>
                     </li>
                   ))}
-                  {!detailRequests.length && <li className="py-6 text-center text-xs text-text-muted">Nothing assigned yet.</li>}
+                  {!detailRequests.length && (
+                    <li className="py-6 text-center text-xs text-text-muted">
+                      Nothing assigned yet.
+                    </li>
+                  )}
                 </ul>
               </div>
             </div>

@@ -25,7 +25,7 @@ export function DocumentMessage({
   dimensions?: string;
 }) {
   const Icon = ICONS[kind] ?? File;
-  
+
   return (
     <div className="w-full max-w-xs p-1">
       {previewUrl && (

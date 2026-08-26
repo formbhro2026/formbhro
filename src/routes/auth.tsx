@@ -147,10 +147,7 @@ function AuthPage() {
       return;
     }
 
-    if (
-      hash.includes("access_token=") ||
-      query.includes("access_token=")
-    ) {
+    if (hash.includes("access_token=") || query.includes("access_token=")) {
       setProcessingOAuth(true);
       supabase.auth
         .getSession()

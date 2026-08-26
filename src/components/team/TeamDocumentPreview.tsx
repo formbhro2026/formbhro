@@ -7,7 +7,13 @@ import { useDialogA11y } from "@/lib/use-dialog-a11y";
 import { DOC_ICONS } from "@/components/team/TeamDocumentCard";
 import { cn } from "@/lib/utils";
 
-export function TeamDocumentPreview({ document: doc, onClose }: { document: TeamDocument; onClose: () => void }) {
+export function TeamDocumentPreview({
+  document: doc,
+  onClose,
+}: {
+  document: TeamDocument;
+  onClose: () => void;
+}) {
   const panelRef = useDialogA11y<HTMLDivElement>(onClose);
   const [zoom, setZoom] = useState(1);
   const [expanded, setExpanded] = useState(false);
@@ -15,13 +21,22 @@ export function TeamDocumentPreview({ document: doc, onClose }: { document: Team
   const fileUrl = useTeamDocumentUrl(doc);
 
   const htmlSrcDoc = useMemo(
-    () => (doc.kind === "html" ? `<!doctype html><meta charset="utf-8"><body style="margin:16px;background:#fff">${doc.html ?? ""}</body>` : undefined),
-    [doc]
+    () =>
+      doc.kind === "html"
+        ? `<!doctype html><meta charset="utf-8"><body style="margin:16px;background:#fff">${doc.html ?? ""}</body>`
+        : undefined,
+    [doc],
   );
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/80 backdrop-blur-sm sm:items-center sm:p-4">
-      <button type="button" tabIndex={-1} aria-hidden="true" onClick={onClose} className="absolute inset-0 cursor-default" />
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-hidden="true"
+        onClick={onClose}
+        className="absolute inset-0 cursor-default"
+      />
       <div
         ref={panelRef}
         role="dialog"
@@ -29,7 +44,7 @@ export function TeamDocumentPreview({ document: doc, onClose }: { document: Team
         aria-labelledby="team-doc-preview-title"
         className={cn(
           "relative flex w-full flex-col rounded-t-2xl border border-border-subtle bg-surface-1 duration-200 animate-in slide-in-from-bottom-4 sm:rounded-2xl",
-          expanded ? "h-[92vh] max-w-5xl" : "max-h-[88vh] max-w-2xl"
+          expanded ? "h-[92vh] max-w-5xl" : "max-h-[88vh] max-w-2xl",
         )}
       >
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 border-b border-border-subtle p-4">
@@ -57,15 +72,30 @@ export function TeamDocumentPreview({ document: doc, onClose }: { document: Team
             style={{ width: `${Math.round(zoom * 100)}%` }}
           >
             {doc.kind === "image" && fileUrl ? (
-              <img src={fileUrl} alt={`Preview of ${doc.name}`} className="h-full w-full object-contain" />
+              <img
+                src={fileUrl}
+                alt={`Preview of ${doc.name}`}
+                className="h-full w-full object-contain"
+              />
             ) : doc.kind === "pdf" && doc.storagePath && fileUrl ? (
-              <iframe title={`PDF preview of ${doc.name}`} src={fileUrl} className="h-[60vh] w-full bg-white" />
+              <iframe
+                title={`PDF preview of ${doc.name}`}
+                src={fileUrl}
+                className="h-[60vh] w-full bg-white"
+              />
             ) : doc.kind === "html" ? (
-              <iframe title={`HTML preview of ${doc.name}`} srcDoc={htmlSrcDoc} sandbox="" className="h-[60vh] w-full bg-white" />
+              <iframe
+                title={`HTML preview of ${doc.name}`}
+                srcDoc={htmlSrcDoc}
+                sandbox=""
+                className="h-[60vh] w-full bg-white"
+              />
             ) : (
               <div className="flex flex-col items-center gap-2 px-6 py-16 text-center text-text-muted">
                 <Icon className="h-9 w-9 text-brand" strokeWidth={1.25} aria-hidden="true" />
-                <p className="text-xs">{doc.kind === "pdf" ? "PDF preview — page 1" : "Document preview"}</p>
+                <p className="text-xs">
+                  {doc.kind === "pdf" ? "PDF preview — page 1" : "Document preview"}
+                </p>
                 <p className="text-[11px]">Secure preview. Storage location is never exposed.</p>
               </div>
             )}
@@ -97,7 +127,11 @@ export function TeamDocumentPreview({ document: doc, onClose }: { document: Team
             onClick={() => setExpanded((e) => !e)}
             className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border-strong px-3 text-[11px] font-semibold text-white hover:bg-white/5"
           >
-            {expanded ? <Minimize2 className="h-3.5 w-3.5" aria-hidden="true" /> : <Maximize2 className="h-3.5 w-3.5" aria-hidden="true" />}
+            {expanded ? (
+              <Minimize2 className="h-3.5 w-3.5" aria-hidden="true" />
+            ) : (
+              <Maximize2 className="h-3.5 w-3.5" aria-hidden="true" />
+            )}
             {expanded ? "Compact view" : "Resize view"}
           </button>
           <div className="ml-auto flex gap-2">

@@ -52,7 +52,11 @@ export async function signInWithGoogle(redirectPath: string = "/app") {
       throw new ApiError("Google sign-in failed: no ID token received. Please try again.");
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err);
-      if (errMsg.includes("12501") || errMsg.toLowerCase().includes("canceled") || errMsg.toLowerCase().includes("cancelled")) {
+      if (
+        errMsg.includes("12501") ||
+        errMsg.toLowerCase().includes("canceled") ||
+        errMsg.toLowerCase().includes("cancelled")
+      ) {
         console.log("[Auth] User canceled Google Sign-In.");
         return null;
       }

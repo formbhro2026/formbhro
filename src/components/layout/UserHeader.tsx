@@ -5,7 +5,6 @@ import logoAsset from "@/assets/logo.png.asset.json";
 import { useUserStore } from "@/lib/user-store";
 import { NotificationPanel } from "@/components/notifications/NotificationPanel";
 
-
 export function UserHeader({ title }: { title?: string }) {
   const { notifications, profile, setSidebarOpen } = useUserStore();
   const [open, setOpen] = useState(false);
@@ -30,10 +29,10 @@ export function UserHeader({ title }: { title?: string }) {
     <header className="sticky top-0 z-30 bg-surface-1 border-b border-border-subtle">
       <div className="flex h-16 lg:h-14 items-center justify-between gap-3 px-4 sm:px-6">
         {/* Mobile Sidebar Toggle */}
-        <button 
-          type="button" 
+        <button
+          type="button"
           onClick={() => setSidebarOpen(true)}
-          className="lg:hidden p-2 text-white active:bg-surface-2 rounded-lg transition-colors" 
+          className="lg:hidden p-2 text-white active:bg-surface-2 rounded-lg transition-colors"
           aria-label="Open sidebar"
         >
           <Menu className="h-6 w-6" strokeWidth={1.5} />
@@ -42,15 +41,17 @@ export function UserHeader({ title }: { title?: string }) {
         {/* Logo - Centered on mobile, Left on desktop */}
         <div className="flex min-w-0 flex-1 items-center justify-center lg:justify-start gap-3">
           <Link to="/app" aria-label="Formbhro home">
-            <img 
-              src={logoAsset.url} 
-              alt="Formbhro" 
-              width={140} 
-              height={40} 
-              className="h-6 w-auto" 
+            <img
+              src={logoAsset.url}
+              alt="Formbhro"
+              width={140}
+              height={40}
+              className="h-6 w-auto"
             />
           </Link>
-          {title && <h1 className="hidden truncate text-sm font-semibold text-white lg:block">{title}</h1>}
+          {title && (
+            <h1 className="hidden truncate text-sm font-semibold text-white lg:block">{title}</h1>
+          )}
         </div>
 
         {/* Notifications & Profile */}
@@ -66,15 +67,15 @@ export function UserHeader({ title }: { title?: string }) {
             >
               <Bell className="h-6 w-6 lg:h-5 lg:w-5" strokeWidth={1.5} aria-hidden="true" />
               {unread && (
-                <span 
-                  aria-hidden="true" 
-                  className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full border-2 border-surface-1 bg-brand lg:right-2.5 lg:top-2.5 lg:h-2 lg:w-2" 
+                <span
+                  aria-hidden="true"
+                  className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full border-2 border-surface-1 bg-brand lg:right-2.5 lg:top-2.5 lg:h-2 lg:w-2"
                 />
               )}
             </button>
             {open && <NotificationPanel onClose={() => setOpen(false)} />}
           </div>
-          
+
           <Link
             to="/app/profile"
             aria-label="Your profile"
@@ -87,4 +88,3 @@ export function UserHeader({ title }: { title?: string }) {
     </header>
   );
 }
-

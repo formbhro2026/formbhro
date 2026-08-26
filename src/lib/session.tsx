@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { AppRole, Profile } from "@/lib/api/types";
@@ -45,7 +53,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     // Initial load
     const init = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
         if (active) {
           await load(session?.user ?? null);
         }
@@ -62,11 +72,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!active) return;
-      
+
       await load(session?.user ?? null);
 
       // Initialize FCM token registration when user signs in (Android only; no-op on web)
-      if (_event === 'SIGNED_IN' && session?.user && isCapacitor()) {
+      if (_event === "SIGNED_IN" && session?.user && isCapacitor()) {
         void initializeFCM(session.user.id);
       }
     });
@@ -95,7 +105,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<SessionValue>(
     () => ({ loading, initialized, user, profile, role, refresh, signOut }),
-    [loading, initialized, user, profile, role, refresh, signOut]
+    [loading, initialized, user, profile, role, refresh, signOut],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

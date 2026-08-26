@@ -10,7 +10,10 @@ export const Route = createFileRoute("/team/_shell/notifications")({
   head: () => ({
     meta: [
       { title: "Notifications — Formbhro Team" },
-      { name: "description", content: "Your real-time notifications for assigned Formbhro requests." },
+      {
+        name: "description",
+        content: "Your real-time notifications for assigned Formbhro requests.",
+      },
       { property: "og:title", content: "Notifications — Formbhro Team" },
       { property: "og:description", content: "Stay updated with real-time alerts." },
       { property: "og:type", content: "website" },
@@ -51,12 +54,22 @@ function TeamNotifications() {
                 key={n.id}
                 className={cn(
                   "flex items-start gap-3 rounded-xl border p-4 transition-colors",
-                  n.read ? "border-white/5 bg-surface-1" : "border-brand/20 bg-brand/[0.03]"
+                  n.read ? "border-white/5 bg-surface-1" : "border-brand/20 bg-brand/[0.03]",
                 )}
               >
-                <div className={cn("mt-1 h-2 w-2 shrink-0 rounded-full", n.read ? "bg-white/20" : "bg-brand")} />
+                <div
+                  className={cn(
+                    "mt-1 h-2 w-2 shrink-0 rounded-full",
+                    n.read ? "bg-white/20" : "bg-brand",
+                  )}
+                />
                 <div className="min-w-0 flex-1">
-                  <p className={cn("text-xs leading-relaxed", n.read ? "text-text-muted" : "text-white font-medium")}>
+                  <p
+                    className={cn(
+                      "text-xs leading-relaxed",
+                      n.read ? "text-text-muted" : "text-white font-medium",
+                    )}
+                  >
                     {n.text}
                   </p>
                   <p className="mt-1 text-[10px] text-text-muted">{n.time}</p>

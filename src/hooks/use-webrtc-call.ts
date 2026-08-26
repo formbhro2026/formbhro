@@ -15,10 +15,7 @@ export type CallSession = {
 };
 
 const ICE_SERVERS = {
-  iceServers: [
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun1.l.google.com:19302" },
-  ],
+  iceServers: [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }],
 };
 
 const requestMediaPermissions = async (screenShare = false): Promise<MediaStream> => {
@@ -30,32 +27,32 @@ const requestMediaPermissions = async (screenShare = false): Promise<MediaStream
 
   if (screenShare) {
     try {
-      return await navigator.mediaDevices.getDisplayMedia({ 
-        video: { 
+      return await navigator.mediaDevices.getDisplayMedia({
+        video: {
           width: { ideal: 1280 },
-          height: { ideal: 720 }
-        } as any, 
-        audio: true 
+          height: { ideal: 720 },
+        } as any,
+        audio: true,
       });
     } catch (displayErr) {
       console.warn("Screen share with audio failed, trying without audio:", displayErr);
       // Fallback: try screen share without audio, then add microphone separately
-      const screenStream = await navigator.mediaDevices.getDisplayMedia({ 
-        video: { 
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
           width: { ideal: 1280 },
-          height: { ideal: 720 }
-        } as any, 
-        audio: false 
+          height: { ideal: 720 },
+        } as any,
+        audio: false,
       });
-      
+
       // Add microphone audio separately
       try {
         const audioStream = await navigator.mediaDevices.getUserMedia({
           audio: {
             echoCancellation: true,
             noiseSuppression: true,
-            autoGainControl: true
-          }
+            autoGainControl: true,
+          },
         });
         const audioTrack = audioStream.getAudioTracks()[0];
         if (audioTrack) {
@@ -64,21 +61,21 @@ const requestMediaPermissions = async (screenShare = false): Promise<MediaStream
       } catch (audioErr) {
         console.warn("Could not add microphone audio to screen share:", audioErr);
       }
-      
+
       return screenStream;
     }
   } else {
-    return await navigator.mediaDevices.getUserMedia({ 
-      video: { 
+    return await navigator.mediaDevices.getUserMedia({
+      video: {
         width: { ideal: 1280 },
         height: { ideal: 720 },
-        facingMode: "user"
-      }, 
+        facingMode: "user",
+      },
       audio: {
         echoCancellation: true,
         noiseSuppression: true,
-        autoGainControl: true
-      } 
+        autoGainControl: true,
+      },
     });
   }
 };
@@ -147,55 +144,63 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
     return pc;
   }, [chatRoomId, cleanup]);
 
-  const startCall = useCallback(async (screenShare = false) => {
-    if (!chatRoomId) return;
+  const startCall = useCallback(
+    async (screenShare = false) => {
+      if (!chatRoomId) return;
 
-    try {
-      cleanup();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      myIdRef.current = user.id;
-
-      let stream: MediaStream;
       try {
-        stream = await requestMediaPermissions(screenShare);
-      } catch (mediaErr) {
-        console.error("Media permissions error:", mediaErr);
-        const errorMessage = isCapacitor() 
-          ? "Camera and microphone permissions are required. Please enable them in app settings."
-          : "Camera and microphone access is required for video calls.";
-        setSession((prev) => ({ ...prev, error: errorMessage }));
-        return;
+        cleanup();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) return;
+        myIdRef.current = user.id;
+
+        let stream: MediaStream;
+        try {
+          stream = await requestMediaPermissions(screenShare);
+        } catch (mediaErr) {
+          console.error("Media permissions error:", mediaErr);
+          const errorMessage = isCapacitor()
+            ? "Camera and microphone permissions are required. Please enable them in app settings."
+            : "Camera and microphone access is required for video calls.";
+          setSession((prev) => ({ ...prev, error: errorMessage }));
+          return;
+        }
+
+        localStreamRef.current = stream;
+        setSession((prev) => ({
+          ...prev,
+          isActive: true,
+          isOutgoing: true,
+          isScreenSharing: screenShare,
+          localStream: stream,
+        }));
+
+        const pc = createPeerConnection();
+        pcRef.current = pc;
+
+        stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+
+        await sendSignal(chatRoomId, {
+          type: "offer",
+          from: user.id,
+          target: "all",
+          data: { offer, isScreenShare: screenShare },
+        });
+      } catch (err) {
+        console.error("WebRTC startCall error:", err);
+        setSession((prev) => ({
+          ...prev,
+          error: "Could not start call: " + (err as Error).message,
+        }));
       }
-
-      localStreamRef.current = stream;
-      setSession((prev) => ({
-        ...prev,
-        isActive: true,
-        isOutgoing: true,
-        isScreenSharing: screenShare,
-        localStream: stream,
-      }));
-
-      const pc = createPeerConnection();
-      pcRef.current = pc;
-
-      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
-
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-
-      await sendSignal(chatRoomId, {
-        type: "offer",
-        from: user.id,
-        target: "all",
-        data: { offer, isScreenShare: screenShare },
-      });
-    } catch (err) {
-      console.error("WebRTC startCall error:", err);
-      setSession((prev) => ({ ...prev, error: "Could not start call: " + (err as Error).message }));
-    }
-  }, [chatRoomId, cleanup, createPeerConnection]);
+    },
+    [chatRoomId, cleanup, createPeerConnection],
+  );
 
   const acceptCall = useCallback(async () => {
     if (!pcRef.current || !chatRoomId || !myIdRef.current) return;
@@ -206,7 +211,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         stream = await requestMediaPermissions(false);
       } catch (mediaErr) {
         console.error("Media permissions error:", mediaErr);
-        const errorMessage = isCapacitor() 
+        const errorMessage = isCapacitor()
           ? "Camera and microphone permissions are required. Please enable them in app settings."
           : "Camera and microphone access is required for video calls.";
         setSession((prev) => ({ ...prev, error: errorMessage }));
@@ -214,7 +219,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
       }
 
       localStreamRef.current = stream;
-      
+
       stream.getTracks().forEach((track) => pcRef.current?.addTrack(track, stream));
 
       const answer = await pcRef.current.createAnswer();
@@ -235,7 +240,10 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
       });
     } catch (err) {
       console.error("WebRTC acceptCall error:", err);
-      setSession((prev) => ({ ...prev, error: "Could not accept call: " + (err as Error).message }));
+      setSession((prev) => ({
+        ...prev,
+        error: "Could not accept call: " + (err as Error).message,
+      }));
     }
   }, [chatRoomId]);
 
@@ -255,7 +263,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
     if (!chatRoomId) return;
 
     let alive = true;
-    let retryCount = 0;
+    const retryCount = 0;
     const MAX_RETRIES = 3;
 
     void supabase.auth.getUser().then(({ data: { user } }) => {
@@ -302,7 +310,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
       });
     };
 
-    let unsubscribe = setupSubscription();
+    const unsubscribe = setupSubscription();
 
     // Health check for signaling channel
     const checkInterval = setInterval(() => {

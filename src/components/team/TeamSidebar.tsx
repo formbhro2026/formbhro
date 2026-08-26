@@ -1,5 +1,15 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Home, Briefcase, FileText, BarChart3, User, LogOut, Bell, LifeBuoy, ArrowRight } from "lucide-react";
+import {
+  Home,
+  Briefcase,
+  FileText,
+  BarChart3,
+  User,
+  LogOut,
+  Bell,
+  LifeBuoy,
+  ArrowRight,
+} from "lucide-react";
 import logoAsset from "@/assets/logo.png.asset.json";
 import { cn } from "@/lib/utils";
 import { useTeamStore } from "@/lib/team-store";
@@ -16,12 +26,16 @@ export const TEAM_NAV = [
 export function TeamSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { member, signOut, totalUnread, requests, unreadNotifications } = useTeamStore();
-  const isActive = (to: string, exact: boolean) => (exact ? pathname === to : pathname.startsWith(to));
+  const isActive = (to: string, exact: boolean) =>
+    exact ? pathname === to : pathname.startsWith(to);
 
   const pending = requests.filter((r) => r.status === "pending").length;
   const waiting = requests.filter((r) => r.status === "waiting-user").length;
   const completed = requests.filter((r) => r.status === "completed").length;
-  const next = requests.filter((r) => r.status !== "completed").slice().sort((a, b) => b.unread - a.unread)[0];
+  const next = requests
+    .filter((r) => r.status !== "completed")
+    .slice()
+    .sort((a, b) => b.unread - a.unread)[0];
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 shrink-0 flex-col border-r border-border-subtle bg-bg lg:flex">
@@ -47,13 +61,20 @@ export function TeamSidebar() {
         <p className="mt-0.5 truncate text-[11px] text-text-muted">{member?.role}</p>
       </div>
 
-      <nav aria-label="Team navigation" className="mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto px-3">
+      <nav
+        aria-label="Team navigation"
+        className="mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto px-3"
+      >
         <ul className="space-y-1">
           {TEAM_NAV.map((item) => {
             const active = isActive(item.to, item.exact);
             const Icon = item.icon;
             const badge =
-              item.to === "/team/work" ? totalUnread : item.to === "/team/notifications" ? unreadNotifications : 0;
+              item.to === "/team/work"
+                ? totalUnread
+                : item.to === "/team/notifications"
+                  ? unreadNotifications
+                  : 0;
             return (
               <li key={item.to}>
                 <Link
@@ -61,13 +82,24 @@ export function TeamSidebar() {
                   aria-current={active ? "page" : undefined}
                   className={cn(
                     "relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors duration-200",
-                    active ? "bg-brand/10 font-semibold text-white" : "font-medium text-text-secondary hover:bg-white/5 hover:text-white"
+                    active
+                      ? "bg-brand/10 font-semibold text-white"
+                      : "font-medium text-text-secondary hover:bg-white/5 hover:text-white",
                   )}
                 >
                   {active && (
-                    <span aria-hidden="true" className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-brand" />
+                    <span
+                      aria-hidden="true"
+                      className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-brand"
+                    />
                   )}
-                  <Icon className={cn("h-4.5 w-4.5 shrink-0", active ? "text-brand" : "text-text-muted")} strokeWidth={1.75} />
+                  <Icon
+                    className={cn(
+                      "h-4.5 w-4.5 shrink-0",
+                      active ? "text-brand" : "text-text-muted",
+                    )}
+                    strokeWidth={1.75}
+                  />
                   <span className="truncate">{item.label}</span>
                   {badge > 0 && (
                     <span className="ml-auto grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-brand px-1.5 text-[10px] font-bold text-white">
@@ -97,14 +129,20 @@ export function TeamSidebar() {
             href="mailto:support@formbhro.com"
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary transition-colors duration-200 hover:bg-white/5 hover:text-white"
           >
-            <LifeBuoy className="h-4.5 w-4.5 text-text-muted" strokeWidth={1.75} aria-hidden="true" /> Help &amp; Support
+            <LifeBuoy
+              className="h-4.5 w-4.5 text-text-muted"
+              strokeWidth={1.75}
+              aria-hidden="true"
+            />{" "}
+            Help &amp; Support
           </a>
           <button
             type="button"
             onClick={signOut}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary transition-colors duration-200 hover:bg-white/5 hover:text-white"
           >
-            <LogOut className="h-4.5 w-4.5 text-text-muted" strokeWidth={1.75} aria-hidden="true" /> Logout
+            <LogOut className="h-4.5 w-4.5 text-text-muted" strokeWidth={1.75} aria-hidden="true" />{" "}
+            Logout
           </button>
         </div>
       </nav>
@@ -112,7 +150,15 @@ export function TeamSidebar() {
   );
 }
 
-function SummaryRow({ label, value, tone = "text-white" }: { label: string; value: number; tone?: string }) {
+function SummaryRow({
+  label,
+  value,
+  tone = "text-white",
+}: {
+  label: string;
+  value: number;
+  tone?: string;
+}) {
   return (
     <div className="flex items-center justify-between gap-2">
       <dt className="truncate text-text-secondary">{label}</dt>

@@ -54,14 +54,20 @@ function AdminLogin() {
 
           <form onSubmit={(e) => void onSubmit(e)} className="mt-6 space-y-4" noValidate>
             {error && (
-              <p role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-[11px] text-red-300">
+              <p
+                role="alert"
+                className="rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-[11px] text-red-300"
+              >
                 {error}
               </p>
             )}
 
             <Field label="Username">
               <div className="relative">
-                <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" aria-hidden="true" />
+                <User
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
+                  aria-hidden="true"
+                />
                 <input
                   className={`${inputClass} pl-9`}
                   value={username}
@@ -74,7 +80,10 @@ function AdminLogin() {
 
             <Field label="Password">
               <div className="relative">
-                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" aria-hidden="true" />
+                <Lock
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
+                  aria-hidden="true"
+                />
                 <input
                   className={`${inputClass} pl-9 pr-10`}
                   type={show ? "text" : "password"}
@@ -89,7 +98,11 @@ function AdminLogin() {
                   aria-label={show ? "Hide password" : "Show password"}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted"
                 >
-                  {show ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
+                  {show ? (
+                    <EyeOff className="h-4 w-4" aria-hidden="true" />
+                  ) : (
+                    <Eye className="h-4 w-4" aria-hidden="true" />
+                  )}
                 </button>
               </div>
             </Field>
@@ -98,7 +111,6 @@ function AdminLogin() {
               {busy ? "Signing in…" : "Sign in"}
             </Button>
           </form>
-
         </div>
       </div>
     </main>

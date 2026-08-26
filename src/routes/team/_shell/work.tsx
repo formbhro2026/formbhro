@@ -47,7 +47,6 @@ import { cn } from "@/lib/utils";
 import { useWebRTCCall } from "@/hooks/use-webrtc-call";
 import { CallOverlay } from "@/components/chat/CallOverlay";
 
-
 type WorkSearch = {
   r?: string;
   q?: string;
@@ -76,9 +75,16 @@ export const Route = createFileRoute("/team/_shell/work")({
   head: () => ({
     meta: [
       { title: "Work Area — Formbhro Team" },
-      { name: "description", content: "Handle every assigned Formbhro conversation, share documents and update request status." },
+      {
+        name: "description",
+        content:
+          "Handle every assigned Formbhro conversation, share documents and update request status.",
+      },
       { property: "og:title", content: "Work Area — Formbhro Team" },
-      { property: "og:description", content: "Your assigned conversations, documents and request details in one screen." },
+      {
+        property: "og:description",
+        content: "Your assigned conversations, documents and request details in one screen.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "robots", content: "noindex" },
@@ -86,11 +92,21 @@ export const Route = createFileRoute("/team/_shell/work")({
   }),
 });
 
-
 function WorkArea() {
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const { requests, pool, messagesFor, documentsFor, getDocument, sendMessage, attachDocument, setStatus, markRead, assignToMe } = useTeamStore();
+  const {
+    requests,
+    pool,
+    messagesFor,
+    documentsFor,
+    getDocument,
+    sendMessage,
+    attachDocument,
+    setStatus,
+    markRead,
+    assignToMe,
+  } = useTeamStore();
   const { height: viewportHeight } = useVisualViewport();
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [sheet, setSheet] = useState(false);
@@ -103,10 +119,21 @@ function WorkArea() {
   const typeFilter = search.t ?? "";
   const sort = (search.sort as "oldest" | undefined) ?? "newest";
 
-  const setSearch = (patch: WorkSearch) => navigate({ to: "/team/work", search: (prev: WorkSearch) => ({ ...prev, ...patch }), replace: true });
+  const setSearch = (patch: WorkSearch) =>
+    navigate({
+      to: "/team/work",
+      search: (prev: WorkSearch) => ({ ...prev, ...patch }),
+      replace: true,
+    });
 
-  const users = useMemo(() => Array.from(new Set(requests.map((r) => r.userName))).sort(), [requests]);
-  const types = useMemo(() => Array.from(new Set(requests.map((r) => r.category))).sort(), [requests]);
+  const users = useMemo(
+    () => Array.from(new Set(requests.map((r) => r.userName))).sort(),
+    [requests],
+  );
+  const types = useMemo(
+    () => Array.from(new Set(requests.map((r) => r.category))).sort(),
+    [requests],
+  );
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -121,14 +148,19 @@ function WorkArea() {
       if (!q) return true;
       return `${r.userName} ${r.id} ${r.category} ${r.title}`.toLowerCase().includes(q);
     });
-    out = out.slice().sort((a, b) => (sort === "oldest" ? a.createdOn.localeCompare(b.createdOn) : b.createdOn.localeCompare(a.createdOn)));
+    out = out
+      .slice()
+      .sort((a, b) =>
+        sort === "oldest"
+          ? a.createdOn.localeCompare(b.createdOn)
+          : b.createdOn.localeCompare(a.createdOn),
+      );
     return out;
   }, [requests, query, state, priority, userFilter, typeFilter, ridFilter, sort]);
 
-
   const listUnread = useMemo(() => list.reduce((sum, r) => sum + r.unread, 0), [list]);
 
-  const selected = search.r ? requests.find((r) => r.id === search.r) ?? null : null;
+  const selected = search.r ? (requests.find((r) => r.id === search.r) ?? null) : null;
 
   // Leaving a chat clears anything the member scrolled past but never reached.
   const openIdRef = useRef<string | null>(null);
@@ -138,7 +170,7 @@ function WorkArea() {
     openIdRef.current = selected?.id ?? null;
   }, [selected, markRead]);
 
-  const preview = previewId ? getDocument(previewId) ?? null : null;
+  const preview = previewId ? (getDocument(previewId) ?? null) : null;
 
   return (
     <>
@@ -153,19 +185,24 @@ function WorkArea() {
         {/* LEFT — assigned chat list */}
         <section
           aria-label="Assigned conversations"
-            className={cn(
-              "flex min-h-0 flex-col border-r border-border-subtle bg-surface-1 pb-24 lg:pb-0",
-            selected ? "hidden lg:flex" : "flex"
+          className={cn(
+            "flex min-h-0 flex-col border-r border-border-subtle bg-surface-1 pb-24 lg:pb-0",
+            selected ? "hidden lg:flex" : "flex",
           )}
         >
           <div className="flex flex-col gap-4 border-b border-border-subtle bg-surface-2 p-3">
-            <h3 className="text-[10px] font-bold uppercase tracking-wider text-text-muted">Request Pool</h3>
+            <h3 className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
+              Request Pool
+            </h3>
             <div className="max-h-48 overflow-y-auto space-y-2">
               {pool.length === 0 ? (
                 <p className="text-[10px] text-text-muted italic">No unassigned requests.</p>
               ) : (
                 pool.map((r: TeamRequest) => (
-                  <div key={r.id} className="rounded-lg border border-border-subtle bg-surface-1 p-2">
+                  <div
+                    key={r.id}
+                    className="rounded-lg border border-border-subtle bg-surface-1 p-2"
+                  >
                     <div className="flex items-center justify-between gap-2">
                       <p className="truncate text-[11px] font-semibold text-white">{r.title}</p>
                       <button
@@ -175,7 +212,9 @@ function WorkArea() {
                         Claim
                       </button>
                     </div>
-                    <p className="mt-0.5 text-[9px] text-text-muted">{r.id} • {r.category}</p>
+                    <p className="mt-0.5 text-[9px] text-text-muted">
+                      {r.id} • {r.category}
+                    </p>
                   </div>
                 ))
               )}
@@ -183,7 +222,15 @@ function WorkArea() {
           </div>
 
           <WorkFilters
-            values={{ q: query, user: userFilter, rid: ridFilter, type: typeFilter, state, priority, sort }}
+            values={{
+              q: query,
+              user: userFilter,
+              rid: ridFilter,
+              type: typeFilter,
+              state,
+              priority,
+              sort,
+            }}
             users={users}
             types={types}
             shown={list.length}
@@ -195,13 +242,25 @@ function WorkArea() {
                 ...("rid" in patch ? { rid: patch.rid || undefined } : {}),
                 ...("type" in patch ? { t: patch.type || undefined } : {}),
                 ...("state" in patch ? { f: patch.state === "all" ? undefined : patch.state } : {}),
-                ...("priority" in patch ? { p: patch.priority === "all" ? undefined : patch.priority } : {}),
-                ...("sort" in patch ? { sort: patch.sort === "oldest" ? "oldest" : undefined } : {}),
+                ...("priority" in patch
+                  ? { p: patch.priority === "all" ? undefined : patch.priority }
+                  : {}),
+                ...("sort" in patch
+                  ? { sort: patch.sort === "oldest" ? "oldest" : undefined }
+                  : {}),
               })
             }
-            onReset={() => setSearch({ q: undefined, u: undefined, rid: undefined, t: undefined, f: undefined, p: undefined })}
+            onReset={() =>
+              setSearch({
+                q: undefined,
+                u: undefined,
+                rid: undefined,
+                t: undefined,
+                f: undefined,
+                p: undefined,
+              })
+            }
           />
-
 
           {listUnread > 0 && (
             <div className="flex items-center justify-between gap-2 border-b border-border-subtle px-3 py-2">
@@ -221,7 +280,11 @@ function WorkArea() {
 
           <div className="min-h-0 flex-1 overflow-y-auto p-3">
             {list.length === 0 ? (
-              <EmptyState icon={MessageSquareText} title="No requests assigned." description="Assignments from your admin will show up here." />
+              <EmptyState
+                icon={MessageSquareText}
+                title="No requests assigned."
+                description="Assignments from your admin will show up here."
+              />
             ) : (
               <ul className="space-y-2">
                 {list.map((r) => (
@@ -232,11 +295,13 @@ function WorkArea() {
               </ul>
             )}
           </div>
-
         </section>
 
         {/* CENTER — conversation */}
-        <section aria-label="Conversation" className={cn("flex min-h-0 flex-col", selected ? "flex" : "hidden lg:flex")}>
+        <section
+          aria-label="Conversation"
+          className={cn("flex min-h-0 flex-col", selected ? "flex" : "hidden lg:flex")}
+        >
           {selected ? (
             <Conversation
               request={selected}
@@ -250,15 +315,27 @@ function WorkArea() {
             />
           ) : (
             <div className="grid flex-1 place-items-center p-6">
-              <EmptyState icon={MessageSquareText} title="Select a conversation" description="Pick an assigned request from the list to start working." />
+              <EmptyState
+                icon={MessageSquareText}
+                title="Select a conversation"
+                description="Pick an assigned request from the list to start working."
+              />
             </div>
           )}
         </section>
 
         {/* RIGHT — request info, documents, timeline */}
-        <aside aria-label="Request information" className="hidden min-h-0 flex-col overflow-y-auto border-l border-border-subtle bg-surface-1 xl:flex">
+        <aside
+          aria-label="Request information"
+          className="hidden min-h-0 flex-col overflow-y-auto border-l border-border-subtle bg-surface-1 xl:flex"
+        >
           {selected ? (
-             <RequestPanel request={selected} onPreview={(id) => setPreviewId(id)} onStatus={(s) => setStatus(selected.id, s)} onSend={sendMessage} />
+            <RequestPanel
+              request={selected}
+              onPreview={(id) => setPreviewId(id)}
+              onStatus={(s) => setStatus(selected.id, s)}
+              onSend={sendMessage}
+            />
           ) : (
             <p className="p-6 text-xs text-text-muted">Select a request to see its details.</p>
           )}
@@ -266,17 +343,20 @@ function WorkArea() {
       </div>
 
       {sheet && selected && (
-        <RequestSheet request={selected} onClose={() => setSheet(false)} onPreview={setPreviewId} onStatus={(s) => setStatus(selected.id, s)} onSend={sendMessage} />
+        <RequestSheet
+          request={selected}
+          onClose={() => setSheet(false)}
+          onPreview={setPreviewId}
+          onStatus={(s) => setStatus(selected.id, s)}
+          onSend={sendMessage}
+        />
       )}
       {preview && <TeamDocumentPreview document={preview} onClose={() => setPreviewId(null)} />}
-
     </>
   );
 }
 
-
 function ConversationCard({ request: r, active }: { request: TeamRequest; active: boolean }) {
-
   const { isUserTyping, markRead } = useTeamStore();
   const typing = isUserTyping(r.id);
   return (
@@ -286,7 +366,9 @@ function ConversationCard({ request: r, active }: { request: TeamRequest; active
         search={(prev: WorkSearch) => ({ ...prev, r: r.id })}
         className={cn(
           "block rounded-xl border p-3 transition-colors",
-          active ? "border-brand/40 bg-brand/10" : "border-white/10 bg-surface-2 hover:border-white/20"
+          active
+            ? "border-brand/40 bg-brand/10"
+            : "border-white/10 bg-surface-2 hover:border-white/20",
         )}
       >
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
@@ -335,7 +417,6 @@ function ConversationCard({ request: r, active }: { request: TeamRequest; active
   );
 }
 
-
 const DELIVERY_LABEL: Record<TeamDelivery, string> = {
   sending: "Sending",
   sent: "Sent",
@@ -369,7 +450,7 @@ function DeliveryReceipt({ delivery }: { delivery: TeamDelivery }) {
                 ? "text-white"
                 : delivery === "sending"
                   ? "text-white/50"
-                  : "text-white/70"
+                  : "text-white/70",
         )}
         aria-hidden="true"
       />
@@ -391,14 +472,14 @@ function Highlighted({ text, query, active }: { text: string; query: string; act
             key={i}
             className={cn(
               "rounded px-0.5",
-              active ? "bg-brand text-white" : "bg-brand/30 text-white"
+              active ? "bg-brand text-white" : "bg-brand/30 text-white",
             )}
           >
             {part}
           </mark>
         ) : (
           <span key={i}>{part}</span>
-        )
+        ),
       )}
     </>
   );
@@ -407,14 +488,20 @@ function Highlighted({ text, query, active }: { text: string; query: string; act
 const REACTION_CHOICES = ["👍", "🎉", "✅", "👀", "🙏", "❤️"];
 
 /** Reaction chips + picker rendered under a chat bubble. */
-function ReadReceipts({ readBy, mine }: { readBy: NonNullable<TeamMessage["readBy"]>; mine: boolean }) {
+function ReadReceipts({
+  readBy,
+  mine,
+}: {
+  readBy: NonNullable<TeamMessage["readBy"]>;
+  mine: boolean;
+}) {
   if (readBy.length === 0) return null;
   const label = readBy.map((p) => `${p.name} at ${p.at}`).join(", ");
   return (
     <span
       className={cn(
         "mt-1 flex flex-wrap items-center gap-1 text-[10px]",
-        mine ? "justify-end text-white/80" : "text-text-muted"
+        mine ? "justify-end text-white/80" : "text-text-muted",
       )}
       title={`Read by ${label}`}
     >
@@ -426,7 +513,7 @@ function ReadReceipts({ readBy, mine }: { readBy: NonNullable<TeamMessage["readB
             key={p.name}
             className={cn(
               "grid h-4 w-4 place-items-center rounded-full text-[8px] font-bold",
-              mine ? "bg-white/25 text-white" : "bg-brand/20 text-brand-light"
+              mine ? "bg-white/25 text-white" : "bg-brand/20 text-brand-light",
             )}
           >
             {p.initials}
@@ -434,7 +521,8 @@ function ReadReceipts({ readBy, mine }: { readBy: NonNullable<TeamMessage["readB
         ))}
         {readBy.length > 3 && <span>+{readBy.length - 3}</span>}
         <span>
-          Read by {readBy.length === 1 ? readBy[0]!.name : `${readBy.length} people`} · {readBy[readBy.length - 1]!.at}
+          Read by {readBy.length === 1 ? readBy[0]!.name : `${readBy.length} people`} ·{" "}
+          {readBy[readBy.length - 1]!.at}
         </span>
       </span>
     </span>
@@ -452,7 +540,12 @@ function MessageReactions({
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className={cn("mt-1 flex flex-wrap items-center gap-1", align === "end" ? "justify-end" : "justify-start")}>
+    <div
+      className={cn(
+        "mt-1 flex flex-wrap items-center gap-1",
+        align === "end" ? "justify-end" : "justify-start",
+      )}
+    >
       {reactions.map((r) => (
         <button
           key={r.emoji}
@@ -465,7 +558,7 @@ function MessageReactions({
             "inline-flex min-h-7 items-center gap-1 rounded-full border px-2 text-[11px] leading-none transition-colors",
             r.mine
               ? "border-brand/60 bg-brand/20 text-white"
-              : "border-white/10 bg-surface-2 text-text-secondary hover:bg-white/5"
+              : "border-white/10 bg-surface-2 text-text-secondary hover:bg-white/5",
           )}
         >
           <span aria-hidden="true">{r.emoji}</span>
@@ -492,7 +585,7 @@ function MessageReactions({
             }}
             className={cn(
               "absolute bottom-9 z-20 flex gap-0.5 rounded-full border border-white/10 bg-surface-3 p-1 shadow-xl",
-              align === "end" ? "right-0" : "left-0"
+              align === "end" ? "right-0" : "left-0",
             )}
           >
             {REACTION_CHOICES.map((emoji) => (
@@ -534,7 +627,13 @@ function Conversation({
   request: TeamRequest;
   messages: TeamMessage[];
   onSend: (text: string) => void;
-  onAttach: (file: { name: string; size: string; kind: ReturnType<typeof kindFromFile>; previewUrl?: string; blob?: File }) => void;
+  onAttach: (file: {
+    name: string;
+    size: string;
+    kind: ReturnType<typeof kindFromFile>;
+    previewUrl?: string;
+    blob?: File;
+  }) => void;
   onStatus: (s: TeamRequest["status"]) => void;
   onOpenSheet: () => void;
   onPreview: (id: string) => void;
@@ -558,7 +657,7 @@ function Conversation({
     pinnedFor,
     assignToMe,
   } = useTeamStore();
-  
+
   const { member } = useTeamStore();
   const memberId = member?.id || "";
 
@@ -600,7 +699,7 @@ function Conversation({
       objectUrls.current.forEach((url) => URL.revokeObjectURL(url));
       objectUrls.current = [];
     },
-    []
+    [],
   );
 
   // A message only counts as read once it has actually been on screen.
@@ -622,7 +721,7 @@ function Conversation({
           pendingNodes.current.delete(entry.target as HTMLLIElement);
         }
       },
-      { threshold: 0.6 }
+      { threshold: 0.6 },
     );
     observerRef.current = io;
     pendingNodes.current.forEach((node) => io.observe(node));
@@ -639,14 +738,14 @@ function Conversation({
     observerRef.current?.observe(node);
   }, []);
 
-
   const unreadCount = messages.filter((m) => m.author === "user" && !m.read).length;
 
   // Reaction filter: show only messages carrying a chosen emoji reaction.
   const [reactionFilter, setReactionFilter] = useState<string | null>(null);
   const reactionCounts = useMemo(() => {
     const map = new Map<string, number>();
-    for (const m of messages) for (const rx of m.reactions ?? []) map.set(rx.emoji, (map.get(rx.emoji) ?? 0) + 1);
+    for (const m of messages)
+      for (const rx of m.reactions ?? []) map.set(rx.emoji, (map.get(rx.emoji) ?? 0) + 1);
     return [...map.entries()].sort((a, b) => b[1] - a[1]);
   }, [messages]);
 
@@ -655,12 +754,16 @@ function Conversation({
   }, [r.id]);
 
   useEffect(() => {
-    if (reactionFilter && !reactionCounts.some(([e]) => e === reactionFilter)) setReactionFilter(null);
+    if (reactionFilter && !reactionCounts.some(([e]) => e === reactionFilter))
+      setReactionFilter(null);
   }, [reactionFilter, reactionCounts]);
 
   const shownMessages = useMemo(
-    () => (reactionFilter ? messages.filter((m) => (m.reactions ?? []).some((rx) => rx.emoji === reactionFilter)) : messages),
-    [messages, reactionFilter]
+    () =>
+      reactionFilter
+        ? messages.filter((m) => (m.reactions ?? []).some((rx) => rx.emoji === reactionFilter))
+        : messages,
+    [messages, reactionFilter],
   );
 
   // In-thread keyword search: matches message text and attached document names.
@@ -670,7 +773,9 @@ function Conversation({
     return shownMessages
       .filter((m) => {
         const doc = m.documentId ? getDocument(m.documentId) : undefined;
-        return (m.text ?? "").toLowerCase().includes(q) || (doc?.name ?? "").toLowerCase().includes(q);
+        return (
+          (m.text ?? "").toLowerCase().includes(q) || (doc?.name ?? "").toLowerCase().includes(q)
+        );
       })
       .map((m) => m.id);
   }, [shownMessages, query, getDocument]);
@@ -691,7 +796,7 @@ function Conversation({
       if (matches.length === 0) return;
       setMatchIndex((i) => (i + dir + matches.length) % matches.length);
     },
-    [matches.length]
+    [matches.length],
   );
 
   const closeSearch = useCallback(() => {
@@ -732,19 +837,21 @@ function Conversation({
             {r.id} • {r.category}
           </p>
         </div>
-        
+
         {/* In-chat Document Access */}
         <div className="hidden items-center gap-1 rounded-xl bg-surface-2 p-1 xl:flex">
-          {documentsFor(r.id).slice(0, 3).map((doc) => (
-            <button
-              key={doc.id}
-              onClick={() => onPreview(doc.id)}
-              className="group relative flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-surface-3 transition-all hover:bg-brand/20 hover:border-brand/40"
-              title={doc.name}
-            >
-              <FileText className="h-3.5 w-3.5 text-text-muted group-hover:text-brand" />
-            </button>
-          ))}
+          {documentsFor(r.id)
+            .slice(0, 3)
+            .map((doc) => (
+              <button
+                key={doc.id}
+                onClick={() => onPreview(doc.id)}
+                className="group relative flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-surface-3 transition-all hover:bg-brand/20 hover:border-brand/40"
+                title={doc.name}
+              >
+                <FileText className="h-3.5 w-3.5 text-text-muted group-hover:text-brand" />
+              </button>
+            ))}
           {docCount > 3 && (
             <button
               onClick={() => onOpenSheet()}
@@ -796,7 +903,9 @@ function Conversation({
           aria-label="Search in this conversation"
           className={cn(
             "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border text-white transition-colors",
-            searchOpen ? "border-brand/50 bg-brand/15 text-brand-light" : "border-white/10 hover:bg-white/5"
+            searchOpen
+              ? "border-brand/50 bg-brand/15 text-brand-light"
+              : "border-white/10 hover:bg-white/5",
           )}
         >
           <Search className="h-4 w-4" aria-hidden="true" />
@@ -823,7 +932,10 @@ function Conversation({
       {searchOpen && (
         <div className="flex items-center gap-2 border-b border-white/10 bg-surface-1/80 px-3 py-2">
           <div className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" aria-hidden="true" />
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted"
+              aria-hidden="true"
+            />
             <input
               ref={searchInputRef}
               value={query}
@@ -844,7 +956,11 @@ function Conversation({
             />
           </div>
           <span className="shrink-0 text-[10px] text-text-muted" role="status" aria-live="polite">
-            {query.trim() ? (matches.length ? `${matchIndex + 1} of ${matches.length}` : "No matches") : ""}
+            {query.trim()
+              ? matches.length
+                ? `${matchIndex + 1} of ${matches.length}`
+                : "No matches"
+              : ""}
           </span>
           <button
             type="button"
@@ -875,7 +991,6 @@ function Conversation({
         </div>
       )}
 
-
       {failedCount > 0 && (
         <div
           role="alert"
@@ -883,7 +998,8 @@ function Conversation({
         >
           <AlertTriangle className="h-4 w-4 shrink-0 text-danger" aria-hidden="true" />
           <span className="min-w-0 flex-1">
-            {failedCount} {failedCount === 1 ? "message" : "messages"} failed to send. Nothing was lost — retry when you are back online.
+            {failedCount} {failedCount === 1 ? "message" : "messages"} failed to send. Nothing was
+            lost — retry when you are back online.
           </span>
           <button
             type="button"
@@ -898,7 +1014,9 @@ function Conversation({
 
       {reactionCounts.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 border-b border-white/10 bg-surface-1/60 px-3 py-2">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">Reactions</span>
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+            Reactions
+          </span>
           {reactionCounts.map(([emoji, count]) => {
             const active = reactionFilter === emoji;
             return (
@@ -912,7 +1030,7 @@ function Conversation({
                   "inline-flex min-h-8 items-center gap-1 rounded-full border px-2.5 text-[11px] font-semibold transition-colors",
                   active
                     ? "border-brand bg-brand/20 text-brand-light"
-                    : "border-white/10 bg-surface-2 text-white hover:border-brand/40 hover:bg-white/5"
+                    : "border-white/10 bg-surface-2 text-white hover:border-brand/40 hover:bg-white/5",
                 )}
               >
                 <span aria-hidden="true">{emoji}</span>
@@ -1002,13 +1120,17 @@ function Conversation({
                 <div
                   className={cn(
                     "max-w-[85%] rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed sm:max-w-[70%]",
-                    mine ? "bg-brand text-white" : "bg-surface-2 border border-border-subtle text-white",
+                    mine
+                      ? "bg-brand text-white"
+                      : "bg-surface-2 border border-border-subtle text-white",
 
                     reactionFilter && "ring-1 ring-brand/60",
-                    activeMatchId === m.id && "ring-2 ring-brand ring-offset-2 ring-offset-bg"
+                    activeMatchId === m.id && "ring-2 ring-brand ring-offset-2 ring-offset-bg",
                   )}
                 >
-                  {!mine && <p className="mb-1 text-[10px] font-semibold text-text-muted">{m.authorName}</p>}
+                  {!mine && (
+                    <p className="mb-1 text-[10px] font-semibold text-text-muted">{m.authorName}</p>
+                  )}
                   {editingId === m.id ? (
                     <div className="flex flex-col gap-2">
                       <label className="sr-only" htmlFor={`edit-${m.id}`}>
@@ -1068,11 +1190,17 @@ function Conversation({
                         aria-label={m.pinned ? "Unpin this message" : "Pin this message"}
                         className={cn(
                           "inline-flex min-h-7 items-center gap-1 rounded-full px-2 text-[10px] font-semibold",
-                          mine ? "text-white/80 hover:bg-white/15" : "text-text-muted hover:bg-white/10 hover:text-white",
-                          m.pinned && "text-brand-light"
+                          mine
+                            ? "text-white/80 hover:bg-white/15"
+                            : "text-text-muted hover:bg-white/10 hover:text-white",
+                          m.pinned && "text-brand-light",
                         )}
                       >
-                        {m.pinned ? <PinOff className="h-3 w-3" aria-hidden="true" /> : <Pin className="h-3 w-3" aria-hidden="true" />}
+                        {m.pinned ? (
+                          <PinOff className="h-3 w-3" aria-hidden="true" />
+                        ) : (
+                          <Pin className="h-3 w-3" aria-hidden="true" />
+                        )}
                         {m.pinned ? `Pinned${m.pinnedAt ? ` · ${m.pinnedAt}` : ""}` : "Pin"}
                       </button>
                     </div>
@@ -1124,16 +1252,21 @@ function Conversation({
                           <span className="font-semibold text-white/70">
                             {i === 0 ? "Original" : `Version ${i + 1}`} · {v.at}
                           </span>
-                          <span className="whitespace-pre-wrap break-words text-white/90">{v.text}</span>
+                          <span className="whitespace-pre-wrap break-words text-white/90">
+                            {v.text}
+                          </span>
                         </li>
                       ))}
                       <li className="flex flex-col gap-0.5 border-t border-white/15 pt-1.5">
-                        <span className="font-semibold text-white/70">Current · {m.editedAt ?? m.time}</span>
-                        <span className="whitespace-pre-wrap break-words text-white/90">{m.text}</span>
+                        <span className="font-semibold text-white/70">
+                          Current · {m.editedAt ?? m.time}
+                        </span>
+                        <span className="whitespace-pre-wrap break-words text-white/90">
+                          {m.text}
+                        </span>
                       </li>
                     </ol>
                   ) : null}
-
 
                   {mine && (m.delivery === "failed" || m.delivery === "retrying") && (
                     <span
@@ -1141,7 +1274,9 @@ function Conversation({
                       aria-live="polite"
                       className={cn(
                         "mt-2 flex flex-wrap items-center gap-2 rounded-lg px-2 py-1.5 text-[10px]",
-                        m.delivery === "failed" ? "bg-black/25 text-white" : "bg-black/15 text-white/80"
+                        m.delivery === "failed"
+                          ? "bg-black/25 text-white"
+                          : "bg-black/15 text-white/80",
                       )}
                     >
                       <span>
@@ -1163,9 +1298,16 @@ function Conversation({
                     </span>
                   )}
 
-                  <span className={cn("mt-1 flex items-center justify-end gap-1 text-[10px]", mine ? "text-white/80" : "text-text-muted")}>
+                  <span
+                    className={cn(
+                      "mt-1 flex items-center justify-end gap-1 text-[10px]",
+                      mine ? "text-white/80" : "text-text-muted",
+                    )}
+                  >
                     {m.time}
-                    {mine && <DeliveryReceipt delivery={m.delivery ?? (m.read ? "read" : "sent")} />}
+                    {mine && (
+                      <DeliveryReceipt delivery={m.delivery ?? (m.read ? "read" : "sent")} />
+                    )}
                   </span>
 
                   <ReadReceipts readBy={m.readBy ?? []} mine={mine} />
@@ -1181,7 +1323,11 @@ function Conversation({
           })}
         </ul>
         {typing && (
-          <div className="mx-auto mt-3 flex max-w-2xl items-center gap-2" role="status" aria-live="polite">
+          <div
+            className="mx-auto mt-3 flex max-w-2xl items-center gap-2"
+            role="status"
+            aria-live="polite"
+          >
             <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-white/10 bg-surface-2 text-[10px] font-bold text-brand-light">
               {r.userInitials}
             </span>
@@ -1201,7 +1347,10 @@ function Conversation({
         <div ref={endRef} />
       </div>
 
-      <form onSubmit={submit} className="sticky bottom-0 border-t border-white/10 bg-bg/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl">
+      <form
+        onSubmit={submit}
+        className="sticky bottom-0 border-t border-white/10 bg-bg/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl"
+      >
         <div className="mx-auto flex max-w-2xl items-end gap-2">
           <input
             ref={fileRef}
@@ -1227,7 +1376,6 @@ function Conversation({
               });
               e.target.value = "";
             }}
-
           />
           <button
             type="button"
@@ -1267,7 +1415,6 @@ function Conversation({
             className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand text-white active:scale-95"
           >
             <Send className="h-4 w-4" aria-hidden="true" />
-
           </button>
         </div>
         <div className="mx-auto mt-2 max-w-2xl sm:hidden">
@@ -1278,7 +1425,6 @@ function Conversation({
     </>
   );
 }
-
 
 function RequestPanel({
   request: r,
@@ -1343,7 +1489,12 @@ function RequestPanel({
       ) : (
         <div className="mt-3 space-y-3">
           {docs.map((d) => (
-            <TeamDocumentCard key={d.id} document={d} requestTitle={r.title} onPreview={() => onPreview(d.id)} />
+            <TeamDocumentCard
+              key={d.id}
+              document={d}
+              requestTitle={r.title}
+              onPreview={() => onPreview(d.id)}
+            />
           ))}
         </div>
       )}
@@ -1352,7 +1503,10 @@ function RequestPanel({
       <ol className="mt-3 space-y-3 border-l border-white/10 pl-4">
         {r.timeline.map((t, i) => (
           <li key={`${t.label}-${i}`} className="relative">
-            <span className="absolute -left-[1.3rem] top-1.5 h-2 w-2 rounded-full bg-brand" aria-hidden="true" />
+            <span
+              className="absolute -left-[1.3rem] top-1.5 h-2 w-2 rounded-full bg-brand"
+              aria-hidden="true"
+            />
             <p className="text-[11px] font-semibold text-white">{t.label}</p>
             <p className="text-[10px] text-text-muted">{t.time}</p>
           </li>
@@ -1378,7 +1532,13 @@ function RequestSheet({
   const panelRef = useDialogA11y<HTMLDivElement>(onClose);
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 backdrop-blur-sm xl:hidden">
-      <button type="button" tabIndex={-1} aria-hidden="true" onClick={onClose} className="absolute inset-0 cursor-default" />
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-hidden="true"
+        onClick={onClose}
+        className="absolute inset-0 cursor-default"
+      />
       <div
         ref={panelRef}
         role="dialog"
@@ -1388,12 +1548,22 @@ function RequestSheet({
       >
         <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
           <h2 className="text-sm font-semibold text-white">Request Details</h2>
-          <button type="button" onClick={onClose} aria-label="Close request details" className="rounded-lg p-2 text-text-muted hover:bg-white/5 hover:text-white">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close request details"
+            className="rounded-lg p-2 text-text-muted hover:bg-white/5 hover:text-white"
+          >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <RequestPanel request={request} onPreview={onPreview} onStatus={onStatus} onSend={onSend} />
+          <RequestPanel
+            request={request}
+            onPreview={onPreview}
+            onStatus={onStatus}
+            onSend={onSend}
+          />
         </div>
       </div>
     </div>

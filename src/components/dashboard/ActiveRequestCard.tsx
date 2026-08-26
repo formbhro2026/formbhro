@@ -3,14 +3,24 @@ import { ArrowRight, FileText, UserRound } from "lucide-react";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import type { SupportRequest } from "@/data/user-module";
 
-export function ActiveRequestCard({ request, documentCount }: { request: SupportRequest; documentCount: number }) {
+export function ActiveRequestCard({
+  request,
+  documentCount,
+}: {
+  request: SupportRequest;
+  documentCount: number;
+}) {
   return (
     <section>
-      <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">Your Active Request</h2>
+      <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+        Your Active Request
+      </h2>
       <div className="mt-3 rounded-2xl border border-white/10 bg-surface-1 p-4 sm:p-5">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
           <div className="min-w-0">
-            <h3 className="truncate text-sm font-semibold text-white sm:text-base">{request.title}</h3>
+            <h3 className="truncate text-sm font-semibold text-white sm:text-base">
+              {request.title}
+            </h3>
             <p className="mt-1 text-[11px] text-text-muted">Request ID: {request.id}</p>
           </div>
           <StatusBadge status={request.status} />
@@ -46,7 +56,10 @@ export function ActiveRequestCard({ request, documentCount }: { request: Support
                 aria-label="Request progress"
                 className="h-1.5 w-full overflow-hidden rounded-full bg-white/10"
               >
-                <div className="h-full rounded-full bg-gradient-to-r from-brand-dark to-brand-light" style={{ width: `${request.progress}%` }} />
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-brand-dark to-brand-light"
+                  style={{ width: `${request.progress}%` }}
+                />
               </div>
             </dd>
           </div>

@@ -1,6 +1,19 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ensureAdminAccount, listAllNotifications, getAdminAnalytics } from "@/lib/api/admin.functions";
+import {
+  ensureAdminAccount,
+  listAllNotifications,
+  getAdminAnalytics,
+} from "@/lib/api/admin.functions";
 import type { Tables } from "@/integrations/supabase/types";
 
 export type ProfileRow = Tables<"profiles">;
@@ -173,15 +186,15 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       try {
         const res = await ensureAdminAccount({ data: { username: username.trim(), password } });
         if (!res.ok) return { ok: false, error: "Invalid admin credentials." };
-        
+
         // Use standard signInWithPassword to establish the session.
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email: res.email!,
           password: res.password!,
         });
-        
+
         if (signInError) return { ok: false, error: signInError.message };
-        
+
         // Wait for the session to be reflected.
         let ok = false;
         for (let i = 0; i < 5; i++) {
@@ -190,7 +203,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
             ok = true;
             break;
           }
-          await new Promise(r => setTimeout(r, 200));
+          await new Promise((r) => setTimeout(r, 200));
         }
 
         if (ok) {
@@ -228,7 +241,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       profileOf: (id) => (id ? profileMap.get(id) : undefined),
       roleOf: (id) => (id ? (roleMap.get(id) ?? "user") : "user"),
     };
-  }, [data, ready, loading, authed, error, signIn, signOut, refresh]);
+  }, [data, ready, loading, authed, error, stats, signIn, signOut, refresh]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

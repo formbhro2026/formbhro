@@ -8,15 +8,24 @@ export function RecentRequests({ requests }: { requests: SupportRequest[] }) {
   return (
     <section>
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">Recent Requests</h2>
-        <Link to="/app/chats" className="text-xs font-semibold text-brand-light transition-colors hover:text-brand">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+          Recent Requests
+        </h2>
+        <Link
+          to="/app/chats"
+          className="text-xs font-semibold text-brand-light transition-colors hover:text-brand"
+        >
           View All Chats →
         </Link>
       </div>
 
       {requests.length === 0 ? (
         <div className="mt-3">
-          <EmptyState icon={MessageSquareText} title="No requests yet." description="Need help with a form? Start your first request." />
+          <EmptyState
+            icon={MessageSquareText}
+            title="No requests yet."
+            description="Need help with a form? Start your first request."
+          />
         </div>
       ) : (
         <ul className="mt-3 space-y-3 cv-auto">

@@ -56,7 +56,8 @@ export async function loadTeamDashboard() {
     profile,
     requests: assigned,
     pending: assigned.filter((r) => r.status === "pending" || r.status === "assigned").length,
-    inProgress: assigned.filter((r) => r.status === "in_progress" || r.status === "under_review").length,
+    inProgress: assigned.filter((r) => r.status === "in_progress" || r.status === "under_review")
+      .length,
     completed: assigned.filter((r) => r.status === "completed").length,
     notifications,
     unreadNotifications: unread,

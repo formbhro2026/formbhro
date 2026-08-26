@@ -12,7 +12,9 @@ export function RequestTimeline({ activity }: { activity: ActivityEntry[] }) {
             }`}
           />
           <p className="text-xs font-bold text-white leading-none">{a.label}</p>
-          <p className="mt-1.5 text-[10px] font-bold text-text-muted uppercase tracking-tight">{a.time}</p>
+          <p className="mt-1.5 text-[10px] font-bold text-text-muted uppercase tracking-tight">
+            {a.time}
+          </p>
         </li>
       ))}
     </ol>

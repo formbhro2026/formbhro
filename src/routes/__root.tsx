@@ -22,7 +22,6 @@ import {
   isCapacitor,
 } from "../lib/fcm";
 
-
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg px-4">
@@ -89,10 +88,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Formbhro — Real-Time Form Assistance" },
-      { name: "description", content: "Formbhro is your premium platform for real-time form assistance, connecting you with experts for all your documentation needs." },
+      {
+        name: "description",
+        content:
+          "Formbhro is your premium platform for real-time form assistance, connecting you with experts for all your documentation needs.",
+      },
       { name: "author", content: "Formbhro" },
       { property: "og:title", content: "Formbhro — Real-Time Form Assistance" },
-      { property: "og:description", content: "Get expert assistance for your forms in real-time. Fast, secure, and professional." },
+      {
+        property: "og:description",
+        content:
+          "Get expert assistance for your forms in real-time. Fast, secure, and professional.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@formbhro" },
@@ -140,7 +147,13 @@ function RootComponent() {
 
     // Handle OAuth deep link from system browser for both Warm Start and Cold Start
     const handleOAuthDeepLink = async (rawUrl: string) => {
-      if (!rawUrl || (!rawUrl.includes("oauth-callback") && !rawUrl.includes("access_token") && !rawUrl.includes("code="))) return;
+      if (
+        !rawUrl ||
+        (!rawUrl.includes("oauth-callback") &&
+          !rawUrl.includes("access_token") &&
+          !rawUrl.includes("code="))
+      )
+        return;
 
       try {
         const { Browser } = await import("@capacitor/browser");
@@ -164,9 +177,10 @@ function RootComponent() {
         if (!accessToken || !refreshToken) {
           const queryIndex = rawUrl.indexOf("?");
           if (queryIndex !== -1) {
-            const cleanQuery = hashIndex !== -1 && hashIndex > queryIndex
-              ? rawUrl.substring(queryIndex + 1, hashIndex)
-              : rawUrl.substring(queryIndex + 1);
+            const cleanQuery =
+              hashIndex !== -1 && hashIndex > queryIndex
+                ? rawUrl.substring(queryIndex + 1, hashIndex)
+                : rawUrl.substring(queryIndex + 1);
             const searchParams = new URLSearchParams(cleanQuery);
             accessToken = accessToken || searchParams.get("access_token");
             refreshToken = refreshToken || searchParams.get("refresh_token");
@@ -200,7 +214,9 @@ function RootComponent() {
             void navigate({ to: redirectPath as "/app", replace: true });
           }
         } else if (authCode) {
-          const { data, error } = await supabase.auth.exchangeCodeForSession(decodeURIComponent(authCode));
+          const { data, error } = await supabase.auth.exchangeCodeForSession(
+            decodeURIComponent(authCode),
+          );
           if (error) {
             console.error("[Root] exchangeCode error from deep link:", error.message);
             return;
@@ -228,11 +244,13 @@ function RootComponent() {
       });
 
       // Cold Start listener
-      App.getLaunchUrl().then((launchUrl) => {
-        if (launchUrl?.url) void handleOAuthDeepLink(launchUrl.url);
-      }).catch((e) => {
-        console.warn("[Root] getLaunchUrl error:", e);
-      });
+      App.getLaunchUrl()
+        .then((launchUrl) => {
+          if (launchUrl?.url) void handleOAuthDeepLink(launchUrl.url);
+        })
+        .catch((e) => {
+          console.warn("[Root] getLaunchUrl error:", e);
+        });
     });
 
     // Register FCM foreground notification handler → shows a sonner toast
@@ -243,7 +261,11 @@ function RootComponent() {
         action: data?.requestId
           ? {
               label: "Open chat",
-              onClick: () => void navigate({ to: "/app/chats/$requestId", params: { requestId: data.requestId } }),
+              onClick: () =>
+                void navigate({
+                  to: "/app/chats/$requestId",
+                  params: { requestId: data.requestId },
+                }),
             }
           : undefined,
       });
@@ -267,6 +289,5 @@ function RootComponent() {
       <Outlet />
       <Toaster position="top-center" />
     </QueryClientProvider>
-
   );
 }

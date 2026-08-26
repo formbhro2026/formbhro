@@ -39,9 +39,13 @@ export async function uploadDocument(input: {
   onProgress?: (percent: number) => void;
 }): Promise<DocumentRow> {
   const { file, requestId } = input;
-  if (file.size > MAX_BYTES) throw new ApiError("File is larger than the 25 MB limit.", "file_too_large");
+  if (file.size > MAX_BYTES)
+    throw new ApiError("File is larger than the 25 MB limit.", "file_too_large");
   if (!ALLOWED.some((prefix) => file.type.startsWith(prefix))) {
-    throw new ApiError("Unsupported file type. Upload an image, PDF, DOC, DOCX or ZIP.", "unsupported_type");
+    throw new ApiError(
+      "Unsupported file type. Upload an image, PDF, DOC, DOCX or ZIP.",
+      "unsupported_type",
+    );
   }
 
   const { data: userData } = await supabase.auth.getUser();
@@ -90,11 +94,15 @@ export async function getSignedUrl(storagePath: string, expiresInSeconds = 300, 
   const { data, error } = await supabase.storage
     .from(BUCKET)
     .createSignedUrl(storagePath, expiresInSeconds, download ? { download: true } : undefined);
-  if (error || !data) throw new ApiError("Could not open this document. Please try again.", "storage_failure");
+  if (error || !data)
+    throw new ApiError("Could not open this document. Please try again.", "storage_failure");
   return data.signedUrl;
 }
 
-export async function listDocuments(opts?: { requestId?: string; limit?: number }): Promise<DocumentRow[]> {
+export async function listDocuments(opts?: {
+  requestId?: string;
+  limit?: number;
+}): Promise<DocumentRow[]> {
   let query = supabase.from("documents").select("*").order("created_at", { ascending: false });
   if (opts?.requestId) query = query.eq("request_id", opts.requestId);
   const { data, error } = await query.limit(opts?.limit ?? 100);
@@ -103,7 +111,9 @@ export async function listDocuments(opts?: { requestId?: string; limit?: number 
 }
 
 export async function documentsCount(): Promise<number> {
-  const { count, error } = await supabase.from("documents").select("id", { count: "exact", head: true });
+  const { count, error } = await supabase
+    .from("documents")
+    .select("id", { count: "exact", head: true });
   if (error) throw new ApiError(error.message, error.code);
   return count ?? 0;
 }

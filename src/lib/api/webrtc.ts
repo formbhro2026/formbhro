@@ -15,10 +15,7 @@ export function sendSignal(chatRoomId: string, signal: WebRTCSignal) {
   });
 }
 
-export function subscribeToSignals(
-  chatRoomId: string,
-  onSignal: (signal: WebRTCSignal) => void
-) {
+export function subscribeToSignals(chatRoomId: string, onSignal: (signal: WebRTCSignal) => void) {
   let retryCount = 0;
   const MAX_RETRIES = 5;
   let channel: any = null;

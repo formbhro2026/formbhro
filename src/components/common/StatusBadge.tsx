@@ -11,7 +11,15 @@ import {
 import { STATUS_META, type RequestStatus } from "@/data/user-module";
 import { cn } from "@/lib/utils";
 
-const ICONS: Record<string, LucideIcon> = { Clock, CircleCheck, Loader, Search, Sparkle, Upload, UserCheck };
+const ICONS: Record<string, LucideIcon> = {
+  Clock,
+  CircleCheck,
+  Loader,
+  Search,
+  Sparkle,
+  Upload,
+  UserCheck,
+};
 
 const TONES = {
   amber: "border-amber-500/30 bg-amber-500/10 text-amber-500",
@@ -39,7 +47,7 @@ export function StatusBadge({
       className={cn(
         "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium",
         TONES[meta.tone],
-        className
+        className,
       )}
     >
       <Icon className="h-3 w-3" aria-hidden="true" strokeWidth={2} />

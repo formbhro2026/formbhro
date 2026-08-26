@@ -52,7 +52,13 @@ export function MessageComposer({
   onTyping,
 }: {
   onSend: (text: string) => void;
-  onUpload: (name: string, kind: PickKind, size: string, preview?: FilePreview, file?: File) => void;
+  onUpload: (
+    name: string,
+    kind: PickKind,
+    size: string,
+    preview?: FilePreview,
+    file?: File,
+  ) => void;
   requestLabel?: string;
   onTyping?: () => void;
 }) {
@@ -73,7 +79,7 @@ export function MessageComposer({
         if (url.startsWith("blob:")) URL.revokeObjectURL(url);
       });
     },
-    []
+    [],
   );
 
   const attachedTo = requestLabel ? `Attached to ${requestLabel}` : "Attached to this request";
@@ -83,7 +89,11 @@ export function MessageComposer({
       setUploads((prev) => {
         const exists = prev.some((u) => u.id === upload.id);
         return exists
-          ? prev.map((u) => (u.id === upload.id ? { ...upload, progress: 0, status: "uploading", error: undefined } : u))
+          ? prev.map((u) =>
+              u.id === upload.id
+                ? { ...upload, progress: 0, status: "uploading", error: undefined }
+                : u,
+            )
           : [...prev, upload];
       });
 
@@ -91,10 +101,14 @@ export function MessageComposer({
         window.setTimeout(() => {
           setUploads((prev) =>
             prev.map((u) =>
-              u.id === upload.id ? { ...u, status: "error", error: "File is larger than 10 MB" } : u
-            )
+              u.id === upload.id
+                ? { ...u, status: "error", error: "File is larger than 10 MB" }
+                : u,
+            ),
           );
-          toast.error(`${upload.name} couldn't be uploaded`, { description: "Maximum file size is 10 MB." });
+          toast.error(`${upload.name} couldn't be uploaded`, {
+            description: "Maximum file size is 10 MB.",
+          });
         }, 300);
         return;
       }
@@ -108,8 +122,8 @@ export function MessageComposer({
           prev.map((u) =>
             u.id === upload.id && u.status === "uploading"
               ? { ...u, progress, status: done ? "success" : "uploading" }
-              : u
-          )
+              : u,
+          ),
         );
         if (!done) return;
         window.clearInterval(timersRef.current[upload.id]);
@@ -118,13 +132,12 @@ export function MessageComposer({
         toast.success(`${upload.name} uploaded`, { description: attachedTo });
         const cleanup = window.setTimeout(
           () => setUploads((cur) => cur.filter((x) => x.id !== upload.id)),
-          2600
+          2600,
         );
         timersRef.current[`cleanup-${upload.id}`] = cleanup;
       }, 180);
-
     },
-    [attachedTo, onUpload]
+    [attachedTo, onUpload],
   );
 
   const addFiles = useCallback(
@@ -147,11 +160,13 @@ export function MessageComposer({
         if (!previewable) return;
         buildFilePreview(file, kind).then((preview) => {
           if (preview.previewUrl) objectUrlsRef.current.push(preview.previewUrl);
-          setUploads((prev) => prev.map((u) => (u.id === id ? { ...u, preview, previewLoading: false } : u)));
+          setUploads((prev) =>
+            prev.map((u) => (u.id === id ? { ...u, preview, previewLoading: false } : u)),
+          );
         });
       });
     },
-    [runUpload]
+    [runUpload],
   );
 
   const pick = (opt: { kind: PickKind; accept: string; capture?: "environment" }) => {
@@ -239,7 +254,10 @@ export function MessageComposer({
                         className="h-full w-full object-cover"
                       />
                     ) : u.previewLoading ? (
-                      <span className="h-full w-full animate-pulse bg-surface-3" aria-label="Generating preview" />
+                      <span
+                        className="h-full w-full animate-pulse bg-surface-3"
+                        aria-label="Generating preview"
+                      />
                     ) : (
                       <Icon className="h-5 w-5 text-brand" strokeWidth={2} aria-hidden="true" />
                     )}
@@ -248,7 +266,9 @@ export function MessageComposer({
                     <span className="block truncate text-xs font-bold text-white">{u.name}</span>
                     <span className="mt-0.5 block text-[10px] text-text-muted font-bold uppercase tracking-tight">
                       {u.kind.toUpperCase()} · {u.size}
-                      {u.preview?.pageCount ? ` · ${u.preview.pageCount} page${u.preview.pageCount > 1 ? "s" : ""}` : ""}
+                      {u.preview?.pageCount
+                        ? ` · ${u.preview.pageCount} page${u.preview.pageCount > 1 ? "s" : ""}`
+                        : ""}
                     </span>
                     <span className="mt-0.5 flex items-center gap-1.5 text-[10px] text-text-muted font-bold">
                       {u.status === "uploading" && <>Uploading… {u.progress}%</>}
@@ -270,7 +290,9 @@ export function MessageComposer({
                     {u.status === "error" && (
                       <button
                         type="button"
-                        onClick={() => runUpload({ ...u, progress: 0, status: "uploading", error: undefined })}
+                        onClick={() =>
+                          runUpload({ ...u, progress: 0, status: "uploading", error: undefined })
+                        }
                         className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-bold text-brand transition-colors duration-200 hover:bg-surface-3"
                       >
                         <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> Retry

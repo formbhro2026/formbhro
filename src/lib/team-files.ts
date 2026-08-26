@@ -7,7 +7,10 @@ import { resolveDocumentUrl } from "@/lib/doc-access";
  */
 function toBlob(doc: TeamDocument) {
   if (doc.kind === "html" && doc.html) {
-    return new Blob([`<!doctype html><meta charset="utf-8"><title>${doc.name}</title>${doc.html}`], { type: "text/html" });
+    return new Blob(
+      [`<!doctype html><meta charset="utf-8"><title>${doc.name}</title>${doc.html}`],
+      { type: "text/html" },
+    );
   }
   const body = `Formbhro secure document\n\nFile: ${doc.name}\nRequest: ${doc.requestId}\nUploaded by: ${doc.uploadedBy}\nUploaded: ${doc.uploadedAt}\nSize: ${doc.size}\n`;
   return new Blob([body], { type: "text/plain" });
@@ -18,7 +21,8 @@ function toBlob(doc: TeamDocument) {
  * signed URL from private storage, demo documents fall back to a local blob.
  */
 export async function resolveTeamDocumentUrl(doc: TeamDocument, download = false) {
-  if (doc.storagePath) return resolveDocumentUrl({ name: doc.name, storagePath: doc.storagePath }, download);
+  if (doc.storagePath)
+    return resolveDocumentUrl({ name: doc.name, storagePath: doc.storagePath }, download);
   return URL.createObjectURL(toBlob(doc));
 }
 

@@ -14,7 +14,11 @@ export const Route = createFileRoute("/team/_shell/progress")({
   head: () => ({
     meta: [
       { title: "Work Progress — Formbhro Team" },
-      { name: "description", content: "Track every assigned Formbhro request by pending, in progress, waiting and completed status." },
+      {
+        name: "description",
+        content:
+          "Track every assigned Formbhro request by pending, in progress, waiting and completed status.",
+      },
       { property: "og:title", content: "Work Progress — Formbhro Team" },
       { property: "og:description", content: "Progress across all of your assigned requests." },
       { property: "og:type", content: "website" },
@@ -48,9 +52,15 @@ function TeamProgress() {
       <TeamHeader title="Progress" />
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-28 pt-6 sm:px-6 lg:pb-10">
         <h2 className="text-lg font-bold text-white">Progress</h2>
-        <p className="mt-1 text-xs text-text-secondary">All requests assigned to you, grouped by status.</p>
+        <p className="mt-1 text-xs text-text-secondary">
+          All requests assigned to you, grouped by status.
+        </p>
 
-        <div role="tablist" aria-label="Request status" className="mt-4 flex gap-2 overflow-x-auto pb-1">
+        <div
+          role="tablist"
+          aria-label="Request status"
+          className="mt-4 flex gap-2 overflow-x-auto pb-1"
+        >
           {TABS.map((t) => (
             <button
               key={t.key}
@@ -61,7 +71,9 @@ function TeamProgress() {
               onClick={() => setTab(t.key)}
               className={cn(
                 "min-h-9 shrink-0 rounded-full border px-3.5 text-[11px] font-semibold transition-colors",
-                tab === t.key ? "border-brand/40 bg-brand/10 text-brand-light" : "border-border-strong px-3.5 text-text-secondary hover:bg-white/5"
+                tab === t.key
+                  ? "border-brand/40 bg-brand/10 text-brand-light"
+                  : "border-border-strong px-3.5 text-text-secondary hover:bg-white/5",
               )}
             >
               {t.label} ({counts.get(t.key) ?? 0})
@@ -71,14 +83,22 @@ function TeamProgress() {
 
         <div role="tabpanel" className="mt-4">
           {visible.length === 0 ? (
-            <EmptyState icon={BarChart3} title="No requests assigned." description="Nothing in this status right now." />
+            <EmptyState
+              icon={BarChart3}
+              title="No requests assigned."
+              description="Nothing in this status right now."
+            />
           ) : (
             <ul className="grid gap-3 lg:grid-cols-2">
               {visible.map((r) => (
                 <li key={r.id} className="rounded-2xl border border-border-subtle bg-surface-1 p-4">
                   <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
                     <div className="min-w-0">
-                      <Link to="/team/work" search={{ r: r.id }} className="truncate text-sm font-semibold text-white hover:underline">
+                      <Link
+                        to="/team/work"
+                        search={{ r: r.id }}
+                        className="truncate text-sm font-semibold text-white hover:underline"
+                      >
                         {r.title}
                       </Link>
                       <p className="mt-0.5 truncate text-[11px] text-text-muted">
@@ -93,7 +113,10 @@ function TeamProgress() {
                     <span className="tabular-nums">{r.progress}%</span>
                   </div>
                   <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10">
-                    <div className="h-full rounded-full bg-gradient-to-r from-brand-dark to-brand-light" style={{ width: `${r.progress}%` }} />
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-brand-dark to-brand-light"
+                      style={{ width: `${r.progress}%` }}
+                    />
                   </div>
 
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
@@ -102,7 +125,11 @@ function TeamProgress() {
                   </div>
 
                   <div className="mt-3">
-                    <StatusSelect requestId={r.id} status={r.status} onChange={(next) => setStatus(r.id, next)} />
+                    <StatusSelect
+                      requestId={r.id}
+                      status={r.status}
+                      onChange={(next) => setStatus(r.id, next)}
+                    />
                   </div>
                 </li>
               ))}

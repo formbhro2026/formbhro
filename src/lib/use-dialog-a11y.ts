@@ -9,7 +9,7 @@ const FOCUSABLE =
  */
 export function useDialogA11y<T extends HTMLElement>(
   onClose: () => void,
-  { lockScroll = true, autoFocus = true }: { lockScroll?: boolean; autoFocus?: boolean } = {}
+  { lockScroll = true, autoFocus = true }: { lockScroll?: boolean; autoFocus?: boolean } = {},
 ) {
   const panelRef = useRef<T>(null);
   const onCloseRef = useRef(onClose);
@@ -28,9 +28,9 @@ export function useDialogA11y<T extends HTMLElement>(
         return;
       }
       if (e.key !== "Tab" || !panelRef.current) return;
-      const focusables = Array.from(panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
-        (el) => el.offsetParent !== null
-      );
+      const focusables = Array.from(
+        panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE),
+      ).filter((el) => el.offsetParent !== null);
       if (focusables.length === 0) return;
       const first = focusables[0];
       const last = focusables[focusables.length - 1];

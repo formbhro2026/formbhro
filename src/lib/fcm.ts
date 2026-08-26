@@ -25,7 +25,11 @@ import { supabase } from "@/integrations/supabase/client";
  */
 export function isCapacitorAndroid(): boolean {
   if (typeof window === "undefined") return false;
-  const cap = (window as unknown as { Capacitor?: { getPlatform?: () => string; isPluginAvailable?: (name: string) => boolean } }).Capacitor;
+  const cap = (
+    window as unknown as {
+      Capacitor?: { getPlatform?: () => string; isPluginAvailable?: (name: string) => boolean };
+    }
+  ).Capacitor;
   if (cap?.getPlatform?.() === "android") return true;
   if (cap?.isPluginAvailable?.("GoogleAuth")) return true;
   if (isCapacitor() && /android/i.test(navigator.userAgent)) return true;
@@ -34,16 +38,16 @@ export function isCapacitorAndroid(): boolean {
 
 export function isCapacitor(): boolean {
   if (typeof window === "undefined") return false;
-  
+
   // 1. Check window.Capacitor
   const cap = (window as unknown as { Capacitor?: unknown }).Capacitor;
   if (cap != null) return true;
-  
+
   // 2. Check custom User-Agent appended in capacitor.config.ts
   if (navigator.userAgent && navigator.userAgent.includes("CapacitorFormbhro")) {
     return true;
   }
-  
+
   return false;
 }
 
@@ -139,9 +143,10 @@ function getDeviceId(): string {
   let id = localStorage.getItem(KEY);
   if (!id) {
     // Crypto-random UUID, compatible with React 19's targets
-    id = (typeof crypto !== "undefined" && crypto.randomUUID)
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    id =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     localStorage.setItem(KEY, id);
   }
   return id;
@@ -190,10 +195,7 @@ export async function deleteFCMToken(): Promise<void> {
     }
   }
 
-  const { error } = await supabase
-    .from("device_tokens")
-    .delete()
-    .eq("device_id", deviceId);
+  const { error } = await supabase.from("device_tokens").delete().eq("device_id", deviceId);
 
   if (error) {
     console.warn("[FCM] Failed to delete token from DB:", error.message);

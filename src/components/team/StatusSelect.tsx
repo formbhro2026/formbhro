@@ -44,7 +44,13 @@ export function StatusSelect({
 
       {open && (
         <>
-          <button type="button" tabIndex={-1} aria-hidden="true" onClick={() => setOpen(false)} className="fixed inset-0 z-40 cursor-default" />
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-hidden="true"
+            onClick={() => setOpen(false)}
+            className="fixed inset-0 z-40 cursor-default"
+          />
           <ul
             role="listbox"
             aria-label="Request status"
@@ -94,7 +100,13 @@ function CompletionDialog({ requestId, onClose }: { requestId: string; onClose: 
   const panelRef = useDialogA11y<HTMLDivElement>(onClose);
   return (
     <div className="fixed inset-0 z-[85] flex items-end justify-center bg-black/75 backdrop-blur-sm sm:items-center sm:p-4">
-      <button type="button" tabIndex={-1} aria-hidden="true" onClick={onClose} className="absolute inset-0 cursor-default" />
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-hidden="true"
+        onClick={onClose}
+        className="absolute inset-0 cursor-default"
+      />
       <div
         ref={panelRef}
         role="dialog"

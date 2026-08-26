@@ -6,7 +6,13 @@ import { openDocument, resolveDocumentUrl } from "@/lib/doc-access";
 
 const ICONS = { pdf: FileText, image: FileImage, doc: File };
 
-export function DocumentPreview({ document: doc, onClose }: { document: UserDocument; onClose: () => void }) {
+export function DocumentPreview({
+  document: doc,
+  onClose,
+}: {
+  document: UserDocument;
+  onClose: () => void;
+}) {
   const Icon = ICONS[doc.kind] ?? File;
   const panelRef = useDialogA11y<HTMLDivElement>(onClose);
   const [url, setUrl] = useState<string | null>(doc.previewUrl ?? null);
@@ -25,7 +31,13 @@ export function DocumentPreview({ document: doc, onClose }: { document: UserDocu
   }, [doc]);
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/75 backdrop-blur-sm sm:items-center sm:p-4">
-      <button type="button" tabIndex={-1} aria-hidden="true" onClick={onClose} className="absolute inset-0 cursor-default" />
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-hidden="true"
+        onClick={onClose}
+        className="absolute inset-0 cursor-default"
+      />
       <div
         ref={panelRef}
         role="dialog"
@@ -62,7 +74,9 @@ export function DocumentPreview({ document: doc, onClose }: { document: UserDocu
           ) : (
             <div className="flex flex-col items-center gap-2 text-text-muted">
               <Icon className="h-9 w-9 text-brand" strokeWidth={1.25} aria-hidden="true" />
-              <p className="text-xs">{doc.kind === "image" ? "Image preview" : `${doc.kind.toUpperCase()} preview`}</p>
+              <p className="text-xs">
+                {doc.kind === "image" ? "Image preview" : `${doc.kind.toUpperCase()} preview`}
+              </p>
             </div>
           )}
         </div>
