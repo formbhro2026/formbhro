@@ -62,7 +62,7 @@ function ChatScreen() {
   const request = getRequest(requestId);
   const messages = messagesFor(requestId);
   const requestDocs = documentsFor(requestId);
-  const preview = documents.find((d) => d.id === previewId) ?? null;
+  const preview = documents.find((d: any) => d.id === previewId) ?? null;
   const { session, startCall, acceptCall, hangup } = useWebRTCCall(requestId);
 
   useEffect(() => {
@@ -132,7 +132,7 @@ function ChatScreen() {
                 TODAY
               </p>
             </div>
-            {messages.map((m) => (
+            {messages.map((m: any) => (
               <MessageBubble
                 key={m.id}
                 message={m}

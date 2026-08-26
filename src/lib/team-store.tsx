@@ -545,6 +545,27 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const assignToMe = useCallback(
+    async (requestId: string) => {
+      if (!member?.id) return;
+      try {
+        const { error } = await supabase
+          .from("requests")
+          .update({
+            assigned_team_id: member.id,
+            status: "assigned",
+            assigned_at: new Date().toISOString(),
+          })
+          .eq("id", requestId);
+        if (error) throw error;
+        // The realtime subscription will trigger setRequests update
+      } catch (err) {
+        console.error("Failed to self-assign:", err);
+      }
+    },
+    [member],
+  );
+
   const sendMessage = useCallback(
     (requestId: string, text: string) => {
       const name = member?.name ?? "Support";
@@ -744,27 +765,6 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       ]);
     },
     [touch],
-  );
-
-  const assignToMe = useCallback(
-    async (requestId: string) => {
-      if (!member?.id) return;
-      try {
-        const { error } = await supabase
-          .from("requests")
-          .update({
-            assigned_team_id: member.id,
-            status: "assigned",
-            assigned_at: new Date().toISOString(),
-          })
-          .eq("id", requestId);
-        if (error) throw error;
-        // The realtime subscription will trigger setRequests update
-      } catch (err) {
-        console.error("Failed to self-assign:", err);
-      }
-    },
-    [member],
   );
 
   const isUserTyping = useCallback((requestId: string) => Boolean(typingIn[requestId]), [typingIn]);

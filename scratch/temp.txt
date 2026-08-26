@@ -1,0 +1,301 @@
+        : [],
+    [requests, member],
+  );
+  const assignedIds = useMemo(() => new Set(assigned.map((r) => r.id)), [assigned]);
+
+  const visibleDocuments = useMemo(
+    () => documents.filter((d) => assignedIds.has(d.requestId)),
+    [documents, assignedIds],
+  );
+  const visibleMessages = useMemo(
+    () => messages.filter((m) => assignedIds.has(m.requestId)),
+    [messages, assignedIds],
+  );
+
+  const getRequest = useCallback((id: string) => assigned.find((r) => r.id === id), [assigned]);
+  const messagesFor = useCallback(
+    (id: string) => visibleMessages.filter((m) => m.requestId === id),
+    [visibleMessages],
+  );
+  const documentsFor = useCallback(
+    (id: string) => visibleDocuments.filter((d) => d.requestId === id),
+    [visibleDocuments],
+  );
+  const getDocument = useCallback(
+    (id: string) => visibleDocuments.find((d) => d.id === id),
+    [visibleDocuments],
+  );
+
+  const touch = useCallback(
+    (requestId: string, patch: Partial<TeamRequest>, timelineLabel?: string) => {
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === requestId
+            ? {
+                ...r,
+                ...patch,
+                lastUpdated: `Today • ${nowTime()}`,
+                timeline: timelineLabel
+                  ? [...r.timeline, { label: timelineLabel, time: `Today • ${nowTime()}` }]
+                  : r.timeline,
+              }
+            : r,
+        ),
+      );
+    },
+    [],
+  );
+
+  const sendMessage = useCallback(
+    (requestId: string, text: string) => {
+      const name = member?.name ?? "Support";
+      const id = uid("msg");
+      setMessages((prev) => [
+        ...prev,
+        {
+          id,
+          requestId,
+          author: "team",
+          authorName: name,
+          time: nowTime(),
+          text,
+          read: false,
+          delivery: "sending",
+        },
+      ]);
+      touch(requestId, { lastMessage: text });
+      if (liveRef.current) {
+        // If not assigned yet, assign to me automatically when sending a message
+        const r = requestsRef.current.find((req) => req.id === requestId);
+        if (r && !r.assigneeId) {
+          void assignToMe(requestId).catch((err) => {
+            console.error("Auto-assignment failed:", err);
+          });
+        }
+
+        const room = rooms.current[requestId];
+        if (!room?.chatRoomId) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === id
+                ? { ...m, delivery: "failed", deliveryError: "Chat room unavailable." }
+                : m,
+            ),
+          );
+          return;
+        }
+        void messagesApi
+          .sendMessageWithRetry({
+            chatRoomId: room.chatRoomId,
+            requestId: room.requestId,
+            body: text,
+            senderRole: "team",
+          })
+          .then((row) => {
+            setMessages((prev) => {
+              if (prev.some((m) => m.id === row.id)) return prev.filter((m) => m.id !== id);
+              return prev.map((m) =>
+                m.id === id ? { ...m, id: row.id, delivery: "delivered" } : m,
+              );
+            });
+          })
+          .catch(() => {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === id
+                  ? { ...m, delivery: "failed", deliveryError: "Message not delivered." }
+                  : m,
+              ),
+            );
+          });
+        return;
+      }
+      runDeliveryCycle(requestId, id);
+    },
+    [member, touch, runDeliveryCycle, assignToMe],
+  );
+
+  const attachDocument = useCallback(
+    (
+      requestId: string,
+      file: {
+        name: string;
+        size: string;
+        kind: TeamDocument["kind"];
+        previewUrl?: string;
+        blob?: File;
+      },
+    ) => {
+      const id = uid("doc");
+      const name = member?.name ?? "Support";
+      setDocuments((prev) => [
+        ...prev,
+        {
+          id,
+          requestId,
+          name: file.name,
+          kind: file.kind,
+          size: file.size,
+          previewUrl: file.previewUrl,
+          uploadedAt: `Today • ${nowTime()}`,
+          uploadedBy: name,
+        },
+      ]);
+      const messageId = uid("msg");
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: messageId,
+          requestId,
+          author: "team",
+          authorName: name,
+          time: nowTime(),
+          documentId: id,
+          read: false,
+          delivery: "sending",
+        },
+      ]);
+      touch(
+        requestId,
+        { lastMessage: `Sent a document — ${file.name}` },
+        `Document sent — ${file.name}`,
+      );
+      if (liveRef.current) {
+        const room = rooms.current[requestId];
+        if (!room || !file.blob) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === messageId
+                ? { ...m, delivery: "failed", deliveryError: "Upload unavailable." }
+                : m,
+            ),
+          );
+          return;
+        }
+        void (async () => {
+          try {
+            const doc = await documentsApi.uploadDocument({
+              file: file.blob!,
+              requestId: room.requestId,
+              chatRoomId: room.chatRoomId ?? undefined,
+              uploaderRole: "team",
+            });
+            setDocuments((prev) => prev.map((d) => (d.id === id ? { ...d, id: doc.id } : d)));
+            if (room.chatRoomId) {
+              const row = await messagesApi.sendMessageWithRetry({
+                chatRoomId: room.chatRoomId,
+                requestId: room.requestId,
+                attachmentId: doc.id,
+                senderRole: "team",
+              });
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === messageId
+                    ? { ...m, id: row.id, documentId: doc.id, delivery: "delivered" }
+                    : m,
+                ),
+              );
+            }
+          } catch {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === messageId
+                  ? { ...m, delivery: "failed", deliveryError: "Upload failed." }
+                  : m,
+              ),
+            );
+          }
+        })();
+        return;
+      }
+      runDeliveryCycle(requestId, messageId);
+    },
+    [member, touch, runDeliveryCycle],
+  );
+
+  const setStatus = useCallback(
+    (requestId: string, status: TeamStatus) => {
+      const label =
+        status === "completed"
+          ? "Marked completed"
+          : `Status updated to ${status.replace("-", " ")}`;
+      if (liveRef.current) {
+        const room = rooms.current[requestId];
+        if (room) {
+          void requestsApi
+            .updateRequestStatus(
+              room.requestId,
+              TEAM_TO_DB_STATUS[status],
+              status === "completed" ? 100 : undefined,
+            )
+            .catch(() => undefined);
+        }
+      }
+      touch(requestId, status === "completed" ? { status, progress: 100 } : { status }, label);
+      setNotifications((prev) => [
+        {
+          id: uid("tn"),
+          type: "status",
+          text: `${requestId} status updated to ${status.replace("-", " ")}`,
+          time: nowTime(),
+          read: false,
+          requestId,
+        },
+        ...prev,
+      ]);
+    },
+    [touch],
+  );
+
+  const assignToMe = useCallback(
+    async (requestId: string) => {
+      if (!member?.id) return;
+      try {
+        const { error } = await supabase
+          .from("requests")
+          .update({
+            assigned_team_id: member.id,
+            status: "assigned",
+            assigned_at: new Date().toISOString(),
+          })
+          .eq("id", requestId);
+        if (error) throw error;
+        // The realtime subscription will trigger setRequests update
+      } catch (err) {
+        console.error("Failed to self-assign:", err);
+      }
+    },
+    [member],
+  );
+
+  const isUserTyping = useCallback((requestId: string) => Boolean(typingIn[requestId]), [typingIn]);
+
+  const notifyTyping = useCallback((requestId: string) => {
+    if (liveRef.current) {
+      // Real presence: broadcast on the request's chat-room channel.
+      const room = rooms.current[requestId];
+      const me = memberRef.current;
+      if (room?.chatRoomId && me) {
+        void sendTyping(room.chatRoomId, { userId: me.id, name: me.name, typing: true }).catch(
+          () => undefined,
+        );
+      }
+    }
+  }, []);
+
+  const meReader = useMemo(() => {
+    const name = member?.name ?? "You";
+    return { name, initials: initialsOf(name), role: "team" as const };
+  }, [member]);
+
+  const markRead = useCallback(
+    (requestId: string) => {
+      const at = nowTime();
+      setMessages((prev) =>
+        prev.some((m) => m.requestId === requestId && m.author === "user" && !m.read)
+          ? prev.map((m) =>
+              m.requestId === requestId && m.author === "user" && !m.read
+                ? withReceipt({ ...m, read: true, readAt: at }, meReader, at)
+                : m,
+            )
+          : prev,
