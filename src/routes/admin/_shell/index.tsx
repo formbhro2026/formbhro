@@ -3,7 +3,6 @@ import { Users, UserCog, Inbox, Clock, CheckCircle2, MessagesSquare } from "luci
 import { useAdmin } from "@/lib/admin-store";
 import { Panel, StatCard, Pill, formatDate } from "@/components/admin/AdminUI";
 import { STATUS_LABEL } from "@/lib/api/types";
-import { ConnectionGuide } from "@/components/admin/ConnectionGuide";
 
 export const Route = createFileRoute("/admin/_shell/")({
   component: AdminDashboard,
@@ -198,12 +197,7 @@ function AdminDashboard() {
         </Panel>
       </div>
 
-      <div className="mt-8 opacity-50 grayscale hover:opacity-100 hover:grayscale-0 transition-all">
-        <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-text-muted px-1">
-          Infrastructure Connection
-        </h2>
-        <ConnectionGuide />
-      </div>
+      
     </div>
   );
 }
