@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Capacitor } from "@capacitor/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
@@ -871,14 +872,16 @@ function Conversation({
           >
             <Phone className="h-4 w-4" />
           </button>
-          <button
-            type="button"
-            onClick={() => startCall(true)}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 text-white hover:bg-white/5 hover:text-brand transition-colors"
-            title="Share Screen"
-          >
-            <Monitor className="h-4 w-4" />
-          </button>
+          {typeof window !== "undefined" && !Capacitor.isNativePlatform() && (
+            <button
+              type="button"
+              onClick={() => startCall(true)}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 text-white hover:bg-white/5 hover:text-brand transition-colors"
+              title="Share Screen"
+            >
+              <Monitor className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
         {unreadCount > 0 && (
