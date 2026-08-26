@@ -226,10 +226,6 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!authed) return;
-    const scheduleGlobal = () => {
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => void refresh(true), 400);
-    };
     const schedulePage = () => {
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => {
@@ -240,35 +236,85 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
     const channel = supabase.channel("admin-live");
 
-    // requests only trigger the bounded page refresh + analytics update
     channel.on(
       "postgres_changes",
       { event: "*", schema: "public", table: "requests" },
       schedulePage,
     );
 
-    // other tables trigger global refresh (small tables)
-    const tables = [
-      "messages",
-      "documents",
-      "notifications",
-      "user_roles",
-      "team_members",
-      "activity_logs",
-      "news",
-      "settings",
-    ];
+    channel.on("postgres_changes", { event: "INSERT", schema: "public", table: "activity_logs" }, (payload) => {
+      setData((prev) => ({
+        ...prev,
+        activity: [payload.new as ActivityRow, ...prev.activity].slice(0, 200)
+      }));
+    });
 
-    for (const table of tables) {
-      channel.on("postgres_changes", { event: "*", schema: "public", table }, scheduleGlobal);
-    }
+    channel.on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, (payload) => {
+      setData((prev) => {
+        const p = payload as any;
+        if (p.eventType === "INSERT") {
+          return { ...prev, notifications: [p.new as NotificationRow, ...prev.notifications].slice(0, 150) };
+        } else if (p.eventType === "UPDATE") {
+          return { ...prev, notifications: prev.notifications.map(n => n.id === p.new.id ? (p.new as NotificationRow) : n) };
+        } else if (p.eventType === "DELETE") {
+          return { ...prev, notifications: prev.notifications.filter(n => n.id !== p.old.id) };
+        }
+        return prev;
+      });
+    });
+
+    channel.on("postgres_changes", { event: "*", schema: "public", table: "news" }, (payload) => {
+      setData((prev) => {
+        const p = payload as any;
+        if (p.eventType === "INSERT") {
+          return { ...prev, news: [p.new as NewsRow, ...prev.news].sort((a, b) => new Date(b.published_at ?? 0).getTime() - new Date(a.published_at ?? 0).getTime()).slice(0, 100) };
+        } else if (p.eventType === "UPDATE") {
+          return { ...prev, news: prev.news.map(n => n.id === p.new.id ? (p.new as NewsRow) : n) };
+        } else if (p.eventType === "DELETE") {
+          return { ...prev, news: prev.news.filter(n => n.id !== p.old.id) };
+        }
+        return prev;
+      });
+    });
+
+    channel.on("postgres_changes", { event: "*", schema: "public", table: "team_members" }, (payload) => {
+      setData((prev) => {
+        const p = payload as any;
+        if (p.eventType === "INSERT") {
+          return { ...prev, team: [...prev.team, p.new as TeamRow] };
+        } else if (p.eventType === "UPDATE") {
+          return { ...prev, team: prev.team.map(n => n.id === p.new.id ? (p.new as TeamRow) : n) };
+        } else if (p.eventType === "DELETE") {
+          return { ...prev, team: prev.team.filter(n => n.id !== p.old.id) };
+        }
+        return prev;
+      });
+    });
+    
+    channel.on("postgres_changes", { event: "*", schema: "public", table: "user_roles" }, (payload) => {
+      setData((prev) => {
+        const p = payload as any;
+        if (p.eventType === "INSERT") {
+          return { ...prev, roles: [...prev.roles.filter(r => r.user_id !== p.new.user_id), p.new as RoleRow] };
+        } else if (p.eventType === "UPDATE") {
+          return { ...prev, roles: prev.roles.map(r => r.id === p.new.id ? (p.new as RoleRow) : r) };
+        } else if (p.eventType === "DELETE") {
+          return { ...prev, roles: prev.roles.filter(n => n.id !== p.old.id) };
+        }
+        return prev;
+      });
+    });
+
+    channel.on("postgres_changes", { event: "UPDATE", schema: "public", table: "settings" }, (payload) => {
+      setData((prev) => ({ ...prev, settings: payload.new as SettingsRow }));
+    });
 
     channel.subscribe();
     return () => {
       if (timer.current) clearTimeout(timer.current);
       void supabase.removeChannel(channel);
     };
-  }, [authed, refresh, fetchRequestsPage]);
+  }, [authed, fetchRequestsPage]);
 
   const signIn = useCallback<AdminStore["signIn"]>(
     async (username, password) => {

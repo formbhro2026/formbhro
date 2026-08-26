@@ -15,10 +15,11 @@ import {
   FileText,
   Tag,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import logoAsset from "@/assets/logo.png.asset.json";
 import { useAdmin } from "@/lib/admin-store";
+import { setTeamMemberAvailability } from "@/lib/api/admin.functions";
 
 export const ADMIN_NAV = [
   { label: "Dashboard", to: "/admin", icon: LayoutDashboard, exact: true },
@@ -82,6 +83,50 @@ function SignOutButton({ onDone }: { onDone?: () => void }) {
   );
 }
 
+function AvailabilitySelector() {
+  const [status, setStatus] = useState("online");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    import("@/integrations/supabase/client").then(({ supabase }) => {
+      supabase.auth.getUser().then(({ data }) => {
+        const userStatus = (data.user?.user_metadata as any)?.availability_status || "online";
+        setStatus(userStatus);
+      }).catch(console.error);
+    }).catch(console.error);
+  }, []);
+
+  const handleChange = async (newStatus: "online" | "away" | "offline") => {
+    setBusy(true);
+    try {
+      await setTeamMemberAvailability({ data: { status: newStatus } });
+      setStatus(newStatus);
+      const { supabase } = await import("@/integrations/supabase/client");
+      await supabase.auth.updateUser({ data: { availability_status: newStatus } });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="m-2 px-3 py-2 text-xs flex items-center justify-between border border-border-subtle rounded-xl bg-bg-surface">
+      <span className="text-text-secondary">Status:</span>
+      <select
+        className="bg-transparent text-white text-xs outline-none cursor-pointer"
+        value={status}
+        disabled={busy}
+        onChange={(e) => void handleChange(e.target.value as any)}
+      >
+        <option value="online">Online</option>
+        <option value="away">Away</option>
+        <option value="offline">Offline</option>
+      </select>
+    </div>
+  );
+}
+
 export function AdminSidebar() {
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border-subtle bg-bg lg:flex xl:w-64">
@@ -92,7 +137,8 @@ export function AdminSidebar() {
         </span>
       </div>
       <NavList />
-      <div className="border-t border-border-subtle">
+      <div className="border-t border-border-subtle mt-auto">
+        <AvailabilitySelector />
         <SignOutButton />
       </div>
     </aside>
@@ -179,7 +225,8 @@ export function AdminTopbar({ title }: { title: string }) {
               </button>
             </div>
             <NavList onNavigate={() => setNavOpen(false)} />
-            <div className="border-t border-border-subtle">
+            <div className="border-t border-border-subtle mt-auto">
+              <AvailabilitySelector />
               <SignOutButton onDone={() => setNavOpen(false)} />
             </div>
           </div>

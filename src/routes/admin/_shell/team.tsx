@@ -33,6 +33,11 @@ const BLANK = {
   job_title: "Support Executive",
   role: "team" as "team" | "admin",
   active: true,
+  permissions: {
+    can_manage_team: false,
+    can_view_analytics: false,
+    can_delete_messages: false,
+  },
 };
 
 function AdminTeam() {
@@ -200,6 +205,48 @@ function AdminTeam() {
               </select>
             </Field>
             <div className="sm:col-span-2">
+              <h4 className="text-xs font-semibold text-white mb-2">Team Permissions</h4>
+              <div className="flex flex-wrap gap-4 mb-4">
+                <label className="flex items-center gap-2 text-xs text-text-secondary cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.permissions.can_manage_team}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        permissions: { ...form.permissions, can_manage_team: e.target.checked },
+                      })
+                    }
+                  />
+                  Manage Team
+                </label>
+                <label className="flex items-center gap-2 text-xs text-text-secondary cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.permissions.can_view_analytics}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        permissions: { ...form.permissions, can_view_analytics: e.target.checked },
+                      })
+                    }
+                  />
+                  View Analytics
+                </label>
+                <label className="flex items-center gap-2 text-xs text-text-secondary cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.permissions.can_delete_messages}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        permissions: { ...form.permissions, can_delete_messages: e.target.checked },
+                      })
+                    }
+                  />
+                  Delete Messages
+                </label>
+              </div>
               <Button type="submit" disabled={busy}>
                 {busy ? "Creating…" : "Create team member"}
               </Button>
@@ -322,10 +369,19 @@ function AdminTeam() {
               <div className="space-y-1 pt-1">
                 <p className="text-text-secondary">Phone: {detailProfile.phone ?? "—"}</p>
                 <p className="text-text-secondary">Department: {detail.job_title}</p>
-                <p className="text-text-secondary">Code: {detail.team_code}</p>
+                <p className="text-text-secondary">Status: <span className="capitalize">{(detail as any).availability_status ?? 'online'}</span></p>
                 <p className="text-text-secondary">Joined: {formatDate(detail.created_at)}</p>
+                
+                <div className="pt-2 pb-1">
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-text-muted mb-1">Permissions</p>
+                  <ul className="text-text-secondary list-disc list-inside">
+                    <li>Manage Team: {((detail as any).permissions?.can_manage_team) ? "Yes" : "No"}</li>
+                    <li>View Analytics: {((detail as any).permissions?.can_view_analytics) ? "Yes" : "No"}</li>
+                    <li>Delete Messages: {((detail as any).permissions?.can_delete_messages) ? "Yes" : "No"}</li>
+                  </ul>
+                </div>
               </div>
-              <p className="text-text-secondary">
+              <p className="text-text-secondary pt-1">
                 Completion rate:{" "}
                 {detailTotal > 0 ? Math.round((detailDone / detailTotal) * 100) : 0}%
               </p>
@@ -362,14 +418,36 @@ function AdminTeam() {
                   disabled={busy}
                   onClick={() => {
                     const title = window.prompt("Department / job title", detail.job_title);
-                    if (title)
+                    if (title !== null)
                       void run(
                         () => updateTeamMember({ data: { id: detail.id, job_title: title } }),
                         "Team member updated.",
                       );
                   }}
                 >
-                  Edit
+                  Edit Title
+                </Button>
+                <Button
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={() => {
+                    const currentPerms = (detail as any).permissions ?? {};
+                    const can_manage_team = window.confirm(`Can manage team? (Current: ${currentPerms.can_manage_team ? 'Yes' : 'No'})`);
+                    const can_view_analytics = window.confirm(`Can view analytics? (Current: ${currentPerms.can_view_analytics ? 'Yes' : 'No'})`);
+                    const can_delete_messages = window.confirm(`Can delete messages? (Current: ${currentPerms.can_delete_messages ? 'Yes' : 'No'})`);
+                    
+                    void run(
+                      () => updateTeamMember({ 
+                        data: { 
+                          id: detail.id, 
+                          permissions: { can_manage_team, can_view_analytics, can_delete_messages } 
+                        } 
+                      }),
+                      "Permissions updated.",
+                    );
+                  }}
+                >
+                  Edit Permissions
                 </Button>
                 <Button
                   variant="danger"

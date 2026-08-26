@@ -81,6 +81,7 @@ export const createTeamMember = createServerFn({ method: "POST" })
         job_title: z.string().min(2).max(60).default("Support Executive"),
         role: z.enum(["team", "admin"]).default("team"),
         active: z.boolean().default(true),
+        permissions: z.record(z.boolean()).optional().default({}),
       })
       .parse(input),
   )
@@ -135,6 +136,7 @@ export const createTeamMember = createServerFn({ method: "POST" })
         created_by: context.userId,
         is_active: data.active,
         team_code: teamCode,
+        permissions: data.permissions,
       },
       { onConflict: "id" },
     );
@@ -168,17 +170,26 @@ export const updateTeamMember = createServerFn({ method: "POST" })
         phone: z.string().max(30).optional(),
         job_title: z.string().min(2).max(60).optional(),
         avatar_url: z.string().max(500).optional(),
+        permissions: z.record(z.boolean()).optional(),
       })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { id, job_title, ...profilePatch } = data;
+    const { id, job_title, permissions, ...profilePatch } = data;
     if (Object.keys(profilePatch).length) {
       await supabaseAdmin.from("profiles").update(profilePatch).eq("id", id);
     }
-    if (job_title) await supabaseAdmin.from("team_members").update({ job_title }).eq("id", id);
+    
+    const teamPatch: Record<string, any> = {};
+    if (job_title) teamPatch.job_title = job_title;
+    if (permissions) teamPatch.permissions = permissions;
+    
+    if (Object.keys(teamPatch).length > 0) {
+      await supabaseAdmin.from("team_members").update(teamPatch).eq("id", id);
+    }
+    
     await supabaseAdmin.from("activity_logs").insert({
       actor_id: context.userId,
       actor_role: "admin",
@@ -241,6 +252,20 @@ export const setTeamMemberActive = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await supabaseAdmin.from("team_members").update({ is_active: data.active }).eq("id", data.id);
     await supabaseAdmin.from("profiles").update({ is_active: data.active }).eq("id", data.id);
+    return { ok: true };
+  });
+
+export const setTeamMemberAvailability = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) =>
+    z.object({ status: z.enum(["online", "away", "offline"]) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await supabaseAdmin
+      .from("team_members")
+      .update({ availability_status: data.status })
+      .eq("id", context.userId);
     return { ok: true };
   });
 
@@ -553,6 +578,10 @@ export interface AdminAnalyticsStats {
   }>;
   topDocs: Array<{
     id: string;
+    count: number;
+  }>;
+  timeSeries: Array<{
+    date: string;
     count: number;
   }>;
 }

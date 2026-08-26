@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Users, UserCog, Inbox, CheckCircle2, Timer, Clock } from "lucide-react";
+import { Users, UserCog, Inbox, CheckCircle2, Timer, Clock, Download } from "lucide-react";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useAdmin } from "@/lib/admin-store";
 import { Panel, StatCard } from "@/components/admin/AdminUI";
 
@@ -10,8 +11,32 @@ function AdminAnalytics() {
 
   if (!stats) return <div className="p-4 text-text-muted">Loading analytics...</div>;
 
+  const handleExportCSV = () => {
+    if (!stats.timeSeries || stats.timeSeries.length === 0) return;
+    const header = "Date,Requests\n";
+    const rows = stats.timeSeries.map(ts => `${ts.date},${ts.count}`).join("\n");
+    const csvContent = "data:text/csv;charset=utf-8," + header + rows;
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `analytics_export_${new Date().toISOString().split("T")[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-white">Analytics Overview</h2>
+        <button
+          onClick={handleExportCSV}
+          className="flex items-center gap-2 rounded-xl bg-brand/10 border border-brand/20 px-3 py-1.5 text-[11px] font-bold text-brand transition-colors hover:bg-brand/20"
+        >
+          <Download className="h-3.5 w-3.5" />
+          Export CSV
+        </button>
+      </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
         <StatCard label="Total users" value={stats.users} icon={Users} />
         <StatCard label="Total team" value={team.length} icon={UserCog} />
@@ -132,6 +157,25 @@ function AdminAnalytics() {
           </ul>
         </Panel>
       </div>
+
+      {stats.timeSeries && stats.timeSeries.length > 0 && (
+        <Panel title="Request Volume Over Time">
+          <div className="h-64 w-full pt-4 pr-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={stats.timeSeries} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
+                <XAxis dataKey="date" stroke="#ffffff50" tick={{ fill: "#ffffff50", fontSize: 10 }} tickMargin={10} axisLine={false} tickLine={false} />
+                <YAxis stroke="#ffffff50" tick={{ fill: "#ffffff50", fontSize: 10 }} tickMargin={10} axisLine={false} tickLine={false} allowDecimals={false} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: "#1c1c1c", borderColor: "#333", borderRadius: "8px", fontSize: "12px" }} 
+                  itemStyle={{ color: "#ff7a00" }} 
+                />
+                <Line type="monotone" dataKey="count" name="Requests" stroke="#ff7a00" strokeWidth={3} dot={{ r: 4, fill: "#ff7a00", strokeWidth: 0 }} activeDot={{ r: 6 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </Panel>
+      )}
     </div>
   );
 }
