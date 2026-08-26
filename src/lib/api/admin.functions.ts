@@ -531,10 +531,15 @@ export const verifyTeamCode = createServerFn({ method: "POST" })
       throw new Error("Team account configuration error.");
     }
 
-    // 3. We return the email and a signal to the client to sign in.
-    // In a real production app, we might use a one-time token or custom claim.
-    // For this flow, we'll return the email and the "special" status.
-    // The client-side TeamStore will then use a dedicated signIn method.
+    // 3. Ensure the password is synchronized to the standard team password so client-side login succeeds
+    try {
+      await supabaseAdmin.auth.admin.updateUserById(member.id, {
+        password: "FBH-Team@2026",
+        email_confirm: true,
+      });
+    } catch (pwdErr) {
+      console.warn("[verifyTeamCode] Could not sync password:", pwdErr);
+    }
 
     return {
       ok: true,
