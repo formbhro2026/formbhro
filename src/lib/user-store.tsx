@@ -81,7 +81,7 @@ export function DemoUserStoreProvider({ children }: { children: ReactNode }) {
   );
 
   const createRequest = useCallback(
-    (title: string) => {
+    (title: string, category?: string) => {
       const created: SupportRequest = {
         id: nextRequestId(requests),
         title,
@@ -229,6 +229,10 @@ export function DemoUserStoreProvider({ children }: { children: ReactNode }) {
     ]);
   }, []);
 
+  const removeFile = useCallback(async (id: string) => {
+    setDocuments((prev) => prev.filter((d) => d.id !== id));
+  }, []);
+
   const addNote = useCallback((requestId: string, note: string) => {
     setRequests((prev) =>
       prev.map((r) => (r.id === requestId ? { ...r, notes: [...r.notes, note] } : r)),
@@ -261,10 +265,12 @@ export function DemoUserStoreProvider({ children }: { children: ReactNode }) {
       messagesFor,
       documentsFor,
       createRequest,
+      refresh: async () => {},
       sendMessage,
       retryMessage,
       attachFile,
       uploadPersonalDocument,
+      removeFile,
       addNote,
       markRead,
       markNotificationRead,
@@ -289,6 +295,7 @@ export function DemoUserStoreProvider({ children }: { children: ReactNode }) {
       retryMessage,
       attachFile,
       uploadPersonalDocument,
+      removeFile,
       addNote,
       markRead,
       markNotificationRead,

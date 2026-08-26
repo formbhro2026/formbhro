@@ -1,96 +1,22 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo } from "react";
 import { Users, UserCog, Inbox, CheckCircle2, Timer, Clock } from "lucide-react";
 import { useAdmin } from "@/lib/admin-store";
 import { Panel, StatCard } from "@/components/admin/AdminUI";
 
 export const Route = createFileRoute("/admin/_shell/analytics")({ component: AdminAnalytics });
 
-function hoursBetween(a: string, b: string) {
-  return (new Date(b).getTime() - new Date(a).getTime()) / 36e5;
-}
-
 function AdminAnalytics() {
-  const { requests, roles, team, documents, profileOf } = useAdmin();
+  const { stats, roles, team, profileOf } = useAdmin();
 
-  const stats = useMemo(() => {
-    const completed = requests.filter((r) => r.completed_at);
-    const avgCompletion = completed.length
-      ? completed.reduce((sum, r) => sum + hoursBetween(r.created_at, r.completed_at!), 0) /
-        completed.length
-      : 0;
-    const assigned = requests.filter((r) => r.assigned_at);
-    const avgResponse = assigned.length
-      ? assigned.reduce((sum, r) => sum + hoursBetween(r.created_at, r.assigned_at!), 0) /
-        assigned.length
-      : 0;
-
-    const since = (days: number) => {
-      const cut = Date.now() - days * 864e5;
-      return requests.filter((r) => new Date(r.created_at).getTime() >= cut).length;
-    };
-
-    const perTeam = team
-      .map((t) => {
-        const mine = requests.filter((r) => r.assigned_team_id === t.id);
-        const lastActivity =
-          mine.length > 0
-            ? Math.max(...mine.map((r) => new Date(r.last_activity_at || r.created_at).getTime()))
-            : 0;
-        const isOnline = lastActivity > Date.now() - 30 * 60 * 1000; // Online if active in last 30 mins
-        return {
-          id: t.id,
-          name: profileOf(t.id)?.full_name ?? t.team_code,
-          total: mine.length,
-          done: mine.filter((r) => r.status === "completed").length,
-          isOnline,
-        };
-      })
-      .sort((a, b) => (a.isOnline === b.isOnline ? b.done - a.done : a.isOnline ? -1 : 1));
-
-    const perUser = requests.reduce<Record<string, number>>((acc, r) => {
-      acc[r.user_id] = (acc[r.user_id] ?? 0) + 1;
-      return acc;
-    }, {});
-    const topUsers = Object.entries(perUser)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5);
-
-    const perDoc = documents.reduce<Record<string, number>>((acc, d) => {
-      acc[d.file_name] = (acc[d.file_name] ?? 0) + 1;
-      return acc;
-    }, {});
-    const topDocs = Object.entries(perDoc)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5);
-
-    return {
-      avgCompletion,
-      avgResponse,
-      daily: since(1),
-      weekly: since(7),
-      monthly: since(30),
-      perTeam,
-      topUsers,
-      topDocs,
-    };
-  }, [requests, team, documents, profileOf]);
+  if (!stats) return <div className="p-4 text-text-muted">Loading analytics...</div>;
 
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-        <StatCard
-          label="Total users"
-          value={roles.filter((r) => r.role === "user").length}
-          icon={Users}
-        />
+        <StatCard label="Total users" value={stats.users} icon={Users} />
         <StatCard label="Total team" value={team.length} icon={UserCog} />
-        <StatCard label="Total requests" value={requests.length} icon={Inbox} />
-        <StatCard
-          label="Completed"
-          value={requests.filter((r) => r.status === "completed").length}
-          icon={CheckCircle2}
-        />
+        <StatCard label="Total requests" value={stats.total} icon={Inbox} />
+        <StatCard label="Completed" value={stats.completed} icon={CheckCircle2} />
         <StatCard
           label="Avg completion"
           value={`${stats.avgCompletion.toFixed(1)} h`}
@@ -167,23 +93,13 @@ function AdminAnalytics() {
               <div className="rounded-lg bg-surface-2 p-3 border border-border-subtle">
                 <p className="text-[10px] font-bold text-text-muted uppercase">Conversion Rate</p>
                 <p className="text-lg font-bold text-white">
-                  {requests.length
-                    ? Math.round(
-                        (requests.filter((r) => r.status === "completed").length /
-                          requests.length) *
-                          100,
-                      )
-                    : 0}
-                  %
+                  {stats.total ? Math.round((stats.completed / stats.total) * 100) : 0}%
                 </p>
               </div>
               <div className="rounded-lg bg-surface-2 p-3 border border-border-subtle">
                 <p className="text-[10px] font-bold text-text-muted uppercase">Active Load</p>
                 <p className="text-lg font-bold text-white">
-                  {
-                    requests.filter((r) => r.status !== "completed" && r.status !== "cancelled")
-                      .length
-                  }
+                  {stats.total - stats.completed /* approx pending load */}
                 </p>
               </div>
             </div>
@@ -192,21 +108,21 @@ function AdminAnalytics() {
 
         <Panel title="Most Active Users">
           <ul className="space-y-2 text-xs">
-            {stats.topUsers.map(([id, count]) => (
+            {stats.topUsers.map((user) => (
               <li
-                key={id}
+                key={user.id}
                 className="flex items-center justify-between gap-2 rounded-xl border border-border-subtle bg-bg px-3 py-2.5"
               >
                 <div className="flex items-center gap-2 truncate">
                   <div className="h-6 w-6 rounded-full bg-brand/10 flex items-center justify-center text-[10px] font-bold text-brand">
-                    {profileOf(id)?.full_name?.charAt(0) || "U"}
+                    {profileOf(user.id)?.full_name?.charAt(0) || "U"}
                   </div>
                   <span className="truncate text-white font-medium">
-                    {profileOf(id)?.full_name ?? "User"}
+                    {profileOf(user.id)?.full_name ?? "User"}
                   </span>
                 </div>
                 <span className="text-[10px] font-bold text-text-muted uppercase">
-                  {count} REQS
+                  {user.count} REQS
                 </span>
               </li>
             ))}

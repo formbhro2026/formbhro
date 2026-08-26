@@ -35,6 +35,7 @@ export const STATUS_LABEL: Record<DbRequestStatus, string> = {
   in_progress: "In Progress",
   completed: "Completed",
   cancelled: "Cancelled",
+  closed: "Closed",
 };
 
 /** Thrown by the service layer so the UI can show a graceful message. */

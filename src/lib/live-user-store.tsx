@@ -32,6 +32,7 @@ const STATUS_MAP: Record<DbRequestStatus, RequestStatus> = {
   in_progress: "in-progress",
   completed: "completed",
   cancelled: "completed",
+  closed: "completed",
 };
 
 function time(iso?: string | null) {
@@ -367,8 +368,8 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
   );
 
   const createRequest = useCallback(
-    async (title: string = "Form Assistance") => {
-      const request = await requestsApi.createNewRequest({ title, category: title });
+    async (title: string = "Form Assistance", category?: string) => {
+      const request = await requestsApi.createNewRequest({ title, category: category || title });
       const reference = request.reference || request.id;
       const room = await requestsApi.getChatRoom(request.id);
       rooms.current[reference] = {
@@ -515,6 +516,25 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
     [mapDocument],
   );
 
+  const removeFile = useCallback(async (id: string, storagePath?: string) => {
+    if (!storagePath) {
+      // In case we don't have the storage path (shouldn't happen for valid documents), just filter.
+      setDocuments((prev) => prev.filter((d) => d.id !== id));
+      return;
+    }
+
+    // Optimistic UI update
+    setDocuments((prev) => prev.filter((d) => d.id !== id));
+
+    try {
+      await documentsApi.deleteDocument(id, storagePath);
+    } catch (err) {
+      // Revert if API fails? For now just log or let the user know.
+      // But typically we'd show a toast here.
+      console.error("Failed to delete document", err);
+    }
+  }, []);
+
   const addNote = useCallback((reference: string, note: string) => {
     setRequests((prev) =>
       prev.map((r) => (r.id === reference ? { ...r, notes: [...r.notes, note] } : r)),
@@ -592,10 +612,12 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       messagesFor,
       documentsFor,
       createRequest,
+      refresh: hydrate,
       sendMessage,
       retryMessage,
       attachFile,
       uploadPersonalDocument,
+      removeFile,
       addNote,
       markRead,
       markNotificationRead,
@@ -620,10 +642,12 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       messagesFor,
       documentsFor,
       createRequest,
+      hydrate,
       sendMessage,
       retryMessage,
       attachFile,
       uploadPersonalDocument,
+      removeFile,
       addNote,
       markRead,
       markNotificationRead,

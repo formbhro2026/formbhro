@@ -5,10 +5,12 @@ Align the User Dashboard (`/app`) and Shell UI with the reference image (user-up
 ## Proposed Changes
 
 ### Theme & Global Styles
+
 - Adjust `--color-bg` and other tokens in `src/styles.css` to ensure they default to a clean white/gray light theme for the app shell, keeping the dark landing page separate.
 - Ensure text contrast is high (text-gray-900 for headings, text-gray-500 for secondary).
 
 ### Shell Layout (`src/routes/app.tsx`, `src/components/layout/UserHeader.tsx`, `UserSidebar.tsx`)
+
 - Update `UserHeader.tsx` to match the reference:
   - Sidebar toggle on the left.
   - Centered brand logo.
@@ -16,6 +18,7 @@ Align the User Dashboard (`/app`) and Shell UI with the reference image (user-up
 - Ensure consistent padding and sticky positioning.
 
 ### Dashboard Content (`src/components/dashboard/MobileDashboard.tsx`)
+
 - **Carousel Banner**: Recreate the "Latest Government Job Updates" banner with a blue background, clipboard/megaphone illustration (Lucide icons + CSS), and pagination dots.
 - **Explore Categories**:
   - Replace current list with a 2x2 or 4x1 grid of category cards.
@@ -27,11 +30,13 @@ Align the User Dashboard (`/app`) and Shell UI with the reference image (user-up
   - Maintain real data integration with fallback mock items.
 
 ### Technical Details
+
 - Use `lucide-react` for all iconography.
 - Implement responsive grid layouts using Tailwind (grid-cols-4 for desktop, grid-cols-2 or horizontal scroll for mobile).
 - Retain the `useUserStore` and `useFillNow` logic for functional integration.
 
 ## Constraints & Considerations
+
 - Keep the landing page dark theme intact (CSS scoping or local overrides).
 - Ensure "Fill Now" remains the most accessible action for the user's primary workflow.
 - Mobile-first approach as per the reference image.

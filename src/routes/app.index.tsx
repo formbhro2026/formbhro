@@ -32,8 +32,10 @@ export const Route = createFileRoute("/app/")({
   }),
 });
 
+import { PullToRefresh } from "@/components/common/PullToRefresh";
+
 function UserHome() {
-  const { requests, activeRequest, messagesFor, documentsFor } = useUserStore();
+  const { requests, activeRequest, messagesFor, refresh } = useUserStore();
 
   const latestRequest = activeRequest ?? requests[0];
   const latestMessages = latestRequest ? messagesFor(latestRequest.id) : [];
@@ -43,7 +45,9 @@ function UserHome() {
     <div className="flex min-h-screen flex-col bg-bg text-white">
       <UserHeader title="Home" />
       <main className="mx-auto w-full max-w-7xl flex-1 px-0 pb-28 pt-0 sm:px-6 lg:pb-10 lg:pt-5">
-        <MobileDashboard />
+        <PullToRefresh onRefresh={refresh}>
+          <MobileDashboard />
+        </PullToRefresh>
       </main>
     </div>
   );

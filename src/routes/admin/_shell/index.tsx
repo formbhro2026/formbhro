@@ -16,21 +16,19 @@ function isToday(value?: string | null) {
 }
 
 function AdminDashboard() {
-  const { requests, roles, team, profileOf, stats, activity } = useAdmin();
+  const { requestsPage, profileOf, stats, activity } = useAdmin();
 
-  const totalUsers =
-    (stats as any)?.users ?? (roles as any[]).filter((r: any) => r.role === "user").length;
-  const pending = stats?.requests.pending ?? requests.filter((r) => r.status === "pending").length;
-  const completed =
-    stats?.requests.completed ?? requests.filter((r) => r.status === "completed").length;
-  const active = (stats?.requests.total ?? requests.length) - completed;
+  const totalUsers = stats?.users ?? 0;
+  const completed = stats?.completed ?? 0;
+  const active = (stats?.total ?? 0) - completed;
+  const pending = active; // Treat all active as pending/processing for the summary
 
   return (
     <div className="space-y-6">
       {/* KPI Cards */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Total Users" value={totalUsers} icon={Users} />
-        <StatCard label="Team Members" value={stats?.team ?? team.length} icon={UserCog} />
+        <StatCard label="Team Members" value={stats?.teamCount ?? 0} icon={UserCog} />
         <StatCard label="Active Requests" value={active} icon={Inbox} />
         <StatCard label="Completed" value={completed} icon={CheckCircle2} />
       </div>
@@ -55,9 +53,7 @@ function AdminDashboard() {
               <p className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
                 New Today
               </p>
-              <p className="mt-1 text-2xl font-bold text-white">
-                {requests.filter((r) => isToday(r.created_at)).length}
-              </p>
+              <p className="mt-1 text-2xl font-bold text-white">{stats?.daily ?? 0}</p>
             </div>
           </div>
 
@@ -66,15 +62,15 @@ function AdminDashboard() {
             <div className="flex h-2 w-full overflow-hidden rounded-full bg-surface-3">
               <div
                 className="bg-amber-500"
-                style={{ width: `${(pending / (requests.length || 1)) * 100}%` }}
+                style={{ width: `${(pending / (stats?.total || 0 || 1)) * 100}%` }}
               />
               <div
                 className="bg-brand"
-                style={{ width: `${((active - pending) / (requests.length || 1)) * 100}%` }}
+                style={{ width: `${((active - pending) / (stats?.total || 0 || 1)) * 100}%` }}
               />
               <div
                 className="bg-emerald-500"
-                style={{ width: `${(completed / (requests.length || 1)) * 100}%` }}
+                style={{ width: `${(completed / (stats?.total || 0 || 1)) * 100}%` }}
               />
             </div>
             <div className="mt-3 flex flex-wrap gap-4">
@@ -144,7 +140,7 @@ function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {requests.slice(0, 5).map((r) => (
+                {requestsPage.slice(0, 5).map((r) => (
                   <tr key={r.id} className="border-b border-border-subtle/50 last:border-0">
                     <td className="py-3 pr-2 font-medium text-white">{r.reference}</td>
                     <td className="py-3 px-2 text-text-secondary">
@@ -196,8 +192,6 @@ function AdminDashboard() {
           </div>
         </Panel>
       </div>
-
-      
     </div>
   );
 }

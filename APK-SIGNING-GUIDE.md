@@ -9,6 +9,7 @@
 ## 🔑 Step 1: Generate Signing Key
 
 ### Option A: Using Android Studio (Recommended)
+
 1. Open Android Studio
 2. Go to **Build** → **Generate Signed Bundle/APK**
 3. Select **APK** and click **Next**
@@ -22,11 +23,13 @@
    - **Certificate info**: Fill in your details
 
 ### Option B: Using keytool (Command Line)
+
 ```bash
 keytool -genkey -v -keystore formbhro-release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias formbhro
 ```
 
 You'll be prompted for:
+
 - Keystore password
 - Key password (use same as keystore password)
 - Your name, organization, city, state, country code
@@ -34,6 +37,7 @@ You'll be prompted for:
 ## 📋 Step 2: Configure Capacitor for Signing
 
 ### Update capacitor.config.ts
+
 Add or update the android configuration:
 
 ```typescript
@@ -52,7 +56,7 @@ const config: CapacitorConfig = {
       "oauth.lovable.app",
       "accounts.google.com",
       "*.google.com",
-      "ogjhvmucklbxcewpkiai.supabase.co"
+      "ogjhvmucklbxcewpkiai.supabase.co",
     ],
   },
   plugins: {
@@ -60,13 +64,14 @@ const config: CapacitorConfig = {
   },
   android: {
     buildOptions: {
-      signingType: "apksigner"
-    }
-  }
+      signingType: "apksigner",
+    },
+  },
 };
 ```
 
 ### Create signing configuration file
+
 Create `android/app/build.gradle` (if it doesn't exist) or update it:
 
 ```gradle
@@ -79,7 +84,7 @@ android {
             keyPassword 'YOUR_KEY_PASSWORD'
         }
     }
-    
+
     buildTypes {
         release {
             signingConfig signingConfigs.release
@@ -93,6 +98,7 @@ android {
 **⚠️ SECURITY WARNING**: Never commit passwords to git! Use environment variables or a local.properties file.
 
 ### Using local.properties for security
+
 Create `android/local.properties`:
 
 ```properties
@@ -118,16 +124,19 @@ android {
 ## 🏗️ Step 3: Build the APK
 
 ### Sync Capacitor
+
 ```bash
 npm run cap:sync
 ```
 
 ### Build Release APK
+
 ```bash
 npm run cap:build:release
 ```
 
 Or manually:
+
 ```bash
 cd android
 ./gradlew assembleRelease
@@ -136,6 +145,7 @@ cd android
 ## 📦 Step 4: Locate the APK
 
 The signed APK will be located at:
+
 ```
 android/app/build/outputs/apk/release/app-release.apk
 ```
@@ -143,6 +153,7 @@ android/app/build/outputs/apk/release/app-release.apk
 ## 🔒 Step 5: Verify Signature
 
 Verify the APK signature:
+
 ```bash
 jarsigner -verify -verbose -certs android/app/build/outputs/apk/release/app-release.apk
 ```
@@ -150,14 +161,16 @@ jarsigner -verify -verbose -certs android/app/build/outputs/apk/release/app-rele
 ## 🧪 Step 6: Testing Before Distribution
 
 ### Install on Test Device
+
 ```bash
 adb install android/app/build/outputs/apk/release/app-release.apk
 ```
 
 ### Test Checklist:
+
 - [ ] App launches successfully
 - [ ] User authentication works
-- [ ] Admin authentication works  
+- [ ] Admin authentication works
 - [ ] Team authentication works
 - [ ] Google Sign-In works
 - [ ] WebRTC calling functions
@@ -170,10 +183,12 @@ adb install android/app/build/outputs/apk/release/app-release.apk
 ## 🚀 Step 7: Distribution
 
 ### Upload to Google Play Store
+
 1. Use the signed APK for internal testing
 2. For production, consider creating an AAB (Android App Bundle) instead
 
 ### Direct Distribution
+
 Share the APK file directly for testing or distribution outside Play Store.
 
 ## 🔐 Important Security Notes
@@ -188,18 +203,22 @@ Share the APK file directly for testing or distribution outside Play Store.
 ## 🛠️ Troubleshooting
 
 ### "Keystore file not found"
+
 - Ensure the keystore file path in build.gradle is correct
 - Try using absolute path if relative path doesn't work
 
 ### "Invalid keystore format"
+
 - Ensure you're using the correct keystore file
 - Regenerate the keystore if corrupted
 
 ### "Permission denied"
+
 - Ensure file permissions are correct on the keystore file
 - Check that the keystore file isn't corrupted
 
 ### Build fails with signing errors
+
 - Verify passwords are correct
 - Check that the key alias matches what you created
 - Ensure build.gradle configuration is correct

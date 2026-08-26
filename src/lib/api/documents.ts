@@ -83,6 +83,9 @@ export async function uploadDocument(input: {
 
   if (error) {
     await supabase.storage.from(BUCKET).remove([path]);
+    if (error.message.includes("RATE_LIMIT_EXCEEDED")) {
+      throw new ApiError("Too many uploads. Please try again shortly.", "RATE_LIMIT_EXCEEDED");
+    }
     throw new ApiError(error.message, error.code);
   }
   input.onProgress?.(100);
@@ -116,4 +119,25 @@ export async function documentsCount(): Promise<number> {
     .select("id", { count: "exact", head: true });
   if (error) throw new ApiError(error.message, error.code);
   return count ?? 0;
+}
+
+export async function deleteDocument(id: string, storagePath: string) {
+  const { data: userData } = await supabase.auth.getUser();
+  const uid = userData.user?.id;
+  if (!uid) throw new ApiError("Session expired. Please sign in again.", "unauthenticated");
+
+  // Delete DB row first. If this fails due to RLS or not found, it prevents orphaned DB entries.
+  const { error: dbError } = await supabase.from("documents").delete().eq("id", id);
+  // Note: RLS handles the uploaded_by = auth.uid() OR is_admin check.
+
+  if (dbError) throw new ApiError("Failed to remove document record", dbError.code);
+
+  // Remove from storage bucket
+  const { error: storageError } = await supabase.storage.from(BUCKET).remove([storagePath]);
+
+  // If storage delete fails, we just log it. The DB row is gone so it won't appear in the app.
+  // This satisfies the "prefer orphaned storage over orphaned DB row" safety principle.
+  if (storageError) {
+    console.warn("Storage deletion failed after DB row was deleted:", storageError);
+  }
 }

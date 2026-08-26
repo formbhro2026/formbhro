@@ -104,6 +104,8 @@ export type TeamRequest = {
   progress: number;
   assigneeId: string;
   timeline: TeamTimelineEntry[];
+  /** True if this request has been flagged for Admin attention. */
+  isEscalated: boolean;
 };
 
 export type TeamNotification = {

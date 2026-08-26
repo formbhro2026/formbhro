@@ -1,12 +1,14 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Info, Lock, ShieldCheck } from "lucide-react";
+import { Info, Lock, ShieldCheck, Mail, Key } from "lucide-react";
 import logoAsset from "@/assets/logo.png.asset.json";
 import { useTeamStore } from "@/lib/team-store";
 
 function TeamLogin() {
-  const { signInWithCode, member, hydrated } = useTeamStore();
+  const { signInWithTeamAuth, member, hydrated } = useTeamStore();
   const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -20,12 +22,12 @@ function TeamLogin() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setNotice(null);
-    if (!code.trim()) {
-      setError("Please enter your team access code.");
+    if (!email.trim() || !password || !code.trim()) {
+      setError("Please fill in all credentials.");
       return;
     }
     setBusy(true);
-    const res = await signInWithCode(code.trim().toUpperCase(), remember);
+    const res = await signInWithTeamAuth(email, password, code.trim().toUpperCase(), remember);
     setBusy(false);
     if (!res.ok) {
       setError(res.error ?? "Invalid access code.");
@@ -67,6 +69,54 @@ function TeamLogin() {
                 {notice}
               </p>
             )}
+
+            <div>
+              <label
+                htmlFor="email"
+                className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider"
+              >
+                Email Address
+              </label>
+              <div className="relative mt-1.5">
+                <Mail
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"
+                  aria-hidden="true"
+                />
+                <input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@company.com"
+                  className="h-11 w-full rounded-xl border border-white/10 bg-white/5 pl-9 pr-3 text-sm text-white placeholder:text-zinc-600 focus:border-[#ff7a00]/50 outline-none transition-colors"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label
+                htmlFor="password"
+                className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider"
+              >
+                Password
+              </label>
+              <div className="relative mt-1.5">
+                <Key
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"
+                  aria-hidden="true"
+                />
+                <input
+                  id="password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="h-11 w-full rounded-xl border border-white/10 bg-white/5 pl-9 pr-3 text-sm text-white placeholder:text-zinc-600 focus:border-[#ff7a00]/50 outline-none transition-colors"
+                />
+              </div>
+            </div>
 
             <div>
               <label
@@ -158,5 +208,3 @@ export const Route = createFileRoute("/team/login")({
     ],
   }),
 });
-
-

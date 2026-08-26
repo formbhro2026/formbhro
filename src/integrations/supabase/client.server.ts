@@ -37,7 +37,9 @@ function createSupabaseAdminClient() {
   const SUPABASE_SERVICE_ROLE_KEY = process.env["SUPABASE_SERVICE_ROLE_KEY"];
 
   if (!SUPABASE_URL) {
-    throw new Error("Missing SUPABASE_URL. Please configure it in your Vercel Environment Variables.");
+    throw new Error(
+      "Missing SUPABASE_URL. Please configure it in your Vercel Environment Variables.",
+    );
   }
 
   if (!SUPABASE_SERVICE_ROLE_KEY) {

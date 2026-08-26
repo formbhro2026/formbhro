@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { canShareScreen } from "@/lib/utils";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Monitor, Paperclip, Phone, Send, Share2 } from "lucide-react";
+import { Monitor, Paperclip, Phone, Send, Share2, AlertTriangle } from "lucide-react";
 import { useAdmin } from "@/lib/admin-store";
 import { Button, Panel, Pill, SearchBox, formatDate, inputClass } from "@/components/admin/AdminUI";
 import * as messagesApi from "@/lib/api/messages";
@@ -31,32 +31,53 @@ const STATUSES: DbRequestStatus[] = [
 
 function AdminChats() {
   const { request: initial } = Route.useSearch();
-  const { requests, rooms, activity, profileOf, refresh } = useAdmin();
+  const { activity, profileOf, refresh, requestsPage, requestsTotal, fetchRequestsPage } =
+    useAdmin();
   const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
+  const [page, setPage] = useState(1);
   const [activeId, setActiveId] = useState<string | undefined>(initial);
   const [messages, setMessages] = useState<messagesApi.MessageWithDoc[]>([]);
   const [chatType, setChatType] = useState<"monitor" | "team">("monitor");
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  const [room, setRoom] = useState<any>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const { session, startCall, acceptCall, hangup } = useWebRTCCall(activeId);
+  const pageSize = 50;
 
-  const threads = useMemo(() => {
-    const term = q.trim().toLowerCase();
-    return requests.filter((r) => {
-      if (!term) return true;
-      const user = profileOf(r.user_id);
-      return (
-        r.title.toLowerCase().includes(term) ||
-        r.reference.toLowerCase().includes(term) ||
-        (user?.full_name ?? "").toLowerCase().includes(term)
-      );
+  // Debounce search
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(q), 300);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  // Reset to page 1 on filter change
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQ]);
+
+  // Fetch page
+  useEffect(() => {
+    void fetchRequestsPage(page, {
+      search: debouncedQ || undefined,
+      limit: pageSize,
     });
-  }, [requests, q, profileOf]);
+  }, [page, debouncedQ, fetchRequestsPage]);
 
-  const active = requests.find((r) => r.id === activeId) ?? threads[0] ?? null;
-  const room = rooms.find((r) => r.request_id === active?.id) ?? null;
+  const threads = requestsPage;
+  const totalPages = Math.max(1, Math.ceil(requestsTotal / pageSize));
+
+  const active = requestsPage.find((r) => r.id === activeId) ?? threads[0] ?? null;
+
+  useEffect(() => {
+    if (!active) {
+      setRoom(null);
+      return;
+    }
+    void requestsApi.getChatRoom(active.id).then(setRoom).catch(console.error);
+  }, [active?.id]);
 
   useEffect(() => {
     if (!room) {
@@ -141,11 +162,16 @@ function AdminChats() {
                       : "border-border-subtle bg-bg hover:border-border-strong"
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="truncate text-xs font-bold text-white">
-                      {profileOf(r.user_id)?.full_name ?? "User"}
-                    </p>
-                    <time className="text-[9px] text-text-muted">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <h3 className="truncate text-xs font-bold text-white group-hover:text-brand transition-colors">
+                        {profileOf(r.user_id)?.full_name ?? "User"}
+                      </h3>
+                      {r.is_escalated && (
+                        <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500" />
+                      )}
+                    </div>
+                    <time className="shrink-0 text-[10px] font-medium text-text-muted pl-2">
                       {formatDate(r.last_activity_at)}
                     </time>
                   </div>
@@ -165,6 +191,30 @@ function AdminChats() {
               <li className="py-6 text-center text-xs text-text-muted">No conversations.</li>
             )}
           </ul>
+
+          <div className="flex items-center justify-between p-3 border-t border-border-subtle/50 text-xs mt-auto shrink-0">
+            <span className="text-text-muted">
+              Page {page} of {totalPages}
+            </span>
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                className="h-6 px-2 text-[10px]"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+              >
+                Prev
+              </Button>
+              <Button
+                variant="ghost"
+                className="h-6 px-2 text-[10px]"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
         </Panel>
 
         <div className="flex flex-col h-full gap-4 overflow-hidden">

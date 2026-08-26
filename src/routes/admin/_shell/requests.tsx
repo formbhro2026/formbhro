@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useAdmin } from "@/lib/admin-store";
 import {
   Button,
@@ -13,9 +13,9 @@ import {
   Field,
 } from "@/components/admin/AdminUI";
 import { STATUS_LABEL, type DbRequestStatus } from "@/lib/api/types";
-import { assignRequestToTeam } from "@/lib/api/admin.functions";
+import { assignRequestToTeam, takeoverRequest } from "@/lib/api/admin.functions";
 import * as requestsApi from "@/lib/api/requests";
-import { Clock } from "lucide-react";
+import { Clock, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 function PriorityPill({ priority }: { priority: "high" | "medium" | "low" }) {
@@ -36,39 +36,39 @@ const STATUSES: DbRequestStatus[] = [
 ];
 
 function AdminRequests() {
-  const { requests, team, activity, profileOf, refresh } = useAdmin();
+  const { team, activity, profileOf, refresh, requestsPage, requestsTotal, fetchRequestsPage } =
+    useAdmin();
   const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
   const [status, setStatus] = useState<"all" | DbRequestStatus>("all");
-  const [sort, setSort] = useState<"newest" | "oldest" | "priority">("newest");
+  const [page, setPage] = useState(1);
   const [open, setOpen] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const pageSize = 50;
 
-  const list = useMemo(() => {
-    const term = q.trim().toLowerCase();
-    const rank = { high: 0, medium: 1, low: 2 } as const;
-    return requests
-      .filter((r) => (status === "all" ? true : r.status === status))
-      .filter((r) => {
-        if (!term) return true;
-        const user = profileOf(r.user_id);
-        const member = profileOf(r.assigned_team_id);
-        return (
-          r.reference.toLowerCase().includes(term) ||
-          r.title.toLowerCase().includes(term) ||
-          (user?.full_name ?? "").toLowerCase().includes(term) ||
-          (user?.email ?? "").toLowerCase().includes(term) ||
-          (member?.full_name ?? "").toLowerCase().includes(term)
-        );
-      })
-      .sort((a, b) => {
-        if (sort === "priority") return rank[a.priority] - rank[b.priority];
-        const da = new Date(a.created_at).getTime();
-        const db = new Date(b.created_at).getTime();
-        return sort === "newest" ? db - da : da - db;
-      });
-  }, [requests, status, q, sort, profileOf]);
+  // Debounce search
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(q), 300);
+    return () => clearTimeout(t);
+  }, [q]);
 
-  const detail = requests.find((r) => r.id === open) ?? null;
+  // Reset to page 1 on filter change
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQ, status]);
+
+  // Fetch page
+  useEffect(() => {
+    void fetchRequestsPage(page, {
+      search: debouncedQ || undefined,
+      status: status !== "all" ? [status] : undefined,
+      limit: pageSize,
+    });
+  }, [page, debouncedQ, status, fetchRequestsPage]);
+
+  const list = requestsPage;
+  const totalPages = Math.max(1, Math.ceil(requestsTotal / pageSize));
+  const detail = requestsPage.find((r) => r.id === open) ?? null;
 
   const act = async (fn: () => Promise<unknown>) => {
     setBusy(true);
@@ -148,6 +148,36 @@ function AdminRequests() {
                     <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-brand">
                       Workflow Control
                     </h4>
+
+                    {detail?.is_escalated && (
+                      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 flex flex-col gap-3">
+                        <div className="flex items-start gap-2 text-amber-500">
+                          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                          <div className="text-xs">
+                            <p className="font-bold">Escalated Request</p>
+                            <p className="text-amber-500/80 mt-0.5">
+                              This request has been flagged by the assigned team member for admin
+                              intervention.
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          className="w-full bg-amber-500 text-black hover:bg-amber-400 border-none font-bold text-xs h-9 rounded-xl"
+                          disabled={busy}
+                          onClick={async () => {
+                            if (
+                              !confirm(
+                                "Are you sure you want to take over this request? You will become the assigned team member and it will be de-escalated.",
+                              )
+                            )
+                              return;
+                            await act(() => takeoverRequest({ data: { request_id: detail.id } }));
+                          }}
+                        >
+                          Take Over Request
+                        </Button>
+                      </div>
+                    )}
 
                     <div className="grid gap-4">
                       <Field label="Current Status">
@@ -252,7 +282,7 @@ function AdminRequests() {
       ) : null}
 
       <Panel
-        title={`All requests (${list.length})`}
+        title={`Requests (${requestsTotal})`}
         className="h-[calc(100vh-10rem)] overflow-y-auto"
       >
         <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -275,16 +305,6 @@ function AdminRequests() {
               </option>
             ))}
           </select>
-          <select
-            className={`${inputClass} sm:w-36`}
-            value={sort}
-            onChange={(e) => setSort(e.target.value as typeof sort)}
-            aria-label="Sort requests"
-          >
-            <option value="newest">Newest</option>
-            <option value="oldest">Oldest</option>
-            <option value="priority">Priority</option>
-          </select>
         </div>
 
         <TableWrap>
@@ -306,7 +326,15 @@ function AdminRequests() {
                 onClick={() => setOpen(r.id)}
               >
                 <td className="px-3 py-2.5">
-                  <span className="text-xs font-semibold text-white">{r.title}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-white">{r.title}</span>
+                    {r.is_escalated && (
+                      <span className="inline-flex items-center gap-1 rounded bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-500">
+                        <AlertTriangle className="h-3 w-3" />
+                        Escalated
+                      </span>
+                    )}
+                  </div>
                   <div className="text-[11px] text-text-muted">{r.reference}</div>
                 </td>
                 <td className="px-3 py-2.5 text-text-secondary">
@@ -341,6 +369,30 @@ function AdminRequests() {
             {!list.length && <EmptyRow colSpan={6} text="No requests match these filters." />}
           </tbody>
         </TableWrap>
+
+        <div className="flex items-center justify-between p-4 border-t border-border-subtle/50 text-xs">
+          <span className="text-text-muted">
+            Page {page} of {totalPages}
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant="ghost"
+              className="h-7 px-3 text-xs"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="ghost"
+              className="h-7 px-3 text-xs"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
       </Panel>
     </div>
   );

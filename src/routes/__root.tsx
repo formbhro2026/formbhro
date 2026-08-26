@@ -15,6 +15,7 @@ import appCss from "../styles.css?url";
 import { Toaster } from "../components/ui/sonner";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { SplashScreen } from "../components/common/SplashScreen";
+import { PolicyInterceptor } from "../components/auth/PolicyInterceptor";
 import {
   onForegroundNotification,
   onNotificationTap,
@@ -284,10 +285,12 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <SplashScreen />
-      <Outlet />
-      <Toaster position="top-center" />
+      <PolicyInterceptor>
+        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <SplashScreen />
+        <Outlet />
+        <Toaster position="top-center" />
+      </PolicyInterceptor>
     </QueryClientProvider>
   );
 }

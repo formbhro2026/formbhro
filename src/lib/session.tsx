@@ -50,7 +50,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (!profileResult.error && !rolesResult.error) {
         break;
       }
-      
+
       retries--;
       if (retries > 0) {
         await new Promise((resolve) => setTimeout(resolve, 1000));

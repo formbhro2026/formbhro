@@ -12,7 +12,7 @@ export default defineConfig({
       exclude: ["@capacitor/cli"],
     },
     build: { sourcemap: true },
-  plugins: [
+    plugins: [
       VitePWA({
         // Use 'prompt' instead of 'autoUpdate' so the service worker does not
         // intercept notifications — native FCM handles push on Android.

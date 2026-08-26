@@ -7,11 +7,13 @@ To enable calling and screen sharing in the Android APK, you need to add the fol
 ## Steps to Add Permissions
 
 1. **Sync Capacitor to create Android project** (if not already done):
+
    ```bash
    npm run cap:sync
    ```
 
 2. **Open the Android manifest file**:
+
    ```
    android/app/src/main/AndroidManifest.xml
    ```
@@ -29,6 +31,7 @@ To enable calling and screen sharing in the Android APK, you need to add the fol
 ```
 
 4. **Add hardware requirements** (optional but recommended):
+
 ```xml
 <uses-feature android:name="android.hardware.camera" android:required="false" />
 <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
@@ -51,6 +54,7 @@ npm run cap:build:release # For release APK
 ## Testing
 
 After installing the updated APK:
+
 1. Grant camera and microphone permissions when prompted
 2. Test video calling functionality
 3. Test screen sharing functionality
@@ -58,6 +62,7 @@ After installing the updated APK:
 ## Troubleshooting
 
 If permissions are still not working:
+
 1. Go to Android Settings > Apps > Formbhro > Permissions
 2. Enable Camera and Microphone permissions manually
 3. Restart the app and try again

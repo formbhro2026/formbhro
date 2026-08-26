@@ -47,7 +47,13 @@ export async function sendMessage(input: {
     })
     .select()
     .single();
-  if (error) throw new ApiError(error.message, error.code);
+
+  if (error) {
+    if (error.message.includes("RATE_LIMIT_EXCEEDED")) {
+      throw new ApiError("Too many requests. Please try again shortly.", "RATE_LIMIT_EXCEEDED");
+    }
+    throw new ApiError(error.message, error.code);
+  }
   return data;
 }
 

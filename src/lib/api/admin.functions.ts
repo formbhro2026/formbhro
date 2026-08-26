@@ -467,83 +467,104 @@ export const logAdminAction = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/** Dashboard counters for the Admin panel. */
-export const getAdminAnalytics = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    await assertAdmin(context);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
-    const countOf = async (status?: string) => {
-      let query = supabaseAdmin.from("requests").select("id", { count: "exact", head: true });
-      if (status) query = query.eq("status", status as never);
-      const { count } = await query;
-      return count ?? 0;
-    };
-
-    const [total, pending, completed, users, team, documents] = await Promise.all([
-      countOf(),
-      countOf("pending"),
-      countOf("completed"),
-      supabaseAdmin
-        .from("user_roles")
-        .select("id", { count: "exact", head: true })
-        .eq("role", "user"),
-      supabaseAdmin.from("team_members").select("id", { count: "exact", head: true }),
-      supabaseAdmin.from("documents").select("id", { count: "exact", head: true }),
-    ]);
-
-    return {
-      requests: { total, pending, completed },
-      users: users.count ?? 0,
-      team: team.count ?? 0,
-      documents: documents.count ?? 0,
-    };
-  });
-
 /** Team Code Verification -> for Team Login */
 export const verifyTeamCode = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .validator((input: unknown) => z.object({ code: z.string().min(4) }).parse(input))
-  .handler(async ({ data }) => {
-    // We use the publishable client for initial check, but we need admin client to get email/password
+  .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    // 1. Find the team member by code
+    // 1. Verify the authenticated user is a team member
     const { data: member, error } = await supabaseAdmin
       .from("team_members")
       .select("id, team_code, is_active")
-      .eq("team_code", data.code)
+      .eq("id", context.userId)
       .maybeSingle();
 
     if (error || !member) {
-      throw new Error("Invalid team code.");
+      throw new Error("This account is not provisioned as a Team Member.");
     }
 
     if (!member.is_active) {
       throw new Error("This team account has been suspended.");
     }
 
-    // 2. Get the auth user to get email (for the login response/process)
-    const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.getUserById(
-      member.id,
-    );
-    if (authError || !authUser.user) {
-      throw new Error("Team account configuration error.");
+    // 2. Verify the provided code matches the assigned team code
+    const expectedClean = member.team_code.trim().toUpperCase();
+    const providedClean = data.code.trim().toUpperCase();
+
+    if (expectedClean !== providedClean) {
+      throw new Error("Invalid team code.");
     }
 
-    // 3. Ensure the password is synchronized to the standard team password so client-side login succeeds
-    try {
-      await supabaseAdmin.auth.admin.updateUserById(member.id, {
-        password: "FBH-Team@2026",
-        email_confirm: true,
-      });
-    } catch (pwdErr) {
-      console.warn("[verifyTeamCode] Could not sync password:", pwdErr);
+    // 3. Verify user role explicitly for defense in depth
+    const { data: roleData } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", context.userId)
+      .maybeSingle();
+
+    if (roleData?.role !== "team" && roleData?.role !== "admin") {
+      throw new Error("This account does not have team privileges.");
     }
 
     return {
       ok: true,
-      email: authUser.user.email,
       id: member.id,
     };
+  });
+
+// ─── Phase 6C: Super Admin Takeover ──────────────────────────────────────────
+export const takeoverRequest = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) => z.object({ request_id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+
+    const { error } = await supabase.rpc("takeover_request", {
+      req_id: data.request_id,
+    });
+
+    if (error) throw new Error(error.message);
+    return { ok: true as const };
+  });
+
+export interface AdminAnalyticsStats {
+  total: number;
+  completed: number;
+  avgCompletion: number;
+  avgResponse: number;
+  daily: number;
+  weekly: number;
+  monthly: number;
+  users: number;
+  teamCount: number;
+  docsCount: number;
+  perTeam: Array<{
+    id: string;
+    name: string;
+    total: number;
+    done: number;
+    isOnline: boolean;
+  }>;
+  topUsers: Array<{
+    id: string;
+    count: number;
+  }>;
+  topDocs: Array<{
+    id: string;
+    count: number;
+  }>;
+}
+
+export const getAdminAnalytics = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+
+    // @ts-ignore - type generation pending
+    const { data, error } = await (supabase.rpc as any)("get_admin_analytics");
+    if (error) throw new Error(error.message);
+
+    return data as unknown as AdminAnalyticsStats;
   });

@@ -22,6 +22,9 @@ import {
 } from "@/data/team-module";
 import { supabase } from "@/integrations/supabase/client";
 import { signInWithPassword, getMyRole, getMyProfile, signOut as apiSignOut } from "@/lib/api/auth";
+import { markMessagesSeen } from "./api/messages";
+import { assignRequest, updateRequestStatus, getTeamAnalytics } from "./api/requests";
+import type { Database } from "@/integrations/supabase/types";
 import * as messagesApi from "@/lib/api/messages";
 import * as documentsApi from "@/lib/api/documents";
 import * as requestsApi from "@/lib/api/requests";
@@ -82,12 +85,23 @@ type TeamStore = {
     password: string,
     remember: boolean,
   ) => Promise<{ ok: boolean; error?: string }>;
-  signInWithCode: (code: string, remember: boolean) => Promise<{ ok: boolean; error?: string }>;
+  signInWithTeamAuth: (
+    email: string,
+    password: string,
+    code: string,
+    remember: boolean,
+  ) => Promise<{ ok: boolean; error?: string }>;
   /** True when the panel is backed by the live backend instead of demo data. */
   live: boolean;
   signOut: () => void;
   updateMember: (patch: Partial<TeamMember>) => void;
+  analytics: { assigned: number; completed: number; pending: number };
+  fetchAnalytics: () => void;
   requests: TeamRequest[];
+  requestsHasMore: boolean;
+  requestsLoadingMore: boolean;
+  requestsPage: number;
+  loadMoreRequests: () => Promise<void>;
   messages: TeamMessage[];
   documents: TeamDocument[];
   notifications: TeamNotification[];
@@ -145,6 +159,10 @@ type TeamStore = {
   unreadNotifications: number;
   /** Self-assign a request. */
   assignToMe: (requestId: string) => Promise<void>;
+  /** Transfer request to another team member. */
+  transferChat: (requestId: string, targetAssigneeId: string) => Promise<void>;
+  /** Escalate request to Admin attention. */
+  escalateChat: (requestId: string) => Promise<void>;
   pool: TeamRequest[];
 };
 
@@ -160,7 +178,11 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
   }, [live]);
   const rooms = useRef<LiveTeamSnapshot["rooms"]>({});
   const refByRequestId = useRef<Record<string, string>>({});
+  const [analytics, setAnalytics] = useState({ assigned: 0, completed: 0, pending: 0 });
   const [requests, setRequests] = useState<TeamRequest[]>([]);
+  const [requestsHasMore, setRequestsHasMore] = useState(false);
+  const [requestsLoadingMore, setRequestsLoadingMore] = useState(false);
+  const [requestsPage, setRequestsPage] = useState(1);
   const [messages, setMessages] = useState<TeamMessage[]>([]);
   const [documents, setDocuments] = useState<TeamDocument[]>([]);
   const [notifications, setNotifications] = useState<TeamNotification[]>([]);
@@ -190,50 +212,74 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     }, duration);
   }, []);
 
-  const setDelivery = useCallback((messageId: string, delivery: TeamDelivery) => {
-    setMessages((prev) =>
-      prev.map((m) => (m.id === messageId ? { ...m, delivery, read: delivery === "read" } : m)),
-    );
-  }, []);
-
-  const runDeliveryCycle = useCallback(
-    (requestId: string, messageId: string, attempt = 1) => {
+  const sendMessageApi = useCallback(async (msgId: string, requestId: string, text: string) => {
+    const room = rooms.current[requestId];
+    if (!room?.chatRoomId) {
       setMessages((prev) =>
         prev.map((m) =>
-          m.id === messageId
-            ? {
-                ...m,
-                delivery: attempt === 1 ? "sending" : "retrying",
-                attempts: attempt,
-                deliveryError: undefined,
-              }
+          m.id === msgId
+            ? { ...m, delivery: "failed", deliveryError: "Chat room unavailable." }
             : m,
         ),
       );
-      // Delivery cycle is just a UI shim now as real messages go through the backend
-      setTimeout(() => setDelivery(messageId, "sent"), 500);
-    },
-    [setDelivery],
-  );
+      return;
+    }
 
-  const runDeliveryCycleRef = useRef(runDeliveryCycle);
-  useEffect(() => {
-    runDeliveryCycleRef.current = runDeliveryCycle;
-  }, [runDeliveryCycle]);
+    try {
+      const row = await messagesApi.sendMessageWithRetry({
+        chatRoomId: room.chatRoomId,
+        requestId: room.requestId,
+        body: text,
+        senderRole: "team",
+      });
+
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === row.id)) return prev.filter((m) => m.id !== msgId);
+        return prev.map((m) => (m.id === msgId ? { ...m, id: row.id, delivery: "delivered" } : m));
+      });
+    } catch (err) {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === msgId
+            ? { ...m, delivery: "failed", deliveryError: "Message not delivered." }
+            : m,
+        ),
+      );
+    }
+  }, []);
 
   /** Manual retry for a message that exhausted its automatic attempts. */
-  const retryMessage = useCallback((messageId: string) => {
-    const msg = messagesRef.current.find((m) => m.id === messageId);
-    if (!msg) return;
-    runDeliveryCycleRef.current(msg.requestId, messageId, 1);
-  }, []);
+  const retryMessage = useCallback(
+    (messageId: string) => {
+      const msg = messagesRef.current.find((m) => m.id === messageId);
+      if (!msg || !msg.text) return;
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId ? { ...m, delivery: "retrying", deliveryError: undefined } : m,
+        ),
+      );
+      void sendMessageApi(messageId, msg.requestId, msg.text);
+    },
+    [sendMessageApi],
+  );
 
   /** Retries every failed message on a request (used by the chat error banner). */
-  const retryFailed = useCallback((requestId: string) => {
-    messagesRef.current
-      .filter((m) => m.requestId === requestId && m.delivery === "failed")
-      .forEach((m) => runDeliveryCycleRef.current(requestId, m.id, 1));
-  }, []);
+  const retryFailed = useCallback(
+    (requestId: string) => {
+      messagesRef.current
+        .filter((m) => m.requestId === requestId && m.delivery === "failed" && m.text)
+        .forEach((m) => {
+          setMessages((prev) =>
+            prev.map((pm) =>
+              pm.id === m.id ? { ...pm, delivery: "retrying", deliveryError: undefined } : pm,
+            ),
+          );
+          void sendMessageApi(m.id, requestId, m.text!);
+        });
+    },
+    [sendMessageApi],
+  );
 
   /** Failed messages on one request. */
   const failedFor = useCallback(
@@ -301,6 +347,8 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       rooms.current = snapshot.rooms;
       refByRequestId.current = snapshot.refByRequestId;
       setRequests(snapshot.requests);
+      setRequestsHasMore(snapshot.requestsHasMore);
+      setRequestsPage(1);
       setMessages(snapshot.messages);
       setDocuments(snapshot.documents);
       setNotifications(snapshot.notifications);
@@ -308,15 +356,67 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       rooms.current = {};
       refByRequestId.current = {};
       setRequests([]);
+      setRequestsHasMore(false);
+      setRequestsPage(1);
       setMessages([]);
       setDocuments([]);
       setNotifications([]);
     }
   }, []);
 
+  const fetchAnalytics = useCallback(() => {
+    if (!liveRef.current || !memberRef.current) return;
+    getTeamAnalytics()
+      .then(setAnalytics)
+      .catch((err) => console.error("Failed to fetch team analytics", err));
+  }, []);
+
+  const loadMoreRequests = useCallback(async () => {
+    if (!liveRef.current || !memberRef.current || requestsLoadingMore || !requestsHasMore) return;
+    setRequestsLoadingMore(true);
+    try {
+      const limit = 20;
+      const nextPage = requestsPage + 1;
+      const { data: rows, count } = await requestsApi.listRequestsPaginated({
+        archived: false,
+        limit,
+        offset: requestsPage * limit,
+      });
+
+      const userIds = Array.from(new Set(rows.map((r) => r.user_id).filter(Boolean)));
+      const names: Record<string, string> = {};
+      if (userIds.length) {
+        const { data } = await supabase
+          .from("profiles")
+          .select("id, full_name, email")
+          .in("id", userIds);
+        for (const p of data ?? []) names[p.id] = p.full_name || p.email || "User";
+      }
+
+      setRequests((prev) => {
+        const currentIds = new Set(prev.map((r) => r.id));
+        const added = rows
+          .filter((r) => !currentIds.has(r.reference || r.id))
+          .map((r) => mapTeamRequest(r, memberRef.current!.id, names[r.user_id] ?? "User"));
+        const next = [...prev, ...added];
+        return next.length > 500 ? next.slice(0, 500) : next;
+      });
+
+      setRequestsHasMore(count > nextPage * limit);
+      setRequestsPage(nextPage);
+    } catch (err) {
+      console.error("Failed to load more requests", err);
+    } finally {
+      setRequestsLoadingMore(false);
+    }
+  }, [requestsLoadingMore, requestsHasMore, requestsPage]);
+
   useEffect(() => {
-    if (live && member) void hydrateLive(member);
-  }, [live, member, hydrateLive]);
+    if (live && member) {
+      void hydrateLive(member);
+      fetchAnalytics();
+    }
+  }, [live, member, hydrateLive, fetchAnalytics]);
 
   const signIn = useCallback(
     async (email: string, password: string, remember: boolean) => {
@@ -372,31 +472,23 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     [persistSession],
   );
 
-  const signInWithCode = useCallback(
-    async (code: string, remember: boolean) => {
+  const signInWithTeamAuth = useCallback(
+    async (email: string, password: string, code: string, remember: boolean) => {
       try {
-        // Verify code on server
+        // 1. Authenticate identity via Supabase Auth
+        const { data: authData, error: authError } = await signInWithPassword(email, password);
+        if (authError) throw authError;
+
+        // 2. Verify authorization code securely on the backend using the new session
         const codeClean = code.trim().toUpperCase();
         const res = await verifyTeamCode({ data: { code: codeClean } });
 
-        if (!res.ok || !res.email) throw new Error("Invalid team code.");
-
-        // For team members, we use the synchronized password FBH-Team@2026
-        const { data: authData, error: authError } = await signInWithPassword(
-          res.email,
-          "FBH-Team@2026",
-        );
-
-        if (authError) throw authError;
-
-        const user = authData.user;
-        const role = await getMyRole();
-
-        if (role !== "team" && role !== "admin") {
+        if (!res.ok) {
           await apiSignOut();
-          return { ok: false, error: "This account does not have team access." };
+          throw new Error("Invalid team code or insufficient privileges.");
         }
 
+        const user = authData.user;
         const profile = await getMyProfile();
         const { data: teamRow } = await supabase
           .from("team_members")
@@ -404,14 +496,14 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           .eq("id", user!.id)
           .maybeSingle();
 
-        const name = profile?.full_name || res.email.split("@")[0]!;
+        const name = profile?.full_name || email.split("@")[0]!;
         const safe: TeamMember = {
           id: user!.id,
           name,
           initials: initialsOf(name),
-          email: profile?.email || res.email,
-          role: teamRow?.job_title ?? (role === "admin" ? "Administrator" : "Support Executive"),
-          teamId: teamRow?.team_code ?? code,
+          email: profile?.email || email.trim(),
+          role: teamRow?.job_title ?? "Support Executive",
+          teamId: teamRow?.team_code ?? codeClean,
           memberSince: dayLabel(profile?.created_at),
           avatarColor: "#ff7a00",
         };
@@ -425,10 +517,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         return {
           ok: false,
-          error:
-            err instanceof Error
-              ? err.message
-              : "Invalid team code. Please check your credentials.",
+          error: err instanceof Error ? err.message : "Invalid credentials or team code.",
         };
       }
     },
@@ -549,18 +638,46 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     async (requestId: string) => {
       if (!member?.id) return;
       try {
-        const { error } = await supabase
-          .from("requests")
-          .update({
-            assigned_team_id: member.id,
-            status: "assigned",
-            assigned_at: new Date().toISOString(),
-          })
-          .eq("id", requestId);
+        const { error } = await supabase.rpc("claim_request", { req_id: requestId });
         if (error) throw error;
-        // The realtime subscription will trigger setRequests update
+        fetchAnalytics(); // Update stats
       } catch (err) {
         console.error("Failed to self-assign:", err);
+      }
+    },
+    [member, fetchAnalytics],
+  );
+
+  const transferChat = useCallback(
+    async (requestId: string, targetAssigneeId: string) => {
+      if (!member?.id) return;
+      try {
+        const { transferRequest } = await import("@/lib/api/requests");
+        await transferRequest(requestId, targetAssigneeId);
+
+        // Optimistically remove it from active UI
+        setRequests((prev) => prev.filter((r) => r.id !== requestId));
+
+        fetchAnalytics(); // Update stats
+      } catch (err) {
+        console.error("Failed to transfer chat:", err);
+        throw err;
+      }
+    },
+    [member, fetchAnalytics],
+  );
+
+  const escalateChat = useCallback(
+    async (requestId: string) => {
+      if (!member?.id) return;
+      try {
+        await requestsApi.escalateRequest(requestId);
+        setRequests((prev) =>
+          prev.map((r) => (r.id === requestId ? { ...r, isEscalated: true } : r)),
+        );
+      } catch (err) {
+        console.error("Failed to escalate chat:", err);
+        throw err;
       }
     },
     [member],
@@ -584,55 +701,17 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         },
       ]);
       touch(requestId, { lastMessage: text });
-      if (liveRef.current) {
-        // If not assigned yet, assign to me automatically when sending a message
-        const r = requestsRef.current.find((req) => req.id === requestId);
-        if (r && !r.assigneeId) {
-          void assignToMe(requestId).catch((err) => {
-            console.error("Auto-assignment failed:", err);
-          });
-        }
 
-        const room = rooms.current[requestId];
-        if (!room?.chatRoomId) {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === id
-                ? { ...m, delivery: "failed", deliveryError: "Chat room unavailable." }
-                : m,
-            ),
-          );
-          return;
-        }
-        void messagesApi
-          .sendMessageWithRetry({
-            chatRoomId: room.chatRoomId,
-            requestId: room.requestId,
-            body: text,
-            senderRole: "team",
-          })
-          .then((row) => {
-            setMessages((prev) => {
-              if (prev.some((m) => m.id === row.id)) return prev.filter((m) => m.id !== id);
-              return prev.map((m) =>
-                m.id === id ? { ...m, id: row.id, delivery: "delivered" } : m,
-              );
-            });
-          })
-          .catch(() => {
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === id
-                  ? { ...m, delivery: "failed", deliveryError: "Message not delivered." }
-                  : m,
-              ),
-            );
-          });
-        return;
+      const r = requestsRef.current.find((req) => req.id === requestId);
+      if (r && !r.assigneeId) {
+        void assignToMe(requestId).catch((err) => {
+          console.error("Auto-assignment failed:", err);
+        });
       }
-      runDeliveryCycle(requestId, id);
+
+      void sendMessageApi(id, requestId, text);
     },
-    [member, touch, runDeliveryCycle, assignToMe],
+    [member, assignToMe, sendMessageApi, touch],
   );
 
   const attachDocument = useCallback(
@@ -647,28 +726,27 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       },
     ) => {
       const id = uid("doc");
-      const name = member?.name ?? "Support";
+      const messageId = uid("msg");
       setDocuments((prev) => [
         ...prev,
         {
           id,
           requestId,
           name: file.name,
-          kind: file.kind,
           size: file.size,
+          kind: file.kind,
+          uploadedAt: nowTime(),
+          uploadedBy: memberRef.current?.name ?? "Support",
           previewUrl: file.previewUrl,
-          uploadedAt: `Today • ${nowTime()}`,
-          uploadedBy: name,
         },
       ]);
-      const messageId = uid("msg");
       setMessages((prev) => [
         ...prev,
         {
           id: messageId,
           requestId,
           author: "team",
-          authorName: name,
+          authorName: member?.name ?? "Support",
           time: nowTime(),
           documentId: id,
           read: false,
@@ -680,57 +758,54 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         { lastMessage: `Sent a document — ${file.name}` },
         `Document sent — ${file.name}`,
       );
-      if (liveRef.current) {
-        const room = rooms.current[requestId];
-        if (!room || !file.blob) {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === messageId
-                ? { ...m, delivery: "failed", deliveryError: "Upload unavailable." }
-                : m,
-            ),
-          );
-          return;
-        }
-        void (async () => {
-          try {
-            const doc = await documentsApi.uploadDocument({
-              file: file.blob!,
+
+      const room = rooms.current[requestId];
+      if (!room || !file.blob) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === messageId
+              ? { ...m, delivery: "failed", deliveryError: "Upload unavailable." }
+              : m,
+          ),
+        );
+        return;
+      }
+      void (async () => {
+        try {
+          const doc = await documentsApi.uploadDocument({
+            file: file.blob!,
+            requestId: room.requestId,
+            chatRoomId: room.chatRoomId ?? undefined,
+            uploaderRole: "team",
+          });
+          setDocuments((prev) => prev.map((d) => (d.id === id ? { ...d, id: doc.id } : d)));
+          if (room.chatRoomId) {
+            const row = await messagesApi.sendMessageWithRetry({
+              chatRoomId: room.chatRoomId,
               requestId: room.requestId,
-              chatRoomId: room.chatRoomId ?? undefined,
-              uploaderRole: "team",
+              attachmentId: doc.id,
+              senderRole: "team",
             });
-            setDocuments((prev) => prev.map((d) => (d.id === id ? { ...d, id: doc.id } : d)));
-            if (room.chatRoomId) {
-              const row = await messagesApi.sendMessageWithRetry({
-                chatRoomId: room.chatRoomId,
-                requestId: room.requestId,
-                attachmentId: doc.id,
-                senderRole: "team",
-              });
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === messageId
-                    ? { ...m, id: row.id, documentId: doc.id, delivery: "delivered" }
-                    : m,
-                ),
-              );
-            }
-          } catch {
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === messageId
-                  ? { ...m, delivery: "failed", deliveryError: "Upload failed." }
+                  ? { ...m, id: row.id, documentId: doc.id, delivery: "delivered" }
                   : m,
               ),
             );
           }
-        })();
-        return;
-      }
-      runDeliveryCycle(requestId, messageId);
+        } catch {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === messageId
+                ? { ...m, delivery: "failed", deliveryError: "Upload failed." }
+                : m,
+            ),
+          );
+        }
+      })();
     },
-    [member, touch, runDeliveryCycle],
+    [member, touch],
   );
 
   const setStatus = useCallback(
@@ -748,6 +823,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
               TEAM_TO_DB_STATUS[status],
               status === "completed" ? 100 : undefined,
             )
+            .then(() => fetchAnalytics())
             .catch(() => undefined);
         }
       }
@@ -764,7 +840,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         ...prev,
       ]);
     },
-    [touch],
+    [touch, fetchAnalytics],
   );
 
   const isUserTyping = useCallback((requestId: string) => Boolean(typingIn[requestId]), [typingIn]);
@@ -940,17 +1016,23 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     );
     const offRequests = subscribeToRequests((row) => {
       setRequests((prev) => {
+        // If it's no longer assigned to this team member, remove it from the pool.
+        if (row.assigned_team_id !== member.id) {
+          return prev.filter((r) => r.id !== (row.reference || row.id));
+        }
+
         const mapped = mapTeamRequest(
           row,
           member.id,
           prev.find((r) => r.id === (row.reference || row.id))?.userName ?? "User",
         );
         const exists = prev.some((r) => r.id === mapped.id);
-        return exists
+        const next = exists
           ? prev.map((r) =>
               r.id === mapped.id ? { ...mapped, unread: r.unread, timeline: r.timeline } : r,
             )
           : [{ ...mapped }, ...prev];
+        return next.length > 500 ? next.slice(0, 500) : next;
       });
     });
     return () => {
@@ -1018,9 +1100,15 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       hydrated,
       live,
       signIn,
-      signInWithCode,
+      signInWithTeamAuth,
       signOut,
       updateMember,
+      analytics,
+      fetchAnalytics,
+      requestsHasMore,
+      requestsLoadingMore,
+      requestsPage,
+      loadMoreRequests,
       requests: assigned,
       messages: visibleMessages,
       documents: visibleDocuments,
@@ -1052,6 +1140,8 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       clearNotifications,
       unreadNotifications,
       assignToMe,
+      transferChat,
+      escalateChat,
       pool,
     }),
     [
@@ -1059,9 +1149,13 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       hydrated,
       live,
       signIn,
-      signInWithCode,
+      signInWithTeamAuth,
       signOut,
       updateMember,
+      requestsHasMore,
+      requestsLoadingMore,
+      requestsPage,
+      loadMoreRequests,
       assigned,
       visibleMessages,
       visibleDocuments,
@@ -1093,7 +1187,11 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       clearNotifications,
       unreadNotifications,
       assignToMe,
+      transferChat,
+      escalateChat,
       pool,
+      analytics,
+      fetchAnalytics,
     ],
   );
 

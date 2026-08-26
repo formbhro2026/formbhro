@@ -9,6 +9,7 @@ import {
   type RequestRow,
   type StatusHistoryRow,
 } from "./types";
+import { getMyRole } from "./auth";
 
 export type RequestWithRoom = RequestRow & {
   chat_rooms: Pick<ChatRoomRow, "id" | "last_message_at">[];
@@ -44,26 +45,31 @@ export async function createNewRequest(input?: {
 }): Promise<RequestRow> {
   const uid = await requireUid();
   const title = input?.title?.trim() || "Form Assistance";
-  const { data, error } = await supabase
-    .from("requests")
-    .insert({
-      user_id: uid,
-      title,
-      category: input?.category ?? "Government Form",
-      priority: input?.priority ?? "medium",
-      reference: `FRM-${Math.random().toString(36).substring(2, 9).toUpperCase()}`,
-    })
-    .select()
-    .single();
+
+  const { data, error } = await supabase.rpc("create_new_request_with_limit", {
+    p_title: title,
+    p_category: input?.category ?? "Government Form",
+    p_priority: input?.priority ?? "medium",
+  });
 
   if (error) {
-    if (error.code === "23505") {
+    if (error.message.includes("CHAT_LIMIT_EXCEEDED")) {
+      throw new ApiError(
+        "You have reached the maximum of 3 chats within 24 hours. Please try again later.",
+        "CHAT_LIMIT_EXCEEDED",
+      );
+    }
+    if (error.message.includes("RATE_LIMIT_EXCEEDED")) {
+      throw new ApiError("Too many requests. Please try again shortly.", "RATE_LIMIT_EXCEEDED");
+    }
+    if (error.code === "23505" || error.message.includes("23505")) {
       const active = await getActiveRequest();
       if (active) return active;
     }
     throw new ApiError(error.message, error.code);
   }
-  return data;
+  if (!data) throw new ApiError("Failed to fetch created request", "FETCH_FAILED");
+  return data as RequestRow;
 }
 
 /**
@@ -119,6 +125,29 @@ export async function listRequests(opts?: {
   const { data, error } = await query.range(offset, offset + limit - 1);
   if (error) throw new ApiError(error.message, error.code);
   return data ?? [];
+}
+
+/** Returns paginated requests and total count. Admin / Team only due to usage. */
+export async function listRequestsPaginated(opts?: {
+  status?: DbRequestStatus[];
+  archived?: boolean;
+  search?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ data: RequestRow[]; count: number }> {
+  let query = supabase
+    .from("requests")
+    .select("*", { count: "exact" })
+    .order("last_activity_at", { ascending: false });
+  if (opts?.status?.length) query = query.in("status", opts.status);
+  if (typeof opts?.archived === "boolean") query = query.eq("archived", opts.archived);
+  if (opts?.search)
+    query = query.or(`title.ilike.%${opts.search}%,reference.ilike.%${opts.search}%`);
+  const limit = opts?.limit ?? 50;
+  const offset = opts?.offset ?? 0;
+  const { data, error, count } = await query.range(offset, offset + limit - 1);
+  if (error) throw new ApiError(error.message, error.code);
+  return { data: data ?? [], count: count ?? 0 };
 }
 
 /** Team & Admin only (enforced by RLS). */
@@ -189,4 +218,83 @@ export async function getStatusHistory(requestId: string): Promise<StatusHistory
     .order("created_at", { ascending: true });
   if (error) throw new ApiError(error.message, error.code);
   return data ?? [];
+}
+
+export async function getTeamAnalytics() {
+  const uid = await requireUid();
+  const role = await getMyRole();
+  if (role !== "team" && role !== "admin") {
+    throw new ApiError("Unauthorized", "unauthorized");
+  }
+  const [assignedRes, completedRes] = await Promise.all([
+    supabase
+      .from("requests")
+      .select("id", { count: "exact", head: true })
+      .eq("assigned_team_id", uid),
+    supabase
+      .from("requests")
+      .select("id", { count: "exact", head: true })
+      .eq("assigned_team_id", uid)
+      .eq("status", "completed"),
+  ]);
+
+  const assigned = assignedRes.count ?? 0;
+  const completed = completedRes.count ?? 0;
+  const pending = assigned - completed;
+
+  return {
+    assigned,
+    completed,
+    pending: Math.max(0, pending),
+  };
+}
+
+export async function transferRequest(requestId: string, newAssigneeId: string): Promise<void> {
+  const uid = await requireUid();
+  const role = await getMyRole();
+  if (role !== "team" && role !== "admin") {
+    throw new ApiError("Unauthorized", "unauthorized");
+  }
+
+  const { error } = await supabase.rpc("transfer_request", {
+    req_id: requestId,
+    new_assignee_id: newAssigneeId,
+  });
+
+  if (error) {
+    throw new ApiError(error.message, error.code);
+  }
+}
+
+export async function getActiveTeamMembers(): Promise<{ id: string; name: string }[]> {
+  const uid = await requireUid();
+  // Fetch active team members with their profiles
+  const { data, error } = await supabase
+    .from("team_members")
+    .select("id, is_active, profiles!inner(full_name, email)")
+    .eq("is_active", true)
+    .neq("id", uid); // don't include self
+
+  if (error) {
+    throw new ApiError(error.message, error.code);
+  }
+
+  return (data ?? []).map((row: any) => ({
+    id: row.id,
+    name: row.profiles.full_name || row.profiles.email.split("@")[0] || "Team Member",
+  }));
+}
+
+// ─── Phase 6C: Escalation ─────────────────────────────────────────────────────
+
+/** Escalate a request to Admin. Caller must be the currently assigned Team Member. */
+export async function escalateRequest(requestId: string): Promise<void> {
+  const { error } = await supabase.rpc("escalate_request", { req_id: requestId });
+  if (error) throw new ApiError(error.message, error.code);
+}
+
+/** Clear the escalation flag without triggering a full takeover. */
+export async function deEscalateRequest(requestId: string): Promise<void> {
+  const { error } = await supabase.rpc("de_escalate_request", { req_id: requestId });
+  if (error) throw new ApiError(error.message, error.code);
 }

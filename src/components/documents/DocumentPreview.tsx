@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Download, FileImage, FileText, File, X } from "lucide-react";
+import { Download, FileImage, FileText, File, X, Trash2, Loader2 } from "lucide-react";
 import type { UserDocument } from "@/data/user-module";
 import { useDialogA11y } from "@/lib/use-dialog-a11y";
 import { openDocument, resolveDocumentUrl } from "@/lib/doc-access";
+import { useUserStore } from "@/lib/user-store";
 
 const ICONS = { pdf: FileText, image: FileImage, doc: File };
 
@@ -16,6 +17,19 @@ export function DocumentPreview({
   const Icon = ICONS[doc.kind] ?? File;
   const panelRef = useDialogA11y<HTMLDivElement>(onClose);
   const [url, setUrl] = useState<string | null>(doc.previewUrl ?? null);
+  const { removeFile } = useUserStore();
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await removeFile(doc.id, doc.storagePath);
+      onClose();
+    } catch (err) {
+      console.error("Failed to delete document:", err);
+      setIsDeleting(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -105,6 +119,21 @@ export function DocumentPreview({
         </dl>
 
         <div className="mt-5 flex gap-2">
+          {doc.uploadedBy === "You" && (
+            <button
+              type="button"
+              onClick={() => void handleDelete()}
+              disabled={isDeleting}
+              aria-label={`Delete ${doc.name}`}
+              className="inline-flex items-center justify-center rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-500 transition-colors duration-200 hover:bg-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isDeleting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
+              )}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => void openDocument(doc, true)}

@@ -103,6 +103,22 @@ export async function createQuickReply(title: string, body: string) {
   return data;
 }
 
+export async function updateQuickReply(id: string, title: string, body: string) {
+  const { data, error } = await supabase
+    .from("quick_replies")
+    .update({ title, body })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw new ApiError(error.message, error.code);
+  return data;
+}
+
+export async function deleteQuickReply(id: string) {
+  const { error } = await supabase.from("quick_replies").delete().eq("id", id);
+  if (error) throw new ApiError(error.message, error.code);
+}
+
 /* ---------------- Settings ---------------- */
 
 export async function getMySettings(): Promise<UserSettingsRow | null> {

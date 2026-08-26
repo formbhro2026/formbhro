@@ -29,14 +29,14 @@ const BLANK = {
   email: "",
   phone: "",
   avatar_url: "",
-  password: "FBH-Team@2026",
+  password: "",
   job_title: "Support Executive",
   role: "team" as "team" | "admin",
   active: true,
 };
 
 function AdminTeam() {
-  const { team, profiles, requests, refresh, profileOf } = useAdmin();
+  const { team, profiles, requestsPage, refresh, profileOf, stats } = useAdmin();
   const [q, setQ] = useState("");
   const [form, setForm] = useState({ ...BLANK });
   const [showForm, setShowForm] = useState(false);
@@ -62,8 +62,11 @@ function AdminTeam() {
 
   const detail = team.find((t) => t.id === selected) ?? null;
   const detailProfile = profileOf(detail?.id);
-  const detailRequests = requests.filter((r) => r.assigned_team_id === detail?.id);
-  const unassigned = requests.filter(
+  const detailRequests = requestsPage.filter((r) => r.assigned_team_id === detail?.id);
+  const detailStat = stats?.perTeam.find((t) => t.id === detail?.id);
+  const detailTotal = detailStat?.total ?? 0;
+  const detailDone = detailStat?.done ?? 0;
+  const unassigned = requestsPage.filter(
     (r) => !r.assigned_team_id && !["completed", "cancelled"].includes(r.status),
   );
 
@@ -226,7 +229,9 @@ function AdminTeam() {
           </thead>
           <tbody>
             {rows.map(({ member, profile }) => {
-              const mine = requests.filter((r) => r.assigned_team_id === member.id);
+              const teamStat = stats?.perTeam.find((t) => t.id === member.id);
+              const mineTotal = teamStat?.total ?? 0;
+              const mineDone = teamStat?.done ?? 0;
               return (
                 <tr key={member.id} className="border-t border-border-subtle/50">
                   <td className="px-3 py-2.5">
@@ -265,7 +270,7 @@ function AdminTeam() {
                   </td>
                   <td className="px-3 py-2.5 text-text-secondary">{member.job_title}</td>
                   <td className="px-3 py-2.5 text-text-secondary">
-                    {mine.length} · {mine.filter((r) => r.status === "completed").length} done
+                    {mineTotal} · {mineDone} done
                   </td>
                   <td className="px-3 py-2.5">
                     <Pill tone={member.is_active ? "ok" : "bad"}>
@@ -322,14 +327,7 @@ function AdminTeam() {
               </div>
               <p className="text-text-secondary">
                 Completion rate:{" "}
-                {detailRequests.length
-                  ? Math.round(
-                      (detailRequests.filter((r) => r.status === "completed").length /
-                        detailRequests.length) *
-                        100,
-                    )
-                  : 0}
-                %
+                {detailTotal > 0 ? Math.round((detailDone / detailTotal) * 100) : 0}%
               </p>
               <div className="flex flex-wrap gap-2 pt-2">
                 <Button
@@ -428,7 +426,7 @@ function AdminTeam() {
 
               <div>
                 <h3 className="mb-2 text-xs font-semibold text-white">
-                  Assigned requests ({detailRequests.length})
+                  Assigned requests (showing {detailRequests.length} of {detailTotal})
                 </h3>
                 <ul className="space-y-2">
                   {detailRequests.map((r) => (

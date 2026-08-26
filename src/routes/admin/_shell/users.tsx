@@ -15,7 +15,7 @@ import { setUserActive } from "@/lib/api/admin.functions";
 export const Route = createFileRoute("/admin/_shell/users")({ component: AdminUsers });
 
 function AdminUsers() {
-  const { profiles, roles, requests, refresh, activity } = useAdmin();
+  const { profiles, roles, requestsPage, refresh, activity } = useAdmin();
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<"all" | "active" | "suspended">("all");
   const [selected, setSelected] = useState<string | null>(null);
@@ -33,7 +33,7 @@ function AdminUsers() {
       .filter((p) => (filter === "all" ? true : filter === "active" ? p.is_active : !p.is_active))
       .filter((p) => {
         if (!term) return true;
-        const refs = requests
+        const refs = requestsPage
           .filter((r) => r.user_id === p.id)
           .map((r) => r.reference.toLowerCase());
         return (
@@ -44,10 +44,10 @@ function AdminUsers() {
           refs.some((r) => r.includes(term))
         );
       });
-  }, [profiles, userIds, filter, q, requests]);
+  }, [profiles, userIds, filter, q, requestsPage]);
 
   const detail = profiles.find((p) => p.id === selected) ?? null;
-  const detailRequests = requests.filter((r) => r.user_id === detail?.id);
+  const detailRequests = requestsPage.filter((r) => r.user_id === detail?.id);
 
   const toggleActive = async (id: string, active: boolean) => {
     setBusy(id);
@@ -104,7 +104,7 @@ function AdminUsers() {
           </thead>
           <tbody>
             {list.map((p) => {
-              const mine = requests.filter((r) => r.user_id === p.id);
+              const mine = requestsPage.filter((r) => r.user_id === p.id);
               return (
                 <tr key={p.id} className="border-t border-border-subtle/50">
                   <td className="px-3 py-2.5">

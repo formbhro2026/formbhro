@@ -38,5 +38,3 @@ export const Route = createFileRoute("/team/_shell")({
   ssr: false,
   component: TeamShell,
 });
-
-

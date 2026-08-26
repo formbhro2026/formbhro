@@ -25,19 +25,18 @@ export const Route = createFileRoute("/team/_shell/profile")({
 });
 
 function TeamProfile() {
-  const { member, requests, updateMember, signOut } = useTeamStore();
+  const { member, analytics, updateMember, signOut } = useTeamStore();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(member?.name ?? "");
   const [confirmOut, setConfirmOut] = useState(false);
 
-  const completed = requests.filter((r) => r.status === "completed").length;
-  const pending = requests.filter((r) => r.status !== "completed").length;
-  const rate = requests.length ? Math.round((completed / requests.length) * 100) : 0;
+  const { completed, assigned, pending } = analytics;
+  const rate = assigned ? Math.round((completed / assigned) * 100) : 0;
 
   const performance = [
-    { label: "Total Forms Filled", value: String(completed + 18) },
-    { label: "Total Assigned", value: String(requests.length) },
+    { label: "Total Forms Filled", value: String(completed) },
+    { label: "Total Assigned", value: String(assigned) },
     { label: "Completed", value: String(completed) },
     { label: "Pending", value: String(pending) },
     { label: "Average Response Time", value: "8m 42s" },

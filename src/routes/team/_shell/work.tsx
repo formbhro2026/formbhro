@@ -32,6 +32,7 @@ import { TeamHeader } from "@/components/team/TeamHeader";
 import { TeamStatusBadge, PriorityBadge } from "@/components/team/TeamStatusBadge";
 import { Button } from "@/components/admin/AdminUI";
 import { StatusSelect } from "@/components/team/StatusSelect";
+import { CategorySelect } from "@/components/team/CategorySelect";
 import { TeamDocumentCard } from "@/components/team/TeamDocumentCard";
 import { TeamDocumentPreview } from "@/components/team/TeamDocumentPreview";
 import { EmptyState } from "@/components/common/EmptyState";
@@ -39,6 +40,7 @@ import { useTeamStore } from "@/lib/team-store";
 import type { TeamDelivery, Priority, TeamMessage } from "@/data/team-module";
 import { WorkFilters } from "@/components/team/WorkFilters";
 import { MessageAttachment } from "@/components/team/MessageAttachment";
+import { TransferButton, EscalateButton } from "@/components/team/TransferModal";
 
 import { useVisualViewport } from "@/lib/use-visual-viewport";
 import { useDialogA11y } from "@/lib/use-dialog-a11y";
@@ -47,6 +49,9 @@ import type { TeamRequest } from "@/data/team-module";
 import { cn } from "@/lib/utils";
 import { useWebRTCCall } from "@/hooks/use-webrtc-call";
 import { CallOverlay } from "@/components/chat/CallOverlay";
+import { listQuickReplies } from "@/lib/api/notifications";
+import type { QuickReplyRow } from "@/lib/api/types";
+import { Zap } from "lucide-react";
 
 type WorkSearch = {
   r?: string;
@@ -99,6 +104,9 @@ function WorkArea() {
   const {
     requests,
     pool,
+    requestsHasMore,
+    requestsLoadingMore,
+    loadMoreRequests,
     messagesFor,
     documentsFor,
     getDocument,
@@ -293,6 +301,17 @@ function WorkArea() {
                     <ConversationCard request={r} active={selected?.id === r.id} />
                   </li>
                 ))}
+                {requestsHasMore && (
+                  <li className="pt-2">
+                    <button
+                      onClick={() => void loadMoreRequests()}
+                      disabled={requestsLoadingMore}
+                      className="w-full rounded-lg border border-border-subtle bg-surface-2 py-2 text-[11px] font-semibold text-text-muted hover:text-white hover:bg-surface-3 transition-colors disabled:opacity-50"
+                    >
+                      {requestsLoadingMore ? "Loading..." : "Load More"}
+                    </button>
+                  </li>
+                )}
               </ul>
             )}
           </div>
@@ -314,6 +333,14 @@ function WorkArea() {
               onPreview={setPreviewId}
               docCount={documentsFor(selected.id).length}
             />
+          ) : search.r ? (
+            <div className="grid flex-1 place-items-center p-6 text-center">
+              <EmptyState
+                icon={MessageSquareText}
+                title="Chat unavailable"
+                description="This chat has been transferred to another team member or is no longer assigned to you."
+              />
+            </div>
           ) : (
             <div className="grid flex-1 place-items-center p-6">
               <EmptyState
@@ -337,6 +364,8 @@ function WorkArea() {
               onStatus={(s) => setStatus(selected.id, s)}
               onSend={sendMessage}
             />
+          ) : search.r ? (
+            <p className="p-6 text-xs text-text-muted">Chat is no longer assigned to you.</p>
           ) : (
             <p className="p-6 text-xs text-text-muted">Select a request to see its details.</p>
           )}
@@ -688,10 +717,28 @@ function Conversation({
 
   // Freeze the first unread message when the thread opens so the divider stays put.
   const [dividerId, setDividerId] = useState<string | null>(null);
+
+  const [quickReplies, setQuickReplies] = useState<QuickReplyRow[]>([]);
+  const [showQuickReplies, setShowQuickReplies] = useState(false);
+  const quickRepliesRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     setDividerId(messages.find((m) => m.author === "user" && !m.read)?.id ?? null);
+    void listQuickReplies()
+      .then(setQuickReplies)
+      .catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [r.id]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (quickRepliesRef.current && !quickRepliesRef.current.contains(e.target as Node)) {
+        setShowQuickReplies(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Attachment preview URLs are revoked on unmount so blobs aren't retained.
   const objectUrls = useRef<string[]>([]);
@@ -913,6 +960,8 @@ function Conversation({
         >
           <Search className="h-4 w-4" aria-hidden="true" />
         </button>
+        <TransferButton request={r} />
+        <EscalateButton request={r} />
         <div className="hidden w-40 shrink-0 sm:block">
           <StatusSelect requestId={r.id} status={r.status} onChange={onStatus} />
         </div>
@@ -1388,6 +1437,41 @@ function Conversation({
           >
             <Paperclip className="h-4 w-4" aria-hidden="true" />
           </button>
+          <div className="relative" ref={quickRepliesRef}>
+            <button
+              type="button"
+              onClick={() => setShowQuickReplies(!showQuickReplies)}
+              aria-label="Insert quick reply"
+              className={cn(
+                "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 transition-colors",
+                showQuickReplies ? "bg-white/10 text-white" : "text-white hover:bg-white/5",
+              )}
+            >
+              <Zap className="h-4 w-4" aria-hidden="true" />
+            </button>
+            {showQuickReplies && quickReplies.length > 0 && (
+              <div className="absolute bottom-full left-0 mb-2 w-64 max-h-64 overflow-y-auto rounded-xl border border-border-subtle bg-surface-1 p-2 shadow-xl z-50">
+                <div className="mb-2 px-2 pb-2 pt-1 text-[11px] font-semibold text-text-muted border-b border-border-subtle">
+                  Quick Replies
+                </div>
+                {quickReplies.map((qr) => (
+                  <button
+                    key={qr.id}
+                    type="button"
+                    className="w-full text-left rounded-lg px-3 py-2 text-sm text-white hover:bg-surface-2 transition-colors mb-1"
+                    onClick={() => {
+                      setText((prev) => (prev ? prev + "\n\n" + qr.body : qr.body));
+                      setShowQuickReplies(false);
+                      document.getElementById("team-composer")?.focus();
+                    }}
+                  >
+                    <div className="font-medium truncate">{qr.title}</div>
+                    <div className="text-[11px] text-text-muted truncate mt-0.5">{qr.body}</div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <label htmlFor="team-composer" className="sr-only">
             Write a message
           </label>
@@ -1466,6 +1550,8 @@ function RequestPanel({
                 <TeamStatusBadge status={r.status} />
               ) : row.label === "Priority" ? (
                 <PriorityBadge priority={r.priority} />
+              ) : row.label === "Category" ? (
+                <CategorySelect requestId={r.id} category={r.category} className="w-40" />
               ) : (
                 <span className="truncate">{row.value}</span>
               )}

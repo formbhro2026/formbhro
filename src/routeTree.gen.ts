@@ -26,10 +26,13 @@ import { Route as TeamShellRouteImport } from './routes/team/_shell'
 import { Route as TeamLoginRouteImport } from './routes/team/login'
 import { Route as AdminShellIndexRouteImport } from './routes/admin/_shell/index'
 import { Route as AdminShellAnalyticsRouteImport } from './routes/admin/_shell/analytics'
+import { Route as AdminShellCategoriesRouteImport } from './routes/admin/_shell/categories'
 import { Route as AdminShellChatsRouteImport } from './routes/admin/_shell/chats'
 import { Route as AdminShellNewsRouteImport } from './routes/admin/_shell/news'
+import { Route as AdminShellPoliciesRouteImport } from './routes/admin/_shell/policies'
 import { Route as AdminShellRequestsRouteImport } from './routes/admin/_shell/requests'
 import { Route as AdminShellTeamRouteImport } from './routes/admin/_shell/team'
+import { Route as AdminShellTemplatesRouteImport } from './routes/admin/_shell/templates'
 import { Route as AdminShellUsersRouteImport } from './routes/admin/_shell/users'
 import { Route as AppChatsIndexRouteImport } from './routes/app.chats.index'
 import { Route as AppChatsRequestIdRouteImport } from './routes/app.chats.$requestId'
@@ -123,6 +126,11 @@ const AdminShellAnalyticsRoute = AdminShellAnalyticsRouteImport.update({
   path: '/analytics',
   getParentRoute: () => AdminShellRoute,
 } as any)
+const AdminShellCategoriesRoute = AdminShellCategoriesRouteImport.update({
+  id: '/categories',
+  path: '/categories',
+  getParentRoute: () => AdminShellRoute,
+} as any)
 const AdminShellChatsRoute = AdminShellChatsRouteImport.update({
   id: '/chats',
   path: '/chats',
@@ -133,6 +141,11 @@ const AdminShellNewsRoute = AdminShellNewsRouteImport.update({
   path: '/news',
   getParentRoute: () => AdminShellRoute,
 } as any)
+const AdminShellPoliciesRoute = AdminShellPoliciesRouteImport.update({
+  id: '/policies',
+  path: '/policies',
+  getParentRoute: () => AdminShellRoute,
+} as any)
 const AdminShellRequestsRoute = AdminShellRequestsRouteImport.update({
   id: '/requests',
   path: '/requests',
@@ -141,6 +154,11 @@ const AdminShellRequestsRoute = AdminShellRequestsRouteImport.update({
 const AdminShellTeamRoute = AdminShellTeamRouteImport.update({
   id: '/team',
   path: '/team',
+  getParentRoute: () => AdminShellRoute,
+} as any)
+const AdminShellTemplatesRoute = AdminShellTemplatesRouteImport.update({
+  id: '/templates',
+  path: '/templates',
   getParentRoute: () => AdminShellRoute,
 } as any)
 const AdminShellUsersRoute = AdminShellUsersRouteImport.update({
@@ -204,10 +222,13 @@ export interface FileRoutesByFullPath {
   '/team/login': typeof TeamLoginRoute
   '/app/': typeof AppIndexRoute
   '/admin/analytics': typeof AdminShellAnalyticsRoute
+  '/admin/categories': typeof AdminShellCategoriesRoute
   '/admin/chats': typeof AdminShellChatsRoute
   '/admin/news': typeof AdminShellNewsRoute
+  '/admin/policies': typeof AdminShellPoliciesRoute
   '/admin/requests': typeof AdminShellRequestsRoute
   '/admin/team': typeof AdminShellTeamRoute
+  '/admin/templates': typeof AdminShellTemplatesRoute
   '/admin/users': typeof AdminShellUsersRoute
   '/app/chats/$requestId': typeof AppChatsRequestIdRoute
   '/team/documents': typeof TeamShellDocumentsRoute
@@ -233,10 +254,13 @@ export interface FileRoutesByTo {
   '/team/login': typeof TeamLoginRoute
   '/app': typeof AppIndexRoute
   '/admin/analytics': typeof AdminShellAnalyticsRoute
+  '/admin/categories': typeof AdminShellCategoriesRoute
   '/admin/chats': typeof AdminShellChatsRoute
   '/admin/news': typeof AdminShellNewsRoute
+  '/admin/policies': typeof AdminShellPoliciesRoute
   '/admin/requests': typeof AdminShellRequestsRoute
   '/admin/team': typeof AdminShellTeamRoute
+  '/admin/templates': typeof AdminShellTemplatesRoute
   '/admin/users': typeof AdminShellUsersRoute
   '/app/chats/$requestId': typeof AppChatsRequestIdRoute
   '/team/documents': typeof TeamShellDocumentsRoute
@@ -264,10 +288,13 @@ export interface FileRoutesById {
   '/team/login': typeof TeamLoginRoute
   '/app/': typeof AppIndexRoute
   '/admin/_shell/analytics': typeof AdminShellAnalyticsRoute
+  '/admin/_shell/categories': typeof AdminShellCategoriesRoute
   '/admin/_shell/chats': typeof AdminShellChatsRoute
   '/admin/_shell/news': typeof AdminShellNewsRoute
+  '/admin/_shell/policies': typeof AdminShellPoliciesRoute
   '/admin/_shell/requests': typeof AdminShellRequestsRoute
   '/admin/_shell/team': typeof AdminShellTeamRoute
+  '/admin/_shell/templates': typeof AdminShellTemplatesRoute
   '/admin/_shell/users': typeof AdminShellUsersRoute
   '/app/chats/$requestId': typeof AppChatsRequestIdRoute
   '/team/_shell/documents': typeof TeamShellDocumentsRoute
@@ -296,10 +323,13 @@ export interface FileRouteTypes {
     | '/team/login'
     | '/app/'
     | '/admin/analytics'
+    | '/admin/categories'
     | '/admin/chats'
     | '/admin/news'
+    | '/admin/policies'
     | '/admin/requests'
     | '/admin/team'
+    | '/admin/templates'
     | '/admin/users'
     | '/app/chats/$requestId'
     | '/team/documents'
@@ -325,10 +355,13 @@ export interface FileRouteTypes {
     | '/team/login'
     | '/app'
     | '/admin/analytics'
+    | '/admin/categories'
     | '/admin/chats'
     | '/admin/news'
+    | '/admin/policies'
     | '/admin/requests'
     | '/admin/team'
+    | '/admin/templates'
     | '/admin/users'
     | '/app/chats/$requestId'
     | '/team/documents'
@@ -355,10 +388,13 @@ export interface FileRouteTypes {
     | '/team/login'
     | '/app/'
     | '/admin/_shell/analytics'
+    | '/admin/_shell/categories'
     | '/admin/_shell/chats'
     | '/admin/_shell/news'
+    | '/admin/_shell/policies'
     | '/admin/_shell/requests'
     | '/admin/_shell/team'
+    | '/admin/_shell/templates'
     | '/admin/_shell/users'
     | '/app/chats/$requestId'
     | '/team/_shell/documents'
@@ -502,6 +538,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminShellAnalyticsRouteImport
       parentRoute: typeof AdminShellRoute
     }
+    '/admin/_shell/categories': {
+      id: '/admin/_shell/categories'
+      path: '/categories'
+      fullPath: '/admin/categories'
+      preLoaderRoute: typeof AdminShellCategoriesRouteImport
+      parentRoute: typeof AdminShellRoute
+    }
     '/admin/_shell/chats': {
       id: '/admin/_shell/chats'
       path: '/chats'
@@ -516,6 +559,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminShellNewsRouteImport
       parentRoute: typeof AdminShellRoute
     }
+    '/admin/_shell/policies': {
+      id: '/admin/_shell/policies'
+      path: '/policies'
+      fullPath: '/admin/policies'
+      preLoaderRoute: typeof AdminShellPoliciesRouteImport
+      parentRoute: typeof AdminShellRoute
+    }
     '/admin/_shell/requests': {
       id: '/admin/_shell/requests'
       path: '/requests'
@@ -528,6 +578,13 @@ declare module '@tanstack/react-router' {
       path: '/team'
       fullPath: '/admin/team'
       preLoaderRoute: typeof AdminShellTeamRouteImport
+      parentRoute: typeof AdminShellRoute
+    }
+    '/admin/_shell/templates': {
+      id: '/admin/_shell/templates'
+      path: '/templates'
+      fullPath: '/admin/templates'
+      preLoaderRoute: typeof AdminShellTemplatesRouteImport
       parentRoute: typeof AdminShellRoute
     }
     '/admin/_shell/users': {
@@ -598,20 +655,26 @@ declare module '@tanstack/react-router' {
 
 interface AdminShellRouteChildren {
   AdminShellAnalyticsRoute: typeof AdminShellAnalyticsRoute
+  AdminShellCategoriesRoute: typeof AdminShellCategoriesRoute
   AdminShellChatsRoute: typeof AdminShellChatsRoute
   AdminShellNewsRoute: typeof AdminShellNewsRoute
+  AdminShellPoliciesRoute: typeof AdminShellPoliciesRoute
   AdminShellRequestsRoute: typeof AdminShellRequestsRoute
   AdminShellTeamRoute: typeof AdminShellTeamRoute
+  AdminShellTemplatesRoute: typeof AdminShellTemplatesRoute
   AdminShellUsersRoute: typeof AdminShellUsersRoute
   AdminShellIndexRoute: typeof AdminShellIndexRoute
 }
 
 const AdminShellRouteChildren: AdminShellRouteChildren = {
   AdminShellAnalyticsRoute: AdminShellAnalyticsRoute,
+  AdminShellCategoriesRoute: AdminShellCategoriesRoute,
   AdminShellChatsRoute: AdminShellChatsRoute,
   AdminShellNewsRoute: AdminShellNewsRoute,
+  AdminShellPoliciesRoute: AdminShellPoliciesRoute,
   AdminShellRequestsRoute: AdminShellRequestsRoute,
   AdminShellTeamRoute: AdminShellTeamRoute,
+  AdminShellTemplatesRoute: AdminShellTemplatesRoute,
   AdminShellUsersRoute: AdminShellUsersRoute,
   AdminShellIndexRoute: AdminShellIndexRoute,
 }

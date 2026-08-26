@@ -1,0 +1,1374 @@
+<USER_REQUEST>
+# FORMbhro — COMPLETE SCOPE, FUNCTIONAL, LOGIC, SECURITY & PRODUCTION READINESS AUDIT
+
+You are acting as a **Senior Software Architect, QA Lead, Security Auditor, Backend Engineer, Database/RLS Auditor, Product Analyst and DevOps Engineer simultaneously**.
+
+Your task is NOT to simply inspect the UI.
+
+You must perform a **complete forensic audit of the existing Formbhro / User Support & Team Assistance Application codebase** and determine whether the application has actually been built according to the approved scope and expanded functional requirements.
+
+The objective is to answer one question with evidence:
+
+> **“Is this application actually complete, correctly implemented, securely implemented, and functionally working according to the entire approved + expanded scope, or does it only look complete from the UI?”**
+
+Do NOT assume that a feature is implemented merely because:
+
+* a button exists,
+* a page exists,
+* a route exists,
+* a database table exists,
+* a function exists,
+* dummy data appears,
+* a UI state appears,
+* or a developer claims it is implemented.
+
+Every important feature must be verified through its actual end-to-end logic.
+
+---
+
+# 1. AUDIT RULES — VERY IMPORTANT
+
+Follow these rules strictly.
+
+### Rule 1 — Do not trust the UI alone
+
+For every feature, trace:
+
+UI
+→ frontend handler
+→ API/service/action
+→ authentication/authorization
+→ backend logic
+→ database
+→ RLS/policies
+→ storage if applicable
+→ realtime/events if applicable
+→ final UI state
+
+If any link is missing or fake, mark the feature as:
+
+**PARTIAL / BROKEN / NOT IMPLEMENTED**
+
+instead of PASS.
+
+---
+
+### Rule 2 — Do not modify the application during Phase 1
+
+First perform a complete audit.
+
+Do NOT start fixing code immediately.
+
+First establish the current state of the application.
+
+Only after the complete audit report is generated may you propose or implement fixes.
+
+If a fix is later requested, create fixes based on the audit findings.
+
+---
+
+### Rule 3 — No false positives
+
+Do not report:
+
+“Implemented”
+
+just because the code contains a similarly named function.
+
+Verify whether the function is:
+
+* reachable,
+* correctly called,
+* correctly authorized,
+* correctly connected to the database,
+* handling errors,
+* handling edge cases,
+* and producing the expected result.
+
+---
+
+### Rule 4 — Test actual business logic
+
+Do not test only the happy path.
+
+For every important workflow test:
+
+* normal case
+* empty state
+* duplicate action
+* unauthorized user
+* wrong role
+* concurrent action
+* refresh/reload
+* network failure
+* stale state
+* deleted/changed record
+* invalid input
+* repeated request
+* race condition
+* session expiry
+* direct URL access
+* API direct access where applicable
+
+---
+
+### Rule 5 — Security must be audited independently
+
+Do not assume frontend restrictions are security.
+
+For example:
+
+If User UI hides “Delete Document”, that does NOT prove the user cannot delete a document.
+
+Test the backend/database/storage permissions directly.
+
+Verify:
+
+* authentication
+* authorization
+* RBAC
+* Supabase RLS
+* storage policies
+* database policies
+* server-side validation
+* rate limiting
+* privilege escalation
+* IDOR/insecure direct object access
+* unauthorized chat access
+* unauthorized document access
+* unauthorized assignment/transfer
+* unauthorized admin actions
+
+---
+
+# 2. SOURCE OF TRUTH / SCOPE
+
+Use the following as the functional scope baseline:
+
+## A. Original approved proposal
+
+The original proposal defines three application roles:
+
+1. User
+2. Support Team
+3. Admin
+
+The proposal includes:
+
+### User
+
+* Google authentication
+* automatic profile creation
+* secure sessions
+* home screen
+* Fill Now
+* latest news
+* support conversation creation
+* instant chat opening
+* permanent chat storage
+* user cannot delete chat
+* previous chats
+* latest messages
+* status badges
+* uploaded documents
+* unread messages
+* announcements/news
+
+### Support Team
+
+* view assigned chats
+* self-assign conversations
+* respond to users
+* upload documents
+* update request status
+* transfer chats
+* escalation
+* Super Admin takeover
+* real-time chat
+* image sharing
+* PDF sharing
+* document sharing
+* read receipts
+* typing indicators
+
+### Admin
+
+* view all users
+* user profiles
+* chat history
+* uploaded documents
+* add operators
+* remove operators
+* edit operator permissions
+* performance tracking
+* assign chats
+* transfer chats
+* change status
+* monitor conversations
+* announcements
+* templates / quick replies
+
+### System
+
+* real-time messaging
+* chat assignment
+* chat transfer
+* shared document storage
+* image/PDF uploads
+* role-based access control
+* real-time synchronization
+* notifications
+* responsive UI
+* Supabase backend
+* PostgreSQL
+* Supabase Storage
+* Supabase Realtime
+* RLS
+* Vercel deployment
+
+Also audit:
+
+* admin dashboard
+* active chats
+* pending requests
+* completed requests
+* online operators
+* recent activities
+* chat statistics
+* online/offline status
+* read receipts
+* typing indicators
+* instant notifications
+* pull to refresh
+* retry mechanism
+* loading states
+
+---
+
+# 3. EXPANDED FUNCTIONAL SCOPE
+
+In addition to the original proposal, the following requirements MUST be audited.
+
+These are not optional.
+
+## USER SIDE
+
+### User Home
+
+1. Fill Now
+2. Previous chats
+3. Pending chat visibility
+4. Continue Chat option for pending chat
+5. Latest messages
+6. Status badges
+7. Unread messages
+8. Uploaded documents
+9. News/updates
+10. Back button where required
+
+### Chat Creation Rule
+
+When Fill Now is clicked:
+
+* correct new chat must be created
+* duplicate chat must not accidentally be created
+* chat must open immediately
+* chat must persist
+* chat must be associated with the correct user
+* correct status must be assigned
+* correct team workflow must begin
+
+### Pending Chat Rule
+
+If a user already has a pending/active chat:
+
+* Home should clearly indicate it
+* Continue Chat should open the correct existing chat
+* application must not create unnecessary duplicate chats
+
+### User Chat Limit
+
+Implement and verify:
+
+> A single user may create/use a maximum of **3 chats within 24 hours**.
+
+This must be enforced server-side, not merely by hiding a button.
+
+Test:
+
+* 1st chat
+* 2nd chat
+* 3rd chat
+* 4th chat
+* exact 24-hour boundary
+* refresh
+* logout/login
+* direct API request
+* concurrent requests
+
+Determine whether the limit is:
+
+* actually enforced,
+* correctly calculated,
+* timezone-safe,
+* race-condition safe.
+
+---
+
+# 4. USER ↔ TEAM WORKFLOW
+
+Audit the complete lifecycle:
+
+User creates chat
+→ chat enters available/pending state
+→ Team sees eligible chat
+→ Team claims chat
+→ chat gets assigned
+→ chat appears in Team Work Area
+→ User can see assigned Team Member
+→ Team communicates with User
+→ documents exchanged
+→ status updated
+→ chat completed/closed
+
+Every transition must be verified.
+
+---
+
+# 5. TEAM SIDE
+
+Audit all of the following:
+
+### Team Home
+
+* assigned chats
+* all chats
+* pending chats
+* completed/closed chats
+* relevant counters
+* notifications
+
+### All Chats
+
+Verify that team members can see the correct eligible chats.
+
+Verify that they cannot see chats they should not have access to.
+
+### Claim Chat
+
+Verify:
+
+All Chats
+→ Claim Chat
+→ assignment occurs
+→ ownership changes
+→ Work Area updates
+→ User sees correct assigned Team Member
+→ other team members cannot incorrectly claim/modify the same chat
+
+Test concurrent claims by two team members.
+
+There must be no double assignment caused by race conditions.
+
+### Work Area
+
+Verify that claimed/assigned chats actually move into the correct Work Area.
+
+Verify:
+
+* refresh
+* logout/login
+* realtime update
+* assignment removal
+* transfer
+* escalation
+* completion
+
+### User Chat / User Doc
+
+The Team interface should clearly separate:
+
+* User Chat
+* User Documents
+
+Verify that document actions are correctly connected to the actual chat/user/document.
+
+---
+
+# 6. DOCUMENT WORKFLOW
+
+Audit the complete document lifecycle:
+
+User uploads document
+→ storage upload
+→ database metadata
+→ correct user/chat association
+→ Team/Admin visibility
+→ Doc Check
+→ Download
+→ Share
+→ Remove where authorized
+
+Verify:
+
+* upload
+* file type validation
+* file size validation
+* duplicate uploads
+* failed upload
+* retry
+* download
+* share
+* document preview if present
+* deletion/removal
+* database cleanup
+* storage cleanup
+* permission enforcement
+
+### Critical permission rule
+
+User must NOT be able to remove documents if the intended permission says only Team/Admin can remove them.
+
+Test directly through:
+
+* UI
+* API
+* database
+* storage URL/access
+
+Do not trust UI restrictions.
+
+---
+
+# 7. PRE-APPROVED MESSAGES / QUICK REPLIES
+
+Audit:
+
+Admin creates quick reply
+→ saved in database
+→ available to authorized Team users
+→ Team selects it
+→ correct message inserted/sent
+→ correct sender identity
+→ correct chat association
+
+Verify:
+
+* create
+* edit
+* delete
+* unauthorized access
+* stale templates
+* empty template
+* special characters
+* duplicate templates
+
+---
+
+# 8. STATUS WORKFLOW
+
+Audit the exact status lifecycle required by the expanded scope:
+
+**Pending → Closed → Complete**
+
+Determine:
+
+* which roles can change status
+* which transitions are allowed
+* whether invalid transitions are prevented
+* whether status is persisted
+* whether realtime updates occur
+* whether dashboard counters update
+* whether User sees the correct status
+* whether Team sees the correct status
+* whether Admin sees the correct status
+
+Test invalid transitions.
+
+Example:
+
+Complete → Pending
+
+Should this be allowed?
+
+If the current implementation allows it, flag it unless explicitly justified by the intended workflow.
+
+---
+
+# 9. TEAM PROGRESS / COMPLETION TRACKING
+
+Audit:
+
+* team-member-wise assigned chats
+* pending count
+* closed count
+* completed count
+* total completed requests
+* performance tracking
+* recent activity
+* completion event
+* completion popup/count if required
+
+Verify that metrics are based on real database records and not frontend-only calculations.
+
+Check:
+
+* duplicate counting
+* reassignment
+* transfer
+* reopening
+* deletion
+* status changes
+* concurrent updates
+
+---
+
+# 10. ADMIN / SUPER ADMIN AUDIT
+
+Audit:
+
+### User Management
+
+* all users
+* search users
+* profile
+* chat history
+* documents
+
+### Team Management
+
+* add operator
+* remove operator
+* suspend operator/team member
+* edit permissions
+* role assignment
+* access control
+
+### Chat Management
+
+* assign
+* transfer
+* monitor
+* status change
+* takeover
+* ownership visibility
+* user/team relationship
+
+### Admin Dashboard
+
+* Active Chats
+* Pending Requests
+* Completed Requests
+* Online Operators
+* Recent Activities
+* Chat Statistics
+
+Every number must be traced back to real data.
+
+Check whether dashboard numbers are:
+
+* correct
+* realtime
+* filtered correctly
+* duplicated
+* stale
+* affected by pagination
+* affected by timezone
+* affected by status changes
+
+---
+
+# 11. TEAM ACCESS CODE
+
+Audit the Team Access Code requirement.
+
+Determine:
+
+* Does an access code actually exist?
+* Where is it validated?
+* Is validation server-side?
+* Can it be bypassed?
+* Is it stored securely?
+* Is it hashed if appropriate?
+* Can a normal User access Team routes?
+* Can a Team Member access Admin routes?
+* Can an unauthenticated user access protected resources?
+
+Attempt direct route/API access.
+
+---
+
+# 12. RATE LIMITING
+
+Audit rate limiting for:
+
+* login/authentication
+* chat creation
+* message sending
+* document upload
+* claim chat
+* API endpoints
+* password reset if applicable
+* admin-sensitive operations
+
+Determine whether rate limiting exists at:
+
+* frontend only
+* backend
+* database
+* edge/server layer
+
+Frontend-only rate limiting must NOT be considered sufficient.
+
+---
+
+# 13. DELIVERY / POLICY CHANGE-MODIFY WORKFLOW
+
+Audit the Delivery/Policy change/modify requirement.
+
+Determine:
+
+* where this workflow exists
+* who can initiate it
+* who can modify it
+* how it is stored
+* whether User sees changes
+* whether Team sees changes
+* whether Admin sees changes
+* whether status/history is maintained
+* whether unauthorized users can modify it
+
+If this requirement is absent, clearly mark it as:
+
+**NOT IMPLEMENTED**
+
+Do not invent functionality.
+
+---
+
+# 14. TAG / QUESTION FUNCTIONALITY
+
+Audit the Tag / Question requirement.
+
+Verify:
+
+* creation
+* display
+* persistence
+* editing
+* filtering if applicable
+* role permissions
+* relationship with chat/user/request
+
+If it only exists visually and is not persisted/used by the system, mark it PARTIAL.
+
+---
+
+# 15. NOTIFICATIONS / REALTIME
+
+Audit real-time behavior deeply.
+
+Test:
+
+User sends message
+→ Team receives message without refresh
+
+Team sends message
+→ User receives without refresh
+
+Assignment change
+→ User/Team/Admin updates appropriately
+
+Status change
+→ all authorized views update
+
+Document upload
+→ correct parties receive update
+
+Notifications:
+
+* online
+* offline
+* reconnect
+* duplicate events
+* delayed events
+* browser refresh
+* multiple tabs
+* session expiry
+
+Check Supabase Realtime subscriptions for:
+
+* leaks
+* duplicate subscriptions
+* missing cleanup
+* duplicate messages
+* stale state
+
+---
+
+# 16. CHAT TRANSFER
+
+Audit:
+
+Team A
+→ Transfer
+→ Team B
+
+Verify:
+
+* assignment changes correctly
+* Team A loses access where appropriate
+* Team B receives chat
+* User sees correct Team Member
+* Work Area changes
+* history remains intact
+* notifications occur
+* no duplicate ownership
+
+Test transfer during an active conversation.
+
+---
+
+# 17. ESCALATION / SUPER ADMIN TAKEOVER
+
+Verify:
+
+Team Member
+→ Escalate
+→ Admin/Super Admin
+→ takeover
+
+Check permissions and ownership.
+
+A normal Team Member must not be able to perform unauthorized Admin actions.
+
+---
+
+# 18. AUTHENTICATION & SESSION SECURITY
+
+Audit:
+
+* Google authentication
+* session creation
+* session persistence
+* logout
+* session expiry
+* revoked session
+* multiple tabs
+* direct URL access
+* protected routes
+* role switching
+* privilege escalation
+
+Attempt:
+
+User → Team route
+User → Admin route
+Team → Admin route
+Unauthenticated → protected route
+
+All must be properly blocked.
+
+---
+
+# 19. DATABASE AUDIT
+
+Inspect the complete database schema.
+
+For every important table determine:
+
+* purpose
+* primary key
+* foreign keys
+* indexes
+* constraints
+* nullable fields
+* default values
+* status fields
+* timestamps
+* ownership
+* audit fields
+
+Check for:
+
+* orphan records
+* missing foreign keys
+* inconsistent statuses
+* duplicate records
+* missing indexes
+* unsafe deletes
+* incorrect cascading
+* race-condition vulnerabilities
+
+---
+
+# 20. SUPABASE RLS AUDIT
+
+This is mandatory.
+
+Inspect every RLS policy.
+
+For every table ask:
+
+### User
+
+Can User:
+
+* read only own records?
+* modify only own allowed records?
+* access another user's chat?
+* access another user's document?
+* modify another user's data?
+
+### Team
+
+Can Team:
+
+* see only permitted chats?
+* access claimed/assigned chats?
+* access unassigned chats where intended?
+* modify only permitted statuses?
+* access unauthorized documents?
+
+### Admin
+
+Can Admin:
+
+* manage users?
+* manage operators?
+* manage chats?
+* manage documents?
+* manage templates?
+
+Test policies using actual authenticated roles.
+
+Do not consider RLS complete simply because RLS is enabled.
+
+---
+
+# 21. STORAGE SECURITY
+
+Audit Supabase Storage.
+
+Verify:
+
+* upload permissions
+* download permissions
+* delete permissions
+* bucket configuration
+* public/private status
+* signed URLs if applicable
+* expiry
+* unauthorized URL access
+* filename/path manipulation
+* user isolation
+* team/admin access
+
+Try accessing another user's document.
+
+---
+
+# 22. API / SERVER LOGIC AUDIT
+
+Inspect every important API/server action.
+
+Check:
+
+* authentication
+* authorization
+* validation
+* error handling
+* transaction handling
+* race conditions
+* duplicate requests
+* idempotency
+* database consistency
+* logging
+* sensitive information exposure
+
+Do not rely only on frontend tests.
+
+---
+
+# 23. FRONTEND AUDIT
+
+Inspect:
+
+* routes
+* components
+* hooks
+* state management
+* API clients
+* loading states
+* empty states
+* error states
+* retry behavior
+* optimistic updates
+* realtime subscriptions
+* stale data handling
+* mobile responsiveness
+* browser responsiveness
+* navigation
+* back button
+* form validation
+
+Look for:
+
+* dead buttons
+* fake buttons
+* hardcoded values
+* mock data
+* placeholder functions
+* TODOs
+* console errors
+* silent failures
+* swallowed exceptions
+* broken loading states
+
+---
+
+# 24. EDGE CASE TESTING
+
+At minimum test:
+
+### Chat
+
+* duplicate chat creation
+* rapid clicks
+* simultaneous claim
+* simultaneous transfer
+* message send failure
+* duplicate message
+* reconnect
+* offline mode
+* refresh during chat
+* expired session
+
+### Documents
+
+* large file
+* unsupported file
+* duplicate file
+* failed upload
+* interrupted upload
+* unauthorized delete
+* unauthorized download
+
+### Users
+
+* duplicate login
+* deleted/deactivated user
+* role change
+* session expiry
+* direct URL manipulation
+
+### Team
+
+* two people claiming same chat
+* transfer during response
+* suspension while chat assigned
+* removal while chat active
+
+### Admin
+
+* deleting/removing operator with active chats
+* status changes during concurrent updates
+* dashboard count consistency
+
+---
+
+# 25. PERFORMANCE AUDIT
+
+Inspect:
+
+* unnecessary database queries
+* N+1 queries
+* realtime subscription explosion
+* excessive frontend renders
+* unbounded chat loading
+* missing pagination
+* missing indexes
+* large document loading
+* dashboard query efficiency
+* slow API calls
+
+Identify anything likely to fail when users/chats/documents increase.
+
+---
+
+# 26. CODE QUALITY AUDIT
+
+Inspect the repository for:
+
+* duplicated logic
+* dead code
+* unused imports
+* inconsistent naming
+* unsafe type casting
+* `any` overuse
+* hardcoded IDs
+* hardcoded roles
+* hardcoded URLs
+* secrets
+* exposed environment variables
+* weak error handling
+* TODO/FIXME
+* commented-out production logic
+* temporary workarounds
+* mock/demo code
+
+Check TypeScript errors and lint/build errors.
+
+---
+
+# 27. BUILD / DEPLOYMENT AUDIT
+
+Run:
+
+* install
+* typecheck
+* lint
+* tests
+* production build
+
+Verify:
+
+* environment variables
+* Supabase configuration
+* production URLs
+* auth redirect URLs
+* storage configuration
+* realtime configuration
+* database migrations
+* Vercel configuration
+* deployment configuration
+
+A feature that works locally but fails in production must be marked accordingly.
+
+---
+
+# 28. TESTING REQUIREMENT
+
+Do not merely read the source code.
+
+Actually execute the application.
+
+Where possible, use:
+
+* browser automation
+* API tests
+* database inspection
+* authenticated role testing
+* direct endpoint testing
+* concurrent tests
+* automated tests
+* manual exploratory testing
+
+Create test cases for every major feature.
+
+---
+
+# 29. REQUIRED FEATURE MATRIX
+
+Create a master matrix with:
+
+| ID | Requirement | Role | UI Exists | Backend Exists | DB Exists | RLS Correct | End-to-End Works | Edge Cases | Status | Evidence |
+| -- | ----------- | ---- | --------- | -------------- | --------- | ----------- | ---------------- | ---------- | ------ | -------- |
+
+Status must be exactly one of:
+
+* PASS
+* PARTIAL
+* BROKEN
+* NOT IMPLEMENTED
+* BLOCKED
+
+Do not use vague terms like “looks good”.
+
+---
+
+# 30. IMPORTANT — DISTINGUISH THESE CASES
+
+### PASS
+
+Feature is implemented and verified end-to-end.
+
+### PARTIAL
+
+Some portion exists but required behavior is incomplete.
+
+### BROKEN
+
+Feature exists but does not work correctly.
+
+### NOT IMPLEMENTED
+
+Required functionality is absent.
+
+### BLOCKED
+
+Could not be verified due to a genuine external dependency.
+
+If BLOCKED, explain exactly what prevented verification.
+
+---
+
+# 31. EVIDENCE REQUIREMENT
+
+For every failed/partial feature provide:
+
+* file path
+* component/function
+* route
+* API/server action
+* database table
+* relevant RLS policy
+* observed behavior
+* expected behavior
+* exact reason for failure
+
+Do not just say:
+
+“Feature is not working.”
+
+Say:
+
+“Claim Chat button exists in X component, calls Y function, but Y does not perform atomic assignment; therefore two Team Members can claim the same chat.”
+
+That level of specificity is required.
+
+---
+
+# 32. FINAL SCORE
+
+Calculate:
+
+### Scope Completion
+
+* Original Proposal Scope: XX%
+* Expanded Scope: XX%
+* Overall Functional Scope: XX%
+
+### Quality
+
+* Functional correctness: XX%
+* Security: XX%
+* Database/RLS: XX%
+* Realtime: XX%
+* UX: XX%
+* Performance: XX%
+* Production readiness: XX%
+
+Do not inflate scores.
+
+A feature should not receive credit merely because UI exists.
+
+---
+
+# 33. FINAL REPORT STRUCTURE
+
+Produce the final audit report in exactly this structure:
+
+## 1. Executive Summary
+
+Give a direct verdict:
+
+* COMPLETE
+* MOSTLY COMPLETE
+* PARTIALLY COMPLETE
+* NOT PRODUCTION READY
+
+Explain why.
+
+## 2. Overall Score
+
+Show all percentages.
+
+## 3. Critical Findings
+
+List the highest-severity issues first.
+
+Severity:
+
+* P0 — Critical
+* P1 — High
+* P2 — Medium
+* P3 — Low
+
+## 4. Complete Feature Matrix
+
+Provide every requirement and its status.
+
+## 5. User Audit
+
+Detailed findings.
+
+## 6. Team Audit
+
+Detailed findings.
+
+## 7. Admin/Super Admin Audit
+
+Detailed findings.
+
+## 8. Chat Lifecycle Audit
+
+Show the complete lifecycle and identify broken transitions.
+
+## 9. Document Lifecycle Audit
+
+Show upload → storage → access → check → download/share → removal.
+
+## 10. Authentication & Authorization Audit
+
+Include role-by-role access testing.
+
+## 11. RLS Audit
+
+List every important table and policy result.
+
+## 12. Realtime Audit
+
+Messages, assignment, status, notifications and subscriptions.
+
+## 13. Business Rules Audit
+
+Especially:
+
+* 3 chats / 24h
+* Access Code
+* Rate Limiting
+* status transitions
+* document permissions
+* assignment/claim logic
+
+## 14. Database Audit
+
+Schema, constraints, indexes and consistency.
+
+## 15. Code Quality Audit
+
+Technical debt and implementation problems.
+
+## 16. Performance Audit
+
+Potential bottlenecks.
+
+## 17. Security Audit
+
+Security vulnerabilities and privilege escalation possibilities.
+
+## 18. Missing Scope
+
+Everything from the required scope that is absent.
+
+## 19. Broken Scope
+
+Everything that exists but does not work correctly.
+
+## 20. Partial Scope
+
+Everything partially implemented.
+
+## 21. False/Illusory Implementations
+
+Identify UI elements or functions that look implemented but do not actually complete the intended functionality.
+
+## 22. Recommended Fix Priority
+
+P0 → P1 → P2 → P3.
+
+## 23. Final Verdict
+
+Answer clearly:
+
+> Can this application be considered fully built according to the approved and expanded scope?
+
+Answer YES or NO.
+
+If NO, list the exact blockers.
+
+---
+
+# 34. DO NOT MAKE THESE MISTAKES
+
+Do NOT:
+
+* mark a feature PASS because a button exists
+* mark a feature PASS because a route exists
+* mark RLS PASS because RLS is enabled
+* mark realtime PASS because Supabase Realtime is configured
+* mark document security PASS because the UI hides delete
+* mark rate limiting PASS because frontend disables a button
+* mark chat assignment PASS without testing concurrent assignment
+* mark dashboard PASS without validating database calculations
+* mark authentication PASS without testing role escalation
+* mark status workflow PASS without testing invalid transitions
+* mark “complete” based on screenshots
+* ignore edge cases
+* ignore backend logic
+* ignore database/RLS
+* ignore storage security
+* ignore production build
+* silently modify requirements
+* invent missing requirements
+
+---
+
+# 35. MOST IMPORTANT FINAL INSTRUCTION
+
+I want a **real audit, not reassurance**.
+
+If the codebase is bad, say it is bad.
+
+If the application is incomplete, say it is incomplete.
+
+If a developer claimed a feature is implemented but it is not actually functional, explicitly identify it.
+
+If the implementation is good, prove it with evidence.
+
+Do not optimize the report to make the developer look good.
+
+Optimize it for determining whether the **client has actually received what was promised and whether the application is safe and reliable enough to be considered complete.**
+
+At the end, provide a concise:
+
+# SHIP / DO NOT SHIP
+
+decision with the exact reasons.
+
+Do not make fixes during the audit unless explicitly instructed after the report.
+
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-08-26T18:32:46+05:30.
+
+The user's current state is as follows:
+Active Document: /Users/aditya/Desktop/formbhro-landing-page-main/src/lib/team-store.tsx (LANGUAGE_TSX)
+Cursor is on line: 1
+Other open documents:
+- /Users/aditya/Desktop/formbhro-landing-page-main/src/lib/team-store.tsx (LANGUAGE_TSX)
+- /Users/aditya/Desktop/formbhro-landing-page-main/src/lib/api/requests.ts (LANGUAGE_TYPESCRIPT)
+- /Users/aditya/Desktop/formbhro-landing-page-main/src/routes/app.profile.tsx (LANGUAGE_TSX)
+- /Users/aditya/Desktop/formbhro-landing-page-main/src/routes/admin/_shell/team.tsx (LANGUAGE_TSX)
+- /Users/aditya/Desktop/formbhro-landing-page-main/src/integrations/supabase/client.ts (LANGUAGE_TYPESCRIPT)
+</ADDITIONAL_METADATA>
+<USER_SETTINGS_CHANGE>
+The user changed setting `Model Selection` from None to Gemini 3.1 Pro (High). No need to comment on this change if the user doesn't ask about it. If reporting what model you are, please use a human readable name instead of the exact string.
+</USER_SETTINGS_CHANGE>
+<USER_REQUEST>
+Now audit all 34 additional-scope items individually, one by one, and produce evidence for each item. Do not stop at the currently identified failures.
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-08-26T18:40:39+05:30.
+
+The user's current state is as follows:
+Active Document: /Users/aditya/Desktop/formbhro-landing-page-main/src/lib/team-store.tsx (LANGUAGE_TSX)
+Cursor is on line: 1
+Other open documents:
+- /Users/aditya/Desktop/formbhro-landing-page-main/src/lib/api/requests.ts (LANGUAGE_TYPESCRIPT)
+- /Users/aditya/Desktop/formbhro-landing-page-main/src/routes/app.profile.tsx (LANGUAGE_TSX)
+- /Users/aditya/Desktop/formbhro-landing-page-main/src/routes/admin/_shell/team.tsx (LANGUAGE_TSX)
+- /Users/aditya/Desktop/formbhro-landing-page-main/src/integrations/supabase/client.ts (LANGUAGE_TYPESCRIPT)
+- /Users/aditya/Desktop/formbhro-landing-page-main/android/app/src/main/res/values/strings.xml (LANGUAGE_XML)
+</ADDITIONAL_METADATA>

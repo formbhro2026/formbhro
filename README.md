@@ -846,7 +846,7 @@ Suggested structure:
 
 src/
 
-  components/
+components/
 
     Navbar.jsx
 
@@ -864,19 +864,19 @@ src/
 
     Footer.jsx
 
-  data/
+data/
 
     features.js
 
     steps.js
 
-  assets/
+assets/
 
     formbhro-logo.png
 
-  App.jsx
+App.jsx
 
-  main.jsx
+main.jsx
 
 Keep repeated data in arrays and render using .map().
 

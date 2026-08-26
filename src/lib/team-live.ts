@@ -27,6 +27,7 @@ export const DB_TO_TEAM_STATUS: Record<DbRequestStatus, TeamStatus> = {
   in_progress: "under-review",
   completed: "completed",
   cancelled: "completed",
+  closed: "completed",
 };
 
 export const TEAM_TO_DB_STATUS: Record<TeamStatus, DbRequestStatus> = {
@@ -48,6 +49,7 @@ function docKind(kind?: string | null): TeamDocument["kind"] {
 
 export type LiveTeamSnapshot = {
   requests: TeamRequest[];
+  requestsHasMore: boolean;
   messages: TeamMessage[];
   documents: TeamDocument[];
   notifications: TeamNotification[];
@@ -74,6 +76,7 @@ export function mapTeamRequest(row: RequestRow, assigneeId: string, userName: st
     progress: row.progress ?? 0,
     assigneeId,
     timeline: [{ label: "Request created", time: stamp(row.created_at) }],
+    isEscalated: row.is_escalated ?? false,
   };
 }
 
@@ -135,7 +138,8 @@ export async function loadTeamSnapshot(
   memberName: string,
 ): Promise<LiveTeamSnapshot> {
   // Load both assigned and unassigned (pool) requests
-  const rows = await requestsApi.listRequests({ archived: false, limit: 100 });
+  const limit = 20;
+  const { data: rows, count } = await requestsApi.listRequestsPaginated({ archived: false, limit });
 
   const userIds = Array.from(new Set(rows.map((r) => r.user_id).filter(Boolean)));
   const names: Record<string, string> = {};
@@ -165,16 +169,19 @@ export async function loadTeamSnapshot(
     documents.push(...docs.map((d) => mapTeamDocument(d, reference)));
   }
 
-  const refByRequestId: Record<string, string> = {};
-  for (const [reference, room] of Object.entries(rooms)) refByRequestId[room.requestId] = reference;
-
   const notes = await notificationsApi.listNotifications(30);
   return {
     requests,
+    requestsHasMore: (count ?? 0) > limit,
     messages,
     documents,
-    notifications: notes.map((n) => mapTeamNotification(n, refByRequestId)),
+    notifications: notes.map((n) =>
+      mapTeamNotification(
+        n,
+        Object.fromEntries(Object.entries(rooms).map(([ref, r]) => [r.requestId, ref])),
+      ),
+    ),
     rooms,
-    refByRequestId,
+    refByRequestId: Object.fromEntries(Object.entries(rooms).map(([ref, r]) => [r.requestId, ref])),
   };
 }

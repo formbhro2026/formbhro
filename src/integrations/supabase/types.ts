@@ -457,11 +457,13 @@ export type Database = {
           completed_at: string | null;
           created_at: string;
           id: string;
+          is_escalated: boolean;
           last_activity_at: string;
           last_message: string | null;
           priority: Database["public"]["Enums"]["request_priority"];
           progress: number;
           reference: string;
+          resolution_notes: string | null;
           status: Database["public"]["Enums"]["request_status"];
           title: string;
           updated_at: string;
@@ -475,11 +477,13 @@ export type Database = {
           completed_at?: string | null;
           created_at?: string;
           id?: string;
+          is_escalated?: boolean;
           last_activity_at?: string;
           last_message?: string | null;
           priority?: Database["public"]["Enums"]["request_priority"];
           progress?: number;
           reference: string;
+          resolution_notes?: string | null;
           status?: Database["public"]["Enums"]["request_status"];
           title: string;
           updated_at?: string;
@@ -493,11 +497,13 @@ export type Database = {
           completed_at?: string | null;
           created_at?: string;
           id?: string;
+          is_escalated?: boolean;
           last_activity_at?: string;
           last_message?: string | null;
           priority?: Database["public"]["Enums"]["request_priority"];
           progress?: number;
           reference?: string;
+          resolution_notes?: string | null;
           status?: Database["public"]["Enums"]["request_status"];
           title?: string;
           updated_at?: string;
@@ -614,6 +620,87 @@ export type Database = {
         };
         Relationships: [];
       };
+      categories: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          description?: string | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      policies: {
+        Row: {
+          id: string;
+          type: string;
+          content: string;
+          is_active: boolean;
+          version: string;
+          created_at: string;
+          created_by: string | null;
+          published_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          type: string;
+          content: string;
+          is_active?: boolean;
+          version: string;
+          created_at?: string;
+          created_by?: string | null;
+          published_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          type?: string;
+          content?: string;
+          is_active?: boolean;
+          version?: string;
+          created_at?: string;
+          created_by?: string | null;
+          published_at?: string | null;
+        };
+        Relationships: [];
+      };
+      policy_acknowledgments: {
+        Row: {
+          id: string;
+          user_id: string;
+          policy_id: string;
+          acknowledged_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          policy_id: string;
+          acknowledged_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          policy_id?: string;
+          acknowledged_at?: string;
+        };
+        Relationships: [];
+      };
       user_settings: {
         Row: {
           email_notifications: boolean;
@@ -672,6 +759,45 @@ export type Database = {
         Returns: undefined;
       };
       request_of_room: { Args: { _room_id: string }; Returns: string };
+      transfer_request: {
+        Args: {
+          req_id: string;
+          new_assignee_id: string;
+        };
+        Returns: undefined;
+      };
+      escalate_request: {
+        Args: {
+          req_id: string;
+        };
+        Returns: undefined;
+      };
+      de_escalate_request: {
+        Args: {
+          req_id: string;
+        };
+        Returns: undefined;
+      };
+      claim_request: {
+        Args: {
+          req_id: string;
+        };
+        Returns: undefined;
+      };
+      takeover_request: {
+        Args: {
+          req_id: string;
+        };
+        Returns: undefined;
+      };
+      create_new_request_with_limit: {
+        Args: {
+          p_title: string;
+          p_category: string;
+          p_priority: string;
+        };
+        Returns: Database["public"]["Tables"]["requests"]["Row"];
+      };
     };
     Enums: {
       app_role: "user" | "team" | "admin";
@@ -684,7 +810,8 @@ export type Database = {
         | "under_review"
         | "in_progress"
         | "completed"
-        | "cancelled";
+        | "cancelled"
+        | "closed";
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -817,6 +944,7 @@ export const Constants = {
         "in_progress",
         "completed",
         "cancelled",
+        "closed",
       ],
     },
   },

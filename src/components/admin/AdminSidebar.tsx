@@ -11,6 +11,9 @@ import {
   Menu,
   X,
   Bell,
+  MessageSquareText,
+  FileText,
+  Tag,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -23,7 +26,10 @@ export const ADMIN_NAV = [
   { label: "Team Members", to: "/admin/team", icon: UserCog, exact: false },
   { label: "Requests", to: "/admin/requests", icon: Inbox, exact: false },
   { label: "Chats", to: "/admin/chats", icon: MessagesSquare, exact: false },
+  { label: "Templates", to: "/admin/templates", icon: MessageSquareText, exact: false },
   { label: "Announcements", to: "/admin/news", icon: Megaphone, exact: false },
+  { label: "Categories", to: "/admin/categories", icon: Tag, exact: false },
+  { label: "Policies", to: "/admin/policies", icon: FileText, exact: false },
   { label: "Analytics", to: "/admin/analytics", icon: BarChart3, exact: false },
 ] as const;
 
