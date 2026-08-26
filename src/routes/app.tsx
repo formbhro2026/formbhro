@@ -24,7 +24,7 @@ function AppLayout() {
 }
 
 function AppShell() {
-  const { loading, initialized, user } = useSession();
+  const { loading, initialized, user, role } = useSession();
   const navigate = useNavigate();
   const location = useRouterState({ select: (s) => s.location });
   const redirectedRef = useRef(false);
@@ -47,9 +47,20 @@ function AppShell() {
       void navigate({ to: "/auth", search: { redirect_to: redirectTo }, replace: true });
       return;
     }
+
+    if (user && role === "admin") {
+      void navigate({ to: "/admin", replace: true });
+      return;
+    }
+
+    if (user && role === "team") {
+      void navigate({ to: "/team", replace: true });
+      return;
+    }
+
     // Reset so that a subsequent logout can redirect again from a fresh /app visit
     redirectedRef.current = false;
-  }, [initialized, user, navigate, location.pathname, location.searchStr]);
+  }, [initialized, user, role, navigate, location.pathname, location.searchStr]);
 
   if (loading || !initialized) {
     return (
