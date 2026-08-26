@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, FileText, Info, Monitor, Phone } from "lucide-react";
-import { Capacitor } from "@capacitor/core";
+import { canShareScreen } from "@/lib/utils";
 import type { SupportRequest } from "@/data/user-module";
 
 export function ChatHeader({
@@ -51,7 +51,7 @@ export function ChatHeader({
             <Phone className="h-4 w-4" />
           </button>
           
-          {typeof window !== "undefined" && !Capacitor.isNativePlatform() && (
+          {canShareScreen() && (
             <button
               type="button"
               onClick={() => onStartCall?.(true)}

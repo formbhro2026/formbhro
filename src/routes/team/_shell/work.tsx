@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Capacitor } from "@capacitor/core";
+import { canShareScreen } from "@/lib/utils";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
@@ -872,7 +872,7 @@ function Conversation({
           >
             <Phone className="h-4 w-4" />
           </button>
-          {typeof window !== "undefined" && !Capacitor.isNativePlatform() && (
+          {canShareScreen() && (
             <button
               type="button"
               onClick={() => startCall(true)}

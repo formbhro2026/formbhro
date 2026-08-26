@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Capacitor } from "@capacitor/core";
+import { canShareScreen } from "@/lib/utils";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Monitor, Paperclip, Phone, Send, Share2 } from "lucide-react";
 import { useAdmin } from "@/lib/admin-store";
@@ -204,7 +204,7 @@ function AdminChats() {
                     >
                       <Phone className="h-3.5 w-3.5" />
                     </button>
-                    {typeof window !== "undefined" && !Capacitor.isNativePlatform() && (
+                    {canShareScreen() && (
                       <button
                         onClick={() => startCall(true)}
                         className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border-subtle bg-surface-2 text-text-muted hover:border-brand/40 hover:text-brand transition-colors"

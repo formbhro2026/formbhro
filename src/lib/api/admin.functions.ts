@@ -273,7 +273,7 @@ export const assignRequestToTeam = createServerFn({ method: "POST" })
     z
       .object({
         request_id: z.string().uuid(),
-        team_member_id: z.string().uuid(),
+        team_member_id: z.string().uuid().nullable().optional(),
         reason: z.string().max(300).optional(),
       })
       .parse(input),
@@ -291,8 +291,8 @@ export const assignRequestToTeam = createServerFn({ method: "POST" })
     const { error } = await supabaseAdmin
       .from("requests")
       .update({
-        assigned_team_id: data.team_member_id,
-        status: "assigned" as any,
+        assigned_team_id: data.team_member_id || null,
+        status: (data.team_member_id ? "assigned" : before?.status || "pending") as any,
         assigned_at: new Date().toISOString(),
         last_activity_at: new Date().toISOString(),
       })
@@ -304,8 +304,8 @@ export const assignRequestToTeam = createServerFn({ method: "POST" })
         const { error: retryError } = await supabaseAdmin
           .from("requests")
           .update({
-            assigned_team_id: data.team_member_id,
-            status: "assigned" as any,
+            assigned_team_id: data.team_member_id || null,
+            status: (data.team_member_id ? "assigned" : before?.status || "pending") as any,
             assigned_at: new Date().toISOString(),
             last_activity_at: new Date().toISOString(),
           })
