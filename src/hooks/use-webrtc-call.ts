@@ -19,13 +19,11 @@ const ICE_SERVERS = {
 };
 
 const requestMediaPermissions = async (screenShare = false): Promise<MediaStream> => {
-  if (isCapacitor()) {
-    // For Capacitor/Android, we need to ensure permissions are granted
-    // Note: This requires the permissions to be declared in AndroidManifest.xml
-    // The actual permission request is handled by the system when we call getUserMedia/getDisplayMedia
-  }
-
   if (screenShare) {
+    if (isCapacitor() || !navigator.mediaDevices.getDisplayMedia) {
+      throw new Error("Screen sharing is not supported on mobile devices.");
+    }
+
     try {
       return await navigator.mediaDevices.getDisplayMedia({
         video: {
@@ -96,7 +94,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
   const localStreamRef = useRef<MediaStream | null>(null);
   const myIdRef = useRef<string | null>(null);
 
-  const cleanup = useCallback(() => {
+  const cleanup = useCallback((errorMessage?: string) => {
     if (pcRef.current) {
       pcRef.current.close();
       pcRef.current = null;
@@ -113,7 +111,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
       isScreenSharing: false,
       remoteStream: null,
       localStream: null,
-      error: null,
+      error: errorMessage || null,
     });
   }, []);
 
@@ -191,6 +189,17 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
           target: "all",
           data: { offer, isScreenShare: screenShare },
         });
+
+        // Auto hangup after 30 seconds if not accepted
+        setTimeout(() => {
+          setSession((currentSession) => {
+            if (currentSession.isActive && currentSession.isOutgoing && !currentSession.isAccepted) {
+              hangup("No answer from the other side.");
+              return currentSession;
+            }
+            return currentSession;
+          });
+        }, 30000);
       } catch (err) {
         console.error("WebRTC startCall error:", err);
         setSession((prev) => ({
@@ -247,7 +256,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
     }
   }, [chatRoomId]);
 
-  const hangup = useCallback(async () => {
+  const hangup = useCallback(async (errorMessage?: string) => {
     if (chatRoomId && myIdRef.current) {
       await sendSignal(chatRoomId, {
         type: "hangup",
@@ -256,7 +265,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         data: null,
       });
     }
-    cleanup();
+    cleanup(typeof errorMessage === "string" ? errorMessage : undefined);
   }, [chatRoomId, cleanup]);
 
   useEffect(() => {

@@ -28,7 +28,19 @@ export function CallOverlay({
     }
   }, [session.remoteStream]);
 
-  if (!session.isActive) return null;
+  useEffect(() => {
+    if (!session.isActive && session.error) {
+      const timer = setTimeout(() => {
+        // Automatically hide the error overlay after 5 seconds if not active
+        if (document.getElementById("call-overlay-error-close")) {
+          document.getElementById("call-overlay-error-close")?.click();
+        }
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [session.isActive, session.error]);
+
+  if (!session.isActive && !session.error) return null;
 
   return (
     <div
@@ -41,7 +53,26 @@ export function CallOverlay({
     >
       {/* Remote Video (Full Size) */}
       <div className="relative w-full h-full bg-surface-3 flex items-center justify-center">
-        {session.remoteStream ? (
+        {!session.isActive && session.error ? (
+          <div className="flex flex-col items-center gap-4 text-center p-6">
+            <div className="h-16 w-16 rounded-full bg-danger/20 flex items-center justify-center">
+              <PhoneOff className="h-8 w-8 text-danger" />
+            </div>
+            <div>
+              <p className="text-white font-bold text-lg mb-2">Call Failed</p>
+              <p className="text-sm text-danger-light bg-danger/10 px-4 py-2 rounded-lg border border-danger/20">
+                {session.error}
+              </p>
+            </div>
+            <button
+              id="call-overlay-error-close"
+              onClick={onHangup}
+              className="mt-4 px-6 py-2 rounded-full bg-surface-4 text-white hover:bg-surface-5 transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        ) : session.remoteStream ? (
           <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
         ) : (
           <div className="flex flex-col items-center gap-4 text-center p-6">
@@ -60,7 +91,7 @@ export function CallOverlay({
         )}
 
         {/* Local Video (Picture-in-Picture) */}
-        {session.localStream && (
+        {session.localStream && session.isActive && (
           <div className="absolute top-4 right-4 w-24 h-16 rounded-lg overflow-hidden border border-white/20 shadow-lg bg-black sm:w-32 sm:h-20">
             <video
               ref={localVideoRef}
@@ -73,54 +104,56 @@ export function CallOverlay({
         )}
 
         {/* Controls Overlay */}
-        <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/80 to-transparent flex flex-col gap-4">
-          {session.error && (
-            <p className="text-[10px] text-danger text-center font-bold bg-danger/10 py-1 rounded">
-              {session.error}
-            </p>
-          )}
-
-          <div className="flex items-center justify-center gap-4">
-            {session.isIncoming && !session.isAccepted ? (
-              <>
-                <button
-                  onClick={onAccept}
-                  className="h-12 w-12 rounded-full bg-emerald-500 flex items-center justify-center text-white hover:bg-emerald-600 transition-colors shadow-lg"
-                  title="Accept Call"
-                >
-                  <Phone className="h-6 w-6" />
-                </button>
-                <button
-                  onClick={onHangup}
-                  className="h-12 w-12 rounded-full bg-red-500 flex items-center justify-center text-white hover:bg-red-600 transition-colors shadow-lg"
-                  title="Decline"
-                >
-                  <PhoneOff className="h-6 w-6" />
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={onHangup}
-                  className="h-12 w-12 rounded-full bg-red-500 flex items-center justify-center text-white hover:bg-red-600 transition-colors shadow-lg"
-                  title="End Call"
-                >
-                  <PhoneOff className="h-6 w-6" />
-                </button>
-                <button
-                  onClick={() => setIsMaximized(!isMaximized)}
-                  className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
-                >
-                  {isMaximized ? (
-                    <Minimize2 className="h-5 w-5" />
-                  ) : (
-                    <Maximize2 className="h-5 w-5" />
-                  )}
-                </button>
-              </>
+        {session.isActive && (
+          <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/80 to-transparent flex flex-col gap-4">
+            {session.error && (
+              <p className="text-[10px] text-danger text-center font-bold bg-danger/10 py-1 rounded">
+                {session.error}
+              </p>
             )}
+
+            <div className="flex items-center justify-center gap-4">
+              {session.isIncoming && !session.isAccepted ? (
+                <>
+                  <button
+                    onClick={onAccept}
+                    className="h-12 w-12 rounded-full bg-emerald-500 flex items-center justify-center text-white hover:bg-emerald-600 transition-colors shadow-lg"
+                    title="Accept Call"
+                  >
+                    <Phone className="h-6 w-6" />
+                  </button>
+                  <button
+                    onClick={onHangup}
+                    className="h-12 w-12 rounded-full bg-red-500 flex items-center justify-center text-white hover:bg-red-600 transition-colors shadow-lg"
+                    title="Decline"
+                  >
+                    <PhoneOff className="h-6 w-6" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={onHangup}
+                    className="h-12 w-12 rounded-full bg-red-500 flex items-center justify-center text-white hover:bg-red-600 transition-colors shadow-lg"
+                    title="End Call"
+                  >
+                    <PhoneOff className="h-6 w-6" />
+                  </button>
+                  <button
+                    onClick={() => setIsMaximized(!isMaximized)}
+                    className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
+                  >
+                    {isMaximized ? (
+                      <Minimize2 className="h-5 w-5" />
+                    ) : (
+                      <Maximize2 className="h-5 w-5" />
+                    )}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <style>{`
