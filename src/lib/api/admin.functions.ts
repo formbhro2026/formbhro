@@ -194,7 +194,7 @@ export const updateTeamMember = createServerFn({ method: "POST" })
     if (Object.keys(teamPatch).length > 0) {
       await supabaseAdmin.from("team_members").update(teamPatch).eq("id", id);
     }
-    
+
     if (data.role) {
       // Prevent demoting the caller
       if (id === context.userId && data.role !== "admin") {
@@ -547,10 +547,10 @@ export const verifyTeamCode = createServerFn({ method: "POST" })
     const { data: roleData } = await supabaseAdmin
       .from("user_roles")
       .select("role")
-      .eq("user_id", context.userId)
-      .maybeSingle();
+      .eq("user_id", context.userId);
 
-    if (roleData?.role !== "team" && roleData?.role !== "admin") {
+    const roles = (roleData ?? []).map((r: { role: string }) => r.role);
+    if (!roles.includes("team") && !roles.includes("admin")) {
       throw new Error("This account does not have team privileges.");
     }
 
@@ -672,16 +672,16 @@ export const getAdminUsers = createServerFn({ method: "POST" })
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const offset = (data.page - 1) * data.limit;
-    
+
     const { data: rows, error } = await supabaseAdmin.rpc("get_admin_users", {
       _search: data.search || null,
       _status: data.filter,
       _limit: data.limit,
       _offset: offset,
     });
-    
+
     if (error) throw new Error(error.message);
-    
+
     return {
       users: (rows ?? []) as AdminUserRow[],
       total: rows?.[0]?.total_count ?? 0,
