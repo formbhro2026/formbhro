@@ -12,14 +12,6 @@ const OPTIONS: {
 }[] = [
   { label: "Take Photo", kind: "image", icon: Camera, accept: "image/*", capture: "environment" },
   { label: "Upload Image", kind: "image", icon: FileImage, accept: "image/*" },
-  { label: "Upload PDF", kind: "pdf", icon: FileText, accept: "application/pdf" },
-  {
-    label: "Upload Document",
-    kind: "doc",
-    icon: File,
-    accept:
-      ".doc,.docx,.txt,.rtf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  },
 ];
 
 export function AttachmentMenu({

@@ -5,12 +5,10 @@ import { buildFilePreview } from "@/lib/file-preview";
 import { cn } from "@/lib/utils";
 
 const MAX_BYTES = 25 * 1024 * 1024;
-const ACCEPT = "image/*,application/pdf,.doc,.docx,.zip";
+const ACCEPT = "image/*";
 
 function kindOf(file: File): UserDocument["kind"] {
-  if (file.type.startsWith("image/")) return "image";
-  if (file.type === "application/pdf") return "pdf";
-  return "doc";
+  return "image";
 }
 
 function humanSize(bytes: number) {
