@@ -841,6 +841,10 @@ export type Database = {
         };
         Returns: boolean;
       };
+      ensure_chat_room_exists: {
+        Args: { p_request_id: string };
+        Returns: string;
+      };
       escalate_request: { Args: { req_id: string }; Returns: Json };
       get_admin_analytics: { Args: never; Returns: Json };
       has_role: {
