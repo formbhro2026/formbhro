@@ -599,7 +599,7 @@ export const getAdminAnalytics = createServerFn({ method: "GET" })
     // Admins always pass; team members need can_view_analytics permission
     await assertPermission(context, "can_view_analytics");
 
-    const { data, error } = await supabase.rpc("get_admin_analytics");
+    const { data, error } = await context.supabase.rpc("get_admin_analytics");
     if (error) throw new Error(error.message);
 
     return data as unknown as AdminAnalyticsStats;
