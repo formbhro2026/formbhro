@@ -1,6 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Users, UserCog, Inbox, CheckCircle2, Timer, Clock, Download } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import { useAdmin } from "@/lib/admin-store";
 import { Panel, StatCard } from "@/components/admin/AdminUI";
 
@@ -14,7 +22,7 @@ function AdminAnalytics() {
   const handleExportCSV = () => {
     if (!stats.timeSeries || stats.timeSeries.length === 0) return;
     const header = "Date,Requests\n";
-    const rows = stats.timeSeries.map(ts => `${ts.date},${ts.count}`).join("\n");
+    const rows = stats.timeSeries.map((ts) => `${ts.date},${ts.count}`).join("\n");
     const csvContent = "data:text/csv;charset=utf-8," + header + rows;
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -164,13 +172,40 @@ function AdminAnalytics() {
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={stats.timeSeries} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-                <XAxis dataKey="date" stroke="#ffffff50" tick={{ fill: "#ffffff50", fontSize: 10 }} tickMargin={10} axisLine={false} tickLine={false} />
-                <YAxis stroke="#ffffff50" tick={{ fill: "#ffffff50", fontSize: 10 }} tickMargin={10} axisLine={false} tickLine={false} allowDecimals={false} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: "#1c1c1c", borderColor: "#333", borderRadius: "8px", fontSize: "12px" }} 
-                  itemStyle={{ color: "#ff7a00" }} 
+                <XAxis
+                  dataKey="date"
+                  stroke="#ffffff50"
+                  tick={{ fill: "#ffffff50", fontSize: 10 }}
+                  tickMargin={10}
+                  axisLine={false}
+                  tickLine={false}
                 />
-                <Line type="monotone" dataKey="count" name="Requests" stroke="#ff7a00" strokeWidth={3} dot={{ r: 4, fill: "#ff7a00", strokeWidth: 0 }} activeDot={{ r: 6 }} />
+                <YAxis
+                  stroke="#ffffff50"
+                  tick={{ fill: "#ffffff50", fontSize: 10 }}
+                  tickMargin={10}
+                  axisLine={false}
+                  tickLine={false}
+                  allowDecimals={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#1c1c1c",
+                    borderColor: "#333",
+                    borderRadius: "8px",
+                    fontSize: "12px",
+                  }}
+                  itemStyle={{ color: "#ff7a00" }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="count"
+                  name="Requests"
+                  stroke="#ff7a00"
+                  strokeWidth={3}
+                  dot={{ r: 4, fill: "#ff7a00", strokeWidth: 0 }}
+                  activeDot={{ r: 6 }}
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>

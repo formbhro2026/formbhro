@@ -40,7 +40,9 @@ export const ensureAdminAccount = createServerFn({ method: "POST" })
     });
 
     const { data: list } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
-    let userId = list?.users.find((u: { email?: string; id: string }) => u.email?.toLowerCase() === ADMIN_GATE_EMAIL)?.id;
+    let userId = list?.users.find(
+      (u: { email?: string; id: string }) => u.email?.toLowerCase() === ADMIN_GATE_EMAIL,
+    )?.id;
 
     if (!userId) {
       const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
@@ -320,7 +322,8 @@ export const assignRequestToTeam = createServerFn({ method: "POST" })
       .from("requests")
       .update({
         assigned_team_id: data.team_member_id || null,
-        status: (data.team_member_id ? "assigned" : before?.status || "pending") as any,
+        status: (data.team_member_id ? "assigned" : before?.status || "pending") as
+          "pending" | "assigned" | "active" | "completed" | "escalated" | "closed",
         assigned_at: new Date().toISOString(),
         last_activity_at: new Date().toISOString(),
       })
@@ -333,7 +336,8 @@ export const assignRequestToTeam = createServerFn({ method: "POST" })
           .from("requests")
           .update({
             assigned_team_id: data.team_member_id || null,
-            status: (data.team_member_id ? "assigned" : before?.status || "pending") as any,
+            status: (data.team_member_id ? "assigned" : before?.status || "pending") as
+              "pending" | "assigned" | "active" | "completed" | "escalated" | "closed",
             assigned_at: new Date().toISOString(),
             last_activity_at: new Date().toISOString(),
           })
@@ -416,7 +420,7 @@ export const broadcastNotification = createServerFn({ method: "POST" })
       .in("role", roles as ("user" | "team")[]);
     if (error) throw new Error(error.message);
 
-    const rows = (receivers ?? []).map((r: any) => ({
+    const rows = (receivers ?? []).map((r: { user_id: string; role: string }) => ({
       receiver_id: r.user_id,
       role: r.role,
       type: "announcement",
