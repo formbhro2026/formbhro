@@ -193,7 +193,11 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         // Auto hangup after 30 seconds if not accepted
         setTimeout(() => {
           setSession((currentSession) => {
-            if (currentSession.isActive && currentSession.isOutgoing && !currentSession.isAccepted) {
+            if (
+              currentSession.isActive &&
+              currentSession.isOutgoing &&
+              !currentSession.isAccepted
+            ) {
               hangup("No answer from the other side.");
               return currentSession;
             }
@@ -256,17 +260,20 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
     }
   }, [chatRoomId]);
 
-  const hangup = useCallback(async (errorMessage?: string) => {
-    if (chatRoomId && myIdRef.current) {
-      await sendSignal(chatRoomId, {
-        type: "hangup",
-        from: myIdRef.current,
-        target: "all",
-        data: null,
-      });
-    }
-    cleanup(typeof errorMessage === "string" ? errorMessage : undefined);
-  }, [chatRoomId, cleanup]);
+  const hangup = useCallback(
+    async (errorMessage?: string) => {
+      if (chatRoomId && myIdRef.current) {
+        await sendSignal(chatRoomId, {
+          type: "hangup",
+          from: myIdRef.current,
+          target: "all",
+          data: null,
+        });
+      }
+      cleanup(typeof errorMessage === "string" ? errorMessage : undefined);
+    },
+    [chatRoomId, cleanup],
+  );
 
   useEffect(() => {
     if (!chatRoomId) return;

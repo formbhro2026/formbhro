@@ -82,7 +82,11 @@ export function UserHeader({ title }: { title?: string }) {
             className="hidden lg:grid h-8 w-8 shrink-0 overflow-hidden place-items-center rounded-full border border-brand/40 bg-brand/10 text-xs font-bold text-brand"
           >
             {profile.avatarUrl ? (
-              <img src={profile.avatarUrl} alt={profile.name} className="h-full w-full object-cover" />
+              <img
+                src={profile.avatarUrl}
+                alt={profile.name}
+                className="h-full w-full object-cover"
+              />
             ) : (
               profile.initials
             )}

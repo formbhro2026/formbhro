@@ -1,0 +1,1 @@
+{"_tag":"Error","error":{"code":"UnknownError","message":"failed to inspect service: Cannot connect to the Docker daemon at unix:///Users/aditya/.docker/run/docker.sock. Is the docker daemon running?"}}

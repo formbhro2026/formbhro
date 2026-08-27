@@ -151,10 +151,13 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       const pageRows = fetchedData ?? [];
 
       // dynamically fetch missing profiles and roles
-      const userIds = Array.from(new Set([
-        ...pageRows.map((r) => r.user_id),
-        ...pageRows.map((r) => r.assigned_team_id)
-      ].filter(Boolean))) as string[];
+      const userIds = Array.from(
+        new Set(
+          [...pageRows.map((r) => r.user_id), ...pageRows.map((r) => r.assigned_team_id)].filter(
+            Boolean,
+          ),
+        ),
+      ) as string[];
       if (userIds.length > 0) {
         const [{ data: profs }, { data: rolesData }] = await Promise.all([
           supabase.from("profiles").select("*").in("id", userIds),
@@ -210,11 +213,11 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         const [allData, statsData] = await Promise.all([loadAll(), getAdminAnalytics()]);
         setData((prev) => {
           // merge dynamically loaded profiles with the team profiles from loadAll
-          const profileMap = new Map(prev.profiles.map(p => [p.id, p]));
-          allData.profiles.forEach(p => profileMap.set(p.id, p));
-          
-          const roleMap = new Map(prev.roles.map(r => [r.user_id, r]));
-          allData.roles.forEach(r => roleMap.set(r.user_id, r));
+          const profileMap = new Map(prev.profiles.map((p) => [p.id, p]));
+          allData.profiles.forEach((p) => profileMap.set(p.id, p));
+
+          const roleMap = new Map(prev.roles.map((r) => [r.user_id, r]));
+          allData.roles.forEach((r) => roleMap.set(r.user_id, r));
 
           return {
             ...allData,
@@ -270,81 +273,127 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       (payload) => {
         const p = payload as any;
         if (p.eventType === "UPDATE") {
-          setRequestsPage((prev) =>
-            prev.map((r) => (r.id === p.new.id ? { ...r, ...p.new } : r))
-          );
+          setRequestsPage((prev) => prev.map((r) => (r.id === p.new.id ? { ...r, ...p.new } : r)));
         } else {
           schedulePage();
         }
-      }
+      },
     );
 
-    channel.on("postgres_changes", { event: "INSERT", schema: "public", table: "activity_logs" }, (payload) => {
-      setData((prev) => ({
-        ...prev,
-        activity: [payload.new as ActivityRow, ...prev.activity].slice(0, 200)
-      }));
-    });
+    channel.on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "activity_logs" },
+      (payload) => {
+        setData((prev) => ({
+          ...prev,
+          activity: [payload.new as ActivityRow, ...prev.activity].slice(0, 200),
+        }));
+      },
+    );
 
-    channel.on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, (payload) => {
-      setData((prev) => {
-        const p = payload as any;
-        if (p.eventType === "INSERT") {
-          return { ...prev, notifications: [p.new as NotificationRow, ...prev.notifications].slice(0, 150) };
-        } else if (p.eventType === "UPDATE") {
-          return { ...prev, notifications: prev.notifications.map(n => n.id === p.new.id ? (p.new as NotificationRow) : n) };
-        } else if (p.eventType === "DELETE") {
-          return { ...prev, notifications: prev.notifications.filter(n => n.id !== p.old.id) };
-        }
-        return prev;
-      });
-    });
+    channel.on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "notifications" },
+      (payload) => {
+        setData((prev) => {
+          const p = payload as any;
+          if (p.eventType === "INSERT") {
+            return {
+              ...prev,
+              notifications: [p.new as NotificationRow, ...prev.notifications].slice(0, 150),
+            };
+          } else if (p.eventType === "UPDATE") {
+            return {
+              ...prev,
+              notifications: prev.notifications.map((n) =>
+                n.id === p.new.id ? (p.new as NotificationRow) : n,
+              ),
+            };
+          } else if (p.eventType === "DELETE") {
+            return { ...prev, notifications: prev.notifications.filter((n) => n.id !== p.old.id) };
+          }
+          return prev;
+        });
+      },
+    );
 
     channel.on("postgres_changes", { event: "*", schema: "public", table: "news" }, (payload) => {
       setData((prev) => {
         const p = payload as any;
         if (p.eventType === "INSERT") {
-          return { ...prev, news: [p.new as NewsRow, ...prev.news].sort((a, b) => new Date(b.published_at ?? 0).getTime() - new Date(a.published_at ?? 0).getTime()).slice(0, 100) };
+          return {
+            ...prev,
+            news: [p.new as NewsRow, ...prev.news]
+              .sort(
+                (a, b) =>
+                  new Date(b.published_at ?? 0).getTime() - new Date(a.published_at ?? 0).getTime(),
+              )
+              .slice(0, 100),
+          };
         } else if (p.eventType === "UPDATE") {
-          return { ...prev, news: prev.news.map(n => n.id === p.new.id ? (p.new as NewsRow) : n) };
+          return {
+            ...prev,
+            news: prev.news.map((n) => (n.id === p.new.id ? (p.new as NewsRow) : n)),
+          };
         } else if (p.eventType === "DELETE") {
-          return { ...prev, news: prev.news.filter(n => n.id !== p.old.id) };
+          return { ...prev, news: prev.news.filter((n) => n.id !== p.old.id) };
         }
         return prev;
       });
     });
 
-    channel.on("postgres_changes", { event: "*", schema: "public", table: "team_members" }, (payload) => {
-      setData((prev) => {
-        const p = payload as any;
-        if (p.eventType === "INSERT") {
-          return { ...prev, team: [...prev.team, p.new as TeamRow] };
-        } else if (p.eventType === "UPDATE") {
-          return { ...prev, team: prev.team.map(n => n.id === p.new.id ? (p.new as TeamRow) : n) };
-        } else if (p.eventType === "DELETE") {
-          return { ...prev, team: prev.team.filter(n => n.id !== p.old.id) };
-        }
-        return prev;
-      });
-    });
-    
-    channel.on("postgres_changes", { event: "*", schema: "public", table: "user_roles" }, (payload) => {
-      setData((prev) => {
-        const p = payload as any;
-        if (p.eventType === "INSERT") {
-          return { ...prev, roles: [...prev.roles.filter(r => r.user_id !== p.new.user_id), p.new as RoleRow] };
-        } else if (p.eventType === "UPDATE") {
-          return { ...prev, roles: prev.roles.map(r => r.id === p.new.id ? (p.new as RoleRow) : r) };
-        } else if (p.eventType === "DELETE") {
-          return { ...prev, roles: prev.roles.filter(n => n.id !== p.old.id) };
-        }
-        return prev;
-      });
-    });
+    channel.on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "team_members" },
+      (payload) => {
+        setData((prev) => {
+          const p = payload as any;
+          if (p.eventType === "INSERT") {
+            return { ...prev, team: [...prev.team, p.new as TeamRow] };
+          } else if (p.eventType === "UPDATE") {
+            return {
+              ...prev,
+              team: prev.team.map((n) => (n.id === p.new.id ? (p.new as TeamRow) : n)),
+            };
+          } else if (p.eventType === "DELETE") {
+            return { ...prev, team: prev.team.filter((n) => n.id !== p.old.id) };
+          }
+          return prev;
+        });
+      },
+    );
 
-    channel.on("postgres_changes", { event: "UPDATE", schema: "public", table: "settings" }, (payload) => {
-      setData((prev) => ({ ...prev, settings: payload.new as SettingsRow }));
-    });
+    channel.on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "user_roles" },
+      (payload) => {
+        setData((prev) => {
+          const p = payload as any;
+          if (p.eventType === "INSERT") {
+            return {
+              ...prev,
+              roles: [...prev.roles.filter((r) => r.user_id !== p.new.user_id), p.new as RoleRow],
+            };
+          } else if (p.eventType === "UPDATE") {
+            return {
+              ...prev,
+              roles: prev.roles.map((r) => (r.id === p.new.id ? (p.new as RoleRow) : r)),
+            };
+          } else if (p.eventType === "DELETE") {
+            return { ...prev, roles: prev.roles.filter((n) => n.id !== p.old.id) };
+          }
+          return prev;
+        });
+      },
+    );
+
+    channel.on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "settings" },
+      (payload) => {
+        setData((prev) => ({ ...prev, settings: payload.new as SettingsRow }));
+      },
+    );
 
     channel.subscribe((status) => {
       if (status === "SUBSCRIBED") {

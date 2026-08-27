@@ -189,7 +189,11 @@ function WorkArea() {
 
       <div
         className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,19rem)_minmax(0,1fr)_minmax(0,20rem)]"
-        style={{ height: viewportHeight ? `${viewportHeight}px` : undefined }}
+        style={
+          viewportHeight
+            ? { height: `${viewportHeight}px`, maxHeight: `${viewportHeight}px` }
+            : undefined
+        }
       >
         {/* LEFT — assigned chat list */}
         <section

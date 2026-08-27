@@ -46,7 +46,7 @@ export function PullToRefresh({
     const handleTouchStart = (e: TouchEvent) => {
       const scrollContainer = getScrollContainer(el);
       const scrollTop = getScrollTop(scrollContainer);
-      
+
       // Only initiate pull-to-refresh if we are at the top of the page
       if (scrollTop <= 0) {
         localStartY = e.touches[0].clientY;
@@ -62,10 +62,10 @@ export function PullToRefresh({
       if (localStartY > 0 && !refreshing) {
         const y = e.touches[0].clientY;
         const isPullingDown = y > localStartY;
-        
+
         const scrollContainer = getScrollContainer(el);
         const scrollTop = getScrollTop(scrollContainer);
-        
+
         if (isPullingDown && scrollTop <= 0) {
           // Prevent default only when actively pulling down at the top
           if (e.cancelable) {

@@ -99,7 +99,9 @@ function AppShell() {
   return (
     <StoreProvider key={user?.id ?? "demo"}>
       <FillNowProvider>
-        <div className={cn("h-[100dvh] flex flex-col text-white antialiased bg-bg overflow-hidden")}>
+        <div
+          className={cn("h-[100dvh] flex flex-col text-white antialiased bg-bg overflow-hidden")}
+        >
           <UserSidebar />
           <div className="flex-1 overflow-y-auto overflow-x-hidden lg:pl-60">
             <Outlet />

@@ -540,14 +540,14 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
 
   const updateMember = useCallback(async (patch: Partial<TeamMember>) => {
     let next: TeamMember | null = null;
-    
+
     // First update the database if we are live
     if (liveRef.current && (patch.name || patch.email) && memberRef.current) {
       const { error } = await supabase
         .from("profiles")
         .update({ ...(patch.name ? { full_name: patch.name } : {}) })
         .eq("id", memberRef.current.id);
-        
+
       if (error) {
         throw new Error(error.message);
       }
@@ -567,7 +567,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       }
       return next;
     });
-    
+
     return next;
   }, []);
 

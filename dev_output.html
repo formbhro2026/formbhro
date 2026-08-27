@@ -1,0 +1,2680 @@
+<!doctype html>
+<html lang="en" data-tsd-source="/src/routes/__root.tsx:130:5">
+  <head data-tsd-source="/src/routes/__root.tsx:131:7">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="/src/styles.css" data-precedence="default" />
+    <link
+      rel="stylesheet"
+      href="/@tanstack-start/styles.css?routes=__root__%2C%2F"
+      data-tanstack-router-dev-styles="true"
+      data-precedence="default"
+    />
+    <title>Formbhro — Forms Made Simple. Assistance Made Personal.</title>
+    <meta name="author" content="Formbhro" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@formbhro" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Formbhro" />
+    <meta name="theme-color" content="#050505" />
+    <meta
+      name="description"
+      content="Formbhro is a smart form assistance platform that connects you with experts, simplifies processes, and tracks your application in real time."
+    />
+    <meta property="og:title" content="Formbhro — Smart Form Assistance Platform" />
+    <meta
+      property="og:description"
+      content="Get expert help with your forms, share documents securely, and track your application in real time."
+    />
+    <link rel="modulepreload" href="/@id/virtual:tanstack-start-dev-client-entry" />
+    <link rel="icon" href="/favicon.png" type="image/png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
+  </head>
+  <body data-tsd-source="/src/routes/__root.tsx:134:7">
+    <!--$-->
+    <div
+      class="min-h-screen scroll-smooth bg-bg text-text antialiased selection:bg-brand/30 selection:text-white dark"
+      data-tsd-source="/src/routes/index.tsx:58:5"
+    >
+      <header
+        class="fixed inset-x-0 top-0 z-50 transition-all duration-300 border-b border-transparent bg-transparent"
+        data-tsd-source="/src/components/Navbar.tsx:133:5"
+      >
+        <a href="#main-content" class="skip-link" data-tsd-source="/src/components/Navbar.tsx:140:7"
+          >Skip to main content</a
+        >
+        <nav
+          aria-label="Primary"
+          class="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8"
+          data-tsd-source="/src/components/Navbar.tsx:143:7"
+        >
+          <a
+            href="/"
+            class="flex items-center gap-2"
+            aria-label="Formbhro home"
+            data-tsd-source="/src/components/Logo.tsx:8:5"
+            ><img
+              src="data:image/png;base64,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"
+              alt="Formbhro"
+              width="140"
+              height="40"
+              loading="eager"
+              decoding="async"
+              fetchpriority="high"
+              class="h-8 w-auto"
+              data-tsd-source="/src/components/Logo.tsx:20:9"
+          /></a>
+          <ul
+            class="hidden items-center gap-8 lg:flex"
+            data-tsd-source="/src/components/Navbar.tsx:149:9"
+          >
+            <li data-tsd-source="/src/components/Navbar.tsx:154:15">
+              <a
+                href="#home"
+                aria-current="page"
+                class="relative rounded-sm text-sm font-medium transition-colors hover:text-white text-white"
+                data-tsd-source="/src/components/Navbar.tsx:155:17"
+                >Home<span
+                  aria-hidden="true"
+                  class="absolute -bottom-1.5 left-1/2 h-0.5 w-6 -translate-x-1/2 rounded-full bg-brand"
+                  data-tsd-source="/src/components/Navbar.tsx:165:21"
+                ></span
+              ></a>
+            </li>
+            <li data-tsd-source="/src/components/Navbar.tsx:154:15">
+              <a
+                href="#how-it-works"
+                class="relative rounded-sm text-sm font-medium transition-colors hover:text-white text-text-secondary"
+                data-tsd-source="/src/components/Navbar.tsx:155:17"
+                >How It Works</a
+              >
+            </li>
+            <li data-tsd-source="/src/components/Navbar.tsx:154:15">
+              <a
+                href="#features"
+                class="relative rounded-sm text-sm font-medium transition-colors hover:text-white text-text-secondary"
+                data-tsd-source="/src/components/Navbar.tsx:155:17"
+                >Features</a
+              >
+            </li>
+            <li data-tsd-source="/src/components/Navbar.tsx:154:15">
+              <a
+                href="#for-businesses"
+                class="relative rounded-sm text-sm font-medium transition-colors hover:text-white text-text-secondary"
+                data-tsd-source="/src/components/Navbar.tsx:155:17"
+                >For Businesses</a
+              >
+            </li>
+            <li data-tsd-source="/src/components/Navbar.tsx:154:15">
+              <a
+                href="#pricing"
+                class="relative rounded-sm text-sm font-medium transition-colors hover:text-white text-text-secondary"
+                data-tsd-source="/src/components/Navbar.tsx:155:17"
+                >Pricing</a
+              >
+            </li>
+            <li data-tsd-source="/src/components/Navbar.tsx:154:15">
+              <a
+                href="#contact"
+                class="relative rounded-sm text-sm font-medium transition-colors hover:text-white text-text-secondary"
+                data-tsd-source="/src/components/Navbar.tsx:155:17"
+                >Contact</a
+              >
+            </li>
+          </ul>
+          <div class="flex items-center gap-2" data-tsd-source="/src/components/Navbar.tsx:176:9">
+            <a
+              aria-label="Fill Now — start a new request"
+              data-tsd-source="/src/components/Navbar.tsx:177:11"
+              href="/app?fill=true"
+              class="hidden items-center gap-2 rounded-full bg-gradient-to-r from-brand-dark to-brand-light px-5 py-2.5 text-sm font-semibold text-white shadow-[0_6px_24px_-6px_rgba(255,122,0,0.55)] transition-transform hover:scale-[1.02] active:scale-95 sm:inline-flex"
+              >Fill Now
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="lucide lucide-arrow-right h-4 w-4"
+                aria-hidden="true"
+                data-tsd-source="/src/components/Navbar.tsx:183:22"
+              >
+                <path d="M5 12h14"></path>
+                <path d="m12 5 7 7-7 7"></path></svg></a
+            ><button
+              type="button"
+              aria-label="Open navigation menu"
+              aria-expanded="false"
+              aria-controls="mobile-menu"
+              class="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-white/10 text-white hover:bg-white/5 lg:hidden"
+              data-tsd-source="/src/components/Navbar.tsx:186:11"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="lucide lucide-menu h-5 w-5"
+                aria-hidden="true"
+                data-tsd-source="/src/components/Navbar.tsx:198:15"
+              >
+                <path d="M4 5h16"></path>
+                <path d="M4 12h16"></path>
+                <path d="M4 19h16"></path>
+              </svg>
+            </button>
+          </div>
+        </nav>
+        <div
+          id="mobile-menu"
+          hidden=""
+          role="dialog"
+          aria-modal="true"
+          aria-label="Mobile navigation"
+          class="border-t border-white/10 bg-black/95 backdrop-blur-xl lg:hidden"
+          data-tsd-source="/src/components/Navbar.tsx:204:7"
+        >
+          <ul
+            class="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-4 sm:px-6"
+            data-tsd-source="/src/components/Navbar.tsx:213:9"
+          >
+            <li data-tsd-source="/src/components/Navbar.tsx:218:15">
+              <a
+                href="#home"
+                aria-current="page"
+                class="block rounded-lg px-3 py-3 text-sm font-medium bg-white/5 text-white"
+                data-tsd-source="/src/components/Navbar.tsx:219:17"
+                >Home</a
+              >
+            </li>
+            <li data-tsd-source="/src/components/Navbar.tsx:218:15">
+              <a
+                href="#how-it-works"
+                class="block rounded-lg px-3 py-3 text-sm font-medium text-text-secondary hover:bg-white/5 hover:text-white"
+                data-tsd-source="/src/components/Navbar.tsx:219:17"
+                >How It Works</a
+              >
+            </li>
+            <li data-tsd-source="/src/components/Navbar.tsx:218:15">
+              <a
+                href="#features"
+                class="block rounded-lg px-3 py-3 text-sm font-medium text-text-secondary hover:bg-white/5 hover:text-white"
+                data-tsd-source="/src/components/Navbar.tsx:219:17"
+                >Features</a
+              >
+            </li>
+            <li data-tsd-source="/src/components/Navbar.tsx:218:15">
+              <a
+                href="#for-businesses"
+                class="block rounded-lg px-3 py-3 text-sm font-medium text-text-secondary hover:bg-white/5 hover:text-white"
+                data-tsd-source="/src/components/Navbar.tsx:219:17"
+                >For Businesses</a
+              >
+            </li>
+            <li data-tsd-source="/src/components/Navbar.tsx:218:15">
+              <a
+                href="#pricing"
+                class="block rounded-lg px-3 py-3 text-sm font-medium text-text-secondary hover:bg-white/5 hover:text-white"
+                data-tsd-source="/src/components/Navbar.tsx:219:17"
+                >Pricing</a
+              >
+            </li>
+            <li data-tsd-source="/src/components/Navbar.tsx:218:15">
+              <a
+                href="#contact"
+                class="block rounded-lg px-3 py-3 text-sm font-medium text-text-secondary hover:bg-white/5 hover:text-white"
+                data-tsd-source="/src/components/Navbar.tsx:219:17"
+                >Contact</a
+              >
+            </li>
+            <li class="mt-2" data-tsd-source="/src/components/Navbar.tsx:238:11">
+              <a
+                aria-label="Fill Now — start a new request"
+                data-tsd-source="/src/components/Navbar.tsx:239:13"
+                href="/app?fill=true"
+                class="flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand-dark to-brand-light px-5 py-3 text-sm font-semibold text-white"
+                >Fill Now
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="lucide lucide-arrow-right h-4 w-4"
+                  aria-hidden="true"
+                  data-tsd-source="/src/components/Navbar.tsx:246:24"
+                >
+                  <path d="M5 12h14"></path>
+                  <path d="m12 5 7 7-7 7"></path></svg
+              ></a>
+            </li>
+          </ul>
+        </div>
+      </header>
+      <main id="main-content" tabindex="-1" data-tsd-source="/src/routes/index.tsx:60:7">
+        <section
+          id="home"
+          class="scroll-mt-24 relative overflow-hidden pt-28 pb-16 sm:pt-32 lg:pb-24"
+          data-tsd-source="/src/components/Hero.tsx:15:5"
+        >
+          <div
+            aria-hidden="true"
+            class="pointer-events-none absolute -top-40 left-1/2 -z-10 h-[600px] w-[900px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,122,0,0.12),transparent_60%)]"
+            data-tsd-source="/src/components/Hero.tsx:19:7"
+          ></div>
+          <div
+            class="mx-auto grid max-w-7xl grid-cols-1 gap-12 px-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-center lg:gap-10 lg:px-8"
+            data-tsd-source="/src/components/Hero.tsx:23:7"
+          >
+            <div
+              class="min-w-0 text-center lg:text-left"
+              data-tsd-source="/src/components/Hero.tsx:24:9"
+            >
+              <span
+                class="inline-flex items-center rounded-full border border-brand/40 px-3 py-1 text-xs font-medium text-brand-light"
+                data-tsd-source="/src/components/Hero.tsx:25:11"
+                >Smart Form Assistance Platform</span
+              >
+              <h1
+                class="mt-5 text-[clamp(2rem,7vw,3.75rem)] font-extrabold leading-[1.06] tracking-tight text-text"
+                data-tsd-source="/src/components/Hero.tsx:28:11"
+              >
+                Forms Made Simple.<br data-tsd-source="/src/components/Hero.tsx:30:13" /><span
+                  class="bg-gradient-to-r from-brand-dark to-brand-light bg-clip-text text-transparent"
+                  data-tsd-source="/src/components/Hero.tsx:31:13"
+                  >Assistance Made Personal.</span
+                >
+              </h1>
+              <p
+                class="mx-auto mt-5 max-w-xl text-base leading-relaxed text-text-secondary sm:text-lg lg:mx-0"
+                data-tsd-source="/src/components/Hero.tsx:35:11"
+              >
+                Get expert help with your forms, share documents securely, and track your
+                application in real time — all from one trusted platform.
+              </p>
+              <div
+                class="mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start"
+                data-tsd-source="/src/components/Hero.tsx:40:11"
+              >
+                <a
+                  aria-label="Fill Now — start a new request"
+                  data-tsd-source="/src/components/Hero.tsx:41:13"
+                  href="/app?fill=true"
+                  class="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-dark to-brand-light px-6 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_-10px_rgba(255,122,0,0.7)] transition-transform hover:scale-[1.02] active:scale-95"
+                  >Fill Now
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="lucide lucide-arrow-right h-4 w-4"
+                    aria-hidden="true"
+                    data-tsd-source="/src/components/Hero.tsx:47:24"
+                  >
+                    <path d="M5 12h14"></path>
+                    <path d="m12 5 7 7-7 7"></path></svg></a
+                ><a
+                  href="#how-it-works"
+                  aria-label="Watch product demo"
+                  class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-white/10 active:scale-95"
+                  data-tsd-source="/src/components/Hero.tsx:50:13"
+                  ><svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="lucide lucide-play h-4 w-4 fill-white text-white"
+                    aria-hidden="true"
+                    data-tsd-source="/src/components/Hero.tsx:55:15"
+                  >
+                    <path
+                      d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"
+                    ></path>
+                  </svg>
+                  Watch Demo</a
+                >
+              </div>
+              <ul
+                class="mx-auto mt-10 grid max-w-xl grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-4 lg:mx-0 lg:max-w-none"
+                data-tsd-source="/src/components/Hero.tsx:59:11"
+              >
+                <li
+                  class="flex min-w-0 flex-col items-center gap-2 lg:items-start"
+                  data-tsd-source="/src/components/Hero.tsx:63:17"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.75"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="lucide lucide-message-circle h-5 w-5 shrink-0 text-brand"
+                    aria-hidden="true"
+                    data-tsd-source="/src/components/Hero.tsx:67:19"
+                  >
+                    <path
+                      d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"
+                    ></path></svg
+                  ><span
+                    class="text-xs font-medium text-text-secondary"
+                    data-tsd-source="/src/components/Hero.tsx:72:19"
+                    >Real-time Support</span
+                  >
+                </li>
+                <li
+                  class="flex min-w-0 flex-col items-center gap-2 lg:items-start"
+                  data-tsd-source="/src/components/Hero.tsx:63:17"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.75"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="lucide lucide-shield-check h-5 w-5 shrink-0 text-brand"
+                    aria-hidden="true"
+                    data-tsd-source="/src/components/Hero.tsx:67:19"
+                  >
+                    <path
+                      d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+                    ></path>
+                    <path d="m9 12 2 2 4-4"></path></svg
+                  ><span
+                    class="text-xs font-medium text-text-secondary"
+                    data-tsd-source="/src/components/Hero.tsx:72:19"
+                    >Secure &amp; Private</span
+                  >
+                </li>
+                <li
+                  class="flex min-w-0 flex-col items-center gap-2 lg:items-start"
+                  data-tsd-source="/src/components/Hero.tsx:63:17"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.75"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="lucide lucide-file-text h-5 w-5 shrink-0 text-brand"
+                    aria-hidden="true"
+                    data-tsd-source="/src/components/Hero.tsx:67:19"
+                  >
+                    <path
+                      d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"
+                    ></path>
+                    <path d="M14 2v5a1 1 0 0 0 1 1h5"></path>
+                    <path d="M10 9H8"></path>
+                    <path d="M16 13H8"></path>
+                    <path d="M16 17H8"></path></svg
+                  ><span
+                    class="text-xs font-medium text-text-secondary"
+                    data-tsd-source="/src/components/Hero.tsx:72:19"
+                    >Document Sharing</span
+                  >
+                </li>
+                <li
+                  class="flex min-w-0 flex-col items-center gap-2 lg:items-start"
+                  data-tsd-source="/src/components/Hero.tsx:63:17"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.75"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="lucide lucide-chart-column h-5 w-5 shrink-0 text-brand"
+                    aria-hidden="true"
+                    data-tsd-source="/src/components/Hero.tsx:67:19"
+                  >
+                    <path d="M3 3v16a2 2 0 0 0 2 2h16"></path>
+                    <path d="M18 17V9"></path>
+                    <path d="M13 17V5"></path>
+                    <path d="M8 17v-3"></path></svg
+                  ><span
+                    class="text-xs font-medium text-text-secondary"
+                    data-tsd-source="/src/components/Hero.tsx:72:19"
+                    >Track Every Step</span
+                  >
+                </li>
+              </ul>
+            </div>
+            <div
+              class="mx-auto flex w-full min-w-0 justify-center lg:justify-end"
+              data-tsd-source="/src/components/Hero.tsx:79:9"
+            >
+              <div
+                class="relative group w-full max-w-[800px]"
+                data-tsd-source="/src/components/ProductMockup.tsx:18:5"
+              >
+                <div
+                  class="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[#0A0A0A] shadow-2xl transition-transform duration-500 hover:scale-[1.01] ring-1 ring-white/5"
+                  data-tsd-source="/src/components/ProductMockup.tsx:20:7"
+                >
+                  <div
+                    class="flex items-center gap-2 border-b border-white/10 bg-white/[0.02] px-6 py-3"
+                    data-tsd-source="/src/components/ProductMockup.tsx:22:9"
+                  >
+                    <div
+                      class="flex gap-1.5"
+                      data-tsd-source="/src/components/ProductMockup.tsx:23:11"
+                    >
+                      <div
+                        class="h-2.5 w-2.5 rounded-full bg-red-500/20 border border-red-500/40"
+                        data-tsd-source="/src/components/ProductMockup.tsx:24:13"
+                      ></div>
+                      <div
+                        class="h-2.5 w-2.5 rounded-full bg-yellow-500/20 border border-yellow-500/40"
+                        data-tsd-source="/src/components/ProductMockup.tsx:25:13"
+                      ></div>
+                      <div
+                        class="h-2.5 w-2.5 rounded-full bg-green-500/20 border border-green-500/40"
+                        data-tsd-source="/src/components/ProductMockup.tsx:26:13"
+                      ></div>
+                    </div>
+                    <div
+                      class="ml-4 h-4 w-32 rounded bg-white/5"
+                      data-tsd-source="/src/components/ProductMockup.tsx:28:11"
+                    ></div>
+                  </div>
+                  <div
+                    class="flex h-[500px]"
+                    data-tsd-source="/src/components/ProductMockup.tsx:31:9"
+                  >
+                    <aside
+                      class="hidden w-56 flex-col border-r border-white/10 bg-black/40 p-4 md:flex"
+                      data-tsd-source="/src/components/ProductMockup.tsx:33:11"
+                    >
+                      <div
+                        class="mb-8 flex items-center gap-2 px-2"
+                        data-tsd-source="/src/components/ProductMockup.tsx:34:13"
+                      >
+                        <div
+                          class="h-7 w-7 rounded-lg bg-brand flex items-center justify-center"
+                          data-tsd-source="/src/components/ProductMockup.tsx:35:15"
+                        >
+                          <div
+                            class="h-4 w-4 border-2 border-white rounded-sm"
+                            data-tsd-source="/src/components/ProductMockup.tsx:36:17"
+                          ></div>
+                        </div>
+                        <span
+                          class="text-sm font-bold tracking-tight"
+                          data-tsd-source="/src/components/ProductMockup.tsx:38:15"
+                          >FORMBHRO</span
+                        >
+                      </div>
+                      <nav
+                        class="flex-1 space-y-1"
+                        data-tsd-source="/src/components/ProductMockup.tsx:41:13"
+                      >
+                        <div
+                          class="flex items-center gap-3 rounded-xl bg-brand/10 px-3 py-2 text-brand text-xs font-semibold"
+                          data-tsd-source="/src/components/ProductMockup.tsx:42:15"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="lucide lucide-plus h-4 w-4"
+                            aria-hidden="true"
+                            data-tsd-source="/src/components/ProductMockup.tsx:43:17"
+                          >
+                            <path d="M5 12h14"></path>
+                            <path d="M12 5v14"></path></svg
+                          >New Request
+                        </div>
+                        <div
+                          class="flex items-center gap-3 px-3 py-2 text-text-secondary text-xs hover:text-white transition-colors cursor-pointer"
+                          data-tsd-source="/src/components/ProductMockup.tsx:46:15"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="lucide lucide-layout-dashboard h-4 w-4"
+                            aria-hidden="true"
+                            data-tsd-source="/src/components/ProductMockup.tsx:47:17"
+                          >
+                            <rect width="7" height="9" x="3" y="3" rx="1"></rect>
+                            <rect width="7" height="5" x="14" y="3" rx="1"></rect>
+                            <rect width="7" height="9" x="14" y="12" rx="1"></rect>
+                            <rect width="7" height="5" x="3" y="16" rx="1"></rect></svg
+                          >My Dashboard
+                        </div>
+                        <div
+                          class="flex items-center gap-3 px-3 py-2 text-text-secondary text-xs hover:text-white transition-colors cursor-pointer"
+                          data-tsd-source="/src/components/ProductMockup.tsx:50:15"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="lucide lucide-message-circle h-4 w-4"
+                            aria-hidden="true"
+                            data-tsd-source="/src/components/ProductMockup.tsx:51:17"
+                          >
+                            <path
+                              d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"
+                            ></path></svg
+                          >My Chats
+                        </div>
+                        <div
+                          class="flex items-center gap-3 px-3 py-2 text-text-secondary text-xs hover:text-white transition-colors cursor-pointer"
+                          data-tsd-source="/src/components/ProductMockup.tsx:54:15"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="lucide lucide-file-text h-4 w-4"
+                            aria-hidden="true"
+                            data-tsd-source="/src/components/ProductMockup.tsx:55:17"
+                          >
+                            <path
+                              d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"
+                            ></path>
+                            <path d="M14 2v5a1 1 0 0 0 1 1h5"></path>
+                            <path d="M10 9H8"></path>
+                            <path d="M16 13H8"></path>
+                            <path d="M16 17H8"></path></svg
+                          >My Documents
+                        </div>
+                        <div
+                          class="flex items-center gap-3 px-3 py-2 text-text-secondary text-xs hover:text-white transition-colors cursor-pointer"
+                          data-tsd-source="/src/components/ProductMockup.tsx:58:15"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="lucide lucide-newspaper h-4 w-4"
+                            aria-hidden="true"
+                            data-tsd-source="/src/components/ProductMockup.tsx:59:17"
+                          >
+                            <path d="M15 18h-5"></path>
+                            <path d="M18 14h-8"></path>
+                            <path
+                              d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-4 0v-9a2 2 0 0 1 2-2h2"
+                            ></path>
+                            <rect width="8" height="4" x="10" y="6" rx="1"></rect></svg
+                          >News &amp; Updates
+                        </div>
+                      </nav>
+                      <div
+                        class="mt-auto space-y-1 border-t border-white/10 pt-4"
+                        data-tsd-source="/src/components/ProductMockup.tsx:64:13"
+                      >
+                        <div
+                          class="flex items-center gap-3 px-3 py-2 text-text-secondary text-xs hover:text-white transition-colors cursor-pointer"
+                          data-tsd-source="/src/components/ProductMockup.tsx:65:15"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="lucide lucide-user h-4 w-4"
+                            aria-hidden="true"
+                            data-tsd-source="/src/components/ProductMockup.tsx:66:17"
+                          >
+                            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle></svg
+                          >Profile
+                        </div>
+                        <div
+                          class="flex items-center gap-3 px-3 py-2 text-text-secondary text-xs hover:text-white transition-colors cursor-pointer"
+                          data-tsd-source="/src/components/ProductMockup.tsx:69:15"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="lucide lucide-log-out h-4 w-4"
+                            aria-hidden="true"
+                            data-tsd-source="/src/components/ProductMockup.tsx:70:17"
+                          >
+                            <path d="m16 17 5-5-5-5"></path>
+                            <path d="M21 12H9"></path>
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path></svg
+                          >Logout
+                        </div>
+                      </div>
+                    </aside>
+                    <main
+                      class="flex flex-1 flex-col bg-[#050505]"
+                      data-tsd-source="/src/components/ProductMockup.tsx:77:11"
+                    >
+                      <div
+                        class="flex items-center justify-between border-b border-white/10 px-6 py-4"
+                        data-tsd-source="/src/components/ProductMockup.tsx:79:13"
+                      >
+                        <div data-tsd-source="/src/components/ProductMockup.tsx:80:15">
+                          <h3
+                            class="text-sm font-bold"
+                            data-tsd-source="/src/components/ProductMockup.tsx:81:17"
+                          >
+                            Passport Application Assistance
+                          </h3>
+                          <div
+                            class="mt-1 flex items-center gap-2"
+                            data-tsd-source="/src/components/ProductMockup.tsx:82:17"
+                          >
+                            <span
+                              class="flex h-1.5 w-1.5 rounded-full bg-emerald-500"
+                              data-tsd-source="/src/components/ProductMockup.tsx:83:19"
+                            ></span
+                            ><span
+                              class="text-[10px] text-emerald-500 font-medium uppercase tracking-wider"
+                              data-tsd-source="/src/components/ProductMockup.tsx:84:19"
+                              >In Progress</span
+                            ><span
+                              class="text-[10px] text-text-secondary"
+                              data-tsd-source="/src/components/ProductMockup.tsx:87:19"
+                              >#REQ-4920</span
+                            >
+                          </div>
+                        </div>
+                        <button
+                          class="text-text-secondary hover:text-white"
+                          data-tsd-source="/src/components/ProductMockup.tsx:90:15"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="lucide lucide-ellipsis-vertical h-4 w-4"
+                            aria-hidden="true"
+                            data-tsd-source="/src/components/ProductMockup.tsx:91:17"
+                          >
+                            <circle cx="12" cy="12" r="1"></circle>
+                            <circle cx="12" cy="5" r="1"></circle>
+                            <circle cx="12" cy="19" r="1"></circle>
+                          </svg>
+                        </button>
+                      </div>
+                      <div
+                        class="flex-1 overflow-y-auto p-6 space-y-6 bg-[url(&#x27;https://w0.peakpx.com/wallpaper/580/678/wallpaper-whatsapp-dark-mode-doodle-background.jpg&#x27;)] bg-repeat bg-[length:400px_auto] bg-opacity-[0.03]"
+                        data-tsd-source="/src/components/ProductMockup.tsx:96:13"
+                      >
+                        <div
+                          class="flex items-start gap-3"
+                          data-tsd-source="/src/components/ProductMockup.tsx:98:15"
+                        >
+                          <div
+                            class="h-8 w-8 shrink-0 rounded-full bg-brand/20 border border-brand/30 flex items-center justify-center text-[10px] font-bold text-brand"
+                            data-tsd-source="/src/components/ProductMockup.tsx:99:17"
+                          >
+                            ST
+                          </div>
+                          <div
+                            class="max-w-[80%] rounded-2xl rounded-tl-none bg-surface-2 border border-white/10 p-3 shadow-sm"
+                            data-tsd-source="/src/components/ProductMockup.tsx:102:17"
+                          >
+                            <p
+                              class="text-xs leading-relaxed"
+                              data-tsd-source="/src/components/ProductMockup.tsx:103:19"
+                            >
+                              Hello! How can we assist you with your passport application today?
+                            </p>
+                            <span
+                              class="mt-1 block text-[9px] text-text-secondary text-right"
+                              data-tsd-source="/src/components/ProductMockup.tsx:106:19"
+                              >10:05 AM</span
+                            >
+                          </div>
+                        </div>
+                        <div
+                          class="flex items-start justify-end gap-3"
+                          data-tsd-source="/src/components/ProductMockup.tsx:113:15"
+                        >
+                          <div
+                            class="max-w-[80%] rounded-2xl rounded-tr-none bg-brand-dark border border-white/10 p-3 shadow-md"
+                            data-tsd-source="/src/components/ProductMockup.tsx:114:17"
+                          >
+                            <p
+                              class="text-xs leading-relaxed text-white"
+                              data-tsd-source="/src/components/ProductMockup.tsx:115:19"
+                            >
+                              Hi, I need help with the form and document verification.
+                            </p>
+                            <span
+                              class="mt-1 block text-[9px] text-white/80 text-right"
+                              data-tsd-source="/src/components/ProductMockup.tsx:118:19"
+                              >10:08 AM</span
+                            >
+                          </div>
+                        </div>
+                        <div
+                          class="flex items-start gap-3"
+                          data-tsd-source="/src/components/ProductMockup.tsx:123:15"
+                        >
+                          <div
+                            class="h-8 w-8 shrink-0 rounded-full bg-brand/20 border border-brand/30 flex items-center justify-center text-[10px] font-bold text-brand"
+                            data-tsd-source="/src/components/ProductMockup.tsx:124:17"
+                          >
+                            ST
+                          </div>
+                          <div
+                            class="max-w-[80%] rounded-2xl rounded-tl-none bg-surface-2 border border-white/10 p-3 shadow-sm"
+                            data-tsd-source="/src/components/ProductMockup.tsx:127:17"
+                          >
+                            <p
+                              class="text-xs leading-relaxed"
+                              data-tsd-source="/src/components/ProductMockup.tsx:128:19"
+                            >
+                              Sure! Please upload the required documents so we can review them.
+                            </p>
+                            <span
+                              class="mt-1 block text-[9px] text-text-secondary text-right"
+                              data-tsd-source="/src/components/ProductMockup.tsx:131:19"
+                              >10:10 AM</span
+                            >
+                          </div>
+                        </div>
+                      </div>
+                      <div
+                        class="border-t border-white/10 p-4"
+                        data-tsd-source="/src/components/ProductMockup.tsx:139:13"
+                      >
+                        <div
+                          class="flex items-center gap-2 rounded-2xl bg-surface-2 border border-white/10 px-4 py-2"
+                          data-tsd-source="/src/components/ProductMockup.tsx:140:15"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="lucide lucide-paperclip h-4 w-4 text-text-muted cursor-pointer hover:text-white"
+                            aria-hidden="true"
+                            data-tsd-source="/src/components/ProductMockup.tsx:141:17"
+                          >
+                            <path
+                              d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551"
+                            ></path>
+                          </svg>
+                          <div
+                            class="flex-1 text-xs text-text-muted"
+                            data-tsd-source="/src/components/ProductMockup.tsx:142:17"
+                          >
+                            Type a message...
+                          </div>
+                          <div
+                            class="h-8 w-8 rounded-xl bg-brand flex items-center justify-center text-white shadow-lg shadow-brand/20"
+                            data-tsd-source="/src/components/ProductMockup.tsx:143:17"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="24"
+                              height="24"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              class="lucide lucide-send h-4 w-4"
+                              aria-hidden="true"
+                              data-tsd-source="/src/components/ProductMockup.tsx:144:19"
+                            >
+                              <path
+                                d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"
+                              ></path>
+                              <path d="m21.854 2.147-10.94 10.939"></path>
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+                    </main>
+                    <aside
+                      class="hidden w-64 flex-col border-l border-white/10 bg-black/20 p-5 lg:flex"
+                      data-tsd-source="/src/components/ProductMockup.tsx:151:11"
+                    >
+                      <h4
+                        class="text-xs font-bold uppercase tracking-wider text-text-muted"
+                        data-tsd-source="/src/components/ProductMockup.tsx:152:13"
+                      >
+                        Request Details
+                      </h4>
+                      <div
+                        class="mt-6 space-y-4"
+                        data-tsd-source="/src/components/ProductMockup.tsx:156:13"
+                      >
+                        <div data-tsd-source="/src/components/ProductMockup.tsx:157:15">
+                          <label
+                            class="text-[10px] text-text-secondary uppercase"
+                            data-tsd-source="/src/components/ProductMockup.tsx:158:17"
+                            >Status</label
+                          >
+                          <div
+                            class="mt-1 flex items-center gap-2 text-xs font-medium"
+                            data-tsd-source="/src/components/ProductMockup.tsx:159:17"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="24"
+                              height="24"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              class="lucide lucide-clock h-3.5 w-3.5 text-brand"
+                              aria-hidden="true"
+                              data-tsd-source="/src/components/ProductMockup.tsx:160:19"
+                            >
+                              <circle cx="12" cy="12" r="10"></circle>
+                              <path d="M12 6v6l4 2"></path></svg
+                            >In Progress
+                          </div>
+                        </div>
+                        <div data-tsd-source="/src/components/ProductMockup.tsx:164:15">
+                          <label
+                            class="text-[10px] text-text-secondary uppercase"
+                            data-tsd-source="/src/components/ProductMockup.tsx:165:17"
+                            >Assigned To</label
+                          >
+                          <div
+                            class="mt-1 flex items-center gap-2 text-xs font-medium text-white"
+                            data-tsd-source="/src/components/ProductMockup.tsx:166:17"
+                          >
+                            <div
+                              class="h-5 w-5 rounded-full bg-blue-500/20 border border-blue-500/40"
+                              data-tsd-source="/src/components/ProductMockup.tsx:167:19"
+                            ></div>
+                            Priya Sharma
+                          </div>
+                        </div>
+                        <div data-tsd-source="/src/components/ProductMockup.tsx:171:15">
+                          <label
+                            class="text-[10px] text-text-secondary uppercase"
+                            data-tsd-source="/src/components/ProductMockup.tsx:172:17"
+                            >Documents (4)</label
+                          >
+                          <div
+                            class="mt-2 space-y-2"
+                            data-tsd-source="/src/components/ProductMockup.tsx:173:17"
+                          >
+                            <div
+                              class="flex items-center justify-between rounded-lg bg-white/[0.06] border border-white/10 px-2.5 py-2 text-[10px]"
+                              data-tsd-source="/src/components/ProductMockup.tsx:175:21"
+                            >
+                              <span
+                                class="truncate max-w-[120px] text-text-secondary"
+                                data-tsd-source="/src/components/ProductMockup.tsx:179:23"
+                                >Aadhar Card.pdf</span
+                              ><svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                class="lucide lucide-circle-check h-3 w-3 text-emerald-500"
+                                aria-hidden="true"
+                                data-tsd-source="/src/components/ProductMockup.tsx:180:23"
+                              >
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <path d="m9 12 2 2 4-4"></path>
+                              </svg>
+                            </div>
+                            <div
+                              class="flex items-center justify-between rounded-lg bg-white/[0.06] border border-white/10 px-2.5 py-2 text-[10px]"
+                              data-tsd-source="/src/components/ProductMockup.tsx:175:21"
+                            >
+                              <span
+                                class="truncate max-w-[120px] text-text-secondary"
+                                data-tsd-source="/src/components/ProductMockup.tsx:179:23"
+                                >Photo.jpg</span
+                              ><svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                class="lucide lucide-circle-check h-3 w-3 text-emerald-500"
+                                aria-hidden="true"
+                                data-tsd-source="/src/components/ProductMockup.tsx:180:23"
+                              >
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <path d="m9 12 2 2 4-4"></path>
+                              </svg>
+                            </div>
+                            <div
+                              class="flex items-center justify-between rounded-lg bg-white/[0.06] border border-white/10 px-2.5 py-2 text-[10px]"
+                              data-tsd-source="/src/components/ProductMockup.tsx:175:21"
+                            >
+                              <span
+                                class="truncate max-w-[120px] text-text-secondary"
+                                data-tsd-source="/src/components/ProductMockup.tsx:179:23"
+                                >Address Proof.pdf</span
+                              ><svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                class="lucide lucide-circle-check h-3 w-3 text-emerald-500"
+                                aria-hidden="true"
+                                data-tsd-source="/src/components/ProductMockup.tsx:180:23"
+                              >
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <path d="m9 12 2 2 4-4"></path>
+                              </svg>
+                            </div>
+                            <div
+                              class="flex items-center justify-between rounded-lg bg-white/[0.06] border border-white/10 px-2.5 py-2 text-[10px]"
+                              data-tsd-source="/src/components/ProductMockup.tsx:175:21"
+                            >
+                              <span
+                                class="truncate max-w-[120px] text-text-secondary"
+                                data-tsd-source="/src/components/ProductMockup.tsx:179:23"
+                                >Form.docx</span
+                              ><svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                class="lucide lucide-circle-check h-3 w-3 text-emerald-500"
+                                aria-hidden="true"
+                                data-tsd-source="/src/components/ProductMockup.tsx:180:23"
+                              >
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <path d="m9 12 2 2 4-4"></path>
+                              </svg>
+                            </div>
+                          </div>
+                          <button
+                            class="mt-3 text-[10px] font-bold text-brand hover:underline"
+                            data-tsd-source="/src/components/ProductMockup.tsx:184:17"
+                          >
+                            View All
+                          </button>
+                        </div>
+                      </div>
+                    </aside>
+                  </div>
+                  <div
+                    class="pointer-events-none absolute inset-0 bg-gradient-to-tr from-white/[0.03] via-transparent to-white/[0.05]"
+                    data-tsd-source="/src/components/ProductMockup.tsx:193:9"
+                  ></div>
+                </div>
+                <div
+                  class="absolute -bottom-10 -right-10 h-64 w-64 bg-brand/10 blur-[100px] -z-10"
+                  data-tsd-source="/src/components/ProductMockup.tsx:197:7"
+                ></div>
+                <div
+                  class="absolute -top-10 -left-10 h-64 w-64 bg-brand/5 blur-[100px] -z-10"
+                  data-tsd-source="/src/components/ProductMockup.tsx:198:7"
+                ></div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <div class="cv-auto bg-surface-1/50" data-tsd-source="/src/routes/index.tsx:62:9">
+          <section
+            id="how-it-works"
+            class="scroll-mt-24 py-20 sm:py-24"
+            data-tsd-source="/src/components/HowItWorks.tsx:22:5"
+          >
+            <div
+              class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"
+              data-tsd-source="/src/components/HowItWorks.tsx:23:7"
+            >
+              <div class="text-center" data-tsd-source="/src/components/HowItWorks.tsx:24:9">
+                <p
+                  class="text-xs font-semibold uppercase tracking-[0.2em] text-brand"
+                  data-tsd-source="/src/components/HowItWorks.tsx:25:11"
+                >
+                  How It Works
+                </p>
+                <h2
+                  class="mt-3 text-3xl font-extrabold text-text sm:text-4xl"
+                  data-tsd-source="/src/components/HowItWorks.tsx:28:11"
+                >
+                  Your Journey to Hassle-Free Applications
+                </h2>
+                <div
+                  class="mx-auto mt-3 h-0.5 w-14 rounded-full bg-brand shadow-[0_0_10px_rgba(255,122,0,0.5)]"
+                  data-tsd-source="/src/components/HowItWorks.tsx:31:11"
+                ></div>
+              </div>
+              <div
+                class="mt-14 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5"
+                data-tsd-source="/src/components/HowItWorks.tsx:34:9"
+              >
+                <div class="relative" data-tsd-source="/src/components/HowItWorks.tsx:38:15">
+                  <div
+                    class="group h-full rounded-2xl border border-white/10 bg-surface-1 p-5 transition-colors hover:border-brand/40 shadow-sm"
+                    data-tsd-source="/src/components/HowItWorks.tsx:39:17"
+                  >
+                    <div
+                      class="mb-4 flex items-center justify-between"
+                      data-tsd-source="/src/components/HowItWorks.tsx:40:19"
+                    >
+                      <span
+                        class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-brand text-xs font-bold text-white"
+                        data-tsd-source="/src/components/HowItWorks.tsx:41:21"
+                        >01</span
+                      ><svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="lucide lucide-file-pen h-6 w-6 text-brand"
+                        aria-hidden="true"
+                        data-tsd-source="/src/components/HowItWorks.tsx:44:21"
+                      >
+                        <path
+                          d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"
+                        ></path>
+                        <path d="M14 2v5a1 1 0 0 0 1 1h5"></path>
+                        <path
+                          d="M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"
+                        ></path>
+                      </svg>
+                    </div>
+                    <h3
+                      class="text-base font-semibold text-text"
+                      data-tsd-source="/src/components/HowItWorks.tsx:46:19"
+                    >
+                      Start a Request
+                    </h3>
+                    <p
+                      class="mt-2 text-sm leading-relaxed text-text-secondary"
+                      data-tsd-source="/src/components/HowItWorks.tsx:47:19"
+                    >
+                      Click on Fill Now and create a new support request in seconds.
+                    </p>
+                  </div>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="lucide lucide-arrow-right absolute top-1/2 -right-3 hidden h-4 w-4 -translate-y-1/2 text-brand lg:block"
+                    aria-hidden="true"
+                    data-tsd-source="/src/components/HowItWorks.tsx:50:19"
+                  >
+                    <path d="M5 12h14"></path>
+                    <path d="m12 5 7 7-7 7"></path>
+                  </svg>
+                </div>
+                <div class="relative" data-tsd-source="/src/components/HowItWorks.tsx:38:15">
+                  <div
+                    class="group h-full rounded-2xl border border-white/10 bg-surface-1 p-5 transition-colors hover:border-brand/40 shadow-sm"
+                    data-tsd-source="/src/components/HowItWorks.tsx:39:17"
+                  >
+                    <div
+                      class="mb-4 flex items-center justify-between"
+                      data-tsd-source="/src/components/HowItWorks.tsx:40:19"
+                    >
+                      <span
+                        class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-brand text-xs font-bold text-white"
+                        data-tsd-source="/src/components/HowItWorks.tsx:41:21"
+                        >02</span
+                      ><svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="lucide lucide-headphones h-6 w-6 text-brand"
+                        aria-hidden="true"
+                        data-tsd-source="/src/components/HowItWorks.tsx:44:21"
+                      >
+                        <path
+                          d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"
+                        ></path>
+                      </svg>
+                    </div>
+                    <h3
+                      class="text-base font-semibold text-text"
+                      data-tsd-source="/src/components/HowItWorks.tsx:46:19"
+                    >
+                      Connect with Expert
+                    </h3>
+                    <p
+                      class="mt-2 text-sm leading-relaxed text-text-secondary"
+                      data-tsd-source="/src/components/HowItWorks.tsx:47:19"
+                    >
+                      Our support team will connect with you and understand your needs.
+                    </p>
+                  </div>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="lucide lucide-arrow-right absolute top-1/2 -right-3 hidden h-4 w-4 -translate-y-1/2 text-brand lg:block"
+                    aria-hidden="true"
+                    data-tsd-source="/src/components/HowItWorks.tsx:50:19"
+                  >
+                    <path d="M5 12h14"></path>
+                    <path d="m12 5 7 7-7 7"></path>
+                  </svg>
+                </div>
+                <div class="relative" data-tsd-source="/src/components/HowItWorks.tsx:38:15">
+                  <div
+                    class="group h-full rounded-2xl border border-white/10 bg-surface-1 p-5 transition-colors hover:border-brand/40 shadow-sm"
+                    data-tsd-source="/src/components/HowItWorks.tsx:39:17"
+                  >
+                    <div
+                      class="mb-4 flex items-center justify-between"
+                      data-tsd-source="/src/components/HowItWorks.tsx:40:19"
+                    >
+                      <span
+                        class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-brand text-xs font-bold text-white"
+                        data-tsd-source="/src/components/HowItWorks.tsx:41:21"
+                        >03</span
+                      ><svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="lucide lucide-cloud-upload h-6 w-6 text-brand"
+                        aria-hidden="true"
+                        data-tsd-source="/src/components/HowItWorks.tsx:44:21"
+                      >
+                        <path d="M12 13v8"></path>
+                        <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path>
+                        <path d="m8 17 4-4 4 4"></path>
+                      </svg>
+                    </div>
+                    <h3
+                      class="text-base font-semibold text-text"
+                      data-tsd-source="/src/components/HowItWorks.tsx:46:19"
+                    >
+                      Upload Documents
+                    </h3>
+                    <p
+                      class="mt-2 text-sm leading-relaxed text-text-secondary"
+                      data-tsd-source="/src/components/HowItWorks.tsx:47:19"
+                    >
+                      Share your documents securely and get them verified by experts.
+                    </p>
+                  </div>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="lucide lucide-arrow-right absolute top-1/2 -right-3 hidden h-4 w-4 -translate-y-1/2 text-brand lg:block"
+                    aria-hidden="true"
+                    data-tsd-source="/src/components/HowItWorks.tsx:50:19"
+                  >
+                    <path d="M5 12h14"></path>
+                    <path d="m12 5 7 7-7 7"></path>
+                  </svg>
+                </div>
+                <div class="relative" data-tsd-source="/src/components/HowItWorks.tsx:38:15">
+                  <div
+                    class="group h-full rounded-2xl border border-white/10 bg-surface-1 p-5 transition-colors hover:border-brand/40 shadow-sm"
+                    data-tsd-source="/src/components/HowItWorks.tsx:39:17"
+                  >
+                    <div
+                      class="mb-4 flex items-center justify-between"
+                      data-tsd-source="/src/components/HowItWorks.tsx:40:19"
+                    >
+                      <span
+                        class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-brand text-xs font-bold text-white"
+                        data-tsd-source="/src/components/HowItWorks.tsx:41:21"
+                        >04</span
+                      ><svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="lucide lucide-message-square-text h-6 w-6 text-brand"
+                        aria-hidden="true"
+                        data-tsd-source="/src/components/HowItWorks.tsx:44:21"
+                      >
+                        <path
+                          d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"
+                        ></path>
+                        <path d="M7 11h10"></path>
+                        <path d="M7 15h6"></path>
+                        <path d="M7 7h8"></path>
+                      </svg>
+                    </div>
+                    <h3
+                      class="text-base font-semibold text-text"
+                      data-tsd-source="/src/components/HowItWorks.tsx:46:19"
+                    >
+                      Track in Real-Time
+                    </h3>
+                    <p
+                      class="mt-2 text-sm leading-relaxed text-text-secondary"
+                      data-tsd-source="/src/components/HowItWorks.tsx:47:19"
+                    >
+                      Track your application progress and stay updated at every step.
+                    </p>
+                  </div>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="lucide lucide-arrow-right absolute top-1/2 -right-3 hidden h-4 w-4 -translate-y-1/2 text-brand lg:block"
+                    aria-hidden="true"
+                    data-tsd-source="/src/components/HowItWorks.tsx:50:19"
+                  >
+                    <path d="M5 12h14"></path>
+                    <path d="m12 5 7 7-7 7"></path>
+                  </svg>
+                </div>
+                <div class="relative" data-tsd-source="/src/components/HowItWorks.tsx:38:15">
+                  <div
+                    class="group h-full rounded-2xl border border-white/10 bg-surface-1 p-5 transition-colors hover:border-brand/40 shadow-sm"
+                    data-tsd-source="/src/components/HowItWorks.tsx:39:17"
+                  >
+                    <div
+                      class="mb-4 flex items-center justify-between"
+                      data-tsd-source="/src/components/HowItWorks.tsx:40:19"
+                    >
+                      <span
+                        class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-brand text-xs font-bold text-white"
+                        data-tsd-source="/src/components/HowItWorks.tsx:41:21"
+                        >05</span
+                      ><svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="lucide lucide-circle-check h-6 w-6 text-brand"
+                        aria-hidden="true"
+                        data-tsd-source="/src/components/HowItWorks.tsx:44:21"
+                      >
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="m9 12 2 2 4-4"></path>
+                      </svg>
+                    </div>
+                    <h3
+                      class="text-base font-semibold text-text"
+                      data-tsd-source="/src/components/HowItWorks.tsx:46:19"
+                    >
+                      Request Completed
+                    </h3>
+                    <p
+                      class="mt-2 text-sm leading-relaxed text-text-secondary"
+                      data-tsd-source="/src/components/HowItWorks.tsx:47:19"
+                    >
+                      We assist you until your application is completed successfully.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+        <div class="cv-auto" data-tsd-source="/src/routes/index.tsx:65:9">
+          <section
+            id="features"
+            class="scroll-mt-24 py-20 sm:py-24"
+            data-tsd-source="/src/components/Features.tsx:23:5"
+          >
+            <div
+              class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"
+              data-tsd-source="/src/components/Features.tsx:24:7"
+            >
+              <div class="text-center" data-tsd-source="/src/components/Features.tsx:25:9">
+                <p
+                  class="text-xs font-semibold uppercase tracking-[0.2em] text-brand"
+                  data-tsd-source="/src/components/Features.tsx:26:11"
+                >
+                  Features
+                </p>
+                <h2
+                  class="mt-3 text-3xl font-extrabold text-text sm:text-4xl"
+                  data-tsd-source="/src/components/Features.tsx:27:11"
+                >
+                  Everything You Need, All in One Place
+                </h2>
+              </div>
+              <div
+                class="mt-12 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
+                data-tsd-source="/src/components/Features.tsx:32:9"
+              >
+                <div
+                  class="group rounded-2xl border border-white/10 bg-surface-1 p-5 transition-all hover:border-brand/40 hover:bg-surface-2 shadow-sm"
+                  data-tsd-source="/src/components/Features.tsx:36:15"
+                >
+                  <div
+                    class="flex items-start gap-4"
+                    data-tsd-source="/src/components/Features.tsx:40:17"
+                  >
+                    <div
+                      class="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand-dark to-brand-light shadow-[0_8px_24px_-8px_rgba(255,122,0,0.6)]"
+                      data-tsd-source="/src/components/Features.tsx:41:19"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="lucide lucide-message-circle h-6 w-6 text-white"
+                        aria-hidden="true"
+                        data-tsd-source="/src/components/Features.tsx:42:21"
+                      >
+                        <path
+                          d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"
+                        ></path>
+                      </svg>
+                    </div>
+                    <div class="min-w-0" data-tsd-source="/src/components/Features.tsx:44:19">
+                      <h3
+                        class="text-base font-semibold text-text"
+                        data-tsd-source="/src/components/Features.tsx:45:21"
+                      >
+                        Live Assistance
+                      </h3>
+                      <p
+                        class="mt-1.5 text-sm leading-relaxed text-text-secondary"
+                        data-tsd-source="/src/components/Features.tsx:46:21"
+                      >
+                        Chat in real-time with our support team and get instant help.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div
+                  class="group rounded-2xl border border-white/10 bg-surface-1 p-5 transition-all hover:border-brand/40 hover:bg-surface-2 shadow-sm"
+                  data-tsd-source="/src/components/Features.tsx:36:15"
+                >
+                  <div
+                    class="flex items-start gap-4"
+                    data-tsd-source="/src/components/Features.tsx:40:17"
+                  >
+                    <div
+                      class="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand-dark to-brand-light shadow-[0_8px_24px_-8px_rgba(255,122,0,0.6)]"
+                      data-tsd-source="/src/components/Features.tsx:41:19"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="lucide lucide-shield-check h-6 w-6 text-white"
+                        aria-hidden="true"
+                        data-tsd-source="/src/components/Features.tsx:42:21"
+                      >
+                        <path
+                          d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+                        ></path>
+                        <path d="m9 12 2 2 4-4"></path>
+                      </svg>
+                    </div>
+                    <div class="min-w-0" data-tsd-source="/src/components/Features.tsx:44:19">
+                      <h3
+                        class="text-base font-semibold text-text"
+                        data-tsd-source="/src/components/Features.tsx:45:21"
+                      >
+                        Secure Documents
+                      </h3>
+                      <p
+                        class="mt-1.5 text-sm leading-relaxed text-text-secondary"
+                        data-tsd-source="/src/components/Features.tsx:46:21"
+                      >
+                        Upload and share documents safely with end-to-end security.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div
+                  class="group rounded-2xl border border-white/10 bg-surface-1 p-5 transition-all hover:border-brand/40 hover:bg-surface-2 shadow-sm"
+                  data-tsd-source="/src/components/Features.tsx:36:15"
+                >
+                  <div
+                    class="flex items-start gap-4"
+                    data-tsd-source="/src/components/Features.tsx:40:17"
+                  >
+                    <div
+                      class="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand-dark to-brand-light shadow-[0_8px_24px_-8px_rgba(255,122,0,0.6)]"
+                      data-tsd-source="/src/components/Features.tsx:41:19"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="lucide lucide-chart-column h-6 w-6 text-white"
+                        aria-hidden="true"
+                        data-tsd-source="/src/components/Features.tsx:42:21"
+                      >
+                        <path d="M3 3v16a2 2 0 0 0 2 2h16"></path>
+                        <path d="M18 17V9"></path>
+                        <path d="M13 17V5"></path>
+                        <path d="M8 17v-3"></path>
+                      </svg>
+                    </div>
+                    <div class="min-w-0" data-tsd-source="/src/components/Features.tsx:44:19">
+                      <h3
+                        class="text-base font-semibold text-text"
+                        data-tsd-source="/src/components/Features.tsx:45:21"
+                      >
+                        Track Progress
+                      </h3>
+                      <p
+                        class="mt-1.5 text-sm leading-relaxed text-text-secondary"
+                        data-tsd-source="/src/components/Features.tsx:46:21"
+                      >
+                        Monitor your application status and get real-time updates.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div
+                  class="group rounded-2xl border border-white/10 bg-surface-1 p-5 transition-all hover:border-brand/40 hover:bg-surface-2 shadow-sm"
+                  data-tsd-source="/src/components/Features.tsx:36:15"
+                >
+                  <div
+                    class="flex items-start gap-4"
+                    data-tsd-source="/src/components/Features.tsx:40:17"
+                  >
+                    <div
+                      class="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand-dark to-brand-light shadow-[0_8px_24px_-8px_rgba(255,122,0,0.6)]"
+                      data-tsd-source="/src/components/Features.tsx:41:19"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="lucide lucide-bell h-6 w-6 text-white"
+                        aria-hidden="true"
+                        data-tsd-source="/src/components/Features.tsx:42:21"
+                      >
+                        <path d="M10.268 21a2 2 0 0 0 3.464 0"></path>
+                        <path
+                          d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"
+                        ></path>
+                      </svg>
+                    </div>
+                    <div class="min-w-0" data-tsd-source="/src/components/Features.tsx:44:19">
+                      <h3
+                        class="text-base font-semibold text-text"
+                        data-tsd-source="/src/components/Features.tsx:45:21"
+                      >
+                        Instant Notifications
+                      </h3>
+                      <p
+                        class="mt-1.5 text-sm leading-relaxed text-text-secondary"
+                        data-tsd-source="/src/components/Features.tsx:46:21"
+                      >
+                        Receive instant alerts for messages, updates, and important actions.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div
+                  class="group rounded-2xl border border-white/10 bg-surface-1 p-5 transition-all hover:border-brand/40 hover:bg-surface-2 shadow-sm"
+                  data-tsd-source="/src/components/Features.tsx:36:15"
+                >
+                  <div
+                    class="flex items-start gap-4"
+                    data-tsd-source="/src/components/Features.tsx:40:17"
+                  >
+                    <div
+                      class="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand-dark to-brand-light shadow-[0_8px_24px_-8px_rgba(255,122,0,0.6)]"
+                      data-tsd-source="/src/components/Features.tsx:41:19"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="lucide lucide-history h-6 w-6 text-white"
+                        aria-hidden="true"
+                        data-tsd-source="/src/components/Features.tsx:42:21"
+                      >
+                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                        <path d="M3 3v5h5"></path>
+                        <path d="M12 7v5l4 2"></path>
+                      </svg>
+                    </div>
+                    <div class="min-w-0" data-tsd-source="/src/components/Features.tsx:44:19">
+                      <h3
+                        class="text-base font-semibold text-text"
+                        data-tsd-source="/src/components/Features.tsx:45:21"
+                      >
+                        Application History
+                      </h3>
+                      <p
+                        class="mt-1.5 text-sm leading-relaxed text-text-secondary"
+                        data-tsd-source="/src/components/Features.tsx:46:21"
+                      >
+                        Access all your previous requests, chats, and documents anytime.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div
+                  class="group rounded-2xl border border-white/10 bg-surface-1 p-5 transition-all hover:border-brand/40 hover:bg-surface-2 shadow-sm"
+                  data-tsd-source="/src/components/Features.tsx:36:15"
+                >
+                  <div
+                    class="flex items-start gap-4"
+                    data-tsd-source="/src/components/Features.tsx:40:17"
+                  >
+                    <div
+                      class="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand-dark to-brand-light shadow-[0_8px_24px_-8px_rgba(255,122,0,0.6)]"
+                      data-tsd-source="/src/components/Features.tsx:41:19"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="lucide lucide-users h-6 w-6 text-white"
+                        aria-hidden="true"
+                        data-tsd-source="/src/components/Features.tsx:42:21"
+                      >
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                        <path d="M16 3.128a4 4 0 0 1 0 7.744"></path>
+                        <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                      </svg>
+                    </div>
+                    <div class="min-w-0" data-tsd-source="/src/components/Features.tsx:44:19">
+                      <h3
+                        class="text-base font-semibold text-text"
+                        data-tsd-source="/src/components/Features.tsx:45:21"
+                      >
+                        Expert Support Team
+                      </h3>
+                      <p
+                        class="mt-1.5 text-sm leading-relaxed text-text-secondary"
+                        data-tsd-source="/src/components/Features.tsx:46:21"
+                      >
+                        Dedicated support operators to guide you through the entire process.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+        <div class="cv-auto bg-surface-1/50" data-tsd-source="/src/routes/index.tsx:68:9">
+          <section
+            id="for-businesses"
+            class="scroll-mt-24 pb-8"
+            data-tsd-source="/src/components/Stats.tsx:8:5"
+          >
+            <div
+              class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"
+              data-tsd-source="/src/components/Stats.tsx:9:7"
+            >
+              <div
+                class="relative overflow-hidden rounded-2xl border border-brand/40 bg-surface-1 p-6 sm:p-8 shadow-md"
+                data-tsd-source="/src/components/Stats.tsx:10:9"
+              >
+                <div
+                  aria-hidden="true"
+                  class="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_120%_at_50%_50%,rgba(255,122,0,0.10),transparent_70%)]"
+                  data-tsd-source="/src/components/Stats.tsx:11:11"
+                ></div>
+                <div
+                  class="relative grid grid-cols-2 gap-6 lg:grid-cols-4"
+                  data-tsd-source="/src/components/Stats.tsx:15:11"
+                >
+                  <div
+                    class="flex items-center gap-4"
+                    data-tsd-source="/src/components/Stats.tsx:19:17"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      class="lucide lucide-users h-9 w-9 shrink-0 text-brand"
+                      aria-hidden="true"
+                      data-tsd-source="/src/components/Stats.tsx:20:19"
+                    >
+                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                      <path d="M16 3.128a4 4 0 0 1 0 7.744"></path>
+                      <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+                      <circle cx="9" cy="7" r="4"></circle>
+                    </svg>
+                    <div class="min-w-0" data-tsd-source="/src/components/Stats.tsx:21:19">
+                      <div
+                        class="text-2xl font-extrabold text-text sm:text-3xl"
+                        data-tsd-source="/src/components/Stats.tsx:22:21"
+                      >
+                        5,000+
+                      </div>
+                      <div
+                        class="text-xs text-text-secondary sm:text-sm"
+                        data-tsd-source="/src/components/Stats.tsx:23:21"
+                      >
+                        Happy Users
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    class="flex items-center gap-4"
+                    data-tsd-source="/src/components/Stats.tsx:19:17"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      class="lucide lucide-message-circle h-9 w-9 shrink-0 text-brand"
+                      aria-hidden="true"
+                      data-tsd-source="/src/components/Stats.tsx:20:19"
+                    >
+                      <path
+                        d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"
+                      ></path>
+                    </svg>
+                    <div class="min-w-0" data-tsd-source="/src/components/Stats.tsx:21:19">
+                      <div
+                        class="text-2xl font-extrabold text-text sm:text-3xl"
+                        data-tsd-source="/src/components/Stats.tsx:22:21"
+                      >
+                        12,000+
+                      </div>
+                      <div
+                        class="text-xs text-text-secondary sm:text-sm"
+                        data-tsd-source="/src/components/Stats.tsx:23:21"
+                      >
+                        Requests Assisted
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    class="flex items-center gap-4"
+                    data-tsd-source="/src/components/Stats.tsx:19:17"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      class="lucide lucide-file-text h-9 w-9 shrink-0 text-brand"
+                      aria-hidden="true"
+                      data-tsd-source="/src/components/Stats.tsx:20:19"
+                    >
+                      <path
+                        d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"
+                      ></path>
+                      <path d="M14 2v5a1 1 0 0 0 1 1h5"></path>
+                      <path d="M10 9H8"></path>
+                      <path d="M16 13H8"></path>
+                      <path d="M16 17H8"></path>
+                    </svg>
+                    <div class="min-w-0" data-tsd-source="/src/components/Stats.tsx:21:19">
+                      <div
+                        class="text-2xl font-extrabold text-text sm:text-3xl"
+                        data-tsd-source="/src/components/Stats.tsx:22:21"
+                      >
+                        50,000+
+                      </div>
+                      <div
+                        class="text-xs text-text-secondary sm:text-sm"
+                        data-tsd-source="/src/components/Stats.tsx:23:21"
+                      >
+                        Documents Processed
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    class="flex items-center gap-4"
+                    data-tsd-source="/src/components/Stats.tsx:19:17"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      class="lucide lucide-star h-9 w-9 shrink-0 text-brand"
+                      aria-hidden="true"
+                      data-tsd-source="/src/components/Stats.tsx:20:19"
+                    >
+                      <path
+                        d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"
+                      ></path>
+                    </svg>
+                    <div class="min-w-0" data-tsd-source="/src/components/Stats.tsx:21:19">
+                      <div
+                        class="text-2xl font-extrabold text-text sm:text-3xl"
+                        data-tsd-source="/src/components/Stats.tsx:22:21"
+                      >
+                        4.8/5
+                      </div>
+                      <div
+                        class="text-xs text-text-secondary sm:text-sm"
+                        data-tsd-source="/src/components/Stats.tsx:23:21"
+                      >
+                        User Satisfaction
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+        <div class="cv-auto" data-tsd-source="/src/routes/index.tsx:71:9">
+          <section
+            id="pricing"
+            class="scroll-mt-24 py-12 sm:py-16"
+            data-tsd-source="/src/components/CTASection.tsx:6:5"
+          >
+            <span
+              id="cta"
+              aria-hidden="true"
+              data-tsd-source="/src/components/CTASection.tsx:7:7"
+            ></span>
+            <div
+              class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"
+              data-tsd-source="/src/components/CTASection.tsx:8:7"
+            >
+              <div
+                class="relative overflow-hidden rounded-3xl border border-brand/40 bg-surface-1 p-8 sm:p-12 shadow-lg"
+                data-tsd-source="/src/components/CTASection.tsx:9:9"
+              >
+                <div
+                  aria-hidden="true"
+                  class="pointer-events-none absolute inset-0 bg-[radial-gradient(80%_120%_at_100%_50%,rgba(255,122,0,0.18),transparent_60%)]"
+                  data-tsd-source="/src/components/CTASection.tsx:10:11"
+                ></div>
+                <div
+                  class="relative grid grid-cols-1 items-center gap-8 lg:grid-cols-[1.3fr_1fr]"
+                  data-tsd-source="/src/components/CTASection.tsx:14:11"
+                >
+                  <div data-tsd-source="/src/components/CTASection.tsx:15:13">
+                    <p
+                      class="text-xs font-semibold uppercase tracking-[0.2em] text-brand"
+                      data-tsd-source="/src/components/CTASection.tsx:16:15"
+                    >
+                      Ready to Get Started?
+                    </p>
+                    <h2
+                      class="mt-3 text-3xl font-extrabold leading-tight text-text sm:text-4xl"
+                      data-tsd-source="/src/components/CTASection.tsx:19:15"
+                    >
+                      Let Us Handle the Forms,<br
+                        data-tsd-source="/src/components/CTASection.tsx:21:17"
+                      />
+                      You Focus on What Matters.
+                    </h2>
+                    <p
+                      class="mt-4 max-w-lg text-sm leading-relaxed text-text-secondary sm:text-base"
+                      data-tsd-source="/src/components/CTASection.tsx:23:15"
+                    >
+                      Start your request now and experience a smooth, secure, and stress-free
+                      application process.
+                    </p>
+                    <a
+                      aria-label="Fill Now — start a new request"
+                      data-tsd-source="/src/components/CTASection.tsx:27:15"
+                      href="/app?fill=true"
+                      class="mt-6 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-dark to-brand-light px-6 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_-10px_rgba(255,122,0,0.7)] transition-transform hover:scale-[1.02] active:scale-95"
+                      >Fill Now
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="lucide lucide-arrow-right h-4 w-4"
+                        aria-hidden="true"
+                        data-tsd-source="/src/components/CTASection.tsx:33:26"
+                      >
+                        <path d="M5 12h14"></path>
+                        <path d="m12 5 7 7-7 7"></path></svg
+                    ></a>
+                  </div>
+                  <div
+                    class="relative hidden h-64 lg:block"
+                    data-tsd-source="/src/components/CTASection.tsx:38:13"
+                  >
+                    <div
+                      aria-hidden="true"
+                      class="absolute inset-x-6 bottom-0 h-16 rounded-[50%] bg-[radial-gradient(closest-side,rgba(255,122,0,0.35),transparent)]"
+                      data-tsd-source="/src/components/CTASection.tsx:39:15"
+                    ></div>
+                    <div
+                      class="absolute right-8 top-2 w-48 rotate-3 rounded-xl border border-white/10 bg-surface-2 p-4 shadow-2xl"
+                      data-tsd-source="/src/components/CTASection.tsx:43:15"
+                    >
+                      <div
+                        class="mb-3 flex items-center gap-2"
+                        data-tsd-source="/src/components/CTASection.tsx:44:17"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="24"
+                          height="24"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          class="lucide lucide-clipboard-check h-5 w-5 text-brand"
+                          aria-hidden="true"
+                          data-tsd-source="/src/components/CTASection.tsx:45:19"
+                        >
+                          <rect width="8" height="4" x="8" y="2" rx="1" ry="1"></rect>
+                          <path
+                            d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"
+                          ></path>
+                          <path d="m9 14 2 2 4-4"></path>
+                        </svg>
+                        <div
+                          class="h-2 w-20 rounded bg-white/5"
+                          data-tsd-source="/src/components/CTASection.tsx:46:19"
+                        ></div>
+                      </div>
+                      <ul class="space-y-2" data-tsd-source="/src/components/CTASection.tsx:48:17">
+                        <li
+                          class="flex items-center gap-2"
+                          data-tsd-source="/src/components/CTASection.tsx:50:21"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="lucide lucide-circle-check h-4 w-4 text-brand"
+                            aria-hidden="true"
+                            data-tsd-source="/src/components/CTASection.tsx:51:23"
+                          >
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <path d="m9 12 2 2 4-4"></path>
+                          </svg>
+                          <div
+                            class="h-1.5 flex-1 rounded bg-white/5"
+                            data-tsd-source="/src/components/CTASection.tsx:52:23"
+                          ></div>
+                        </li>
+                        <li
+                          class="flex items-center gap-2"
+                          data-tsd-source="/src/components/CTASection.tsx:50:21"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="lucide lucide-circle-check h-4 w-4 text-brand"
+                            aria-hidden="true"
+                            data-tsd-source="/src/components/CTASection.tsx:51:23"
+                          >
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <path d="m9 12 2 2 4-4"></path>
+                          </svg>
+                          <div
+                            class="h-1.5 flex-1 rounded bg-white/5"
+                            data-tsd-source="/src/components/CTASection.tsx:52:23"
+                          ></div>
+                        </li>
+                        <li
+                          class="flex items-center gap-2"
+                          data-tsd-source="/src/components/CTASection.tsx:50:21"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="lucide lucide-circle-check h-4 w-4 text-brand"
+                            aria-hidden="true"
+                            data-tsd-source="/src/components/CTASection.tsx:51:23"
+                          >
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <path d="m9 12 2 2 4-4"></path>
+                          </svg>
+                          <div
+                            class="h-1.5 flex-1 rounded bg-white/5"
+                            data-tsd-source="/src/components/CTASection.tsx:52:23"
+                          ></div>
+                        </li>
+                        <li
+                          class="flex items-center gap-2"
+                          data-tsd-source="/src/components/CTASection.tsx:50:21"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="lucide lucide-circle-check h-4 w-4 text-brand"
+                            aria-hidden="true"
+                            data-tsd-source="/src/components/CTASection.tsx:51:23"
+                          >
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <path d="m9 12 2 2 4-4"></path>
+                          </svg>
+                          <div
+                            class="h-1.5 flex-1 rounded bg-white/5"
+                            data-tsd-source="/src/components/CTASection.tsx:52:23"
+                          ></div>
+                        </li>
+                      </ul>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="lucide lucide-pen-line absolute -bottom-3 -right-3 h-8 w-8 rotate-45 text-brand"
+                        aria-hidden="true"
+                        data-tsd-source="/src/components/CTASection.tsx:56:17"
+                      >
+                        <path d="M13 21h8"></path>
+                        <path
+                          d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"
+                        ></path>
+                      </svg>
+                    </div>
+                    <div
+                      class="absolute left-4 top-16 grid h-14 w-14 place-items-center rounded-2xl border border-brand/40 bg-surface-2 shadow-md"
+                      data-tsd-source="/src/components/CTASection.tsx:58:15"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="lucide lucide-shield-check h-7 w-7 text-brand"
+                        aria-hidden="true"
+                        data-tsd-source="/src/components/CTASection.tsx:59:17"
+                      >
+                        <path
+                          d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+                        ></path>
+                        <path d="m9 12 2 2 4-4"></path>
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+      <footer
+        id="contact"
+        class="scroll-mt-24 border-t border-white/10 bg-[#050505]"
+        data-tsd-source="/src/components/Footer.tsx:11:5"
+      >
+        <div
+          class="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8"
+          data-tsd-source="/src/components/Footer.tsx:12:7"
+        >
+          <div
+            class="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-4"
+            data-tsd-source="/src/components/Footer.tsx:13:9"
+          >
+            <div data-tsd-source="/src/components/Footer.tsx:14:11">
+              <a
+                href="/"
+                class="flex items-center gap-2"
+                aria-label="Formbhro home"
+                data-tsd-source="/src/components/Logo.tsx:8:5"
+                ><img
+                  src="data:image/png;base64,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"
+                  alt="Formbhro"
+                  width="140"
+                  height="40"
+                  loading="eager"
+                  decoding="async"
+                  fetchpriority="high"
+                  class="h-8 w-auto"
+                  data-tsd-source="/src/components/Logo.tsx:20:9"
+              /></a>
+              <p
+                class="mt-4 max-w-xs text-sm leading-relaxed text-text-secondary"
+                data-tsd-source="/src/components/Footer.tsx:16:13"
+              >
+                Smart form assistance platform that connects you with experts, simplifies processes,
+                and delivers results.
+              </p>
+              <div
+                class="mt-5 flex items-center gap-3"
+                data-tsd-source="/src/components/Footer.tsx:20:13"
+              >
+                <a
+                  href="#"
+                  aria-label="Social link"
+                  class="grid h-9 w-9 place-items-center rounded-full border border-white/10 text-text-secondary transition-colors hover:border-brand/40 hover:text-brand"
+                  data-tsd-source="/src/components/Footer.tsx:22:17"
+                  ><svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="lucide lucide-facebook h-4 w-4"
+                    aria-hidden="true"
+                    data-tsd-source="/src/components/Footer.tsx:28:19"
+                  >
+                    <path
+                      d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"
+                    ></path></svg></a
+                ><a
+                  href="#"
+                  aria-label="Social link"
+                  class="grid h-9 w-9 place-items-center rounded-full border border-white/10 text-text-secondary transition-colors hover:border-brand/40 hover:text-brand"
+                  data-tsd-source="/src/components/Footer.tsx:22:17"
+                  ><svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="lucide lucide-instagram h-4 w-4"
+                    aria-hidden="true"
+                    data-tsd-source="/src/components/Footer.tsx:28:19"
+                  >
+                    <rect width="20" height="20" x="2" y="2" rx="5" ry="5"></rect>
+                    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+                    <line x1="17.5" x2="17.51" y1="6.5" y2="6.5"></line></svg></a
+                ><a
+                  href="#"
+                  aria-label="Social link"
+                  class="grid h-9 w-9 place-items-center rounded-full border border-white/10 text-text-secondary transition-colors hover:border-brand/40 hover:text-brand"
+                  data-tsd-source="/src/components/Footer.tsx:22:17"
+                  ><svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="lucide lucide-twitter h-4 w-4"
+                    aria-hidden="true"
+                    data-tsd-source="/src/components/Footer.tsx:28:19"
+                  >
+                    <path
+                      d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z"
+                    ></path></svg></a
+                ><a
+                  href="#"
+                  aria-label="Social link"
+                  class="grid h-9 w-9 place-items-center rounded-full border border-white/10 text-text-secondary transition-colors hover:border-brand/40 hover:text-brand"
+                  data-tsd-source="/src/components/Footer.tsx:22:17"
+                  ><svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="lucide lucide-linkedin h-4 w-4"
+                    aria-hidden="true"
+                    data-tsd-source="/src/components/Footer.tsx:28:19"
+                  >
+                    <path
+                      d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"
+                    ></path>
+                    <rect width="4" height="12" x="2" y="9"></rect>
+                    <circle cx="4" cy="4" r="2"></circle></svg
+                ></a>
+              </div>
+            </div>
+            <div data-tsd-source="/src/components/Footer.tsx:72:5">
+              <h4
+                class="text-sm font-semibold text-text"
+                data-tsd-source="/src/components/Footer.tsx:73:7"
+              >
+                Platform
+              </h4>
+              <ul
+                class="mt-4 space-y-2.5 text-sm"
+                data-tsd-source="/src/components/Footer.tsx:74:7"
+              >
+                <li data-tsd-source="/src/components/Footer.tsx:76:11">
+                  <a
+                    href="#"
+                    class="text-text-secondary transition-colors hover:text-brand"
+                    data-tsd-source="/src/components/Footer.tsx:77:13"
+                    >How It Works</a
+                  >
+                </li>
+                <li data-tsd-source="/src/components/Footer.tsx:76:11">
+                  <a
+                    href="#"
+                    class="text-text-secondary transition-colors hover:text-brand"
+                    data-tsd-source="/src/components/Footer.tsx:77:13"
+                    >Features</a
+                  >
+                </li>
+                <li data-tsd-source="/src/components/Footer.tsx:76:11">
+                  <a
+                    href="#"
+                    class="text-text-secondary transition-colors hover:text-brand"
+                    data-tsd-source="/src/components/Footer.tsx:77:13"
+                    >For Businesses</a
+                  >
+                </li>
+                <li data-tsd-source="/src/components/Footer.tsx:76:11">
+                  <a
+                    href="#"
+                    class="text-text-secondary transition-colors hover:text-brand"
+                    data-tsd-source="/src/components/Footer.tsx:77:13"
+                    >Pricing</a
+                  >
+                </li>
+                <li data-tsd-source="/src/components/Footer.tsx:76:11">
+                  <a
+                    href="#"
+                    class="text-text-secondary transition-colors hover:text-brand"
+                    data-tsd-source="/src/components/Footer.tsx:77:13"
+                    >Contact</a
+                  >
+                </li>
+              </ul>
+            </div>
+            <div data-tsd-source="/src/components/Footer.tsx:72:5">
+              <h4
+                class="text-sm font-semibold text-text"
+                data-tsd-source="/src/components/Footer.tsx:73:7"
+              >
+                Support
+              </h4>
+              <ul
+                class="mt-4 space-y-2.5 text-sm"
+                data-tsd-source="/src/components/Footer.tsx:74:7"
+              >
+                <li data-tsd-source="/src/components/Footer.tsx:76:11">
+                  <a
+                    href="#"
+                    class="text-text-secondary transition-colors hover:text-brand"
+                    data-tsd-source="/src/components/Footer.tsx:77:13"
+                    >Help Center</a
+                  >
+                </li>
+                <li data-tsd-source="/src/components/Footer.tsx:76:11">
+                  <a
+                    href="#"
+                    class="text-text-secondary transition-colors hover:text-brand"
+                    data-tsd-source="/src/components/Footer.tsx:77:13"
+                    >Privacy Policy</a
+                  >
+                </li>
+                <li data-tsd-source="/src/components/Footer.tsx:76:11">
+                  <a
+                    href="#"
+                    class="text-text-secondary transition-colors hover:text-brand"
+                    data-tsd-source="/src/components/Footer.tsx:77:13"
+                    >Terms &amp; Conditions</a
+                  >
+                </li>
+                <li data-tsd-source="/src/components/Footer.tsx:76:11">
+                  <a
+                    href="#"
+                    class="text-text-secondary transition-colors hover:text-brand"
+                    data-tsd-source="/src/components/Footer.tsx:77:13"
+                    >Refund Policy</a
+                  >
+                </li>
+              </ul>
+            </div>
+            <div data-tsd-source="/src/components/Footer.tsx:37:11">
+              <h4
+                class="text-sm font-semibold text-text"
+                data-tsd-source="/src/components/Footer.tsx:38:13"
+              >
+                Contact Us
+              </h4>
+              <ul
+                class="mt-4 space-y-3 text-sm text-text-secondary"
+                data-tsd-source="/src/components/Footer.tsx:39:13"
+              >
+                <li
+                  class="flex items-center gap-2"
+                  data-tsd-source="/src/components/Footer.tsx:40:15"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="lucide lucide-phone h-4 w-4 text-brand"
+                    aria-hidden="true"
+                    data-tsd-source="/src/components/Footer.tsx:41:17"
+                  >
+                    <path
+                      d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384"
+                    ></path>
+                  </svg>
+                  <!-- -->+91 7657026275
+                </li>
+                <li
+                  class="flex items-center gap-2"
+                  data-tsd-source="/src/components/Footer.tsx:43:15"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="lucide lucide-mail h-4 w-4 text-brand"
+                    aria-hidden="true"
+                    data-tsd-source="/src/components/Footer.tsx:44:17"
+                  >
+                    <path d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"></path>
+                    <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                  </svg>
+                  <!-- -->support@formbhro.com
+                </li>
+                <li
+                  class="flex items-center gap-2"
+                  data-tsd-source="/src/components/Footer.tsx:46:15"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="lucide lucide-map-pin h-4 w-4 text-brand"
+                    aria-hidden="true"
+                    data-tsd-source="/src/components/Footer.tsx:47:17"
+                  >
+                    <path
+                      d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"
+                    ></path>
+                    <circle cx="12" cy="10" r="3"></circle>
+                  </svg>
+                  <!-- -->Bhubaneswar, Odisha
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div
+            class="mt-12 border-t border-white/10 pt-6 text-center text-xs text-text-muted"
+            data-tsd-source="/src/components/Footer.tsx:53:9"
+          >
+            <div
+              class="flex items-center justify-center gap-4 mb-4"
+              data-tsd-source="/src/components/Footer.tsx:54:11"
+            >
+              <a
+                data-tsd-source="/src/components/Footer.tsx:55:13"
+                href="/admin/login"
+                class="text-text-muted hover:text-brand transition-colors"
+                >Admin Login</a
+              ><span class="text-text-muted" data-tsd-source="/src/components/Footer.tsx:58:13"
+                >|</span
+              ><a
+                data-tsd-source="/src/components/Footer.tsx:59:13"
+                href="/team/login"
+                class="text-text-muted hover:text-brand transition-colors"
+                >Team Login</a
+              >
+            </div>
+            © 2026 Formbhro. All rights reserved.
+          </div>
+        </div>
+      </footer>
+    </div>
+    <script>
+      (function (a, f) {
+        let l;
+        try {
+          l = JSON.parse(sessionStorage.getItem(a) || "{}");
+        } catch {
+          return;
+        }
+        const n = l?.[f || history.state?.__TSR_key];
+        let c = !1;
+        for (const t in n) {
+          const e = n[t],
+            o = e?.scrollX,
+            s = e?.scrollY;
+          if (Number.isFinite(o) && Number.isFinite(s)) {
+            if (t === "window") (scrollTo(o, s), (c = !0));
+            else if (t)
+              try {
+                const r = document.querySelector(t);
+                r && ((r.scrollLeft = o), (r.scrollTop = s));
+              } catch {}
+          }
+        }
+        if (c) return;
+        const i = location.hash.slice(1);
+        if (i) {
+          const t = history.state?.__hashScrollIntoViewOptions ?? !0;
+          if (t) {
+            const e = document.getElementById(i);
+            e && e.scrollIntoView(t);
+          }
+          return;
+        }
+        scrollTo(0, 0);
+      })("tsr-scroll-restoration-v1_3");
+      document.currentScript.remove();
+    </script>
+    <!--/$-->
+    <section
+      aria-label="Notifications alt+T"
+      tabindex="-1"
+      aria-live="polite"
+      aria-relevant="additions text"
+      aria-atomic="false"
+    ></section>
+    <script class="$tsr" id="$tsr-stream-barrier">
+      (self.$R = self.$R || {})["tsr"] = [];
+      self.$_TSR = {
+        h() {
+          ((this.hydrated = !0), this.c());
+        },
+        e() {
+          ((this.streamEnded = !0), this.c());
+        },
+        c() {
+          this.hydrated && this.streamEnded && (delete self.$_TSR, delete self.$R.tsr);
+        },
+        p(e) {
+          this.initialized ? e() : this.buffer.push(e);
+        },
+        buffer: [],
+      };
+      $_TSR.router = (($R) =>
+        ($R[0] = {
+          manifest: ($R[1] = {
+            routes: ($R[2] = {
+              __root__: ($R[3] = {
+                preloads: ($R[4] = ["/@id/virtual:tanstack-start-dev-client-entry"]),
+                scripts: ($R[5] = [
+                  ($R[6] = {
+                    attrs: ($R[7] = {
+                      type: "module",
+                      async: !0,
+                      src: "/@id/virtual:tanstack-start-dev-client-entry",
+                    }),
+                  }),
+                ]),
+                css: ($R[8] = [
+                  ($R[9] = {
+                    href: "/@tanstack-start/styles.css?routes=__root__%2C%2F",
+                    "data-tanstack-router-dev-styles": !0,
+                  }),
+                ]),
+              }),
+            }),
+          }),
+          matches: ($R[10] = [
+            ($R[11] = { i: "__root__ ", u: 1787823585459, s: "success", ssr: !0 }),
+            ($R[12] = { i: "  ", u: 1787823585518, s: "success", ssr: !0 }),
+          ]),
+          lastMatchId: "  ",
+        }))($R["tsr"]);
+      $_TSR.e();
+      document.currentScript.remove();
+    </script>
+    <script type="module" async="" src="/@id/virtual:tanstack-start-dev-client-entry"></script>
+  </body>
+</html>

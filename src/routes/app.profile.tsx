@@ -100,7 +100,11 @@ function Profile() {
             <div className="relative group">
               <span className="grid h-24 w-24 shrink-0 place-items-center overflow-hidden rounded-3xl border-2 border-brand/20 bg-brand/5 text-2xl font-bold text-brand shadow-lg shadow-brand/10 transition-transform duration-300 group-hover:scale-105">
                 {profile.avatarUrl ? (
-                  <img src={profile.avatarUrl} alt={profile.name} className="h-full w-full object-cover" />
+                  <img
+                    src={profile.avatarUrl}
+                    alt={profile.name}
+                    className="h-full w-full object-cover"
+                  />
                 ) : (
                   profile.initials
                 )}

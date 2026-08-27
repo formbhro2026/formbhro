@@ -388,7 +388,9 @@ function AdminTeam() {
               <div className="space-y-1 pt-1">
                 <p className="text-text-secondary">Phone: {detailProfile.phone ?? "—"}</p>
                 <p className="text-text-secondary">Department: {detail.job_title}</p>
-                <p className="text-text-secondary">Role: <span className="capitalize">{detailRole}</span></p>
+                <p className="text-text-secondary">
+                  Role: <span className="capitalize">{detailRole}</span>
+                </p>
                 <p className="text-text-secondary">
                   Status:{" "}
                   <span className="capitalize">{detail.availability_status ?? "online"}</span>

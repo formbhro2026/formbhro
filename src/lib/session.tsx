@@ -61,15 +61,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const roles = (rolesResult?.data ?? []).map((r) => r.role);
     if (rolesResult?.error) console.error("[Session] roles error:", rolesResult.error);
     setRole(roles.includes("admin") ? "admin" : roles.includes("team") ? "team" : "user");
-    
+
     // BAN ENFORCEMENT: Immediately log out users whose profile is suspended
     if (profileResult?.data && profileResult.data.is_active === false) {
       await supabase.auth.signOut();
       setUser(null);
       setProfile(null);
       setRole(null);
-      // Optional: Redirection can be handled by app shell since user is now null, 
-      // or we can force a location reload. 
+      // Optional: Redirection can be handled by app shell since user is now null,
+      // or we can force a location reload.
       // The router in app.tsx will naturally redirect to /auth.
       return;
     }

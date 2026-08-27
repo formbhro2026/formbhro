@@ -74,13 +74,20 @@ function AdminChats() {
 
   useEffect(() => {
     if (activeId && !requestsPage.find((r) => r.id === activeId)) {
-      void requestsApi.getRequest(activeId).then((r) => {
-        if (r) setFetchedActive(r);
-      }).catch(console.error);
+      void requestsApi
+        .getRequest(activeId)
+        .then((r) => {
+          if (r) setFetchedActive(r);
+        })
+        .catch(console.error);
     }
   }, [activeId, requestsPage]);
 
-  const active = requestsPage.find((r) => r.id === activeId) ?? (fetchedActive?.id === activeId ? fetchedActive : null) ?? threads[0] ?? null;
+  const active =
+    requestsPage.find((r) => r.id === activeId) ??
+    (fetchedActive?.id === activeId ? fetchedActive : null) ??
+    threads[0] ??
+    null;
 
   useEffect(() => {
     if (!active) {

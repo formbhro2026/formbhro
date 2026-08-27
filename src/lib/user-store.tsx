@@ -229,10 +229,13 @@ export function DemoUserStoreProvider({ children }: { children: ReactNode }) {
     ]);
   }, []);
 
-  const uploadAvatar = useCallback(async (file: File) => {
-    const url = URL.createObjectURL(file);
-    updateProfile({ avatarUrl: url });
-  }, [updateProfile]);
+  const uploadAvatar = useCallback(
+    async (file: File) => {
+      const url = URL.createObjectURL(file);
+      updateProfile({ avatarUrl: url });
+    },
+    [updateProfile],
+  );
 
   const removeFile = useCallback(async (id: string) => {
     setDocuments((prev) => prev.filter((d) => d.id !== id));

@@ -129,9 +129,7 @@ function AdminUsers() {
                       <div className="truncate font-mono text-brand-light">{p.email}</div>
                       <div className="text-[11px] text-text-muted">{p.phone ?? "—"}</div>
                     </td>
-                    <td className="px-3 py-2.5 text-text-secondary">
-                      {p.requests_count} total
-                    </td>
+                    <td className="px-3 py-2.5 text-text-secondary">{p.requests_count} total</td>
                     <td className="px-3 py-2.5">
                       <Pill tone={p.is_active ? "ok" : "bad"}>
                         {p.is_active ? "Active" : "Suspended"}
@@ -151,7 +149,9 @@ function AdminUsers() {
                 );
               })
             )}
-            {!isLoading && !list.length && <EmptyRow colSpan={6} text="No users match this search." />}
+            {!isLoading && !list.length && (
+              <EmptyRow colSpan={6} text="No users match this search." />
+            )}
           </tbody>
         </TableWrap>
 
@@ -238,7 +238,7 @@ function AdminUsers() {
                     .filter((a) => a.actor_id === selected.id)
                     .map((a) => (
                       <li
-                         key={a.id}
+                        key={a.id}
                         className="rounded-lg border border-border-subtle bg-bg/50 px-3 py-2 text-[10px]"
                       >
                         <p className="font-medium text-white">{a.label || a.action}</p>
@@ -278,7 +278,9 @@ function AdminUsers() {
                     </li>
                   ))}
                   {!detailRequests.length && (
-                    <li className="py-6 text-center text-xs text-text-muted">No recent requests on page.</li>
+                    <li className="py-6 text-center text-xs text-text-muted">
+                      No recent requests on page.
+                    </li>
                   )}
                 </ul>
               </div>

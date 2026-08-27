@@ -13,9 +13,14 @@ const ITEMS = [
 
 export function TeamBottomNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const search = useRouterState({ select: (s) => s.location.search as Record<string, unknown> });
   const { totalUnread } = useTeamStore();
   const isActive = (to: string, exact: boolean) =>
     exact ? pathname === to : pathname.startsWith(to);
+
+  // Hide the bottom nav on mobile when a chat is open to give the chat full screen space
+  const isWorkChatOpen = pathname === "/team/work" && !!search.r;
+  if (isWorkChatOpen) return null;
 
   return (
     <nav

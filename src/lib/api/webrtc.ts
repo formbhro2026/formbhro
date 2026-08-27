@@ -8,13 +8,15 @@ export type WebRTCSignal = {
 };
 
 export function sendSignal(chatRoomId: string, signal: WebRTCSignal) {
-  return supabase.channel(`webrtc:${chatRoomId}`, {
-    config: { broadcast: { ack: true } }
-  }).send({
-    type: "broadcast",
-    event: "signal",
-    payload: signal,
-  });
+  return supabase
+    .channel(`webrtc:${chatRoomId}`, {
+      config: { broadcast: { ack: true } },
+    })
+    .send({
+      type: "broadcast",
+      event: "signal",
+      payload: signal,
+    });
 }
 
 export function subscribeToSignals(chatRoomId: string, onSignal: (signal: WebRTCSignal) => void) {
@@ -25,7 +27,7 @@ export function subscribeToSignals(chatRoomId: string, onSignal: (signal: WebRTC
   const connect = () => {
     channel = supabase
       .channel(`webrtc:${chatRoomId}`, {
-        config: { broadcast: { ack: true } }
+        config: { broadcast: { ack: true } },
       })
       .on("broadcast", { event: "signal" }, ({ payload }) => {
         onSignal(payload as WebRTCSignal);
