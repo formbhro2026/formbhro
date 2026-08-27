@@ -6,9 +6,8 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function canShareScreen(): boolean {
-  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
-  if (!navigator.mediaDevices || typeof navigator.mediaDevices.getDisplayMedia !== "function")
-    return false;
-
+  // Always return true to ensure the button renders in the mobile APK.
+  // Note: True screen sharing is not supported natively in Android WebViews,
+  // but since the current implementation only triggers an alert, we can safely render it.
   return true;
 }
