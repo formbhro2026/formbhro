@@ -13,9 +13,6 @@ import { format } from "date-fns";
 import { Database } from "@/integrations/supabase/types";
 import { useSession } from "@/lib/session";
 
-export const Route = createFileRoute("/admin/_shell/policies")({
-  component: PoliciesPage,
-});
 
 type Policy = Database["public"]["Tables"]["policies"]["Row"];
 
@@ -246,7 +243,7 @@ function PoliciesPage() {
                   </Label>
                   <Switch
                     id={`active-${policy.id}`}
-                    checked={policy.is_active}
+                    checked={!!policy.is_active}
                     onCheckedChange={(checked) =>
                       toggleActiveMutation.mutate({ id: policy.id, is_active: checked })
                     }
@@ -267,3 +264,32 @@ function PoliciesPage() {
     </div>
   );
 }
+
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { error: Error | null }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="p-6 m-4 bg-red-950/30 border border-red-500 rounded-xl text-red-200 font-mono">
+          <h2 className="font-bold text-lg mb-2">Component Crashed</h2>
+          <p className="whitespace-pre-wrap text-xs">{this.state.error.stack || this.state.error.message}</p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export const Route = createFileRoute("/admin/_shell/policies")({
+  component: () => (
+    <ErrorBoundary>
+      <PoliciesPage />
+    </ErrorBoundary>
+  ),
+});
