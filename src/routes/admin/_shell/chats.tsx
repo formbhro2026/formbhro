@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { STATUS_LABEL, type DbRequestStatus } from "@/lib/api/types";
 import { useWebRTCCall } from "@/hooks/use-webrtc-call";
 import { CallOverlay } from "@/components/chat/CallOverlay";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/_shell/chats")({
   component: AdminChats,
@@ -123,6 +124,8 @@ function AdminChats() {
         senderRole: "admin",
       });
       setDraft("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to send message");
     } finally {
       setBusy(false);
     }
