@@ -113,6 +113,27 @@ export async function getChatRoom(requestId: string): Promise<ChatRoomRow | null
   return data;
 }
 
+/**
+ * Returns the existing chat room for a request, or creates one if it doesn't exist.
+ * This handles requests that were created before the auto-create trigger was in place.
+ */
+export async function getOrCreateChatRoom(requestId: string): Promise<ChatRoomRow> {
+  const existing = await getChatRoom(requestId);
+  if (existing) return existing;
+
+  // Chat room missing — call the secure DB function to create it
+  const { data: roomId, error } = await supabase.rpc("ensure_chat_room_exists", {
+    p_request_id: requestId,
+  });
+  if (error) throw new ApiError(error.message, error.code);
+
+  // Fetch the created room
+  const created = await getChatRoom(requestId);
+  if (!created) throw new ApiError("Failed to create chat room", "ROOM_CREATE_FAILED");
+  return created;
+}
+
+
 /** RLS scopes this automatically: own requests for users, assigned for team, all for admin. */
 export async function listRequests(opts?: {
   status?: DbRequestStatus[];

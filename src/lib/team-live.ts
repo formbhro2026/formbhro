@@ -159,8 +159,8 @@ export async function loadTeamSnapshot(
   for (const row of rows) {
     const reference = row.reference || row.id;
     requests.push(mapTeamRequest(row, memberId, names[row.user_id] ?? "User"));
-    const room = await requestsApi.getChatRoom(row.id);
-    rooms[reference] = { requestId: row.id, chatRoomId: room?.id ?? null };
+    const room = await requestsApi.getOrCreateChatRoom(row.id);
+    rooms[reference] = { requestId: row.id, chatRoomId: room.id };
     if (room) {
       const list = await messagesApi.listMessages(room.id, { limit: 100 });
       messages.push(...list.map((m) => mapTeamMessage(m, reference, memberName)));

@@ -213,21 +213,30 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const sendMessageApi = useCallback(async (msgId: string, requestId: string, text: string) => {
-    const room = rooms.current[requestId];
+    let room = rooms.current[requestId];
+
+    // If no chatRoomId in our local state, try to create/fetch the room on-the-fly.
     if (!room?.chatRoomId) {
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === msgId
-            ? { ...m, delivery: "failed", deliveryError: "Chat room unavailable." }
-            : m,
-        ),
-      );
-      return;
+      try {
+        const freshRoom = await requestsApi.getOrCreateChatRoom(requestId);
+        // Cache it so subsequent sends don't need to re-fetch
+        rooms.current[requestId] = { requestId, chatRoomId: freshRoom.id };
+        room = rooms.current[requestId];
+      } catch {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === msgId
+              ? { ...m, delivery: "failed", deliveryError: "Chat room unavailable." }
+              : m,
+          ),
+        );
+        return;
+      }
     }
 
     try {
       const row = await messagesApi.sendMessageWithRetry({
-        chatRoomId: room.chatRoomId,
+        chatRoomId: room.chatRoomId!,
         requestId: room.requestId,
         body: text,
         senderRole: "team",
@@ -247,6 +256,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       );
     }
   }, []);
+
 
   /** Manual retry for a message that exhausted its automatic attempts. */
   const retryMessage = useCallback(
