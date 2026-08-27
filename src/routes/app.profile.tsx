@@ -62,18 +62,22 @@ function Profile() {
     }
   };
 
-  const save = (e: React.FormEvent) => {
+  const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateProfile({
-      ...form,
-      initials: form.name
-        .split(" ")
-        .map((p) => p[0])
-        .slice(0, 2)
-        .join("")
-        .toUpperCase(),
-    });
-    setEditing(false);
+    try {
+      await updateProfile({
+        ...form,
+        initials: form.name
+          .split(" ")
+          .map((p) => p[0])
+          .slice(0, 2)
+          .join("")
+          .toUpperCase(),
+      });
+      setEditing(false);
+    } catch (err) {
+      alert("Failed to save profile. Please try again.");
+    }
   };
 
   const field =

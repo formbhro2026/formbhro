@@ -12,7 +12,7 @@ export type Profile = typeof USER_PROFILE;
 
 export type UserStore = {
   profile: Profile;
-  updateProfile: (patch: Partial<Profile>) => void;
+  updateProfile: (patch: Partial<Profile>) => Promise<void>;
   requests: SupportRequest[];
   messages: ChatMessage[];
   documents: UserDocument[];

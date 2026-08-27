@@ -106,6 +106,7 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       createdAt: day(dbProfile?.created_at ?? user?.created_at),
       authProvider: (dbProfile?.auth_provider === "password" ? "password" : "google") as
         "google" | "password",
+      avatarUrl: dbProfile?.avatar_url ?? undefined,
     };
   }, [dbProfile, user]);
 
@@ -355,14 +356,17 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
   );
 
   const updateProfile = useCallback(
-    (patch: Partial<Profile>) => {
-      void authApi
-        .updateMyProfile({
+    async (patch: Partial<Profile>) => {
+      try {
+        await authApi.updateMyProfile({
           ...(patch.name ? { full_name: patch.name } : {}),
           ...(patch.phone !== undefined ? { phone: patch.phone } : {}),
-        })
-        .then(() => refresh())
-        .catch((err) => console.error("Profile update failed:", err));
+        });
+        await refresh();
+      } catch (err) {
+        console.error("Profile update failed:", err);
+        throw err;
+      }
     },
     [refresh],
   );

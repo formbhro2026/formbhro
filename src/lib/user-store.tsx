@@ -61,7 +61,7 @@ export function DemoUserStoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => () => timers.current.forEach((t) => window.clearTimeout(t)), []);
 
   const updateProfile = useCallback(
-    (patch: Partial<Profile>) => setProfile((p) => ({ ...p, ...patch })),
+    async (patch: Partial<Profile>) => setProfile((p) => ({ ...p, ...patch })),
     [],
   );
 
