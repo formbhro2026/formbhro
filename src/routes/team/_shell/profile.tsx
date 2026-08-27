@@ -134,11 +134,14 @@ function TeamProfile() {
         <ConfirmDialog
           title="Edit profile"
           description="Your role, team ID and email are managed by your administrator."
-          confirmLabel="Save changes"
-          onConfirm={() => {
-            updateMember({ name: name.trim() || member?.name });
-            setEditing(false);
-            toast.success("Profile updated.");
+          onConfirm={async () => {
+            try {
+              await updateMember({ name: name.trim() || member?.name });
+              setEditing(false);
+              toast.success("Profile updated.");
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : "Failed to update profile");
+            }
           }}
           onClose={() => setEditing(false)}
         >

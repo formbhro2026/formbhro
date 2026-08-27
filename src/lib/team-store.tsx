@@ -94,7 +94,7 @@ type TeamStore = {
   /** True when the panel is backed by the live backend instead of demo data. */
   live: boolean;
   signOut: () => void;
-  updateMember: (patch: Partial<TeamMember>) => void;
+  updateMember: (patch: Partial<TeamMember>) => Promise<TeamMember | null>;
   analytics: { assigned: number; completed: number; pending: number };
   fetchAnalytics: () => void;
   requests: TeamRequest[];
@@ -538,16 +538,24 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const updateMember = useCallback((patch: Partial<TeamMember>) => {
+  const updateMember = useCallback(async (patch: Partial<TeamMember>) => {
+    let next: TeamMember | null = null;
+    
+    // First update the database if we are live
+    if (liveRef.current && (patch.name || patch.email) && memberRef.current) {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ ...(patch.name ? { full_name: patch.name } : {}) })
+        .eq("id", memberRef.current.id);
+        
+      if (error) {
+        throw new Error(error.message);
+      }
+    }
+
     setMember((m) => {
       if (!m) return m;
-      const next = { ...m, ...patch };
-      if (liveRef.current && (patch.name || patch.email)) {
-        void supabase
-          .from("profiles")
-          .update({ ...(patch.name ? { full_name: patch.name } : {}) })
-          .eq("id", m.id);
-      }
+      next = { ...m, ...patch };
       try {
         const target = window.localStorage.getItem(SESSION_KEY)
           ? window.localStorage
@@ -559,6 +567,8 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       }
       return next;
     });
+    
+    return next;
   }, []);
 
   // Unread is derived from per-message read state so counts can never drift.
