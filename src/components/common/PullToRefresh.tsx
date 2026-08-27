@@ -41,13 +41,21 @@ export function PullToRefresh({
     const handleTouchMove = (e: TouchEvent) => {
       if (localStartY > 0 && !refreshing) {
         const y = e.touches[0].clientY;
-        if (y > localStartY) {
-          // It's a pull down
+        const isPullingDown = y > localStartY;
+        
+        if (isPullingDown && window.scrollY <= 0) {
+          // Prevent default only when actively pulling down at the top
           if (e.cancelable) {
             e.preventDefault();
           }
           localCurrentY = y;
           setCurrentY(y);
+        } else if (y < localStartY) {
+          // If they scroll up, abort pull-to-refresh tracking
+          // so native scrolling can take over perfectly
+          localStartY = 0;
+          setStartY(0);
+          setCurrentY(0);
         }
       }
     };
