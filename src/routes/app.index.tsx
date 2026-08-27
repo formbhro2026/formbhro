@@ -42,7 +42,7 @@ function UserHome() {
   const latestMessage = latestMessages[latestMessages.length - 1];
 
   return (
-    <div className="flex min-h-screen flex-col bg-bg text-white">
+    <div className="flex min-h-full flex-col bg-bg text-white">
       <UserHeader title="Home" />
       <main className="mx-auto w-full max-w-7xl flex-1 px-0 pb-28 pt-0 sm:px-6 lg:pb-10 lg:pt-5">
         <PullToRefresh onRefresh={refresh}>

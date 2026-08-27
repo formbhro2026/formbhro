@@ -64,7 +64,7 @@ function Profile() {
     "w-full rounded-2xl border border-border-subtle bg-surface-2 px-4 py-3 text-sm text-white placeholder:text-text-muted focus:border-brand/40 focus:ring-1 focus:ring-brand/10 outline-none transition-all disabled:opacity-60 disabled:cursor-not-allowed";
 
   return (
-    <div className="flex min-h-screen flex-col bg-bg">
+    <div className="flex min-h-full flex-col bg-bg">
       <UserHeader title="My Profile" />
 
       <main className="mx-auto w-full max-w-3xl flex-1 space-y-6 px-4 pb-28 pt-8 sm:px-6 lg:pb-16">

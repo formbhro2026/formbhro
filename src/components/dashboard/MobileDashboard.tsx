@@ -46,7 +46,7 @@ export function MobileDashboard() {
   const activeRequest = requests.find((r) => r.status !== "completed");
 
   return (
-    <div className="flex flex-col gap-6 p-4 pb-24 bg-bg min-h-screen">
+    <div className="flex flex-col gap-6 p-4 pb-24 bg-bg min-h-full">
       {/* Greeting Header */}
       <section className="flex items-center justify-between py-2">
         <div>

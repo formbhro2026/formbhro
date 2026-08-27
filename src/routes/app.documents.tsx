@@ -64,7 +64,7 @@ function MyDocuments() {
   const preview = documents.find((d) => d.id === previewId) ?? null;
 
   return (
-    <div className="flex min-h-screen flex-col bg-bg">
+    <div className="flex min-h-full flex-col bg-bg">
       <UserHeader title="My Documents" />
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-28 pt-5 sm:px-6 lg:pb-10">
         <PullToRefresh onRefresh={refresh}>

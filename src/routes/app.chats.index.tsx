@@ -27,7 +27,7 @@ function MyChats() {
   const { requests, refresh } = useUserStore();
 
   return (
-    <div className="flex min-h-screen flex-col bg-bg">
+    <div className="flex min-h-full flex-col bg-bg">
       <UserHeader title="My Chats" />
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 pb-28 pt-5 sm:px-6 lg:pb-10">
         <PullToRefresh onRefresh={refresh}>
