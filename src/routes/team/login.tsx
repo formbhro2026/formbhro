@@ -1,6 +1,6 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Info, Lock, ShieldCheck, Mail, Key } from "lucide-react";
+import { Info, Lock, ShieldCheck, Mail, Key, ArrowLeft } from "lucide-react";
 import logoAsset from "@/assets/logo.png.asset.json";
 import { useTeamStore } from "@/lib/team-store";
 
@@ -37,7 +37,14 @@ function TeamLogin() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#050505] px-4 py-10 text-white antialiased">
+    <main className="relative flex min-h-screen items-center justify-center bg-[#050505] px-4 py-10 text-white antialiased">
+      <Link 
+        to="/" 
+        className="absolute top-6 left-6 flex items-center gap-2 text-sm font-medium text-zinc-500 hover:text-white transition-colors"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to Home
+      </Link>
       <div className="w-full max-w-sm">
         <div className="flex justify-center">
           <img src={logoAsset.url} alt="Formbhro" width={140} height={40} className="h-8 w-auto" />
