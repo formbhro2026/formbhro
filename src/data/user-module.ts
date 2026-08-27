@@ -114,6 +114,7 @@ export const USER_PROFILE = {
   phone: "+91 76570 26275",
   createdAt: "12 January 2026",
   authProvider: "google" as "google" | "password",
+  avatarUrl: undefined as string | undefined,
 };
 
 /**

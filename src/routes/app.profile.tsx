@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   KeyRound,
   LifeBuoy,
@@ -40,11 +40,20 @@ function Profile() {
   const { signOut } = useSession();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     name: profile.name,
     email: profile.email,
     phone: profile.phone,
   });
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+      updateProfile({ avatarUrl: url });
+    }
+  };
 
   const save = (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,12 +85,27 @@ function Profile() {
 
           <div className="relative flex flex-col items-center gap-6 sm:flex-row sm:text-left text-center">
             <div className="relative group">
-              <span className="grid h-24 w-24 shrink-0 place-items-center rounded-3xl border-2 border-brand/20 bg-brand/5 text-2xl font-bold text-brand shadow-lg shadow-brand/10 transition-transform duration-300 group-hover:scale-105">
-                {profile.initials}
+              <span className="grid h-24 w-24 shrink-0 place-items-center overflow-hidden rounded-3xl border-2 border-brand/20 bg-brand/5 text-2xl font-bold text-brand shadow-lg shadow-brand/10 transition-transform duration-300 group-hover:scale-105">
+                {profile.avatarUrl ? (
+                  <img src={profile.avatarUrl} alt={profile.name} className="h-full w-full object-cover" />
+                ) : (
+                  profile.initials
+                )}
               </span>
-              <button className="absolute -bottom-2 -right-2 flex h-8 w-8 items-center justify-center rounded-xl bg-surface-3 text-brand border border-border-subtle shadow-lg transition-all hover:scale-110 active:scale-95">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute -bottom-2 -right-2 flex h-8 w-8 items-center justify-center rounded-xl bg-surface-3 text-brand border border-border-subtle shadow-lg transition-all hover:scale-110 active:scale-95"
+              >
                 <Camera className="h-4 w-4" />
               </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageUpload}
+              />
             </div>
 
             <div className="flex-1 min-w-0">
