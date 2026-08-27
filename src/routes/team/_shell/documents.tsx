@@ -32,9 +32,6 @@ export const Route = createFileRoute("/team/_shell/documents")({
 const FILTERS = [
   { key: "all", label: "All" },
   { key: "image", label: "Images" },
-  { key: "pdf", label: "PDFs" },
-  { key: "doc", label: "Documents" },
-  { key: "html", label: "HTML" },
 ] as const;
 
 function TeamDocuments() {
