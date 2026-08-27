@@ -24,6 +24,22 @@ import {
 
 export const Route = createFileRoute("/admin/_shell/team")({ component: AdminTeam });
 
+/** Mirrors the permissions JSONB shape stored in team_members.permissions */
+interface TeamPermissions {
+  can_manage_team: boolean;
+  can_view_analytics: boolean;
+  can_delete_messages: boolean;
+}
+
+function parsePerms(raw: unknown): TeamPermissions {
+  const p = (raw ?? {}) as Partial<TeamPermissions>;
+  return {
+    can_manage_team: p.can_manage_team ?? false,
+    can_view_analytics: p.can_view_analytics ?? false,
+    can_delete_messages: p.can_delete_messages ?? false,
+  };
+}
+
 const BLANK = {
   full_name: "",
   email: "",
@@ -37,7 +53,7 @@ const BLANK = {
     can_manage_team: false,
     can_view_analytics: false,
     can_delete_messages: false,
-  },
+  } as TeamPermissions,
 };
 
 function AdminTeam() {
@@ -49,6 +65,8 @@ function AdminTeam() {
   const [msg, setMsg] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [assignTo, setAssignTo] = useState("");
+  // Inline permissions editor state (replaces window.confirm)
+  const [editPerms, setEditPerms] = useState<TeamPermissions | null>(null);
 
   const rows = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -369,16 +387,74 @@ function AdminTeam() {
               <div className="space-y-1 pt-1">
                 <p className="text-text-secondary">Phone: {detailProfile.phone ?? "—"}</p>
                 <p className="text-text-secondary">Department: {detail.job_title}</p>
-                <p className="text-text-secondary">Status: <span className="capitalize">{(detail as any).availability_status ?? 'online'}</span></p>
+                <p className="text-text-secondary">
+                  Status:{" "}
+                  <span className="capitalize">{detail.availability_status ?? "online"}</span>
+                </p>
                 <p className="text-text-secondary">Joined: {formatDate(detail.created_at)}</p>
-                
+
                 <div className="pt-2 pb-1">
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-text-muted mb-1">Permissions</p>
-                  <ul className="text-text-secondary list-disc list-inside">
-                    <li>Manage Team: {((detail as any).permissions?.can_manage_team) ? "Yes" : "No"}</li>
-                    <li>View Analytics: {((detail as any).permissions?.can_view_analytics) ? "Yes" : "No"}</li>
-                    <li>Delete Messages: {((detail as any).permissions?.can_delete_messages) ? "Yes" : "No"}</li>
-                  </ul>
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-text-muted mb-1">
+                    Permissions
+                  </p>
+                  {editPerms ? (
+                    <div className="space-y-2">
+                      {(
+                        [
+                          ["can_manage_team", "Manage Team"],
+                          ["can_view_analytics", "View Analytics"],
+                          ["can_delete_messages", "Delete Messages"],
+                        ] as const
+                      ).map(([key, label]) => (
+                        <label
+                          key={key}
+                          className="flex items-center gap-2 text-xs text-text-secondary cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={editPerms[key]}
+                            onChange={(e) =>
+                              setEditPerms({ ...editPerms, [key]: e.target.checked })
+                            }
+                          />
+                          {label}
+                        </label>
+                      ))}
+                      <div className="flex gap-2 pt-1">
+                        <Button
+                          disabled={busy}
+                          onClick={() =>
+                            void run(
+                              () =>
+                                updateTeamMember({
+                                  data: { id: detail.id, permissions: editPerms },
+                                }),
+                              "Permissions updated.",
+                            ).then(() => setEditPerms(null))
+                          }
+                        >
+                          Save
+                        </Button>
+                        <Button variant="ghost" onClick={() => setEditPerms(null)}>
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <ul className="text-text-secondary list-disc list-inside">
+                      <li>
+                        Manage Team: {parsePerms(detail.permissions).can_manage_team ? "Yes" : "No"}
+                      </li>
+                      <li>
+                        View Analytics:{" "}
+                        {parsePerms(detail.permissions).can_view_analytics ? "Yes" : "No"}
+                      </li>
+                      <li>
+                        Delete Messages:{" "}
+                        {parsePerms(detail.permissions).can_delete_messages ? "Yes" : "No"}
+                      </li>
+                    </ul>
+                  )}
                 </div>
               </div>
               <p className="text-text-secondary pt-1">
@@ -430,22 +506,7 @@ function AdminTeam() {
                 <Button
                   variant="ghost"
                   disabled={busy}
-                  onClick={() => {
-                    const currentPerms = (detail as any).permissions ?? {};
-                    const can_manage_team = window.confirm(`Can manage team? (Current: ${currentPerms.can_manage_team ? 'Yes' : 'No'})`);
-                    const can_view_analytics = window.confirm(`Can view analytics? (Current: ${currentPerms.can_view_analytics ? 'Yes' : 'No'})`);
-                    const can_delete_messages = window.confirm(`Can delete messages? (Current: ${currentPerms.can_delete_messages ? 'Yes' : 'No'})`);
-                    
-                    void run(
-                      () => updateTeamMember({ 
-                        data: { 
-                          id: detail.id, 
-                          permissions: { can_manage_team, can_view_analytics, can_delete_messages } 
-                        } 
-                      }),
-                      "Permissions updated.",
-                    );
-                  }}
+                  onClick={() => setEditPerms(parsePerms(detail.permissions))}
                 >
                   Edit Permissions
                 </Button>

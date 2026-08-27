@@ -11,6 +11,8 @@ import {
   ADMIN_GATE_PASSWORD,
   ADMIN_GATE_USERNAME,
   assertAdmin,
+  assertTeamOrAdmin,
+  assertPermission,
 } from "./admin-helpers.server";
 
 /**
@@ -38,7 +40,7 @@ export const ensureAdminAccount = createServerFn({ method: "POST" })
     });
 
     const { data: list } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
-    let userId = list?.users.find((u: any) => u.email?.toLowerCase() === ADMIN_GATE_EMAIL)?.id;
+    let userId = list?.users.find((u: { email?: string; id: string }) => u.email?.toLowerCase() === ADMIN_GATE_EMAIL)?.id;
 
     if (!userId) {
       const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
@@ -181,15 +183,14 @@ export const updateTeamMember = createServerFn({ method: "POST" })
     if (Object.keys(profilePatch).length) {
       await supabaseAdmin.from("profiles").update(profilePatch).eq("id", id);
     }
-    
-    const teamPatch: Record<string, any> = {};
+    const teamPatch: { job_title?: string; permissions?: Record<string, boolean> } = {};
     if (job_title) teamPatch.job_title = job_title;
     if (permissions) teamPatch.permissions = permissions;
-    
+
     if (Object.keys(teamPatch).length > 0) {
       await supabaseAdmin.from("team_members").update(teamPatch).eq("id", id);
     }
-    
+
     await supabaseAdmin.from("activity_logs").insert({
       actor_id: context.userId,
       actor_role: "admin",
@@ -261,6 +262,8 @@ export const setTeamMemberAvailability = createServerFn({ method: "POST" })
     z.object({ status: z.enum(["online", "away", "offline"]) }).parse(input),
   )
   .handler(async ({ data, context }) => {
+    // Must be a team member or admin — regular users cannot set availability
+    await assertTeamOrAdmin(context as Parameters<typeof assertTeamOrAdmin>[0]);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await supabaseAdmin
       .from("team_members")
@@ -589,11 +592,33 @@ export interface AdminAnalyticsStats {
 export const getAdminAnalytics = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await assertAdmin(context);
+    // Admins always pass; team members need can_view_analytics permission
+    await assertPermission(context, "can_view_analytics");
 
-    // @ts-ignore - type generation pending
-    const { data, error } = await (supabase.rpc as any)("get_admin_analytics");
+    const { data, error } = await supabase.rpc("get_admin_analytics");
     if (error) throw new Error(error.message);
 
     return data as unknown as AdminAnalyticsStats;
+  });
+
+/** Delete a single chat message. Admin always permitted; team requires can_delete_messages. */
+export const deleteMessage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    await assertPermission(context, "can_delete_messages");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // Soft-delete: set deleted = true (matches existing listMessages filter)
+    const { error } = await supabaseAdmin
+      .from("messages")
+      .update({ deleted: true })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    await supabaseAdmin.from("activity_logs").insert({
+      actor_id: context.userId,
+      actor_role: "admin",
+      action: "message_deleted",
+      label: `Message ${data.id} deleted`,
+    });
+    return { ok: true };
   });

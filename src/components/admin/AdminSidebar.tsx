@@ -84,16 +84,33 @@ function SignOutButton({ onDone }: { onDone?: () => void }) {
 }
 
 function AvailabilitySelector() {
-  const [status, setStatus] = useState("online");
+  const [status, setStatus] = useState<"online" | "away" | "offline">("online");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    import("@/integrations/supabase/client").then(({ supabase }) => {
-      supabase.auth.getUser().then(({ data }) => {
-        const userStatus = (data.user?.user_metadata as any)?.availability_status || "online";
-        setStatus(userStatus);
-      }).catch(console.error);
-    }).catch(console.error);
+    // Read canonical status from team_members table, not user_metadata
+    import("@/integrations/supabase/client")
+      .then(({ supabase }) =>
+        supabase.auth
+          .getUser()
+          .then(({ data }) => {
+            const uid = data.user?.id;
+            if (!uid) return;
+            return supabase
+              .from("team_members")
+              .select("availability_status")
+              .eq("id", uid)
+              .maybeSingle()
+              .then(({ data: member }) => {
+                const s = member?.availability_status;
+                if (s === "online" || s === "away" || s === "offline") {
+                  setStatus(s);
+                }
+              });
+          })
+          .catch(console.error),
+      )
+      .catch(console.error);
   }, []);
 
   const handleChange = async (newStatus: "online" | "away" | "offline") => {
@@ -101,8 +118,6 @@ function AvailabilitySelector() {
     try {
       await setTeamMemberAvailability({ data: { status: newStatus } });
       setStatus(newStatus);
-      const { supabase } = await import("@/integrations/supabase/client");
-      await supabase.auth.updateUser({ data: { availability_status: newStatus } });
     } catch (e) {
       console.error(e);
     } finally {
@@ -117,7 +132,12 @@ function AvailabilitySelector() {
         className="bg-transparent text-white text-xs outline-none cursor-pointer"
         value={status}
         disabled={busy}
-        onChange={(e) => void handleChange(e.target.value as any)}
+        onChange={(e) => {
+          const val = e.target.value;
+          if (val === "online" || val === "away" || val === "offline") {
+            void handleChange(val);
+          }
+        }}
       >
         <option value="online">Online</option>
         <option value="away">Away</option>
