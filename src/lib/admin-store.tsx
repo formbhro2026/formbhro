@@ -127,6 +127,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   const activeGen = useRef(0);
   const lastFetchParams = useRef<{ page: number; filters?: any }>({ page: 1 });
+  const initialLoadDone = useRef(false);
 
   const fetchRequestsPage = useCallback(
     async (page: number, filters?: { status?: string[]; search?: string; limit?: number }) => {
@@ -255,8 +256,9 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     const schedulePage = () => {
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => {
-        void fetchRequestsPage(lastFetchParams.current.page, lastFetchParams.current.filters);
-        void getAdminAnalytics().then(setStats).catch(console.error);
+        if (lastFetchParams.current.page === 1) {
+          void fetchRequestsPage(1, lastFetchParams.current.filters);
+        }
       }, 400);
     };
 
@@ -344,7 +346,15 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       setData((prev) => ({ ...prev, settings: payload.new as SettingsRow }));
     });
 
-    channel.subscribe();
+    channel.subscribe((status) => {
+      if (status === "SUBSCRIBED") {
+        if (initialLoadDone.current) {
+          void refresh(true);
+        } else {
+          initialLoadDone.current = true;
+        }
+      }
+    });
     return () => {
       if (timer.current) clearTimeout(timer.current);
       void supabase.removeChannel(channel);

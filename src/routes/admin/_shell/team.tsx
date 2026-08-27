@@ -57,7 +57,7 @@ const BLANK = {
 };
 
 function AdminTeam() {
-  const { team, profiles, requestsPage, refresh, profileOf, stats } = useAdmin();
+  const { team, profiles, roles, requestsPage, refresh, profileOf, stats } = useAdmin();
   const [q, setQ] = useState("");
   const [form, setForm] = useState({ ...BLANK });
   const [showForm, setShowForm] = useState(false);
@@ -89,6 +89,7 @@ function AdminTeam() {
   const detailStat = stats?.perTeam.find((t) => t.id === detail?.id);
   const detailTotal = detailStat?.total ?? 0;
   const detailDone = detailStat?.done ?? 0;
+  const detailRole = roles.find((r) => r.user_id === detail?.id)?.role ?? "team";
   const unassigned = requestsPage.filter(
     (r) => !r.assigned_team_id && !["completed", "cancelled"].includes(r.status),
   );
@@ -387,6 +388,7 @@ function AdminTeam() {
               <div className="space-y-1 pt-1">
                 <p className="text-text-secondary">Phone: {detailProfile.phone ?? "—"}</p>
                 <p className="text-text-secondary">Department: {detail.job_title}</p>
+                <p className="text-text-secondary">Role: <span className="capitalize">{detailRole}</span></p>
                 <p className="text-text-secondary">
                   Status:{" "}
                   <span className="capitalize">{detail.availability_status ?? "online"}</span>
@@ -502,6 +504,23 @@ function AdminTeam() {
                   }}
                 >
                   Edit Title
+                </Button>
+                <Button
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={() => {
+                    const newRole = window.prompt("Enter new role (team or admin):", detailRole);
+                    if (newRole === "team" || newRole === "admin") {
+                      void run(
+                        () => updateTeamMember({ data: { id: detail.id, role: newRole } }),
+                        "Role updated.",
+                      );
+                    } else if (newRole !== null) {
+                      alert("Invalid role. Must be 'team' or 'admin'.");
+                    }
+                  }}
+                >
+                  Edit Role
                 </Button>
                 <Button
                   variant="ghost"

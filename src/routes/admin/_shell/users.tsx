@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAdmin } from "@/lib/admin-store";
 import {
   Button,
@@ -10,49 +11,52 @@ import {
   TableWrap,
   formatDate,
 } from "@/components/admin/AdminUI";
-import { setUserActive } from "@/lib/api/admin.functions";
+import { getAdminUsers, setUserActive, type AdminUserRow } from "@/lib/api/admin.functions";
 
 export const Route = createFileRoute("/admin/_shell/users")({ component: AdminUsers });
 
 function AdminUsers() {
-  const { profiles, roles, requestsPage, refresh, activity } = useAdmin();
+  const { requestsPage, refresh, activity } = useAdmin();
   const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
   const [filter, setFilter] = useState<"all" | "active" | "suspended">("all");
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<AdminUserRow | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const limit = 50;
 
-  const userIds = useMemo(
-    () => new Set(roles.filter((r) => r.role === "user").map((r) => r.user_id)),
-    [roles],
-  );
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedQ(q);
+      setPage(1); // Reset page on new search
+    }, 300);
+    return () => clearTimeout(t);
+  }, [q]);
 
-  const list = useMemo(() => {
-    const term = q.trim().toLowerCase();
-    return profiles
-      .filter((p) => userIds.has(p.id))
-      .filter((p) => (filter === "all" ? true : filter === "active" ? p.is_active : !p.is_active))
-      .filter((p) => {
-        if (!term) return true;
-        const refs = requestsPage
-          .filter((r) => r.user_id === p.id)
-          .map((r) => r.reference.toLowerCase());
-        return (
-          p.full_name.toLowerCase().includes(term) ||
-          p.email.toLowerCase().includes(term) ||
-          (p.phone ?? "").toLowerCase().includes(term) ||
-          p.id.toLowerCase().includes(term) ||
-          refs.some((r) => r.includes(term))
-        );
-      });
-  }, [profiles, userIds, filter, q, requestsPage]);
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ["admin-users", page, limit, filter, debouncedQ],
+    queryFn: () => getAdminUsers({ data: { page, limit, filter, search: debouncedQ } }),
+  });
 
-  const detail = profiles.find((p) => p.id === selected) ?? null;
-  const detailRequests = requestsPage.filter((r) => r.user_id === detail?.id);
+  const list = data?.users ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+
+  // The requestsPage only holds requests visible on the admin dashboard,
+  // so this isn't a true full history, but it matches the previous behavior.
+  const detailRequests = useMemo(() => {
+    if (!selected) return [];
+    return requestsPage.filter((r) => r.user_id === selected.id);
+  }, [selected, requestsPage]);
 
   const toggleActive = async (id: string, active: boolean) => {
     setBusy(id);
     try {
       await setUserActive({ data: { id, active } });
+      await refetch();
+      if (selected && selected.id === id) {
+        setSelected({ ...selected, is_active: active });
+      }
       await refresh();
     } finally {
       setBusy(null);
@@ -62,14 +66,17 @@ function AdminUsers() {
   return (
     <div className="space-y-4">
       <Panel
-        title={`Users (${list.length})`}
+        title={`Users (${total})`}
         action={
           <div className="flex flex-wrap items-center gap-2">
             {(["all", "active", "suspended"] as const).map((f) => (
               <button
                 key={f}
                 type="button"
-                onClick={() => setFilter(f)}
+                onClick={() => {
+                  setFilter(f);
+                  setPage(1);
+                }}
                 className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold capitalize ${
                   filter === f
                     ? "border-brand/40 bg-brand/10 text-brand-light"
@@ -87,7 +94,7 @@ function AdminUsers() {
             value={q}
             onChange={setQ}
             label="Search users"
-            placeholder="Name, email, phone, request ID…"
+            placeholder="Name, email, phone..."
           />
         </div>
 
@@ -103,52 +110,79 @@ function AdminUsers() {
             </tr>
           </thead>
           <tbody>
-            {list.map((p) => {
-              const mine = requestsPage.filter((r) => r.user_id === p.id);
-              return (
-                <tr key={p.id} className="border-t border-border-subtle/50">
-                  <td className="px-3 py-2.5">
-                    <button
-                      type="button"
-                      onClick={() => setSelected(p.id)}
-                      className="text-left text-xs font-semibold text-white hover:text-brand-light"
-                    >
-                      {p.full_name || "Unnamed"}
-                    </button>
-                  </td>
-                  <td className="px-3 py-2.5 text-text-secondary">
-                    <div className="truncate font-mono text-brand-light">{p.email}</div>
-                    <div className="text-[11px] text-text-muted">{p.phone ?? "—"}</div>
-                  </td>
-                  <td className="px-3 py-2.5 text-text-secondary">
-                    {mine.length} total · {mine.filter((r) => r.status === "completed").length} done
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <Pill tone={p.is_active ? "ok" : "bad"}>
-                      {p.is_active ? "Active" : "Suspended"}
-                    </Pill>
-                  </td>
-                  <td className="px-3 py-2.5 text-text-muted">{formatDate(p.created_at)}</td>
-                  <td className="px-3 py-2.5 text-right">
-                    <Button
-                      variant={p.is_active ? "danger" : "ghost"}
-                      disabled={busy === p.id}
-                      onClick={() => void toggleActive(p.id, !p.is_active)}
-                    >
-                      {p.is_active ? "Suspend" : "Activate"}
-                    </Button>
-                  </td>
-                </tr>
-              );
-            })}
-            {!list.length && <EmptyRow colSpan={6} text="No users match this search." />}
+            {isLoading ? (
+              <EmptyRow colSpan={6} text="Loading users..." />
+            ) : (
+              list.map((p) => {
+                return (
+                  <tr key={p.id} className="border-t border-border-subtle/50">
+                    <td className="px-3 py-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setSelected(p)}
+                        className="text-left text-xs font-semibold text-white hover:text-brand-light"
+                      >
+                        {p.full_name || "Unnamed"}
+                      </button>
+                    </td>
+                    <td className="px-3 py-2.5 text-text-secondary">
+                      <div className="truncate font-mono text-brand-light">{p.email}</div>
+                      <div className="text-[11px] text-text-muted">{p.phone ?? "—"}</div>
+                    </td>
+                    <td className="px-3 py-2.5 text-text-secondary">
+                      {p.requests_count} total
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <Pill tone={p.is_active ? "ok" : "bad"}>
+                        {p.is_active ? "Active" : "Suspended"}
+                      </Pill>
+                    </td>
+                    <td className="px-3 py-2.5 text-text-muted">{formatDate(p.created_at)}</td>
+                    <td className="px-3 py-2.5 text-right">
+                      <Button
+                        variant={p.is_active ? "danger" : "ghost"}
+                        disabled={busy === p.id}
+                        onClick={() => void toggleActive(p.id, !p.is_active)}
+                      >
+                        {p.is_active ? "Suspend" : "Activate"}
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+            {!isLoading && !list.length && <EmptyRow colSpan={6} text="No users match this search." />}
           </tbody>
         </TableWrap>
+
+        {totalPages > 1 && (
+          <div className="mt-4 flex items-center justify-between border-t border-border-subtle/50 pt-4 text-xs">
+            <span className="text-text-muted">
+              Page {page} of {totalPages}
+            </span>
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="ghost"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
       </Panel>
 
-      {detail && (
+      {selected && (
         <Panel
-          title={`Profile — ${detail.full_name || detail.email}`}
+          title={`Profile — ${selected.full_name || selected.email}`}
           action={
             <Button variant="ghost" onClick={() => setSelected(null)}>
               Close
@@ -158,27 +192,27 @@ function AdminUsers() {
           <div className="grid gap-4 lg:grid-cols-3">
             <div className="space-y-2 rounded-xl border border-border-subtle bg-bg p-3 text-xs">
               <div className="flex items-center gap-3">
-                {detail.avatar_url ? (
+                {selected.avatar_url ? (
                   <img
-                    src={detail.avatar_url}
+                    src={selected.avatar_url}
                     alt=""
                     className="h-12 w-12 rounded-full object-cover"
                   />
                 ) : (
                   <span className="grid h-12 w-12 place-items-center rounded-full bg-brand/15 text-sm font-bold text-brand-light">
-                    {(detail.full_name || detail.email).slice(0, 1).toUpperCase()}
+                    {(selected.full_name || selected.email).slice(0, 1).toUpperCase()}
                   </span>
                 )}
                 <div className="min-w-0">
                   <p className="truncate font-semibold text-white">
-                    {detail.full_name || "Unnamed"}
+                    {selected.full_name || "Unnamed"}
                   </p>
-                  <p className="mt-1 font-mono text-[11px] text-brand-light">{detail.email}</p>
+                  <p className="mt-1 font-mono text-[11px] text-brand-light">{selected.email}</p>
                 </div>
               </div>
-              <p className="text-text-secondary">Phone: {detail.phone ?? "—"}</p>
-              <p className="text-text-secondary">Joined: {formatDate(detail.created_at)}</p>
-              <p className="text-text-secondary">Requests: {detailRequests.length}</p>
+              <p className="text-text-secondary">Phone: {selected.phone ?? "—"}</p>
+              <p className="text-text-secondary">Joined: {formatDate(selected.created_at)}</p>
+              <p className="text-text-secondary">Requests: {selected.requests_count}</p>
               <div className="flex flex-wrap gap-2 pt-2">
                 <Link
                   to="/admin/chats"
@@ -188,31 +222,31 @@ function AdminUsers() {
                   <Button variant="ghost">Open chats</Button>
                 </Link>
                 <Button
-                  variant={detail.is_active ? "danger" : "primary"}
-                  onClick={() => void toggleActive(detail.id, !detail.is_active)}
+                  variant={selected.is_active ? "danger" : "primary"}
+                  onClick={() => void toggleActive(selected.id, !selected.is_active)}
                 >
-                  {detail.is_active ? "Suspend" : "Activate"}
+                  {selected.is_active ? "Suspend" : "Activate"}
                 </Button>
               </div>
             </div>
 
-            <div className="lg:col-span-2 space-y-4">
+            <div className="space-y-4 lg:col-span-2">
               <div>
                 <h3 className="mb-2 text-xs font-semibold text-white">Recent Action Logs</h3>
-                <ul className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                <ul className="max-h-40 space-y-2 overflow-y-auto pr-1">
                   {activity
-                    .filter((a) => a.actor_id === detail.id)
+                    .filter((a) => a.actor_id === selected.id)
                     .map((a) => (
                       <li
-                        key={a.id}
+                         key={a.id}
                         className="rounded-lg border border-border-subtle bg-bg/50 px-3 py-2 text-[10px]"
                       >
-                        <p className="text-white font-medium">{a.label || a.action}</p>
-                        <p className="text-text-muted mt-0.5">{formatDate(a.created_at)}</p>
+                        <p className="font-medium text-white">{a.label || a.action}</p>
+                        <p className="mt-0.5 text-text-muted">{formatDate(a.created_at)}</p>
                       </li>
                     ))}
-                  {!activity.some((a) => a.actor_id === detail.id) && (
-                    <li className="py-4 text-center text-[10px] text-text-muted uppercase">
+                  {!activity.some((a) => a.actor_id === selected.id) && (
+                    <li className="py-4 text-center text-[10px] uppercase text-text-muted">
                       No activity logs
                     </li>
                   )}
@@ -220,7 +254,7 @@ function AdminUsers() {
               </div>
 
               <div>
-                <h3 className="mb-2 text-xs font-semibold text-white">Request history</h3>
+                <h3 className="mb-2 text-xs font-semibold text-white">Recent Requests</h3>
                 <ul className="space-y-2">
                   {detailRequests.map((r) => (
                     <li
@@ -244,7 +278,7 @@ function AdminUsers() {
                     </li>
                   ))}
                   {!detailRequests.length && (
-                    <li className="py-6 text-center text-xs text-text-muted">No requests yet.</li>
+                    <li className="py-6 text-center text-xs text-text-muted">No recent requests on page.</li>
                   )}
                 </ul>
               </div>

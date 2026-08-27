@@ -108,7 +108,8 @@ export const createTeamMember = createServerFn({ method: "POST" })
       .gte("created_at", startOfDay);
 
     const sequence = ((count || 0) + 1).toString().padStart(3, "0");
-    const teamCode = `FBH-${datePart}-${sequence}`;
+    const suffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const teamCode = `FBH-${datePart}-${sequence}-${suffix}`;
 
     const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
       email: data.email,
@@ -174,6 +175,7 @@ export const updateTeamMember = createServerFn({ method: "POST" })
         phone: z.string().max(30).optional(),
         job_title: z.string().min(2).max(60).optional(),
         avatar_url: z.string().max(500).optional(),
+        role: z.enum(["team", "admin"]).optional(),
         permissions: z.record(z.boolean()).optional(),
       })
       .parse(input),
@@ -191,6 +193,16 @@ export const updateTeamMember = createServerFn({ method: "POST" })
 
     if (Object.keys(teamPatch).length > 0) {
       await supabaseAdmin.from("team_members").update(teamPatch).eq("id", id);
+    }
+    
+    if (data.role) {
+      // Prevent demoting the caller
+      if (id === context.userId && data.role !== "admin") {
+        throw new Error("You cannot demote yourself from admin");
+      }
+      await supabaseAdmin
+        .from("user_roles")
+        .upsert({ user_id: id, role: data.role }, { onConflict: "user_id,role" });
     }
 
     await supabaseAdmin.from("activity_logs").insert({
@@ -252,6 +264,7 @@ export const setTeamMemberActive = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
+    if (data.id === context.userId) throw new Error("You cannot suspend your own account");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await supabaseAdmin.from("team_members").update({ is_active: data.active }).eq("id", data.id);
     await supabaseAdmin.from("profiles").update({ is_active: data.active }).eq("id", data.id);
@@ -282,6 +295,7 @@ export const setUserActive = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
+    if (data.id === context.userId) throw new Error("You cannot suspend your own account");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await supabaseAdmin.from("profiles").update({ is_active: data.active }).eq("id", data.id);
     await supabaseAdmin.auth.admin.updateUserById(data.id, {
@@ -625,4 +639,49 @@ export const deleteMessage = createServerFn({ method: "POST" })
       label: `Message ${data.id} deleted`,
     });
     return { ok: true };
+  });
+
+export interface AdminUserRow {
+  id: string;
+  full_name: string;
+  email: string;
+  phone: string | null;
+  avatar_url: string | null;
+  is_active: boolean;
+  created_at: string;
+  total_count: number;
+  requests_count: number;
+}
+
+/** Paginated, database-filtered user list for Admin dashboard. */
+export const getAdminUsers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) =>
+    z
+      .object({
+        page: z.number().min(1).default(1),
+        limit: z.number().min(1).max(200).default(50),
+        search: z.string().optional(),
+        filter: z.enum(["all", "active", "suspended"]).default("all"),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const offset = (data.page - 1) * data.limit;
+    
+    const { data: rows, error } = await supabaseAdmin.rpc("get_admin_users", {
+      _search: data.search || null,
+      _status: data.filter,
+      _limit: data.limit,
+      _offset: offset,
+    });
+    
+    if (error) throw new Error(error.message);
+    
+    return {
+      users: (rows ?? []) as AdminUserRow[],
+      total: rows?.[0]?.total_count ?? 0,
+    };
   });
