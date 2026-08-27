@@ -59,6 +59,12 @@ export async function createNewRequest(input?: {
         "CHAT_LIMIT_EXCEEDED",
       );
     }
+    if (error.code === "23505" && error.message.includes("requests_one_active_per_user")) {
+      throw new ApiError(
+        "You already have an active request. Please wait for it to be completed before starting a new one.",
+        "ACTIVE_REQUEST_LIMIT_EXCEEDED",
+      );
+    }
     if (error.message.includes("RATE_LIMIT_EXCEEDED")) {
       throw new ApiError("Too many requests. Please try again shortly.", "RATE_LIMIT_EXCEEDED");
     }
