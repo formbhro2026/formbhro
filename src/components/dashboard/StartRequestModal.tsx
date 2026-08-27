@@ -17,7 +17,7 @@ export function StartRequestModal({
   onSubmit: (category: string) => void;
 }) {
   const panelRef = useDialogA11y<HTMLDivElement>(onClose);
-  const [selected, setSelected] = useState<string>("Form Assistance");
+  const [selected, setSelected] = useState<string>("Government Form");
 
   const { data: categories, isLoading } = useQuery({
     queryKey: ["active_categories"],
@@ -101,7 +101,7 @@ export function StartRequestModal({
             {/* Fallback Option */}
             <label
               className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors ${
-                selected === "Other / General Assistance"
+                selected === "General Inquiry"
                   ? "border-brand bg-brand/10"
                   : "border-border-strong bg-surface-2 hover:bg-surface-3"
               }`}
@@ -109,13 +109,13 @@ export function StartRequestModal({
               <input
                 type="radio"
                 name="category"
-                value="Other / General Assistance"
-                checked={selected === "Other / General Assistance"}
-                onChange={() => setSelected("Other / General Assistance")}
+                value="General Inquiry"
+                checked={selected === "General Inquiry"}
+                onChange={() => setSelected("General Inquiry")}
                 className="mt-0.5 shrink-0 h-4 w-4 text-brand bg-surface-3 border-border-strong focus:ring-brand"
               />
               <div>
-                <div className="text-sm font-semibold text-white">Other / General Assistance</div>
+                <div className="text-sm font-semibold text-white">General Inquiry</div>
                 <div className="text-xs text-text-secondary mt-1">
                   If your request does not fit any of the above categories.
                 </div>
