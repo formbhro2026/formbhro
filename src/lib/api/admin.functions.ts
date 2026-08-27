@@ -577,6 +577,8 @@ export const takeoverRequest = createServerFn({ method: "POST" })
 
 export interface AdminAnalyticsStats {
   total: number;
+  pending: number;
+  processing: number;
   completed: number;
   avgCompletion: number;
   avgResponse: number;

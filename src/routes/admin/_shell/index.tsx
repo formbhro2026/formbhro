@@ -21,7 +21,8 @@ function AdminDashboard() {
   const totalUsers = stats?.users ?? 0;
   const completed = stats?.completed ?? 0;
   const active = (stats?.total ?? 0) - completed;
-  const pending = active; // Treat all active as pending/processing for the summary
+  const pending = stats?.pending ?? 0;
+  const processing = stats?.processing ?? 0;
 
   return (
     <div className="space-y-6">
@@ -47,7 +48,13 @@ function AdminDashboard() {
               <p className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
                 Response Time
               </p>
-              <p className="mt-1 text-2xl font-bold text-white">~2.4h</p>
+              <p className="mt-1 text-2xl font-bold text-white">
+                {stats?.avgResponse
+                  ? stats.avgResponse < 1
+                    ? `${Math.round(stats.avgResponse * 60)}m`
+                    : `~${stats.avgResponse.toFixed(1)}h`
+                  : "0h"}
+              </p>
             </div>
             <div className="rounded-2xl bg-surface-2 p-4 border border-border-subtle">
               <p className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
@@ -66,7 +73,7 @@ function AdminDashboard() {
               />
               <div
                 className="bg-brand"
-                style={{ width: `${((active - pending) / (stats?.total || 0 || 1)) * 100}%` }}
+                style={{ width: `${(processing / (stats?.total || 0 || 1)) * 100}%` }}
               />
               <div
                 className="bg-emerald-500"
