@@ -7,11 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Plus, Edit, Shield, CheckCircle } from "lucide-react";
+import { Loader2, Plus, Shield, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Database } from "@/integrations/supabase/types";
-import { useAdmin } from "@/lib/admin-store";
 import { useSession } from "@/lib/session";
 
 export const Route = createFileRoute("/admin/_shell/policies")({
@@ -129,7 +128,7 @@ function PoliciesPage() {
                   id="type"
                   value={formData.type}
                   onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                  placeholder="e.g. terms, privacy, cookie"
+                  placeholder="e.g. terms, privacy, cookie, help"
                   className="bg-bg"
                   required
                 />
