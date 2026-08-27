@@ -26,9 +26,29 @@ export function PullToRefresh({
     let localStartY = 0;
     let localCurrentY = 0;
 
+    const getScrollContainer = (element: HTMLElement | null): HTMLElement | Window => {
+      let current = element;
+      while (current && current !== document.body && current !== document.documentElement) {
+        const style = window.getComputedStyle(current);
+        if (style.overflowY === "auto" || style.overflowY === "scroll") {
+          return current;
+        }
+        current = current.parentElement;
+      }
+      return window;
+    };
+
+    const getScrollTop = (container: HTMLElement | Window) => {
+      if (container === window) return window.scrollY;
+      return (container as HTMLElement).scrollTop;
+    };
+
     const handleTouchStart = (e: TouchEvent) => {
+      const scrollContainer = getScrollContainer(el);
+      const scrollTop = getScrollTop(scrollContainer);
+      
       // Only initiate pull-to-refresh if we are at the top of the page
-      if (window.scrollY <= 0) {
+      if (scrollTop <= 0) {
         localStartY = e.touches[0].clientY;
         localCurrentY = localStartY;
         setStartY(localStartY);
@@ -43,7 +63,10 @@ export function PullToRefresh({
         const y = e.touches[0].clientY;
         const isPullingDown = y > localStartY;
         
-        if (isPullingDown && window.scrollY <= 0) {
+        const scrollContainer = getScrollContainer(el);
+        const scrollTop = getScrollTop(scrollContainer);
+        
+        if (isPullingDown && scrollTop <= 0) {
           // Prevent default only when actively pulling down at the top
           if (e.cancelable) {
             e.preventDefault();
