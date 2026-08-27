@@ -67,7 +67,7 @@ export function FillNowProvider({ children }: { children: ReactNode }) {
       } else if (err instanceof Error && err.message.includes("RATE_LIMIT_EXCEEDED")) {
         toast.error("Too many requests. Please try again shortly.");
       } else {
-        toast.error("Failed to start chat. Please try again.");
+        toast.error(err instanceof Error ? err.message : "Failed to start chat. Please try again.");
       }
       navigate({ to: "/app/chats" });
     } finally {
