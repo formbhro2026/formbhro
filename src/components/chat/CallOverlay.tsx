@@ -1,4 +1,4 @@
-import { X, Phone, PhoneOff, Video, VideoOff, Maximize2, Minimize2 } from "lucide-react";
+import { X, Phone, PhoneOff, Video, VideoOff, Maximize2, Minimize2, SwitchCamera } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { type CallSession } from "@/hooks/use-webrtc-call";
 import { cn } from "@/lib/utils";
@@ -7,10 +7,12 @@ export function CallOverlay({
   session,
   onAccept,
   onHangup,
+  onSwitchCamera,
 }: {
   session: CallSession;
   onAccept: () => void;
   onHangup: () => void;
+  onSwitchCamera?: () => void;
 }) {
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -48,7 +50,7 @@ export function CallOverlay({
         "fixed z-[100] flex flex-col items-center justify-center bg-black/90 transition-all duration-300 backdrop-blur-md",
         isMaximized
           ? "inset-0"
-          : "bottom-20 right-4 w-72 h-48 rounded-2xl overflow-hidden shadow-2xl border border-white/10 sm:w-80 sm:h-52 lg:w-96 lg:h-64",
+          : "bottom-20 right-4 w-72 h-48 max-w-[calc(100vw-2rem)] rounded-2xl overflow-hidden shadow-2xl border border-white/10 sm:w-80 sm:h-52 lg:w-96 lg:h-64",
       )}
     >
       {/* Remote Video (Full Size) */}
@@ -98,7 +100,7 @@ export function CallOverlay({
               autoPlay
               playsInline
               muted
-              className="w-full h-full object-cover mirror"
+              className={cn("w-full h-full object-cover", session.facingMode === "user" && "mirror")}
             />
           </div>
         )}
@@ -139,6 +141,15 @@ export function CallOverlay({
                   >
                     <PhoneOff className="h-6 w-6" />
                   </button>
+                  {onSwitchCamera && !session.isScreenSharing && (
+                    <button
+                      onClick={onSwitchCamera}
+                      className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
+                      title="Switch Camera"
+                    >
+                      <SwitchCamera className="h-5 w-5" />
+                    </button>
+                  )}
                   <button
                     onClick={() => setIsMaximized(!isMaximized)}
                     className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"

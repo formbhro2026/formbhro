@@ -673,7 +673,7 @@ function Conversation({
   onPreview: (id: string) => void;
   docCount: number;
 }) {
-  const { session, startCall, acceptCall, hangup } = useWebRTCCall(r.id);
+  const { session, startCall, acceptCall, hangup, switchCamera } = useWebRTCCall(r.id);
   const {
     getDocument,
     documentsFor,
@@ -1512,7 +1512,7 @@ function Conversation({
           <StatusSelect requestId={r.id} status={r.status} onChange={onStatus} />
         </div>
       </form>
-      <CallOverlay session={session} onAccept={acceptCall} onHangup={hangup} />
+      <CallOverlay session={session} onAccept={acceptCall} onHangup={hangup} onSwitchCamera={switchCamera} />
     </>
   );
 }

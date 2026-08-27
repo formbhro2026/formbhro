@@ -12,13 +12,14 @@ export type CallSession = {
   remoteStream: MediaStream | null;
   localStream: MediaStream | null;
   error: string | null;
+  facingMode: "user" | "environment";
 };
 
 const ICE_SERVERS = {
   iceServers: [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }],
 };
 
-const requestMediaPermissions = async (screenShare = false): Promise<MediaStream> => {
+const requestMediaPermissions = async (screenShare = false, facingMode: "user" | "environment" = "user"): Promise<MediaStream> => {
   if (screenShare) {
     if (isCapacitor() || !navigator.mediaDevices.getDisplayMedia) {
       throw new Error("Screen sharing is not supported on mobile devices.");
@@ -67,7 +68,7 @@ const requestMediaPermissions = async (screenShare = false): Promise<MediaStream
       video: {
         width: { ideal: 1280 },
         height: { ideal: 720 },
-        facingMode: "user",
+        facingMode: facingMode,
       },
       audio: {
         echoCancellation: true,
@@ -88,6 +89,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
     remoteStream: null,
     localStream: null,
     error: null,
+    facingMode: "user",
   });
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -112,6 +114,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
       remoteStream: null,
       localStream: null,
       error: errorMessage || null,
+      facingMode: "user",
     });
   }, []);
 
@@ -342,5 +345,48 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
     };
   }, [chatRoomId, createPeerConnection, cleanup]);
 
-  return { session, startCall, acceptCall, hangup };
+  const switchCamera = useCallback(async () => {
+    if (!localStreamRef.current || session.isScreenSharing) return;
+
+    try {
+      const currentVideoTrack = localStreamRef.current.getVideoTracks()[0];
+      if (!currentVideoTrack) return;
+
+      const newFacingMode = session.facingMode === 'user' ? 'environment' : 'user';
+      setSession(prev => ({ ...prev, facingMode: newFacingMode }));
+
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: newFacingMode,
+        }
+      });
+      
+      const newVideoTrack = newStream.getVideoTracks()[0];
+      
+      if (pcRef.current) {
+        const sender = pcRef.current.getSenders().find(s => s.track?.kind === 'video');
+        if (sender) {
+          await sender.replaceTrack(newVideoTrack);
+        }
+      }
+
+      localStreamRef.current.removeTrack(currentVideoTrack);
+      localStreamRef.current.addTrack(newVideoTrack);
+      currentVideoTrack.stop();
+
+      // Trigger re-render by passing a new MediaStream instance so React detects the change
+      const updatedStream = new MediaStream(localStreamRef.current.getTracks());
+      localStreamRef.current = updatedStream;
+      setSession(prev => ({ ...prev, localStream: updatedStream }));
+      
+    } catch (err) {
+      console.error("Could not switch camera:", err);
+      // Fallback state if switching fails
+      setSession(prev => ({ ...prev, facingMode: prev.facingMode === 'user' ? 'environment' : 'user' }));
+    }
+  }, [session.isScreenSharing, session.facingMode]);
+
+  return { session, startCall, acceptCall, hangup, switchCamera };
 }

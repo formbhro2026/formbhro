@@ -1,13 +1,17 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { isCapacitor } from "./fcm";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 export function canShareScreen(): boolean {
-  // Always return true to ensure the button renders in the mobile APK.
-  // Note: True screen sharing is not supported natively in Android WebViews,
-  // but since the current implementation only triggers an alert, we can safely render it.
-  return true;
+  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+  
+  // Not supported on mobile apps wrapped via Capacitor natively yet without custom plugins
+  if (isCapacitor()) return false;
+  
+  // Basic check for browser support
+  return !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
 }
