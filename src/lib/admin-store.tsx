@@ -86,10 +86,24 @@ async function loadAll(): Promise<AdminData> {
     notifications = [];
   }
 
+  const teamData = team.data ?? [];
+  const teamIds = teamData.map((t) => t.id);
+
+  let teamProfiles: ProfileRow[] = [];
+  let teamRoles: RoleRow[] = [];
+  if (teamIds.length > 0) {
+    const [{ data: profs }, { data: rolesData }] = await Promise.all([
+      supabase.from("profiles").select("*").in("id", teamIds),
+      supabase.from("user_roles").select("*").in("user_id", teamIds),
+    ]);
+    teamProfiles = profs ?? [];
+    teamRoles = rolesData ?? [];
+  }
+
   return {
-    profiles: [], // loaded dynamically
-    roles: [], // loaded dynamically
-    team: team.data ?? [],
+    profiles: teamProfiles,
+    roles: teamRoles,
+    team: teamData,
     documents: [],
     activity: activity.data ?? [],
     news: news.data ?? [],
@@ -136,7 +150,10 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       const pageRows = fetchedData ?? [];
 
       // dynamically fetch missing profiles and roles
-      const userIds = Array.from(new Set(pageRows.map((r) => r.user_id).filter(Boolean)));
+      const userIds = Array.from(new Set([
+        ...pageRows.map((r) => r.user_id),
+        ...pageRows.map((r) => r.assigned_team_id)
+      ].filter(Boolean))) as string[];
       if (userIds.length > 0) {
         const [{ data: profs }, { data: rolesData }] = await Promise.all([
           supabase.from("profiles").select("*").in("id", userIds),
@@ -190,11 +207,20 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       if (!silent) setLoading(true);
       try {
         const [allData, statsData] = await Promise.all([loadAll(), getAdminAnalytics()]);
-        setData((prev) => ({
-          ...allData,
-          profiles: prev.profiles, // preserve dynamically loaded profiles
-          roles: prev.roles, // preserve dynamically loaded roles
-        }));
+        setData((prev) => {
+          // merge dynamically loaded profiles with the team profiles from loadAll
+          const profileMap = new Map(prev.profiles.map(p => [p.id, p]));
+          allData.profiles.forEach(p => profileMap.set(p.id, p));
+          
+          const roleMap = new Map(prev.roles.map(r => [r.user_id, r]));
+          allData.roles.forEach(r => roleMap.set(r.user_id, r));
+
+          return {
+            ...allData,
+            profiles: Array.from(profileMap.values()),
+            roles: Array.from(roleMap.values()),
+          };
+        });
         setStats(statsData);
         setReady(true);
         setHasLoaded(true);
