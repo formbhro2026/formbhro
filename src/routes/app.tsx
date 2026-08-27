@@ -8,6 +8,7 @@ import { SessionProvider, useSession } from "@/lib/session";
 import { FillNowProvider } from "@/components/layout/FillNowProvider";
 import { UserSidebar } from "@/components/layout/UserSidebar";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
+import { PolicyInterceptor } from "@/components/auth/PolicyInterceptor";
 
 export const Route = createFileRoute("/app")({
   validateSearch: (search: Record<string, unknown>): { fill?: string | boolean } =>
@@ -18,7 +19,9 @@ export const Route = createFileRoute("/app")({
 function AppLayout() {
   return (
     <SessionProvider>
-      <AppShell />
+      <PolicyInterceptor>
+        <AppShell />
+      </PolicyInterceptor>
     </SessionProvider>
   );
 }
