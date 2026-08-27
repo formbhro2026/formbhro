@@ -239,7 +239,16 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     channel.on(
       "postgres_changes",
       { event: "*", schema: "public", table: "requests" },
-      schedulePage,
+      (payload) => {
+        const p = payload as any;
+        if (p.eventType === "UPDATE") {
+          setRequestsPage((prev) =>
+            prev.map((r) => (r.id === p.new.id ? { ...r, ...p.new } : r))
+          );
+        } else {
+          schedulePage();
+        }
+      }
     );
 
     channel.on("postgres_changes", { event: "INSERT", schema: "public", table: "activity_logs" }, (payload) => {

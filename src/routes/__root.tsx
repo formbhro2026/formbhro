@@ -239,6 +239,16 @@ function RootComponent() {
     };
 
     import("@capacitor/app").then(({ App }) => {
+      // Hardware back button handler for Android
+      App.addListener("backButton", ({ canGoBack }) => {
+        const path = window.location.pathname;
+        if (!canGoBack || path === "/app" || path === "/") {
+          App.exitApp();
+        } else {
+          window.history.back();
+        }
+      });
+
       // Warm Start listener
       App.addListener("appUrlOpen", (data) => {
         if (data?.url) void handleOAuthDeepLink(data.url);

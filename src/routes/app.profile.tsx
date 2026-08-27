@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { toast } from "sonner";
 import {
   KeyRound,
   LifeBuoy,
@@ -75,8 +76,9 @@ function Profile() {
           .toUpperCase(),
       });
       setEditing(false);
-    } catch (err) {
-      alert("Failed to save profile. Please try again.");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to save profile. Please try again.");
     }
   };
 

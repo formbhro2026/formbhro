@@ -694,7 +694,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
   );
 
   const sendMessage = useCallback(
-    (requestId: string, text: string) => {
+    async (requestId: string, text: string) => {
       const name = member?.name ?? "Support";
       const id = uid("msg");
       setMessages((prev) => [
@@ -714,9 +714,11 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
 
       const r = requestsRef.current.find((req) => req.id === requestId);
       if (r && !r.assigneeId) {
-        void assignToMe(requestId).catch((err) => {
+        try {
+          await assignToMe(requestId);
+        } catch (err) {
           console.error("Auto-assignment failed:", err);
-        });
+        }
       }
 
       void sendMessageApi(id, requestId, text);
@@ -781,6 +783,15 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         return;
       }
       void (async () => {
+        const r = requestsRef.current.find((req) => req.id === requestId);
+        if (r && !r.assigneeId) {
+          try {
+            await assignToMe(requestId);
+          } catch (err) {
+            console.error("Auto-assignment failed:", err);
+          }
+        }
+
         try {
           const doc = await documentsApi.uploadDocument({
             file: file.blob!,
@@ -815,7 +826,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         }
       })();
     },
-    [member, touch],
+    [member, assignToMe, touch],
   );
 
   const setStatus = useCallback(

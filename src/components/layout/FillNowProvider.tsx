@@ -62,7 +62,11 @@ export function FillNowProvider({ children }: { children: ReactNode }) {
         toast.error(
           "You have reached the maximum of 3 chats within 24 hours. Please try again later.",
         );
-      } else if (err instanceof Error && err.message.includes("ACTIVE_REQUEST_LIMIT_EXCEEDED")) {
+      } else if (
+        err instanceof Error &&
+        (err.message.includes("ACTIVE_REQUEST_LIMIT_EXCEEDED") ||
+          err.message.includes("requests_one_active_per_user"))
+      ) {
         toast.error("You already have an active request. Please wait for it to be completed.");
       } else if (err instanceof Error && err.message.includes("RATE_LIMIT_EXCEEDED")) {
         toast.error("Too many requests. Please try again shortly.");
