@@ -36,6 +36,8 @@ export type UserStore = {
   ) => void;
   /** Uploads a standalone document to "My Documents" without creating a request. */
   uploadPersonalDocument: (file: File, name: string) => Promise<void>;
+  /** Uploads a user avatar image to the avatars bucket and updates their profile. */
+  uploadAvatar: (file: File) => Promise<void>;
   /** Removes a document from the system safely. */
   removeFile: (id: string, storagePath?: string) => Promise<void>;
   addNote: (requestId: string, note: string) => void;

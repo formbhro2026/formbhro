@@ -516,6 +516,20 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
     [mapDocument],
   );
 
+  const uploadAvatar = useCallback(
+    async (file: File) => {
+      try {
+        const publicUrl = await authApi.uploadAvatar(file);
+        await authApi.updateMyProfile({ avatar_url: publicUrl });
+        await hydrate();
+      } catch (err) {
+        console.error("Avatar upload failed:", err);
+        throw err;
+      }
+    },
+    [hydrate],
+  );
+
   const removeFile = useCallback(async (id: string, storagePath?: string) => {
     if (!storagePath) {
       // In case we don't have the storage path (shouldn't happen for valid documents), just filter.
@@ -617,6 +631,7 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       retryMessage,
       attachFile,
       uploadPersonalDocument,
+      uploadAvatar,
       removeFile,
       addNote,
       markRead,
@@ -647,6 +662,7 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       retryMessage,
       attachFile,
       uploadPersonalDocument,
+      uploadAvatar,
       removeFile,
       addNote,
       markRead,

@@ -36,7 +36,7 @@ export const Route = createFileRoute("/app/profile")({
 });
 
 function Profile() {
-  const { profile, updateProfile } = useUserStore();
+  const { profile, updateProfile, uploadAvatar } = useUserStore();
   const { signOut } = useSession();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
@@ -47,11 +47,18 @@ function Profile() {
     phone: profile.phone,
   });
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const url = URL.createObjectURL(file);
-      updateProfile({ avatarUrl: url });
+      try {
+        if (uploadAvatar) {
+          await uploadAvatar(file);
+        } else {
+          updateProfile({ avatarUrl: URL.createObjectURL(file) });
+        }
+      } catch (err) {
+        console.error("Image upload failed:", err);
+      }
     }
   };
 

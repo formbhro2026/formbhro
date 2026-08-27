@@ -171,6 +171,26 @@ export async function updateMyProfile(
   return data;
 }
 
+export async function uploadAvatar(file: File): Promise<string> {
+  const { data: userData } = await supabase.auth.getUser();
+  const uid = userData.user?.id;
+  if (!uid) throw new ApiError("Session expired. Please sign in again.", "unauthenticated");
+
+  const ext = file.name.includes(".") ? file.name.slice(file.name.lastIndexOf(".")) : ".jpg";
+  const path = `${uid}/${crypto.randomUUID()}${ext}`;
+
+  const { error: uploadError } = await supabase.storage.from("avatars").upload(path, file, {
+    cacheControl: "3600",
+    upsert: false,
+    contentType: file.type || "image/jpeg",
+  });
+
+  if (uploadError) throw new ApiError("Upload failed. Please try again.", "storage_failure");
+
+  const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+  return data.publicUrl;
+}
+
 export function onAuthChange(cb: (signedIn: boolean) => void) {
   const { data } = supabase.auth.onAuthStateChange((event) => {
     if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {

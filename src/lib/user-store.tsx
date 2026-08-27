@@ -229,6 +229,11 @@ export function DemoUserStoreProvider({ children }: { children: ReactNode }) {
     ]);
   }, []);
 
+  const uploadAvatar = useCallback(async (file: File) => {
+    const url = URL.createObjectURL(file);
+    updateProfile({ avatarUrl: url });
+  }, [updateProfile]);
+
   const removeFile = useCallback(async (id: string) => {
     setDocuments((prev) => prev.filter((d) => d.id !== id));
   }, []);
@@ -270,6 +275,7 @@ export function DemoUserStoreProvider({ children }: { children: ReactNode }) {
       retryMessage,
       attachFile,
       uploadPersonalDocument,
+      uploadAvatar,
       removeFile,
       addNote,
       markRead,
@@ -295,6 +301,7 @@ export function DemoUserStoreProvider({ children }: { children: ReactNode }) {
       retryMessage,
       attachFile,
       uploadPersonalDocument,
+      uploadAvatar,
       removeFile,
       addNote,
       markRead,
