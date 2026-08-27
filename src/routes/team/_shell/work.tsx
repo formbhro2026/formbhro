@@ -871,54 +871,57 @@ function Conversation({
 
   return (
     <>
-      <header className="flex items-center gap-3 border-b border-white/10 bg-bg/85 px-3 py-2.5 backdrop-blur-xl">
-        <Link
-          to="/team/work"
-          search={(prev: WorkSearch) => ({ ...prev, r: undefined })}
-          aria-label="Back to assigned chats"
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-white hover:bg-white/5 lg:hidden"
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        </Link>
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/10 bg-surface-2 text-[11px] font-bold text-brand-light">
-          {r.userInitials}
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-semibold text-white">{r.userName}</p>
-          <p className="truncate text-[10px] text-text-muted">
-            {r.id} • {r.category}
-          </p>
-        </div>
+      {/* ===== RESPONSIVE HEADER ===== */}
+      <header className="border-b border-white/10 bg-bg/85 backdrop-blur-xl">
+        {/* Row 1: Back + User info + critical icon actions */}
+        <div className="flex items-center gap-2 px-3 py-2">
+          <Link
+            to="/team/work"
+            search={(prev: WorkSearch) => ({ ...prev, r: undefined })}
+            aria-label="Back to assigned chats"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-white hover:bg-white/5 lg:hidden"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          </Link>
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/10 bg-surface-2 text-[11px] font-bold text-brand-light">
+            {r.userInitials}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-semibold text-white">{r.userName}</p>
+            <p className="truncate text-[10px] text-text-muted">
+              {r.id} • {r.category}
+            </p>
+          </div>
 
-        {/* In-chat Document Access */}
-        <div className="hidden items-center gap-1 rounded-xl bg-surface-2 p-1 xl:flex">
-          {documentsFor(r.id)
-            .slice(0, 3)
-            .map((doc) => (
+          {/* In-chat Document Access — xl only */}
+          <div className="hidden items-center gap-1 rounded-xl bg-surface-2 p-1 xl:flex">
+            {documentsFor(r.id)
+              .slice(0, 3)
+              .map((doc) => (
+                <button
+                  key={doc.id}
+                  onClick={() => onPreview(doc.id)}
+                  className="group relative flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-surface-3 transition-all hover:bg-brand/20 hover:border-brand/40"
+                  title={doc.name}
+                >
+                  <FileText className="h-3.5 w-3.5 text-text-muted group-hover:text-brand" />
+                </button>
+              ))}
+            {docCount > 3 && (
               <button
-                key={doc.id}
-                onClick={() => onPreview(doc.id)}
-                className="group relative flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-surface-3 transition-all hover:bg-brand/20 hover:border-brand/40"
-                title={doc.name}
+                onClick={() => onOpenSheet()}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-surface-3 text-[10px] font-bold text-text-muted hover:bg-white/5"
               >
-                <FileText className="h-3.5 w-3.5 text-text-muted group-hover:text-brand" />
+                +{docCount - 3}
               </button>
-            ))}
-          {docCount > 3 && (
-            <button
-              onClick={() => onOpenSheet()}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-surface-3 text-[10px] font-bold text-text-muted hover:bg-white/5"
-            >
-              +{docCount - 3}
-            </button>
-          )}
-        </div>
+            )}
+          </div>
 
-        <div className="flex items-center gap-1.5 mr-2">
+          {/* Call button — always visible */}
           <button
             type="button"
             onClick={() => startCall(false)}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 text-white hover:bg-white/5 hover:text-brand transition-colors"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-white hover:bg-white/5 hover:text-brand transition-colors"
             title="Start Call"
           >
             <Phone className="h-4 w-4" />
@@ -927,62 +930,83 @@ function Conversation({
             <button
               type="button"
               onClick={() => startCall(true)}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 text-white hover:bg-white/5 hover:text-brand transition-colors"
+              className="hidden sm:inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-white hover:bg-white/5 hover:text-brand transition-colors"
               title="Share Screen"
             >
               <Monitor className="h-4 w-4" />
             </button>
           )}
-        </div>
 
-        {unreadCount > 0 && (
+          {/* Search — always visible */}
           <button
             type="button"
-            onClick={() => markRead(r.id)}
-            aria-label={`Mark ${unreadCount} unread ${unreadCount === 1 ? "message" : "messages"} as read`}
-            className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border border-brand/40 bg-brand/10 px-2.5 text-[10px] font-semibold text-brand-light hover:bg-brand/20"
+            onClick={() => {
+              setSearchOpen((o) => !o);
+              window.setTimeout(() => searchInputRef.current?.focus(), 0);
+            }}
+            aria-expanded={searchOpen}
+            aria-label="Search in this conversation"
+            className={cn(
+              "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border text-white transition-colors",
+              searchOpen
+                ? "border-brand/50 bg-brand/15 text-brand-light"
+                : "border-white/10 hover:bg-white/5",
+            )}
           >
-            <CheckCheck className="h-3.5 w-3.5" aria-hidden="true" />
-            <span className="hidden sm:inline">{unreadCount} unread — mark read</span>
-            <span className="sm:hidden">{unreadCount}</span>
+            <Search className="h-4 w-4" aria-hidden="true" />
           </button>
-        )}
-        <button
-          type="button"
-          onClick={() => {
-            setSearchOpen((o) => !o);
-            window.setTimeout(() => searchInputRef.current?.focus(), 0);
-          }}
-          aria-expanded={searchOpen}
-          aria-label="Search in this conversation"
-          className={cn(
-            "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border text-white transition-colors",
-            searchOpen
-              ? "border-brand/50 bg-brand/15 text-brand-light"
-              : "border-white/10 hover:bg-white/5",
-          )}
-        >
-          <Search className="h-4 w-4" aria-hidden="true" />
-        </button>
-        <TransferButton request={r} />
-        <EscalateButton request={r} />
-        <div className="hidden w-40 shrink-0 sm:block">
-          <StatusSelect requestId={r.id} status={r.status} onChange={onStatus} />
+
+          {/* Info / sheet — always visible on non-xl */}
+          <button
+            type="button"
+            onClick={onOpenSheet}
+            aria-haspopup="dialog"
+            aria-label={`Request details, ${docCount} documents`}
+            className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-white hover:bg-white/5 xl:hidden"
+          >
+            <Info className="h-4 w-4" aria-hidden="true" />
+            {docCount > 0 && (
+              <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[9px] font-bold text-white">
+                {docCount}
+              </span>
+            )}
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={onOpenSheet}
-          aria-haspopup="dialog"
-          aria-label={`Request details, ${docCount} documents`}
-          className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-white hover:bg-white/5 xl:hidden"
-        >
-          <Info className="h-4 w-4" aria-hidden="true" />
-          {docCount > 0 && (
-            <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[9px] font-bold text-white">
-              {docCount}
-            </span>
+
+        {/* Row 2: Secondary actions — scrollable on mobile */}
+        <div className="flex items-center gap-2 overflow-x-auto border-t border-white/5 px-3 py-1.5 scrollbar-none xl:hidden">
+          <TransferButton request={r} />
+          <EscalateButton request={r} />
+          {unreadCount > 0 && (
+            <button
+              type="button"
+              onClick={() => markRead(r.id)}
+              aria-label={`Mark ${unreadCount} unread ${unreadCount === 1 ? "message" : "messages"} as read`}
+              className="inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full border border-brand/40 bg-brand/10 px-3 text-[10px] font-semibold text-brand-light hover:bg-brand/20 whitespace-nowrap"
+            >
+              <CheckCheck className="h-3 w-3" aria-hidden="true" />
+              {unreadCount} unread
+            </button>
           )}
-        </button>
+          <div className="min-w-[9rem] flex-1">
+            <StatusSelect requestId={r.id} status={r.status} onChange={onStatus} />
+          </div>
+        </div>
+
+        {/* Row 2 desktop: status in header row (xl+) */}
+        <div className="hidden xl:block px-3 py-1.5">
+          {unreadCount > 0 && (
+            <button
+              type="button"
+              onClick={() => markRead(r.id)}
+              aria-label={`Mark ${unreadCount} unread ${unreadCount === 1 ? "message" : "messages"} as read`}
+              className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border border-brand/40 bg-brand/10 px-2.5 text-[10px] font-semibold text-brand-light hover:bg-brand/20 mr-2"
+            >
+              <CheckCheck className="h-3.5 w-3.5" aria-hidden="true" />
+              {unreadCount} unread — mark read
+            </button>
+          )}
+        </div>
       </header>
 
       {searchOpen && (
@@ -1454,7 +1478,7 @@ function Conversation({
               <Zap className="h-4 w-4" aria-hidden="true" />
             </button>
             {showQuickReplies && quickReplies.length > 0 && (
-              <div className="absolute bottom-full left-0 mb-2 w-64 max-h-64 overflow-y-auto rounded-xl border border-border-subtle bg-surface-1 p-2 shadow-xl z-50">
+              <div className="absolute bottom-full left-0 mb-2 w-[min(16rem,calc(100vw-3rem))] max-h-64 overflow-y-auto rounded-xl border border-border-subtle bg-surface-1 p-2 shadow-xl z-50">
                 <div className="mb-2 px-2 pb-2 pt-1 text-[11px] font-semibold text-text-muted border-b border-border-subtle">
                   Quick Replies
                 </div>
@@ -1507,9 +1531,6 @@ function Conversation({
           >
             <Send className="h-4 w-4" aria-hidden="true" />
           </button>
-        </div>
-        <div className="mx-auto mt-2 max-w-2xl sm:hidden">
-          <StatusSelect requestId={r.id} status={r.status} onChange={onStatus} />
         </div>
       </form>
       <CallOverlay session={session} onAccept={acceptCall} onHangup={hangup} onSwitchCamera={switchCamera} />

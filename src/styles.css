@@ -115,3 +115,12 @@ a[href*="lovable.ai"],
   position: absolute !important;
   clip: rect(0, 0, 0, 0) !important;
 }
+
+/* Hide scrollbar for overflow-x-auto rows while keeping scroll functionality */
+.scrollbar-none {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none; /* Chrome/Safari/Opera */
+}
