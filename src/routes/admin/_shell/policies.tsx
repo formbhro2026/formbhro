@@ -11,14 +11,14 @@ import { Loader2, Plus, Shield, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Database } from "@/integrations/supabase/types";
-import { useSession } from "@/lib/session";
+
 
 
 type Policy = Database["public"]["Tables"]["policies"]["Row"];
 
 function PoliciesPage() {
   const queryClient = useQueryClient();
-  const { user } = useSession();
+
   const [isCreating, setIsCreating] = useState(false);
   const [formData, setFormData] = useState({
     type: "terms",
@@ -43,12 +43,14 @@ function PoliciesPage() {
     mutationFn: async (
       newPolicy: Omit<Policy, "id" | "created_at" | "published_at" | "created_by" | "updated_at">,
     ) => {
-      if (!user?.id) throw new Error("Not authenticated");
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData.user?.id;
+      if (!userId) throw new Error("Not authenticated");
       const { data, error } = await supabase
         .from("policies")
         .insert({
           ...newPolicy,
-          created_by: user.id,
+          created_by: userId,
           published_at: new Date().toISOString(),
         })
         .select()
