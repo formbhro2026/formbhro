@@ -21,6 +21,7 @@ import {
   type TeamReadReceipt,
 } from "@/data/team-module";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { signInWithPassword, getMyRole, getMyProfile, signOut as apiSignOut } from "@/lib/api/auth";
 import { markMessagesSeen } from "./api/messages";
 import { assignRequest, updateRequestStatus, getTeamAnalytics } from "./api/requests";
@@ -656,6 +657,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         fetchAnalytics(); // Update stats
       } catch (err) {
         console.error("Failed to self-assign:", err);
+        toast.error("Failed to claim request: " + (err instanceof Error ? err.message : String(err)));
       }
     },
     [member, fetchAnalytics],
