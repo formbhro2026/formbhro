@@ -612,12 +612,12 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
   const assignedIds = useMemo(() => new Set(assigned.map((r) => r.id)), [assigned]);
 
   const visibleDocuments = useMemo(
-    () => documents.filter((d) => assignedIds.has(d.requestId)),
-    [documents, assignedIds],
+    () => documents,
+    [documents],
   );
   const visibleMessages = useMemo(
-    () => messages.filter((m) => assignedIds.has(m.requestId)),
-    [messages, assignedIds],
+    () => messages,
+    [messages],
   );
 
   const getRequest = useCallback((id: string) => assigned.find((r) => r.id === id), [assigned]);

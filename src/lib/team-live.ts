@@ -59,7 +59,7 @@ export type LiveTeamSnapshot = {
   refByRequestId: Record<string, string>;
 };
 
-export function mapTeamRequest(row: RequestRow, assigneeId: string, userName: string): TeamRequest {
+export function mapTeamRequest(row: RequestRow, _assigneeId: string, userName: string): TeamRequest {
   return {
     id: row.reference || row.id,
     title: row.title,
@@ -74,7 +74,7 @@ export function mapTeamRequest(row: RequestRow, assigneeId: string, userName: st
     lastMessage: row.last_message ?? "No messages yet.",
     unread: 0,
     progress: row.progress ?? 0,
-    assigneeId,
+    assigneeId: row.assigned_team_id || "",
     timeline: [{ label: "Request created", time: stamp(row.created_at) }],
     isEscalated: row.is_escalated ?? false,
   };
