@@ -360,29 +360,20 @@ function AdminChats() {
                                   <MessageAttachment
                                     document={{
                                       id: m.attachment.id,
-                                      requestId: m.attachment.request_id,
+                                      requestId: m.attachment.request_id || "",
                                       name: m.attachment.file_name,
-                                      kind: m.attachment.file_type?.includes("image")
-                                        ? "image"
-                                        : m.attachment.file_type?.includes("pdf")
-                                          ? "pdf"
-                                          : m.attachment.file_type?.includes("word")
-                                            ? "word"
-                                            : m.attachment.file_type?.includes("excel")
-                                              ? "excel"
-                                              : "unknown",
-                                      size:
-                                        Math.round((m.attachment.file_size || 0) / 1024) + " KB",
+                                      kind: m.attachment.kind as any,
+                                      size: Math.round((m.attachment.size_bytes || 0) / 1024) + " KB",
                                       uploadedAt: new Date(m.attachment.created_at).toISOString(),
-                                      status: "verified",
-                                      storagePath: m.attachment.file_path,
+                                      uploadedBy: m.attachment.uploader_role === "user" ? "User" : "Team",
+                                      storagePath: m.attachment.storage_path,
                                     }}
                                     mine={m.is_system ? false : m.sender_role === "admin"}
                                     onPreview={() =>
                                       void openDocument(
                                         {
                                           name: m.attachment!.file_name,
-                                          storagePath: m.attachment!.file_path,
+                                          storagePath: m.attachment!.storage_path,
                                         },
                                         false,
                                       )
