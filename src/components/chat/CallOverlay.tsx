@@ -16,6 +16,7 @@ export function CallOverlay({
 }) {
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const [isMaximized, setIsMaximized] = useState(false);
 
   useEffect(() => {
@@ -25,10 +26,17 @@ export function CallOverlay({
   }, [session.localStream]);
 
   useEffect(() => {
-    if (remoteVideoRef.current && session.remoteStream) {
+    if (remoteVideoRef.current && session.remoteStream && session.callType !== 'audio') {
       remoteVideoRef.current.srcObject = session.remoteStream;
     }
-  }, [session.remoteStream]);
+  }, [session.remoteStream, session.callType]);
+
+  useEffect(() => {
+    if (audioRef.current && session.remoteStream && session.callType === 'audio') {
+      audioRef.current.srcObject = session.remoteStream;
+      audioRef.current.play().catch(err => console.error("Audio autoplay failed:", err));
+    }
+  }, [session.remoteStream, session.callType]);
 
   useEffect(() => {
     if (!session.isActive && session.error) {
@@ -75,7 +83,20 @@ export function CallOverlay({
             </button>
           </div>
         ) : session.remoteStream ? (
-          <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
+          session.callType === 'audio' ? (
+            <div className="flex flex-col w-full h-full items-center justify-center gap-4 text-center p-6 bg-surface-3">
+              <div className="h-24 w-24 rounded-full bg-brand/20 flex items-center justify-center">
+                <Phone className="h-10 w-10 text-brand" />
+              </div>
+              <div>
+                <p className="text-white font-bold text-lg">In Call</p>
+                <p className="text-sm text-text-muted mt-1">Audio Only</p>
+              </div>
+              <audio ref={audioRef} autoPlay />
+            </div>
+          ) : (
+            <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
+          )
         ) : (
           <div className="flex flex-col items-center gap-4 text-center p-6">
             <div className="h-20 w-20 rounded-full bg-brand/20 flex items-center justify-center animate-pulse">
@@ -86,14 +107,14 @@ export function CallOverlay({
                 {session.isIncoming ? "Incoming Call..." : "Calling Support..."}
               </p>
               <p className="text-[10px] text-text-muted mt-1 uppercase tracking-widest font-bold">
-                {session.isScreenSharing ? "Screen Sharing Session" : "Voice & Video Call"}
+                {session.isScreenSharing ? "Screen Sharing Session" : session.callType === 'audio' ? "Voice Call" : "Voice & Video Call"}
               </p>
             </div>
           </div>
         )}
 
         {/* Local Video (Picture-in-Picture) */}
-        {session.localStream && session.isActive && (
+        {session.localStream && session.isActive && session.callType !== 'audio' && (
           <div className="absolute top-4 right-4 w-24 h-16 rounded-lg overflow-hidden border border-white/20 shadow-lg bg-black sm:w-32 sm:h-20">
             <video
               ref={localVideoRef}
@@ -141,7 +162,7 @@ export function CallOverlay({
                   >
                     <PhoneOff className="h-6 w-6" />
                   </button>
-                  {onSwitchCamera && !session.isScreenSharing && (
+                  {onSwitchCamera && !session.isScreenSharing && session.callType !== 'audio' && (
                     <button
                       onClick={onSwitchCamera}
                       className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"

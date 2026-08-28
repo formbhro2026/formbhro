@@ -25,6 +25,7 @@ import {
   Pin,
   PinOff,
   Phone,
+  Video,
   Monitor,
   FileText,
 } from "lucide-react";
@@ -920,16 +921,24 @@ function Conversation({
           {/* Call button — always visible */}
           <button
             type="button"
-            onClick={() => startCall(false)}
+            onClick={() => startCall('audio')}
             className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-white hover:bg-white/5 hover:text-brand transition-colors"
-            title="Start Call"
+            title="Start Audio Call"
           >
             <Phone className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => startCall('video')}
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-white hover:bg-white/5 hover:text-brand transition-colors"
+            title="Start Video Call"
+          >
+            <Video className="h-4 w-4" />
           </button>
           {canShareScreen() && (
             <button
               type="button"
-              onClick={() => startCall(true)}
+              onClick={() => startCall('screen')}
               className="hidden sm:inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-white hover:bg-white/5 hover:text-brand transition-colors"
               title="Share Screen"
             >
