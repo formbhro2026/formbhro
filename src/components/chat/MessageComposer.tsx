@@ -68,6 +68,7 @@ export function MessageComposer({
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const attachButtonRef = useRef<HTMLButtonElement>(null);
   const timersRef = useRef<Record<string, number>>({});
   const objectUrlsRef = useRef<string[]>([]);
@@ -171,14 +172,14 @@ export function MessageComposer({
 
   const pick = (opt: { kind: PickKind; accept: string; capture?: "environment" }) => {
     setMenuOpen(false);
-    if (!fileInputRef.current) return;
-    fileInputRef.current.accept = opt.accept;
     if (opt.capture) {
-      fileInputRef.current.setAttribute("capture", opt.capture);
+      if (!cameraInputRef.current) return;
+      cameraInputRef.current.click();
     } else {
-      fileInputRef.current.removeAttribute("capture");
+      if (!fileInputRef.current) return;
+      fileInputRef.current.accept = opt.accept;
+      fileInputRef.current.click();
     }
-    fileInputRef.current.click();
   };
 
   const cancel = (id: string) => {
@@ -216,6 +217,17 @@ export function MessageComposer({
         ref={fileInputRef}
         type="file"
         multiple
+        className="sr-only"
+        onChange={(e) => {
+          if (e.target.files?.length) addFiles(e.target.files);
+          e.target.value = "";
+        }}
+      />
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
         className="sr-only"
         onChange={(e) => {
           if (e.target.files?.length) addFiles(e.target.files);
