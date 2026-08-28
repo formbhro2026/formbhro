@@ -1,16 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { canShareScreen } from "@/lib/utils";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Monitor, Paperclip, Phone, Send, Share2, AlertTriangle } from "lucide-react";
+import { Monitor, Paperclip, Phone, Video, Send, Share2, AlertTriangle, Eye, Download } from "lucide-react";
 import { useAdmin } from "@/lib/admin-store";
 import { Button, Panel, Pill, SearchBox, formatDate, inputClass } from "@/components/admin/AdminUI";
 import * as messagesApi from "@/lib/api/messages";
-// documentsApi removed for privacy
+import { openDocument } from "@/lib/doc-access";
 import * as requestsApi from "@/lib/api/requests";
 import { supabase } from "@/integrations/supabase/client";
 import { STATUS_LABEL, type DbRequestStatus } from "@/lib/api/types";
 import { useWebRTCCall } from "@/hooks/use-webrtc-call";
 import { CallOverlay } from "@/components/chat/CallOverlay";
+import { MessageAttachment } from "@/components/team/MessageAttachment";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/_shell/chats")({
@@ -268,15 +269,22 @@ function AdminChats() {
                   </div>
                   <div className="flex items-center gap-1.5">
                     <button
-                      onClick={() => startCall(false)}
+                      onClick={() => startCall('audio')}
                       className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border-subtle bg-surface-2 text-text-muted hover:border-brand/40 hover:text-brand transition-colors"
-                      title="Start Call"
+                      title="Start Audio Call"
                     >
                       <Phone className="h-3.5 w-3.5" />
                     </button>
+                    <button
+                      onClick={() => startCall('video')}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border-subtle bg-surface-2 text-text-muted hover:border-brand/40 hover:text-brand transition-colors"
+                      title="Start Video Call"
+                    >
+                      <Video className="h-3.5 w-3.5" />
+                    </button>
                     {canShareScreen() && (
                       <button
-                        onClick={() => startCall(true)}
+                        onClick={() => startCall('screen')}
                         className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border-subtle bg-surface-2 text-text-muted hover:border-brand/40 hover:text-brand transition-colors"
                         title="Share Screen"
                       >
@@ -339,15 +347,23 @@ function AdminChats() {
                                   </p>
                                 )}
                                 {m.attachment && (
-                                  <div className="mt-2 p-2 rounded-lg bg-black/20 border border-white/5 flex items-center gap-2">
-                                    <Paperclip className="h-3 w-3 text-brand" />
-                                    <span className="text-[10px] truncate flex-1 text-text-muted">
-                                      {m.attachment.file_name}
-                                    </span>
-                                    <span className="text-[8px] font-bold text-brand uppercase">
-                                      Restricted
-                                    </span>
-                                  </div>
+                                  <MessageAttachment
+                                    document={{
+                                      id: m.attachment.id,
+                                      requestId: m.attachment.request_id,
+                                      name: m.attachment.file_name,
+                                      kind: m.attachment.file_type?.includes("image") ? "image" : 
+                                            m.attachment.file_type?.includes("pdf") ? "pdf" : 
+                                            m.attachment.file_type?.includes("word") ? "word" : 
+                                            m.attachment.file_type?.includes("excel") ? "excel" : "unknown",
+                                      size: Math.round((m.attachment.file_size || 0) / 1024) + " KB",
+                                      uploadedAt: new Date(m.attachment.created_at).toISOString(),
+                                      status: "verified",
+                                      storagePath: m.attachment.file_path
+                                    }}
+                                    mine={m.is_system ? false : m.sender_role === "admin"}
+                                    onPreview={() => void openDocument({ name: m.attachment!.file_name, storagePath: m.attachment!.file_path }, false)}
+                                  />
                                 )}
                               </div>
                             </div>
