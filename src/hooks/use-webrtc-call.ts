@@ -9,6 +9,7 @@ export type CallSession = {
   isOutgoing: boolean;
   isAccepted: boolean;
   isScreenSharing: boolean;
+  callType: "audio" | "video" | "screen" | null;
   remoteStream: MediaStream | null;
   localStream: MediaStream | null;
   error: string | null;
@@ -19,8 +20,11 @@ const ICE_SERVERS = {
   iceServers: [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }],
 };
 
-const requestMediaPermissions = async (screenShare = false, facingMode: "user" | "environment" = "user"): Promise<MediaStream> => {
-  if (screenShare) {
+const requestMediaPermissions = async (
+  type: "audio" | "video" | "screen" = "video",
+  facingMode: "user" | "environment" = "user",
+): Promise<MediaStream> => {
+  if (type === "screen") {
     if (isCapacitor() || !navigator.mediaDevices.getDisplayMedia) {
       throw new Error("Screen sharing is not supported on mobile devices.");
     }
@@ -63,6 +67,15 @@ const requestMediaPermissions = async (screenShare = false, facingMode: "user" |
 
       return screenStream;
     }
+  } else if (type === "audio") {
+    return await navigator.mediaDevices.getUserMedia({
+      video: false,
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+    });
   } else {
     return await navigator.mediaDevices.getUserMedia({
       video: {
@@ -86,6 +99,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
     isOutgoing: false,
     isAccepted: false,
     isScreenSharing: false,
+    callType: null,
     remoteStream: null,
     localStream: null,
     error: null,
@@ -111,6 +125,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
       isOutgoing: false,
       isAccepted: false,
       isScreenSharing: false,
+      callType: null,
       remoteStream: null,
       localStream: null,
       error: errorMessage || null,
@@ -146,7 +161,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
   }, [chatRoomId, cleanup]);
 
   const startCall = useCallback(
-    async (screenShare = false) => {
+    async (type: "audio" | "video" | "screen" = "video") => {
       if (!chatRoomId) return;
 
       try {
@@ -159,7 +174,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
 
         let stream: MediaStream;
         try {
-          stream = await requestMediaPermissions(screenShare);
+          stream = await requestMediaPermissions(type);
         } catch (mediaErr) {
           console.error("Media permissions error:", mediaErr);
           const errorMessage = isCapacitor()
@@ -174,7 +189,8 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
           ...prev,
           isActive: true,
           isOutgoing: true,
-          isScreenSharing: screenShare,
+          isScreenSharing: type === "screen",
+          callType: type,
           localStream: stream,
         }));
 
@@ -190,7 +206,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
           type: "offer",
           from: user.id,
           target: "all",
-          data: { offer, isScreenShare: screenShare },
+          data: { offer, type },
         });
 
         // Auto hangup after 30 seconds if not accepted
@@ -224,7 +240,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
     try {
       let stream: MediaStream;
       try {
-        stream = await requestMediaPermissions(false);
+        stream = await requestMediaPermissions(session.callType || "video");
       } catch (mediaErr) {
         console.error("Media permissions error:", mediaErr);
         const errorMessage = isCapacitor()
@@ -300,7 +316,8 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
                 ...prev,
                 isActive: true,
                 isIncoming: true,
-                isScreenSharing: signal.data.isScreenShare,
+                isScreenSharing: signal.data.type === "screen",
+                callType: signal.data.type || (signal.data.isScreenShare ? "screen" : "video"),
               }));
               const pc = createPeerConnection();
               pcRef.current = pc;
@@ -352,21 +369,21 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
       const currentVideoTrack = localStreamRef.current.getVideoTracks()[0];
       if (!currentVideoTrack) return;
 
-      const newFacingMode = session.facingMode === 'user' ? 'environment' : 'user';
-      setSession(prev => ({ ...prev, facingMode: newFacingMode }));
+      const newFacingMode = session.facingMode === "user" ? "environment" : "user";
+      setSession((prev) => ({ ...prev, facingMode: newFacingMode }));
 
       const newStream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 1280 },
           height: { ideal: 720 },
           facingMode: newFacingMode,
-        }
+        },
       });
-      
+
       const newVideoTrack = newStream.getVideoTracks()[0];
-      
+
       if (pcRef.current) {
-        const sender = pcRef.current.getSenders().find(s => s.track?.kind === 'video');
+        const sender = pcRef.current.getSenders().find((s) => s.track?.kind === "video");
         if (sender) {
           await sender.replaceTrack(newVideoTrack);
         }
@@ -379,12 +396,14 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
       // Trigger re-render by passing a new MediaStream instance so React detects the change
       const updatedStream = new MediaStream(localStreamRef.current.getTracks());
       localStreamRef.current = updatedStream;
-      setSession(prev => ({ ...prev, localStream: updatedStream }));
-      
+      setSession((prev) => ({ ...prev, localStream: updatedStream }));
     } catch (err) {
       console.error("Could not switch camera:", err);
       // Fallback state if switching fails
-      setSession(prev => ({ ...prev, facingMode: prev.facingMode === 'user' ? 'environment' : 'user' }));
+      setSession((prev) => ({
+        ...prev,
+        facingMode: prev.facingMode === "user" ? "environment" : "user",
+      }));
     }
   }, [session.isScreenSharing, session.facingMode]);
 

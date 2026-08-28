@@ -1,4 +1,13 @@
-import { X, Phone, PhoneOff, Video, VideoOff, Maximize2, Minimize2, SwitchCamera } from "lucide-react";
+import {
+  X,
+  Phone,
+  PhoneOff,
+  Video,
+  VideoOff,
+  Maximize2,
+  Minimize2,
+  SwitchCamera,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { type CallSession } from "@/hooks/use-webrtc-call";
 import { cn } from "@/lib/utils";
@@ -26,15 +35,15 @@ export function CallOverlay({
   }, [session.localStream]);
 
   useEffect(() => {
-    if (remoteVideoRef.current && session.remoteStream && session.callType !== 'audio') {
+    if (remoteVideoRef.current && session.remoteStream && session.callType !== "audio") {
       remoteVideoRef.current.srcObject = session.remoteStream;
     }
   }, [session.remoteStream, session.callType]);
 
   useEffect(() => {
-    if (audioRef.current && session.remoteStream && session.callType === 'audio') {
+    if (audioRef.current && session.remoteStream && session.callType === "audio") {
       audioRef.current.srcObject = session.remoteStream;
-      audioRef.current.play().catch(err => console.error("Audio autoplay failed:", err));
+      audioRef.current.play().catch((err) => console.error("Audio autoplay failed:", err));
     }
   }, [session.remoteStream, session.callType]);
 
@@ -83,7 +92,7 @@ export function CallOverlay({
             </button>
           </div>
         ) : session.remoteStream ? (
-          session.callType === 'audio' ? (
+          session.callType === "audio" ? (
             <div className="flex flex-col w-full h-full items-center justify-center gap-4 text-center p-6 bg-surface-3">
               <div className="h-24 w-24 rounded-full bg-brand/20 flex items-center justify-center">
                 <Phone className="h-10 w-10 text-brand" />
@@ -95,7 +104,12 @@ export function CallOverlay({
               <audio ref={audioRef} autoPlay />
             </div>
           ) : (
-            <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
+            <video
+              ref={remoteVideoRef}
+              autoPlay
+              playsInline
+              className="w-full h-full object-cover"
+            />
           )
         ) : (
           <div className="flex flex-col items-center gap-4 text-center p-6">
@@ -107,21 +121,28 @@ export function CallOverlay({
                 {session.isIncoming ? "Incoming Call..." : "Calling Support..."}
               </p>
               <p className="text-[10px] text-text-muted mt-1 uppercase tracking-widest font-bold">
-                {session.isScreenSharing ? "Screen Sharing Session" : session.callType === 'audio' ? "Voice Call" : "Voice & Video Call"}
+                {session.isScreenSharing
+                  ? "Screen Sharing Session"
+                  : session.callType === "audio"
+                    ? "Voice Call"
+                    : "Voice & Video Call"}
               </p>
             </div>
           </div>
         )}
 
         {/* Local Video (Picture-in-Picture) */}
-        {session.localStream && session.isActive && session.callType !== 'audio' && (
+        {session.localStream && session.isActive && session.callType !== "audio" && (
           <div className="absolute top-4 right-4 w-24 h-16 rounded-lg overflow-hidden border border-white/20 shadow-lg bg-black sm:w-32 sm:h-20">
             <video
               ref={localVideoRef}
               autoPlay
               playsInline
               muted
-              className={cn("w-full h-full object-cover", session.facingMode === "user" && "mirror")}
+              className={cn(
+                "w-full h-full object-cover",
+                session.facingMode === "user" && "mirror",
+              )}
             />
           </div>
         )}
@@ -162,7 +183,7 @@ export function CallOverlay({
                   >
                     <PhoneOff className="h-6 w-6" />
                   </button>
-                  {onSwitchCamera && !session.isScreenSharing && session.callType !== 'audio' && (
+                  {onSwitchCamera && !session.isScreenSharing && session.callType !== "audio" && (
                     <button
                       onClick={onSwitchCamera}
                       className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"

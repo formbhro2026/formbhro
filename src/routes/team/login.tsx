@@ -38,8 +38,8 @@ function TeamLogin() {
 
   return (
     <main className="relative flex min-h-screen items-center justify-center bg-[#050505] px-4 py-10 text-white antialiased">
-      <Link 
-        to="/" 
+      <Link
+        to="/"
         className="absolute top-6 left-6 flex items-center gap-2 text-sm font-medium text-zinc-500 hover:text-white transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />

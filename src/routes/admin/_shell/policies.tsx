@@ -12,8 +12,6 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { Database } from "@/integrations/supabase/types";
 
-
-
 type Policy = Database["public"]["Tables"]["policies"]["Row"];
 
 function PoliciesPage() {
@@ -27,7 +25,12 @@ function PoliciesPage() {
     is_active: false,
   });
 
-  const { data: policies, isLoading, isError, error: queryError } = useQuery({
+  const {
+    data: policies,
+    isLoading,
+    isError,
+    error: queryError,
+  } = useQuery({
     queryKey: ["admin_policies"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -230,7 +233,8 @@ function PoliciesPage() {
                     )}
                   </div>
                   <div className="text-xs text-text-muted">
-                    Published: {(() => {
+                    Published:{" "}
+                    {(() => {
                       const dateStr = policy.published_at || policy.created_at;
                       if (!dateStr) return "Unknown Date";
                       const d = new Date(dateStr);
@@ -267,7 +271,10 @@ function PoliciesPage() {
   );
 }
 
-class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { error: Error | null }> {
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
   constructor(props: { children: React.ReactNode }) {
     super(props);
     this.state = { error: null };
@@ -280,7 +287,9 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { err
       return (
         <div className="p-6 m-4 bg-red-950/30 border border-red-500 rounded-xl text-red-200 font-mono">
           <h2 className="font-bold text-lg mb-2">Component Crashed</h2>
-          <p className="whitespace-pre-wrap text-xs">{this.state.error.stack || this.state.error.message}</p>
+          <p className="whitespace-pre-wrap text-xs">
+            {this.state.error.stack || this.state.error.message}
+          </p>
         </div>
       );
     }

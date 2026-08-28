@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, FileText, Info, Monitor, Phone } from "lucide-react";
+import { ArrowLeft, FileText, Info, Monitor, Phone, Video } from "lucide-react";
 import { canShareScreen } from "@/lib/utils";
 import type { SupportRequest } from "@/data/user-module";
 
@@ -14,7 +14,7 @@ export function ChatHeader({
   onOpenDetails: () => void;
   onOpenDocuments?: () => void;
   documentCount?: number;
-  onStartCall?: (screenShare: boolean) => void;
+  onStartCall?: (type: "audio" | "video" | "screen") => void;
 }) {
   return (
     <header className="sticky top-0 z-20 border-b border-border-subtle bg-surface-1/95 backdrop-blur-sm py-1">
@@ -44,17 +44,26 @@ export function ChatHeader({
         <div className="flex items-center gap-1.5 sm:gap-2">
           <button
             type="button"
-            onClick={() => onStartCall?.(false)}
+            onClick={() => onStartCall?.("audio")}
             className="inline-flex h-9 w-9 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 hover:text-brand"
-            title="Start Call"
+            title="Start Audio Call"
           >
             <Phone className="h-4 w-4" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onStartCall?.("video")}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 hover:text-brand"
+            title="Start Video Call"
+          >
+            <Video className="h-4 w-4" />
           </button>
 
           {canShareScreen() && (
             <button
               type="button"
-              onClick={() => onStartCall?.(true)}
+              onClick={() => onStartCall?.("screen")}
               className="inline-flex h-9 w-9 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 hover:text-brand"
               title="Share Screen"
             >

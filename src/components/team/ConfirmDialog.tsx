@@ -1,5 +1,6 @@
 import { useDialogA11y } from "@/lib/use-dialog-a11y";
 import { cn } from "@/lib/utils";
+import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
 
 export function ConfirmDialog({
@@ -22,8 +23,8 @@ export function ConfirmDialog({
   children?: ReactNode;
 }) {
   const panelRef = useDialogA11y<HTMLDivElement>(onClose);
-  return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/75 backdrop-blur-sm sm:items-center sm:p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/75 backdrop-blur-sm sm:items-center sm:p-4">
       <button
         type="button"
         tabIndex={-1}
@@ -36,7 +37,7 @@ export function ConfirmDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
-        className="relative w-full max-w-sm rounded-t-2xl border border-border-subtle bg-bg p-5 duration-200 animate-in slide-in-from-bottom-4 sm:rounded-2xl"
+        className="relative w-full max-w-sm rounded-t-2xl border border-border-subtle bg-bg p-5 duration-200 animate-in slide-in-from-bottom-4 sm:rounded-2xl shadow-2xl"
       >
         <h2 id="confirm-dialog-title" className="text-sm font-semibold text-white">
           {title}
@@ -67,6 +68,7 @@ export function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

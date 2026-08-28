@@ -133,7 +133,6 @@ export async function getOrCreateChatRoom(requestId: string): Promise<ChatRoomRo
   return created;
 }
 
-
 /** RLS scopes this automatically: own requests for users, assigned for team, all for admin. */
 export async function listRequests(opts?: {
   status?: DbRequestStatus[];

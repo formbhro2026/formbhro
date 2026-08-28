@@ -1,7 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { canShareScreen } from "@/lib/utils";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Monitor, Paperclip, Phone, Video, Send, Share2, AlertTriangle, Eye, Download } from "lucide-react";
+import {
+  Monitor,
+  Paperclip,
+  Phone,
+  Video,
+  Send,
+  Share2,
+  AlertTriangle,
+  Eye,
+  Download,
+} from "lucide-react";
 import { useAdmin } from "@/lib/admin-store";
 import { Button, Panel, Pill, SearchBox, formatDate, inputClass } from "@/components/admin/AdminUI";
 import * as messagesApi from "@/lib/api/messages";
@@ -269,14 +279,14 @@ function AdminChats() {
                   </div>
                   <div className="flex items-center gap-1.5">
                     <button
-                      onClick={() => startCall('audio')}
+                      onClick={() => startCall("audio")}
                       className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border-subtle bg-surface-2 text-text-muted hover:border-brand/40 hover:text-brand transition-colors"
                       title="Start Audio Call"
                     >
                       <Phone className="h-3.5 w-3.5" />
                     </button>
                     <button
-                      onClick={() => startCall('video')}
+                      onClick={() => startCall("video")}
                       className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border-subtle bg-surface-2 text-text-muted hover:border-brand/40 hover:text-brand transition-colors"
                       title="Start Video Call"
                     >
@@ -284,7 +294,7 @@ function AdminChats() {
                     </button>
                     {canShareScreen() && (
                       <button
-                        onClick={() => startCall('screen')}
+                        onClick={() => startCall("screen")}
                         className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border-subtle bg-surface-2 text-text-muted hover:border-brand/40 hover:text-brand transition-colors"
                         title="Share Screen"
                       >
@@ -352,17 +362,31 @@ function AdminChats() {
                                       id: m.attachment.id,
                                       requestId: m.attachment.request_id,
                                       name: m.attachment.file_name,
-                                      kind: m.attachment.file_type?.includes("image") ? "image" : 
-                                            m.attachment.file_type?.includes("pdf") ? "pdf" : 
-                                            m.attachment.file_type?.includes("word") ? "word" : 
-                                            m.attachment.file_type?.includes("excel") ? "excel" : "unknown",
-                                      size: Math.round((m.attachment.file_size || 0) / 1024) + " KB",
+                                      kind: m.attachment.file_type?.includes("image")
+                                        ? "image"
+                                        : m.attachment.file_type?.includes("pdf")
+                                          ? "pdf"
+                                          : m.attachment.file_type?.includes("word")
+                                            ? "word"
+                                            : m.attachment.file_type?.includes("excel")
+                                              ? "excel"
+                                              : "unknown",
+                                      size:
+                                        Math.round((m.attachment.file_size || 0) / 1024) + " KB",
                                       uploadedAt: new Date(m.attachment.created_at).toISOString(),
                                       status: "verified",
-                                      storagePath: m.attachment.file_path
+                                      storagePath: m.attachment.file_path,
                                     }}
                                     mine={m.is_system ? false : m.sender_role === "admin"}
-                                    onPreview={() => void openDocument({ name: m.attachment!.file_name, storagePath: m.attachment!.file_path }, false)}
+                                    onPreview={() =>
+                                      void openDocument(
+                                        {
+                                          name: m.attachment!.file_name,
+                                          storagePath: m.attachment!.file_path,
+                                        },
+                                        false,
+                                      )
+                                    }
                                   />
                                 )}
                               </div>

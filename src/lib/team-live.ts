@@ -59,7 +59,11 @@ export type LiveTeamSnapshot = {
   refByRequestId: Record<string, string>;
 };
 
-export function mapTeamRequest(row: RequestRow, _assigneeId: string, userName: string): TeamRequest {
+export function mapTeamRequest(
+  row: RequestRow,
+  _assigneeId: string,
+  userName: string,
+): TeamRequest {
   return {
     id: row.reference || row.id,
     title: row.title,

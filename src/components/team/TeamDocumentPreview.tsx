@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Download, ExternalLink, Maximize2, Minimize2, X, ZoomIn, ZoomOut } from "lucide-react";
 import type { TeamDocument } from "@/data/team-module";
 import { downloadDocument, openDocumentInNewTab } from "@/lib/team-files";
@@ -28,8 +29,8 @@ export function TeamDocumentPreview({
     [doc],
   );
 
-  return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/80 backdrop-blur-sm sm:items-center sm:p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/80 backdrop-blur-sm sm:items-center sm:p-4">
       <button
         type="button"
         tabIndex={-1}
@@ -152,6 +153,7 @@ export function TeamDocumentPreview({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

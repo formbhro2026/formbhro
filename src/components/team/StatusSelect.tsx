@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { BadgeIndianRupee, Check, ChevronDown, CircleCheck } from "lucide-react";
 import { TEAM_STATUS_META, TEAM_STATUS_ORDER, type TeamStatus } from "@/data/team-module";
 import { ConfirmDialog } from "@/components/team/ConfirmDialog";
@@ -98,8 +99,8 @@ export function StatusSelect({
 
 function CompletionDialog({ requestId, onClose }: { requestId: string; onClose: () => void }) {
   const panelRef = useDialogA11y<HTMLDivElement>(onClose);
-  return (
-    <div className="fixed inset-0 z-[85] flex items-end justify-center bg-black/75 backdrop-blur-sm sm:items-center sm:p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/75 backdrop-blur-sm sm:items-center sm:p-4">
       <button
         type="button"
         tabIndex={-1}
@@ -112,7 +113,7 @@ function CompletionDialog({ requestId, onClose }: { requestId: string; onClose: 
         role="dialog"
         aria-modal="true"
         aria-labelledby="completion-title"
-        className="relative w-full max-w-sm rounded-t-2xl border border-border-subtle bg-surface-1 p-6 text-center duration-200 animate-in slide-in-from-bottom-4 sm:rounded-2xl"
+        className="relative w-full max-w-sm rounded-t-2xl border border-border-subtle bg-surface-1 p-6 text-center duration-200 animate-in slide-in-from-bottom-4 sm:rounded-2xl shadow-2xl"
       >
         <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl border border-emerald-400/30 bg-emerald-400/10">
           <CircleCheck className="h-6 w-6 text-emerald-400" strokeWidth={1.75} aria-hidden="true" />
@@ -134,6 +135,7 @@ function CompletionDialog({ requestId, onClose }: { requestId: string; onClose: 
           Done
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -257,7 +257,6 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-
   /** Manual retry for a message that exhausted its automatic attempts. */
   const retryMessage = useCallback(
     (messageId: string) => {
@@ -611,14 +610,8 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
   );
   const assignedIds = useMemo(() => new Set(assigned.map((r) => r.id)), [assigned]);
 
-  const visibleDocuments = useMemo(
-    () => documents,
-    [documents],
-  );
-  const visibleMessages = useMemo(
-    () => messages,
-    [messages],
-  );
+  const visibleDocuments = useMemo(() => documents, [documents]);
+  const visibleMessages = useMemo(() => messages, [messages]);
 
   const getRequest = useCallback((id: string) => assigned.find((r) => r.id === id), [assigned]);
   const messagesFor = useCallback(

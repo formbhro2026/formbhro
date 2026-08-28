@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { canShareScreen } from "@/lib/utils";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -873,7 +874,7 @@ function Conversation({
   return (
     <>
       {/* ===== RESPONSIVE HEADER ===== */}
-      <header className="border-b border-white/10 bg-bg/85 backdrop-blur-xl">
+      <header className="relative z-40 border-b border-white/10 bg-surface-1">
         {/* Row 1: Back + User info + critical icon actions */}
         <div className="flex items-center gap-2 px-3 py-2">
           <Link
@@ -921,7 +922,7 @@ function Conversation({
           {/* Call button — always visible */}
           <button
             type="button"
-            onClick={() => startCall('audio')}
+            onClick={() => startCall("audio")}
             className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-white hover:bg-white/5 hover:text-brand transition-colors"
             title="Start Audio Call"
           >
@@ -929,7 +930,7 @@ function Conversation({
           </button>
           <button
             type="button"
-            onClick={() => startCall('video')}
+            onClick={() => startCall("video")}
             className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-white hover:bg-white/5 hover:text-brand transition-colors"
             title="Start Video Call"
           >
@@ -938,7 +939,7 @@ function Conversation({
           {canShareScreen() && (
             <button
               type="button"
-              onClick={() => startCall('screen')}
+              onClick={() => startCall("screen")}
               className="hidden sm:inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-white hover:bg-white/5 hover:text-brand transition-colors"
               title="Share Screen"
             >
@@ -958,7 +959,7 @@ function Conversation({
             className={cn(
               "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border text-white transition-colors",
               searchOpen
-                ? "border-brand/50 bg-brand/15 text-brand-light"
+                ? "border-brand/40 bg-brand/10 text-brand-light"
                 : "border-white/10 hover:bg-white/5",
             )}
           >
@@ -982,8 +983,8 @@ function Conversation({
           </button>
         </div>
 
-        {/* Row 2: Secondary actions — scrollable on mobile */}
-        <div className="flex items-center gap-2 overflow-x-auto border-t border-white/5 px-3 py-1.5 scrollbar-none xl:hidden">
+        {/* Row 2: Secondary actions — wrap instead of overflow to allow dropdowns */}
+        <div className="flex flex-wrap items-center gap-2 border-t border-white/5 px-3 py-1.5 xl:hidden">
           <TransferButton request={r} />
           <EscalateButton request={r} />
           {unreadCount > 0 && (
@@ -1542,7 +1543,12 @@ function Conversation({
           </button>
         </div>
       </form>
-      <CallOverlay session={session} onAccept={acceptCall} onHangup={hangup} onSwitchCamera={switchCamera} />
+      <CallOverlay
+        session={session}
+        onAccept={acceptCall}
+        onHangup={hangup}
+        onSwitchCamera={switchCamera}
+      />
     </>
   );
 }
@@ -1653,8 +1659,8 @@ function RequestSheet({
   onSend: (requestId: string, text: string) => void;
 }) {
   const panelRef = useDialogA11y<HTMLDivElement>(onClose);
-  return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 backdrop-blur-sm xl:hidden">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/70 backdrop-blur-sm xl:hidden">
       <button
         type="button"
         tabIndex={-1}
@@ -1667,7 +1673,7 @@ function RequestSheet({
         role="dialog"
         aria-modal="true"
         aria-label="Request details"
-        className="relative flex max-h-[85vh] w-full flex-col rounded-t-2xl border border-white/10 bg-surface-1 duration-200 animate-in slide-in-from-bottom-4"
+        className="relative flex max-h-[85vh] w-full flex-col rounded-t-2xl border border-white/10 bg-surface-1 duration-200 animate-in slide-in-from-bottom-4 shadow-2xl"
       >
         <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
           <h2 className="text-sm font-semibold text-white">Request Details</h2>
@@ -1675,6 +1681,7 @@ function RequestSheet({
             type="button"
             onClick={onClose}
             aria-label="Close request details"
+
             className="rounded-lg p-2 text-text-muted hover:bg-white/5 hover:text-white"
           >
             <X className="h-4 w-4" aria-hidden="true" />
@@ -1689,6 +1696,7 @@ function RequestSheet({
           />
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
