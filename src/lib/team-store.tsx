@@ -1042,8 +1042,8 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     );
     const offRequests = subscribeToRequests((row) => {
       setRequests((prev) => {
-        // If it's no longer assigned to this team member, remove it from the pool.
-        if (row.assigned_team_id !== member.id) {
+        // If it's assigned to someone else (not null and not this member), remove it from the pool.
+        if (row.assigned_team_id !== null && row.assigned_team_id !== member.id) {
           return prev.filter((r) => r.id !== (row.reference || row.id));
         }
 
