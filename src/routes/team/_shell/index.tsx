@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   ArrowRight,
   Bell,
@@ -10,6 +10,7 @@ import {
   Hourglass,
   Info,
   MessageSquareText,
+  Plus,
   SlidersHorizontal,
   Timer,
 } from "lucide-react";
@@ -49,7 +50,8 @@ function greeting() {
 }
 
 function TeamHome() {
-  const { member, requests } = useTeamStore();
+  const { member, requests, pool, assignToMe } = useTeamStore();
+  const [claiming, setClaiming] = useState<string | null>(null);
 
   const stats = useMemo(() => {
     const pending = requests.filter((r) => r.status === "pending").length;
@@ -119,6 +121,61 @@ function TeamHome() {
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_350px]">
           {/* Main Content Area */}
           <div className="space-y-6">
+            <section className="rounded-2xl border border-border-subtle bg-surface-1 overflow-hidden">
+              <div className="flex items-center justify-between border-b border-border-subtle px-5 py-4">
+                <h3 className="flex items-center gap-2 text-sm font-bold text-white uppercase tracking-wider">
+                  New Requests{" "}
+                  <span className="grid h-5 min-w-5 place-items-center rounded-full bg-brand/20 text-[10px] text-brand-light">
+                    {pool.length}
+                  </span>
+                </h3>
+              </div>
+
+              <div className="p-2">
+                {pool.length === 0 ? (
+                  <div className="py-8 text-center">
+                    <p className="text-sm font-medium text-text-muted">No new requests in the pool.</p>
+                  </div>
+                ) : (
+                  <ul className="space-y-1">
+                    {pool.slice(0, 5).map((r) => (
+                      <li key={r.id} className="group flex items-center justify-between gap-4 rounded-xl p-3 transition-colors hover:bg-white/5">
+                        <div className="flex items-center gap-4 min-w-0">
+                          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/10 bg-surface-3 text-xs font-bold text-text-muted">
+                            {r.userInitials}
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="truncate text-sm font-semibold text-white">
+                              {r.title}
+                            </h4>
+                            <p className="truncate text-xs text-text-muted mt-0.5">
+                              {r.userName} • {r.id}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            setClaiming(r.id);
+                            await assignToMe(r.id);
+                            setClaiming(null);
+                          }}
+                          disabled={claiming === r.id}
+                          className="flex h-8 items-center gap-1.5 rounded-lg bg-brand px-3 text-xs font-bold text-white transition-colors hover:bg-brand-light disabled:opacity-50"
+                        >
+                          {claiming === r.id ? (
+                            <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                          ) : (
+                            <Plus className="h-3.5 w-3.5" />
+                          )}
+                          Claim
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </section>
+
             <section className="rounded-2xl border border-border-subtle bg-surface-1 overflow-hidden">
               <div className="flex items-center justify-between border-b border-border-subtle px-5 py-4">
                 <h3 className="flex items-center gap-2 text-sm font-bold text-white uppercase tracking-wider">
