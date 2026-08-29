@@ -142,7 +142,25 @@ export async function loadTeamSnapshot(
 ): Promise<LiveTeamSnapshot> {
   // Load both assigned and unassigned (pool) requests
   const limit = 20;
-  const { data: rows, count } = await requestsApi.listRequestsPaginated({ archived: false, limit });
+  
+  // 1. Load the team member's own assigned requests (active + completed)
+  const { data: myRequests } = await supabase
+    .from("requests")
+    .select("*")
+    .eq("assigned_team_id", memberId)
+    .order("last_activity_at", { ascending: false })
+    .limit(100);
+
+  // 2. Load the top 20 active pool requests
+  const { data: poolRows, count } = await requestsApi.listRequestsPaginated({ archived: false, limit });
+
+  // Merge and deduplicate
+  const map = new Map<string, RequestRow>();
+  for (const r of poolRows ?? []) map.set(r.id, r);
+  for (const r of myRequests ?? []) map.set(r.id, r);
+  const rows = Array.from(map.values()).sort(
+    (a, b) => new Date(b.last_activity_at ?? 0).getTime() - new Date(a.last_activity_at ?? 0).getTime()
+  );
 
   const userIds = Array.from(new Set(rows.map((r) => r.user_id).filter(Boolean)));
   const names: Record<string, string> = {};
