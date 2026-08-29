@@ -136,7 +136,6 @@ export function mapTeamNotification(
   };
 }
 
-/** Loads everything the signed-in team member is allowed to see (RLS scoped). */
 export async function loadTeamSnapshot(
   memberId: string,
   memberName: string,
@@ -163,7 +162,10 @@ export async function loadTeamSnapshot(
     .select("id, reference")
     .eq("archived", false);
 
-  const allRequestIds = (allRequests ?? []).map((r) => r.id);
+  const activeRequestIds = (allRequests ?? []).map((r) => r.id);
+  const rowIds = rows.map((r) => r.id);
+  const allRequestIds = Array.from(new Set([...activeRequestIds, ...rowIds]));
+  
   const { data: allRooms } = await supabase
     .from("chat_rooms")
     .select("id, request_id")
@@ -178,8 +180,9 @@ export async function loadTeamSnapshot(
   const documents: TeamDocument[] = [];
   const rooms: LiveTeamSnapshot["rooms"] = {};
 
-  // Build rooms map for ALL requests (not just the first 20)
-  for (const r of allRequests ?? []) {
+  // Build rooms map for ALL active requests AND fetched requests
+  const allReqs = [...(allRequests ?? []), ...rows];
+  for (const r of allReqs) {
     const reference = r.reference || r.id;
     rooms[reference] = { requestId: r.id, chatRoomId: roomByRequestId[r.id] ?? null };
   }

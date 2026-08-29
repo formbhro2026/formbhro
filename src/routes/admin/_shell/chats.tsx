@@ -15,6 +15,7 @@ import {
 import { useAdmin } from "@/lib/admin-store";
 import { Button, Panel, Pill, SearchBox, formatDate, inputClass } from "@/components/admin/AdminUI";
 import * as messagesApi from "@/lib/api/messages";
+import { subscribeToRoom } from "@/lib/api/realtime";
 import { openDocument } from "@/lib/doc-access";
 import * as requestsApi from "@/lib/api/requests";
 import { supabase } from "@/integrations/supabase/client";
@@ -118,22 +119,22 @@ function AdminChats() {
       if (alive) setMessages(rows);
     });
 
-    const channel = supabase
-      .channel(`admin-room-${room.id}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "messages", filter: `chat_room_id=eq.${room.id}` },
-        () => {
-          void messagesApi.listMessages(room.id, { limit: 100 }).then((rows) => {
-            if (alive) setMessages(rows);
-          });
-        },
-      )
-      .subscribe();
+    const unsubscribe = subscribeToRoom(room.id, {
+      onMessage: () => {
+        void messagesApi.listMessages(room.id, { limit: 100 }).then((rows) => {
+          if (alive) setMessages(rows);
+        });
+      },
+      onMessageUpdate: () => {
+        void messagesApi.listMessages(room.id, { limit: 100 }).then((rows) => {
+          if (alive) setMessages(rows);
+        });
+      },
+    });
 
     return () => {
       alive = false;
-      void supabase.removeChannel(channel);
+      unsubscribe();
     };
   }, [room]);
 

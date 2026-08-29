@@ -141,9 +141,19 @@ export async function listRequests(opts?: {
   limit?: number;
   offset?: number;
 }): Promise<RequestRow[]> {
+  const uid = (await supabase.auth.getUser()).data.user?.id;
   let query = supabase.from("requests").select("*").order("last_activity_at", { ascending: false });
+  
   if (opts?.status?.length) query = query.in("status", opts.status);
-  if (typeof opts?.archived === "boolean") query = query.eq("archived", opts.archived);
+  
+  if (typeof opts?.archived === "boolean") {
+    if (opts.archived === false && uid) {
+      query = query.or(`archived.eq.false,and(assigned_team_id.eq.${uid},status.eq.completed)`);
+    } else {
+      query = query.eq("archived", opts.archived);
+    }
+  }
+
   if (opts?.search)
     query = query.or(`title.ilike.%${opts.search}%,reference.ilike.%${opts.search}%`);
   const limit = opts?.limit ?? 50;
@@ -161,12 +171,22 @@ export async function listRequestsPaginated(opts?: {
   limit?: number;
   offset?: number;
 }): Promise<{ data: RequestRow[]; count: number }> {
+  const uid = (await supabase.auth.getUser()).data.user?.id;
   let query = supabase
     .from("requests")
     .select("*", { count: "exact" })
     .order("last_activity_at", { ascending: false });
+    
   if (opts?.status?.length) query = query.in("status", opts.status);
-  if (typeof opts?.archived === "boolean") query = query.eq("archived", opts.archived);
+  
+  if (typeof opts?.archived === "boolean") {
+    if (opts.archived === false && uid) {
+      query = query.or(`archived.eq.false,and(assigned_team_id.eq.${uid},status.eq.completed)`);
+    } else {
+      query = query.eq("archived", opts.archived);
+    }
+  }
+
   if (opts?.search)
     query = query.or(`title.ilike.%${opts.search}%,reference.ilike.%${opts.search}%`);
   const limit = opts?.limit ?? 50;
