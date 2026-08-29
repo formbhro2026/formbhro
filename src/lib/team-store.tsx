@@ -656,13 +656,28 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     async (requestId: string) => {
       if (!member?.id) return;
       try {
-        // requestId here is the UI reference (FRM-XXXXX). We need the DB UUID.
-        // Look it up from the existing rooms map first, else find from requests.
-        const existingRoom = rooms.current[requestId];
-        const dbUuid = existingRoom?.requestId ?? requestId;
+        // requestId is the UI reference (FRM-XXXXX). claim_request RPC needs DB UUID.
+        // Primary: look up from rooms.current (populated by hydrateLive).
+        // Fallback: query DB directly for the raw UUID.
+        let dbUuid = rooms.current[requestId]?.requestId;
+        if (!dbUuid) {
+          const { data: rows } = await supabase
+            .from("requests")
+            .select("id")
+            .eq("reference", requestId)
+            .maybeSingle();
+          dbUuid = rows?.id ?? requestId;
+        }
 
         const { error } = await supabase.rpc("claim_request", { req_id: dbUuid });
-        if (error) throw error;
+        if (error) {
+          // Supabase returns PostgrestError (not Error), extract message properly
+          const msg =
+            typeof (error as { message?: string }).message === "string"
+              ? (error as { message?: string }).message!
+              : JSON.stringify(error);
+          throw new Error(msg);
+        }
 
         // Optimistically remove the request from the pool by setting the assigneeId
         // so it no longer satisfies the pool filter (!r.assigneeId).
@@ -688,7 +703,13 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         fetchAnalytics(); // Update stats
       } catch (err) {
         console.error("Failed to self-assign:", err);
-        toast.error("Failed to claim request: " + (err instanceof Error ? err.message : String(err)));
+        const msg =
+          err instanceof Error
+            ? err.message
+            : typeof (err as { message?: string })?.message === "string"
+              ? (err as { message?: string }).message!
+              : JSON.stringify(err);
+        toast.error("Failed to claim request: " + msg);
       }
     },
     [member, fetchAnalytics],
