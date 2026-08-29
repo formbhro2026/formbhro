@@ -155,18 +155,42 @@ export async function loadTeamSnapshot(
     for (const p of data ?? []) names[p.id] = p.full_name || p.email || "User";
   }
 
+  // Fetch ALL chat rooms for ALL active requests in a single batch query.
+  // This ensures rooms.current is populated for every request, not just the
+  // first 20, so setStatus / claim / subscribeToRoom always have a valid mapping.
+  const { data: allRequests } = await supabase
+    .from("requests")
+    .select("id, reference")
+    .eq("archived", false);
+
+  const allRequestIds = (allRequests ?? []).map((r) => r.id);
+  const { data: allRooms } = await supabase
+    .from("chat_rooms")
+    .select("id, request_id")
+    .in("request_id", allRequestIds.length ? allRequestIds : ["00000000-0000-0000-0000-000000000000"]);
+
+  // Build reference → { requestId (DB UUID), chatRoomId } map from batch results.
+  const roomByRequestId: Record<string, string> = {};
+  for (const room of allRooms ?? []) roomByRequestId[room.request_id] = room.id;
+
   const requests: TeamRequest[] = [];
   const messages: TeamMessage[] = [];
   const documents: TeamDocument[] = [];
   const rooms: LiveTeamSnapshot["rooms"] = {};
 
+  // Build rooms map for ALL requests (not just the first 20)
+  for (const r of allRequests ?? []) {
+    const reference = r.reference || r.id;
+    rooms[reference] = { requestId: r.id, chatRoomId: roomByRequestId[r.id] ?? null };
+  }
+
   for (const row of rows) {
     const reference = row.reference || row.id;
     requests.push(mapTeamRequest(row, memberId, names[row.user_id] ?? "User"));
-    const room = await requestsApi.getChatRoom(row.id);
-    rooms[reference] = { requestId: row.id, chatRoomId: room?.id ?? null };
-    if (room) {
-      const list = await messagesApi.listMessages(room.id, { limit: 100 });
+    // Room already in map from batch fetch above — just load messages if room exists
+    const chatRoomId = roomByRequestId[row.id];
+    if (chatRoomId) {
+      const list = await messagesApi.listMessages(chatRoomId, { limit: 100 });
       messages.push(...list.map((m) => mapTeamMessage(m, reference, memberName)));
     }
     const docs = await documentsApi.listDocuments({ requestId: row.id });

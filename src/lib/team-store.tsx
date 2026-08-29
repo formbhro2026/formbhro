@@ -892,28 +892,45 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         status === "completed"
           ? "Marked completed"
           : `Status updated to ${status.replace("-", " ")}`;
+
+      const doUpdate = async (dbUuid: string) => {
+        try {
+          await requestsApi.updateRequestStatus(
+            dbUuid,
+            TEAM_TO_DB_STATUS[status],
+            status === "completed" ? 100 : undefined,
+          );
+          fetchAnalytics();
+        } catch (err) {
+          console.error("Failed to update request status:", err);
+          toast.error(
+            "Status save failed: " +
+              (err instanceof Error ? err.message : "Please try again."),
+          );
+          // Revert optimistic local update on failure
+          touch(requestId, { status: status === "completed" ? "pending" : status }, undefined);
+        }
+      };
+
       if (liveRef.current) {
         const room = rooms.current[requestId];
         if (room) {
-          void requestsApi
-            .updateRequestStatus(
-              room.requestId,
-              TEAM_TO_DB_STATUS[status],
-              status === "completed" ? 100 : undefined,
-            )
-            .then(() => fetchAnalytics())
-            .catch((err) => {
-              console.error("Failed to update request status:", err);
-              toast.error(
-                "Status save failed: " +
-                  (err instanceof Error ? err.message : "Please try again."),
-              );
-              // Revert optimistic local update on failure
-              touch(requestId, { status: status === "completed" ? "pending" : status }, undefined);
-            });
+          void doUpdate(room.requestId);
         } else {
-          toast.error("Could not find request room. Please refresh and try again.");
-          return;
+          // Fallback: look up DB UUID by reference column (handles paginated/lazy requests)
+          void supabase
+            .from("requests")
+            .select("id")
+            .eq("reference", requestId)
+            .maybeSingle()
+            .then(({ data }) => {
+              if (data?.id) {
+                rooms.current[requestId] = { requestId: data.id, chatRoomId: null };
+                void doUpdate(data.id);
+              } else {
+                toast.error("Could not find request. Please refresh and try again.");
+              }
+            });
         }
       }
       touch(requestId, status === "completed" ? { status, progress: 100 } : { status }, label);
