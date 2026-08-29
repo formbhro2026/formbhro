@@ -183,6 +183,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
   const [requests, setRequests] = useState<TeamRequest[]>([]);
   const [requestsHasMore, setRequestsHasMore] = useState(false);
   const [requestsLoadingMore, setRequestsLoadingMore] = useState(false);
+  const [roomsTick, setRoomsTick] = useState(0);
   const [requestsPage, setRequestsPage] = useState(1);
   const [messages, setMessages] = useState<TeamMessage[]>([]);
   const [documents, setDocuments] = useState<TeamDocument[]>([]);
@@ -695,6 +696,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           try {
             const freshRoom = await requestsApi.getOrCreateChatRoom(dbUuid);
             rooms.current[requestId] = { requestId: dbUuid, chatRoomId: freshRoom.id };
+            setRoomsTick((t) => t + 1);
           } catch {
             // Non-fatal — realtime will still catch up on next load
           }
@@ -1186,7 +1188,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       offs.forEach((off) => off());
       offRequests();
     };
-  }, [live, member, requests.length, startTyping]);
+  }, [live, member, requests.length, startTyping, roomsTick]);
 
   // Live notification centre: new rows stream straight into the bell.
   useEffect(() => {
