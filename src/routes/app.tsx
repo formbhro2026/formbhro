@@ -9,6 +9,7 @@ import { FillNowProvider } from "@/components/layout/FillNowProvider";
 import { UserSidebar } from "@/components/layout/UserSidebar";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { PolicyInterceptor } from "@/components/auth/PolicyInterceptor";
+import { GlobalCallProvider } from "@/lib/call-store";
 
 export const Route = createFileRoute("/app")({
   validateSearch: (search: Record<string, unknown>): { fill?: string | boolean } =>
@@ -99,15 +100,17 @@ function AppShell() {
   return (
     <StoreProvider key={user?.id ?? "demo"}>
       <FillNowProvider>
-        <div
-          className={cn("h-[100dvh] flex flex-col text-white antialiased bg-bg overflow-hidden")}
-        >
-          <UserSidebar />
-          <div className="flex-1 overflow-y-auto overflow-x-hidden lg:pl-60">
-            <Outlet />
+        <GlobalCallProvider>
+          <div
+            className={cn("h-[100dvh] flex flex-col text-white antialiased bg-bg overflow-hidden")}
+          >
+            <UserSidebar />
+            <div className="flex-1 overflow-y-auto overflow-x-hidden lg:pl-60">
+              <Outlet />
+            </div>
+            <MobileBottomNav />
           </div>
-          <MobileBottomNav />
-        </div>
+        </GlobalCallProvider>
       </FillNowProvider>
     </StoreProvider>
   );

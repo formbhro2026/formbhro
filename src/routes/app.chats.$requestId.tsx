@@ -13,8 +13,7 @@ import { DocumentPreview } from "@/components/documents/DocumentPreview";
 import { EmptyState } from "@/components/common/EmptyState";
 import { useUserStore } from "@/lib/user-store";
 import { useVisualViewport } from "@/lib/use-visual-viewport";
-import { useWebRTCCall } from "@/hooks/use-webrtc-call";
-import { CallOverlay } from "@/components/chat/CallOverlay";
+import { useGlobalCall } from "@/lib/call-store";
 
 export const Route = createFileRoute("/app/chats/$requestId")({
   component: ChatScreen,
@@ -63,7 +62,7 @@ function ChatScreen() {
   const messages = messagesFor(requestId);
   const requestDocs = documentsFor(requestId);
   const preview = documents.find((d: any) => d.id === previewId) ?? null;
-  const { session, startCall, acceptCall, hangup } = useWebRTCCall(requestId);
+  const { startCall } = useGlobalCall();
 
   useEffect(() => {
     markRead(requestId);
@@ -197,7 +196,6 @@ function ChatScreen() {
       )}
 
       {preview && <DocumentPreview document={preview} onClose={() => setPreviewId(null)} />}
-      <CallOverlay session={session} onAccept={acceptCall} onHangup={hangup} />
     </div>
   );
 }
