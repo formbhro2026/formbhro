@@ -104,7 +104,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       await load(session?.user ?? null);
 
       // Initialize FCM token registration when user signs in (Android only; no-op on web)
-      if (_event === "SIGNED_IN" && session?.user && isCapacitor()) {
+      if ((_event === "SIGNED_IN" || _event === "INITIAL_SESSION") && session?.user && isCapacitor()) {
         void initializeFCM(session.user.id);
       }
     });

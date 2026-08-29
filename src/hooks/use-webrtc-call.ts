@@ -209,6 +209,16 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
           data: { offer, type },
         });
 
+        // Trigger the FCM Push Notification for the incoming call
+        supabase.rpc("trigger_call_notification", {
+          p_request_id: chatRoomId, // In our architecture, chatRoomId passed here is actually the request ID
+          p_type: type,
+        }).then(({ error }) => {
+          if (error) {
+            console.error("Failed to trigger call push notification:", error);
+          }
+        });
+
         // Auto hangup after 30 seconds if not accepted
         setTimeout(() => {
           setSession((currentSession) => {

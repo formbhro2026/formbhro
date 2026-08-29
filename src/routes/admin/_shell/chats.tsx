@@ -57,7 +57,15 @@ function AdminChats() {
   const [room, setRoom] = useState<any>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
-  const { session, startCall, acceptCall, hangup } = useWebRTCCall(activeId);
+  const [fetchedActive, setFetchedActive] = useState<any>(null);
+
+  const active =
+    requestsPage.find((r) => r.id === activeId) ??
+    (fetchedActive?.id === activeId ? fetchedActive : null) ??
+    requestsPage[0] ??
+    null;
+
+  const { session, startCall, acceptCall, hangup } = useWebRTCCall(active?.reference || active?.id);
   const pageSize = 50;
 
   // Debounce search
@@ -82,8 +90,6 @@ function AdminChats() {
   const threads = requestsPage;
   const totalPages = Math.max(1, Math.ceil(requestsTotal / pageSize));
 
-  const [fetchedActive, setFetchedActive] = useState<any>(null);
-
   useEffect(() => {
     if (activeId && !requestsPage.find((r) => r.id === activeId)) {
       void requestsApi
@@ -94,12 +100,6 @@ function AdminChats() {
         .catch(console.error);
     }
   }, [activeId, requestsPage]);
-
-  const active =
-    requestsPage.find((r) => r.id === activeId) ??
-    (fetchedActive?.id === activeId ? fetchedActive : null) ??
-    threads[0] ??
-    null;
 
   useEffect(() => {
     if (!active) {

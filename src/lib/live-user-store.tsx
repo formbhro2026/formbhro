@@ -286,6 +286,13 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void hydrate();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void hydrate();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [hydrate]);
 
   // Live updates for every room the user owns.

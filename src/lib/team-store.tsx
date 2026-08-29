@@ -430,6 +430,15 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       if (typeof Notification !== "undefined" && Notification.permission === "default") {
         void Notification.requestPermission();
       }
+      
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === "visible") {
+          void hydrateLive(member);
+          fetchAnalytics();
+        }
+      };
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+      return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
     }
   }, [live, member, hydrateLive, fetchAnalytics]);
 
@@ -721,8 +730,18 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     async (requestId: string, targetAssigneeId: string) => {
       if (!member?.id) return;
       try {
+        let dbUuid = rooms.current[requestId]?.requestId;
+        if (!dbUuid) {
+          const { data: rows } = await supabase
+            .from("requests")
+            .select("id")
+            .eq("reference", requestId)
+            .maybeSingle();
+          dbUuid = rows?.id ?? requestId;
+        }
+
         const { transferRequest } = await import("@/lib/api/requests");
-        await transferRequest(requestId, targetAssigneeId);
+        await transferRequest(dbUuid, targetAssigneeId);
 
         // Optimistically remove it from active UI
         setRequests((prev) => prev.filter((r) => r.id !== requestId));
@@ -740,7 +759,17 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     async (requestId: string) => {
       if (!member?.id) return;
       try {
-        await requestsApi.escalateRequest(requestId);
+        let dbUuid = rooms.current[requestId]?.requestId;
+        if (!dbUuid) {
+          const { data: rows } = await supabase
+            .from("requests")
+            .select("id")
+            .eq("reference", requestId)
+            .maybeSingle();
+          dbUuid = rows?.id ?? requestId;
+        }
+
+        await requestsApi.escalateRequest(dbUuid);
         setRequests((prev) =>
           prev.map((r) => (r.id === requestId ? { ...r, isEscalated: true } : r)),
         );
