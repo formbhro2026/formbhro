@@ -425,6 +425,10 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     if (live && member) {
       void hydrateLive(member);
       fetchAnalytics();
+      // Request browser notification permission so new-message alerts can fire
+      if (typeof Notification !== "undefined" && Notification.permission === "default") {
+        void Notification.requestPermission();
+      }
     }
   }, [live, member, hydrateLive, fetchAnalytics]);
 
@@ -652,8 +656,35 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     async (requestId: string) => {
       if (!member?.id) return;
       try {
-        const { error } = await supabase.rpc("claim_request", { req_id: requestId });
+        // requestId here is the UI reference (FRM-XXXXX). We need the DB UUID.
+        // Look it up from the existing rooms map first, else find from requests.
+        const existingRoom = rooms.current[requestId];
+        const dbUuid = existingRoom?.requestId ?? requestId;
+
+        const { error } = await supabase.rpc("claim_request", { req_id: dbUuid });
         if (error) throw error;
+
+        // Optimistically remove the request from the pool by setting the assigneeId
+        // so it no longer satisfies the pool filter (!r.assigneeId).
+        setRequests((prev) =>
+          prev.map((r) =>
+            r.id === requestId
+              ? { ...r, assigneeId: member.id, lastUpdated: `Today • ${nowTime()}` }
+              : r,
+          ),
+        );
+
+        // Ensure the chat room is in rooms.current so the realtime subscription
+        // effect picks it up and new messages trigger notifications.
+        if (!rooms.current[requestId]?.chatRoomId) {
+          try {
+            const freshRoom = await requestsApi.getOrCreateChatRoom(dbUuid);
+            rooms.current[requestId] = { requestId: dbUuid, chatRoomId: freshRoom.id };
+          } catch {
+            // Non-fatal — realtime will still catch up on next load
+          }
+        }
+
         fetchAnalytics(); // Update stats
       } catch (err) {
         console.error("Failed to self-assign:", err);
@@ -850,7 +881,18 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
               status === "completed" ? 100 : undefined,
             )
             .then(() => fetchAnalytics())
-            .catch(() => undefined);
+            .catch((err) => {
+              console.error("Failed to update request status:", err);
+              toast.error(
+                "Status save failed: " +
+                  (err instanceof Error ? err.message : "Please try again."),
+              );
+              // Revert optimistic local update on failure
+              touch(requestId, { status: status === "completed" ? "pending" : status }, undefined);
+            });
+        } else {
+          toast.error("Could not find request room. Please refresh and try again.");
+          return;
         }
       }
       touch(requestId, status === "completed" ? { status, progress: 100 } : { status }, label);
@@ -1017,11 +1059,37 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     const offs = entries.map(([reference, room]) =>
       subscribeToRoom(room.chatRoomId as string, {
         onMessage: (row) => {
-          setMessages((prev) =>
-            prev.some((m) => m.id === row.id)
-              ? prev
-              : [...prev, mapTeamMessage(row, reference, member.name)],
-          );
+          const isUserMsg = row.sender_role === "user";
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === row.id)) return prev;
+            return [...prev, mapTeamMessage(row, reference, member.name)];
+          });
+          // Push a bell notification for every new user message so the team
+          // member is alerted even when viewing another tab.
+          if (isUserMsg) {
+            const preview = row.body?.slice(0, 80) || "Attachment";
+            setNotifications((prev) => [
+              {
+                id: `msg-notif-${row.id}`,
+                type: "message" as const,
+                text: `New message: ${preview}`,
+                time: nowTime(),
+                read: false,
+                requestId: reference,
+              },
+              ...prev.filter((n) => n.id !== `msg-notif-${row.id}`),
+            ]);
+            // Browser push notification (if permission granted)
+            if (
+              typeof Notification !== "undefined" &&
+              Notification.permission === "granted"
+            ) {
+              new Notification("New message", {
+                body: preview,
+                tag: `msg-${reference}`,
+              });
+            }
+          }
         },
         onMessageUpdate: (row) => {
           setMessages((prev) =>
@@ -1034,6 +1102,21 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           setDocuments((prev) =>
             prev.some((d) => d.id === row.id) ? prev : [mapTeamDocument(row, reference), ...prev],
           );
+          // Bell notification for new document too
+          const isUserDoc = row.uploader_role === "user";
+          if (isUserDoc) {
+            setNotifications((prev) => [
+              {
+                id: `doc-notif-${row.id}`,
+                type: "document" as const,
+                text: `Document uploaded: ${row.file_name}`,
+                time: nowTime(),
+                read: false,
+                requestId: reference,
+              },
+              ...prev.filter((n) => n.id !== `doc-notif-${row.id}`),
+            ]);
+          }
         },
         onTyping: (payload) => {
           if (payload.typing) startTyping(reference, 2500);

@@ -182,6 +182,60 @@ export async function updateRequestStatus(
   status: DbRequestStatus,
   progress?: number,
 ) {
+  // Fetch current DB status so we can step through required intermediate
+  // transitions enforced by the state machine trigger.
+  const { data: current } = await supabase
+    .from("requests")
+    .select("status")
+    .eq("id", requestId)
+    .single();
+
+  const currentStatus = current?.status as DbRequestStatus | undefined;
+
+  // State machine only allows: assigned → in_progress → (waiting_documents | under_review | completed)
+  // If we're at 'assigned' and need to jump past 'in_progress', step through it first.
+  if (
+    currentStatus === "assigned" &&
+    status !== "assigned" &&
+    status !== "in_progress" &&
+    status !== "cancelled"
+  ) {
+    const { error: stepError } = await supabase
+      .from("requests")
+      .update({ status: "in_progress" })
+      .eq("id", requestId);
+    if (stepError && !stepError.message.includes("tuple to be updated was already modified")) {
+      throw new ApiError(stepError.message, stepError.code);
+    }
+  }
+
+  // Also handle pending → assigned step if trying to go further
+  if (
+    currentStatus === "pending" &&
+    status !== "pending" &&
+    status !== "assigned" &&
+    status !== "cancelled"
+  ) {
+    // pending can only go to assigned — skip to assigned first
+    const { error: stepError } = await supabase
+      .from("requests")
+      .update({ status: "assigned" })
+      .eq("id", requestId);
+    if (stepError && !stepError.message.includes("tuple to be updated was already modified")) {
+      throw new ApiError(stepError.message, stepError.code);
+    }
+    // Then step to in_progress if needed
+    if (status !== "in_progress") {
+      const { error: step2Error } = await supabase
+        .from("requests")
+        .update({ status: "in_progress" })
+        .eq("id", requestId);
+      if (step2Error && !step2Error.message.includes("tuple to be updated was already modified")) {
+        throw new ApiError(step2Error.message, step2Error.code);
+      }
+    }
+  }
+
   const patch = typeof progress === "number" ? { status, progress } : { status };
   let { data, error } = await supabase
     .from("requests")
