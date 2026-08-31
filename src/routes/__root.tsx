@@ -21,7 +21,9 @@ import {
   onNotificationTap,
   cleanupFCMListeners,
   isCapacitor,
+  showSystemNotification,
 } from "../lib/fcm";
+import { playMessageNotificationSound } from "../lib/audio-notifications";
 
 function NotFoundComponent() {
   return (
@@ -264,8 +266,27 @@ function RootComponent() {
         });
     });
 
-    // Register FCM foreground notification handler → shows a sonner toast
+    // Register FCM foreground notification handler → plays chime, triggers OS notification & shows rich top toast
     void onForegroundNotification((title, body, data) => {
+      if (data?.type !== "call") {
+        playMessageNotificationSound();
+      }
+
+      // Display system notification if permission granted
+      showSystemNotification(title, body, {
+        data,
+        onClick: () => {
+          if (data?.route) {
+            window.location.href = data.route;
+          } else if (data?.requestId) {
+            void navigate({
+              to: "/app/chats/$requestId",
+              params: { requestId: data.requestId },
+            });
+          }
+        },
+      });
+
       toast(title, {
         description: body,
         duration: 6000,
@@ -284,7 +305,6 @@ function RootComponent() {
 
     // Register FCM notification tap handler → navigates to the relevant route
     void onNotificationTap((path) => {
-      // Use window.location for a clean navigation (mirrors auth redirect pattern)
       window.location.href = path;
     });
 

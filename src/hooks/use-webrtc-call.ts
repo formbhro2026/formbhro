@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { subscribeToSignals, sendSignal, type WebRTCSignal } from "@/lib/api/webrtc";
 import { supabase } from "@/integrations/supabase/client";
 import { isCapacitor } from "@/lib/fcm";
+import { startIncomingCallRingtone, stopIncomingCallRingtone } from "@/lib/audio-notifications";
 
 export type CallSession = {
   isActive: boolean;
@@ -39,7 +40,6 @@ const requestMediaPermissions = async (
       });
     } catch (displayErr) {
       console.warn("Screen share with audio failed, trying without audio:", displayErr);
-      // Fallback: try screen share without audio, then add microphone separately
       const screenStream = await navigator.mediaDevices.getDisplayMedia({
         video: {
           width: { ideal: 1280 },
@@ -48,7 +48,6 @@ const requestMediaPermissions = async (
         audio: false,
       });
 
-      // Add microphone audio separately
       try {
         const audioStream = await navigator.mediaDevices.getUserMedia({
           audio: {
@@ -109,8 +108,17 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const myIdRef = useRef<string | null>(null);
+  const lastOfferRef = useRef<{ offer: RTCSessionDescriptionInit; type: "audio" | "video" | "screen" } | null>(null);
+  const offerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const cleanup = useCallback((errorMessage?: string) => {
+    stopIncomingCallRingtone();
+    if (offerIntervalRef.current) {
+      clearInterval(offerIntervalRef.current);
+      offerIntervalRef.current = null;
+    }
+    lastOfferRef.current = null;
+
     if (pcRef.current) {
       pcRef.current.close();
       pcRef.current = null;
@@ -141,7 +149,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         sendSignal(chatRoomId, {
           type: "candidate",
           from: myIdRef.current,
-          target: "all", // Simplified for 1:1
+          target: "all",
           data: event.candidate,
         });
       }
@@ -202,6 +210,8 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
 
+        lastOfferRef.current = { offer, type };
+
         await sendSignal(chatRoomId, {
           type: "offer",
           from: user.id,
@@ -209,15 +219,43 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
           data: { offer, type },
         });
 
-        // Trigger the FCM Push Notification for the incoming call
-        supabase.rpc("trigger_call_notification", {
-          p_request_id: chatRoomId, // In our architecture, chatRoomId passed here is actually the request ID
-          p_type: type,
-        }).then(({ error }) => {
-          if (error) {
-            console.error("Failed to trigger call push notification:", error);
+        // Repeatedly broadcast offer every 2.5 seconds while waiting for answer
+        if (offerIntervalRef.current) clearInterval(offerIntervalRef.current);
+        offerIntervalRef.current = setInterval(() => {
+          if (pcRef.current && lastOfferRef.current && myIdRef.current) {
+            void sendSignal(chatRoomId, {
+              type: "offer",
+              from: myIdRef.current,
+              target: "all",
+              data: lastOfferRef.current,
+            });
           }
-        });
+        }, 2500);
+
+        // Trigger the FCM Push Notification for the incoming call
+        supabase
+          .rpc("trigger_call_notification", {
+            p_request_id: chatRoomId,
+            p_type: type,
+          })
+          .then(({ error }) => {
+            if (error) {
+              console.error("Failed to trigger call push notification:", error);
+            }
+          });
+
+        // Direct FCM push dispatch fallback
+        void supabase.functions
+          .invoke("send-fcm-notification", {
+            body: {
+              notification_type: "call",
+              title: `Incoming ${type === "video" ? "Video" : "Voice"} Call`,
+              body: "Tap to answer the call",
+              request_id: chatRoomId,
+              route: `/app/chats/${chatRoomId}`,
+            },
+          })
+          .catch((e) => console.warn("[FCM] Call push error:", e));
 
         // Auto hangup after 30 seconds if not accepted
         setTimeout(() => {
@@ -245,9 +283,15 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
   );
 
   const acceptCall = useCallback(async () => {
-    if (!pcRef.current || !chatRoomId || !myIdRef.current) return;
+    stopIncomingCallRingtone();
+    if (!chatRoomId) return;
 
     try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) myIdRef.current = user.id;
+
       let stream: MediaStream;
       try {
         stream = await requestMediaPermissions(session.callType || "video");
@@ -262,24 +306,51 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
 
       localStreamRef.current = stream;
 
-      stream.getTracks().forEach((track) => pcRef.current?.addTrack(track, stream));
+      let pc = pcRef.current;
+      if (!pc) {
+        pc = createPeerConnection();
+        pcRef.current = pc;
+      }
 
-      const answer = await pcRef.current.createAnswer();
-      await pcRef.current.setLocalDescription(answer);
+      stream.getTracks().forEach((track) => pc?.addTrack(track, stream));
 
-      setSession((prev) => ({
-        ...prev,
-        isAccepted: true,
-        isIncoming: false,
-        localStream: stream,
-      }));
+      if (pc.remoteDescription) {
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
 
-      await sendSignal(chatRoomId, {
-        type: "answer",
-        from: myIdRef.current,
-        target: "all",
-        data: answer,
-      });
+        setSession((prev) => ({
+          ...prev,
+          isAccepted: true,
+          isIncoming: false,
+          localStream: stream,
+        }));
+
+        if (myIdRef.current) {
+          await sendSignal(chatRoomId, {
+            type: "answer",
+            from: myIdRef.current,
+            target: "all",
+            data: answer,
+          });
+        }
+      } else {
+        // Request offer from caller if remote description not yet set
+        setSession((prev) => ({
+          ...prev,
+          isAccepted: true,
+          isIncoming: false,
+          localStream: stream,
+        }));
+
+        if (myIdRef.current) {
+          await sendSignal(chatRoomId, {
+            type: "request_offer",
+            from: myIdRef.current,
+            target: "all",
+            data: null,
+          });
+        }
+      }
     } catch (err) {
       console.error("WebRTC acceptCall error:", err);
       setSession((prev) => ({
@@ -287,10 +358,15 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         error: "Could not accept call: " + (err as Error).message,
       }));
     }
-  }, [chatRoomId]);
+  }, [chatRoomId, session.callType, createPeerConnection]);
 
   const hangup = useCallback(
     async (errorMessage?: string) => {
+      stopIncomingCallRingtone();
+      if (offerIntervalRef.current) {
+        clearInterval(offerIntervalRef.current);
+        offerIntervalRef.current = null;
+      }
       if (chatRoomId && myIdRef.current) {
         await sendSignal(chatRoomId, {
           type: "hangup",
@@ -308,8 +384,6 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
     if (!chatRoomId) return;
 
     let alive = true;
-    const retryCount = 0;
-    const MAX_RETRIES = 3;
 
     void supabase.auth.getUser().then(({ data: { user } }) => {
       if (alive && user) myIdRef.current = user.id;
@@ -320,8 +394,33 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         if (!alive || signal.from === myIdRef.current) return;
 
         switch (signal.type) {
-          case "offer":
-            if (!pcRef.current) {
+          case "offer": {
+            let pc = pcRef.current;
+            if (!pc) {
+              pc = createPeerConnection();
+              pcRef.current = pc;
+            }
+            await pc.setRemoteDescription(new RTCSessionDescription(signal.data.offer));
+
+            // If user already clicked accept, answer immediately
+            if (localStreamRef.current && myIdRef.current) {
+              const answer = await pc.createAnswer();
+              await pc.setLocalDescription(answer);
+              await sendSignal(chatRoomId, {
+                type: "answer",
+                from: myIdRef.current,
+                target: "all",
+                data: answer,
+              });
+              setSession((prev) => ({
+                ...prev,
+                isActive: true,
+                isAccepted: true,
+                isIncoming: false,
+                callType: signal.data.type || "video",
+              }));
+            } else {
+              startIncomingCallRingtone();
               setSession((prev) => ({
                 ...prev,
                 isActive: true,
@@ -329,12 +428,24 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
                 isScreenSharing: signal.data.type === "screen",
                 callType: signal.data.type || (signal.data.isScreenShare ? "screen" : "video"),
               }));
-              const pc = createPeerConnection();
-              pcRef.current = pc;
-              await pc.setRemoteDescription(new RTCSessionDescription(signal.data.offer));
+            }
+            break;
+          }
+          case "request_offer":
+            if (lastOfferRef.current && myIdRef.current) {
+              void sendSignal(chatRoomId, {
+                type: "offer",
+                from: myIdRef.current,
+                target: "all",
+                data: lastOfferRef.current,
+              });
             }
             break;
           case "answer":
+            if (offerIntervalRef.current) {
+              clearInterval(offerIntervalRef.current);
+              offerIntervalRef.current = null;
+            }
             if (pcRef.current) {
               await pcRef.current.setRemoteDescription(new RTCSessionDescription(signal.data));
               setSession((prev) => ({ ...prev, isAccepted: true, isOutgoing: false }));
@@ -358,16 +469,8 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
 
     const unsubscribe = setupSubscription();
 
-    // Health check for signaling channel
-    const checkInterval = setInterval(() => {
-      if (alive && chatRoomId) {
-        // Simple presence or retry logic could go here if Supabase channel state was exposed
-      }
-    }, 10000);
-
     return () => {
       alive = false;
-      clearInterval(checkInterval);
       unsubscribe();
     };
   }, [chatRoomId, createPeerConnection, cleanup]);
@@ -403,13 +506,11 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
       localStreamRef.current.addTrack(newVideoTrack);
       currentVideoTrack.stop();
 
-      // Trigger re-render by passing a new MediaStream instance so React detects the change
       const updatedStream = new MediaStream(localStreamRef.current.getTracks());
       localStreamRef.current = updatedStream;
       setSession((prev) => ({ ...prev, localStream: updatedStream }));
     } catch (err) {
       console.error("Could not switch camera:", err);
-      // Fallback state if switching fails
       setSession((prev) => ({
         ...prev,
         facingMode: prev.facingMode === "user" ? "environment" : "user",

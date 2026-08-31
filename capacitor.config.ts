@@ -34,6 +34,9 @@ const config: CapacitorConfig = {
     PushNotifications: {
       presentationOptions: ["badge", "sound", "alert"],
     },
+    FirebaseMessaging: {
+      presentationOptions: ["badge", "sound", "alert"],
+    },
     SplashScreen: {
       launchShowDuration: 1500, // Show a bit longer so it doesn't flash
       launchAutoHide: true,

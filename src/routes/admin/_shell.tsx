@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { AdminSidebar, AdminTopbar, ADMIN_NAV } from "@/components/admin/AdminSidebar";
 import { useAdmin } from "@/lib/admin-store";
+import { GlobalCallProvider } from "@/lib/call-store";
 
 export const Route = createFileRoute("/admin/_shell")({
   component: AdminShell,
@@ -31,14 +32,16 @@ function AdminShell() {
     .find((item) => (item.exact ? pathname === item.to : pathname.startsWith(item.to)));
 
   return (
-    <div className="min-h-screen bg-bg text-white antialiased">
-      <AdminSidebar />
-      <div className="lg:pl-60 xl:pl-64">
-        <AdminTopbar title={current?.label ?? "Dashboard"} />
-        <main className="px-4 py-5 sm:px-6">
-          <Outlet />
-        </main>
+    <GlobalCallProvider>
+      <div className="min-h-screen bg-bg text-white antialiased">
+        <AdminSidebar />
+        <div className="lg:pl-60 xl:pl-64">
+          <AdminTopbar title={current?.label ?? "Dashboard"} />
+          <main className="px-4 py-5 sm:px-6">
+            <Outlet />
+          </main>
+        </div>
       </div>
-    </div>
+    </GlobalCallProvider>
   );
 }

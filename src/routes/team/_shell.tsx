@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { useTeamStore } from "@/lib/team-store";
 import { TeamSidebar } from "@/components/team/TeamSidebar";
 import { TeamBottomNav } from "@/components/team/TeamBottomNav";
+import { GlobalCallProvider } from "@/lib/call-store";
 
 function TeamShell() {
   const { member, hydrated } = useTeamStore();
@@ -24,13 +25,15 @@ function TeamShell() {
   }
 
   return (
-    <div className="min-h-screen bg-bg text-white antialiased">
-      <TeamSidebar />
-      <div className="flex min-h-screen flex-col lg:pl-60">
-        <Outlet />
+    <GlobalCallProvider>
+      <div className="min-h-screen bg-bg text-white antialiased">
+        <TeamSidebar />
+        <div className="flex min-h-screen flex-col lg:pl-60">
+          <Outlet />
+        </div>
+        <TeamBottomNav />
       </div>
-      <TeamBottomNav />
-    </div>
+    </GlobalCallProvider>
   );
 }
 

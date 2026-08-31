@@ -22,6 +22,8 @@ import {
 } from "@/data/team-module";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { playMessageNotificationSound } from "@/lib/audio-notifications";
+import { showSystemNotification } from "@/lib/fcm";
 import { signInWithPassword, getMyRole, getMyProfile, signOut as apiSignOut } from "@/lib/api/auth";
 import { markMessagesSeen } from "./api/messages";
 import { assignRequest, updateRequestStatus, getTeamAnalytics } from "./api/requests";
@@ -1228,6 +1230,34 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           ? prev
           : [mapTeamNotification(row, refByRequestId.current), ...prev],
       );
+
+      if (row.type === "message") {
+        playMessageNotificationSound();
+        showSystemNotification(row.title || "New message", row.body || "New message received", {
+          data: {
+            requestId: row.request_id || "",
+            chatRoomId: row.chat_room_id || "",
+          },
+          onClick: () => {
+            if (row.request_id) {
+              window.location.href = `/team/work?id=${row.request_id}`;
+            }
+          },
+        });
+
+        toast(row.title || "New message", {
+          description: row.body || "New message received",
+          duration: 6000,
+          action: row.request_id
+            ? {
+                label: "Open chat",
+                onClick: () => {
+                  window.location.href = `/team/work?id=${row.request_id}`;
+                },
+              }
+            : undefined,
+        });
+      }
     });
   }, [live, member]);
 

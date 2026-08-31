@@ -86,6 +86,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         } = await supabase.auth.getSession();
         if (active) {
           await load(session?.user ?? null);
+          if (session?.user) {
+            void initializeFCM(session.user.id);
+          }
         }
       } catch (e) {
         console.error("[Session] Init error:", e);
@@ -103,8 +106,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
       await load(session?.user ?? null);
 
-      // Initialize FCM token registration when user signs in (Android only; no-op on web)
-      if ((_event === "SIGNED_IN" || _event === "INITIAL_SESSION") && session?.user && isCapacitor()) {
+      // Initialize FCM token registration and notification channels
+      if (session?.user) {
         void initializeFCM(session.user.id);
       }
     });

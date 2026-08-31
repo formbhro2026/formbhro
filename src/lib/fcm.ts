@@ -1,15 +1,15 @@
 /**
  * src/lib/fcm.ts
  *
- * Firebase Cloud Messaging (FCM) integration for the Formbhro Android app.
+ * Firebase Cloud Messaging (FCM) & Push Notification integration for Formbhro.
  *
  * This module is platform-aware:
- *   - On Android (Capacitor): uses native FCM via @capacitor-firebase/messaging
- *   - On web/desktop: all functions are no-ops to preserve existing web behaviour
+ *   - On Android (Capacitor): uses native FCM via @capacitor-firebase/messaging with High-Importance notification channels.
+ *   - On Web / PWA / Desktop: requests Web Notification permission and displays system notifications.
  *
  * Security model:
  *   - FCM tokens are stored in Supabase (device_tokens table, RLS enforced)
- *   - FCM sends happen ONLY in a Supabase Edge Function using Firebase Admin
+ *   - FCM sends happen in Supabase Edge Function using Firebase Admin HTTP v1 API
  *   - No service-account credentials are ever present in this file or the bundle
  */
 
@@ -21,7 +21,6 @@ import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Returns true when running inside a Capacitor Android/iOS container.
- * Capacitor injects `window.Capacitor` at startup.
  */
 export function isCapacitorAndroid(): boolean {
   if (typeof window === "undefined") return false;
@@ -55,6 +54,18 @@ export function isCapacitor(): boolean {
 // Lazy-import the Capacitor plugin (only available when actually in Capacitor)
 // ---------------------------------------------------------------------------
 
+export interface NotificationChannelOptions {
+  id: string;
+  name: string;
+  description?: string;
+  importance?: number; // 1 = min, 2 = low, 3 = default, 4 = high, 5 = max
+  visibility?: number; // -1 = secret, 0 = private, 1 = public
+  sound?: string;
+  vibration?: boolean;
+  lights?: boolean;
+  lightColor?: string;
+}
+
 type FirebaseMessagingPlugin = {
   requestPermissions: () => Promise<{ receive: "granted" | "denied" | "prompt" }>;
   getToken: (options: { vapidKey?: string }) => Promise<{ token: string }>;
@@ -63,6 +74,8 @@ type FirebaseMessagingPlugin = {
     cb: (notification: FCMNotificationPayload | FCMActionPayload) => void,
   ) => Promise<{ remove: () => void }>;
   deleteToken: () => Promise<void>;
+  createChannel?: (options: NotificationChannelOptions) => Promise<void>;
+  listChannels?: () => Promise<{ channels: NotificationChannelOptions[] }>;
 };
 
 async function getMessagingPlugin(): Promise<{ plugin: FirebaseMessagingPlugin } | null> {
@@ -96,24 +109,130 @@ export interface FCMActionPayload {
 }
 
 // ---------------------------------------------------------------------------
+// Notification Channels (Android Heads-Up / WhatsApp-style popups)
+// ---------------------------------------------------------------------------
+
+/**
+ * Creates high-priority notification channels on Android.
+ * Android 8.0+ (API 26+) requires a channel with importance 5 (IMPORTANCE_HIGH)
+ * for notifications to pop on the screen (heads-up) with sound and vibration.
+ */
+export async function setupAndroidNotificationChannels(): Promise<void> {
+  const result = await getMessagingPlugin();
+  if (!result || typeof result.plugin.createChannel !== "function") return;
+
+  const channels: NotificationChannelOptions[] = [
+    {
+      id: "formbhro_calls",
+      name: "Incoming Calls",
+      description: "Alerts for incoming audio and video calls",
+      importance: 5, // IMPORTANCE_HIGH (pops on screen + rings)
+      visibility: 1, // PUBLIC (shows on lock screen)
+      sound: "default",
+      vibration: true,
+      lights: true,
+      lightColor: "#FF8A1F",
+    },
+    {
+      id: "formbhro_messages",
+      name: "Messages & Updates",
+      description: "New message alerts from experts and team members",
+      importance: 5, // IMPORTANCE_HIGH (heads-up banner)
+      visibility: 1,
+      sound: "default",
+      vibration: true,
+      lights: true,
+      lightColor: "#FF8A1F",
+    },
+    {
+      id: "formbhro_default",
+      name: "General Notifications",
+      description: "General system and request updates",
+      importance: 5,
+      visibility: 1,
+      sound: "default",
+      vibration: true,
+      lights: true,
+      lightColor: "#FF8A1F",
+    },
+  ];
+
+  for (const ch of channels) {
+    try {
+      await result.plugin.createChannel(ch);
+      console.log(`[FCM] Channel '${ch.id}' configured.`);
+    } catch (e) {
+      console.warn(`[FCM] Could not create channel '${ch.id}':`, e);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Permission + Token
 // ---------------------------------------------------------------------------
 
 /**
- * Requests Android notification permission.
+ * Requests notification permission from Android or Web Browser.
  * Returns true if granted, false otherwise.
- * No-op on web (returns false silently).
  */
 export async function requestNotificationPermission(): Promise<boolean> {
-  const result = await getMessagingPlugin();
-  if (!result) return false;
+  if (isCapacitor()) {
+    const result = await getMessagingPlugin();
+    if (!result) return false;
+
+    try {
+      const { receive } = await result.plugin.requestPermissions();
+      return receive === "granted";
+    } catch (e) {
+      console.error("[FCM] requestPermissions error:", e);
+      return false;
+    }
+  }
+
+  // Web Notification API fallback
+  if (typeof window !== "undefined" && "Notification" in window) {
+    try {
+      const perm = await Notification.requestPermission();
+      return perm === "granted";
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Displays a system top notification using Web Notification API if permitted.
+ */
+export function showSystemNotification(
+  title: string,
+  body: string,
+  options?: {
+    data?: Record<string, string>;
+    onClick?: () => void;
+  },
+): void {
+  if (typeof window === "undefined" || !("Notification" in window)) return;
+  if (Notification.permission !== "granted") return;
 
   try {
-    const { receive } = await result.plugin.requestPermissions();
-    return receive === "granted";
-  } catch (e) {
-    console.error("[FCM] requestPermissions error:", e);
-    return false;
+    const notif = new Notification(title, {
+      body,
+      icon: "/favicon.png",
+      badge: "/favicon.png",
+      data: options?.data,
+    });
+
+    if (options?.onClick) {
+      notif.onclick = () => {
+        window.focus();
+        options.onClick?.();
+        notif.close();
+      };
+    }
+  } catch (err) {
+    console.warn("[Notification] Could not display system notification:", err);
   }
 }
 
@@ -142,7 +261,6 @@ function getDeviceId(): string {
   const KEY = "formbhro:device_id";
   let id = localStorage.getItem(KEY);
   if (!id) {
-    // Crypto-random UUID, compatible with React 19's targets
     id =
       typeof crypto !== "undefined" && crypto.randomUUID
         ? crypto.randomUUID()
@@ -213,10 +331,6 @@ let tapListenerCleanup: (() => void) | null = null;
 
 /**
  * Registers a listener for foreground notifications (app is open).
- * Shows a toast via the provided callback — we integrate with sonner in the caller.
- *
- * @param onNotification - Called with title and body to display
- * @returns cleanup function to unregister the listener
  */
 export async function onForegroundNotification(
   onNotification: (title: string, body: string, data?: Record<string, string>) => void,
@@ -246,12 +360,6 @@ export async function onForegroundNotification(
 /**
  * Registers a listener for notification taps (user taps a system notification).
  * Navigates to the relevant route based on notification data.
- *
- * Expected data fields in the notification payload:
- *   - data.route: e.g. "/app/chats/some-request-id"
- *   - data.requestId: e.g. "some-request-uuid"
- *
- * @param navigate - TanStack Router navigate function or window.location.href setter
  */
 export async function onNotificationTap(navigate: NavigateCallback): Promise<() => void> {
   const result = await getMessagingPlugin();
@@ -264,7 +372,6 @@ export async function onNotificationTap(navigate: NavigateCallback): Promise<() 
         const data = (payload as FCMActionPayload).notification?.data;
         if (!data) return;
 
-        // The Edge Function embeds a `route` field in notification data
         const route = data.route;
         const requestId = data.requestId;
 
@@ -305,26 +412,25 @@ export function cleanupFCMListeners(): void {
 /**
  * Full FCM initialization sequence.
  * Call once after a user has successfully authenticated.
- *
- * 1. Requests notification permission from the OS
- * 2. Retrieves the FCM token
- * 3. Saves the token to Supabase
- *
- * @param userId - Supabase auth user ID
- * @returns true if the token was successfully registered
  */
 export async function initializeFCM(userId: string): Promise<boolean> {
   if (!isCapacitor()) {
-    // Web — skip silently
+    // Request web notification permissions if on browser
+    void requestNotificationPermission();
     return false;
   }
 
+  // 1. Setup Android Notification Channels with High Importance
+  await setupAndroidNotificationChannels();
+
+  // 2. Request permission
   const granted = await requestNotificationPermission();
   if (!granted) {
     console.info("[FCM] Notification permission not granted.");
     return false;
   }
 
+  // 3. Retrieve and save token
   const token = await getFCMToken();
   if (!token) {
     console.error("[FCM] Could not retrieve FCM token.");

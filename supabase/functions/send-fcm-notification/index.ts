@@ -1,54 +1,52 @@
 // supabase/functions/send-fcm-notification/index.ts
 //
-// Supabase Edge Function — sends FCM push notifications when a row is
-// inserted into the `notifications` table.
-//
-// TRIGGER SETUP (run in Supabase SQL editor after deploying this function):
-//
-//   SELECT supabase_functions.http_request(
-//     'POST',
-//     'https://[YOUR_PROJECT_REF].supabase.co/functions/v1/send-fcm-notification',
-//     '{"Content-Type":"application/json","Authorization":"Bearer [SUPABASE_SERVICE_ROLE_KEY]"}',
-//     '{}',
-//     '5000'
-//   );
-//
-// OR set up a Database Webhook in the Supabase Dashboard:
-//   Table: notifications, Event: INSERT
-//   URL: https://[PROJECT_REF].supabase.co/functions/v1/send-fcm-notification
+// Supabase Edge Function — sends High-Priority FCM push notifications (WhatsApp-style
+// heads-up banners with sound & vibration) when triggered via database webhook or direct RPC.
 //
 // SECURITY:
 //   - FIREBASE_SERVICE_ACCOUNT_JSON  → set in Supabase Edge Function Secrets
 //   - SUPABASE_URL                   → auto-provided by Supabase runtime
 //   - SUPABASE_SERVICE_ROLE_KEY      → auto-provided by Supabase runtime
-//
-// NEVER put any of these credentials in the frontend or in the Android APK.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 interface NotificationRecord {
-  id: string;
+  id?: string;
   receiver_id: string;
   title: string;
   body: string | null;
   type: string;
-  request_id: string | null;
-  chat_room_id: string | null;
-  role: string;
-  is_read: boolean;
-  created_at: string;
+  request_id?: string | null;
+  chat_room_id?: string | null;
+  role?: string;
+  is_read?: boolean;
+  created_at?: string;
+  route?: string;
 }
 
 interface WebhookPayload {
-  type: "INSERT" | "UPDATE" | "DELETE";
-  table: string;
-  record: NotificationRecord;
-  schema: string;
-  old_record: NotificationRecord | null;
+  type?: "INSERT" | "UPDATE" | "DELETE";
+  table?: string;
+  record?: NotificationRecord;
+  schema?: string;
+  old_record?: NotificationRecord | null;
+  // Direct invocation properties:
+  receiver_id?: string;
+  title?: string;
+  body?: string;
+  notification_type?: string;
+  request_id?: string;
+  chat_room_id?: string;
+  route?: string;
 }
 
 interface DeviceToken {
@@ -57,7 +55,7 @@ interface DeviceToken {
 }
 
 // ---------------------------------------------------------------------------
-// Firebase Admin — HTTP v1 API (no SDK needed in Deno)
+// Firebase Admin — HTTP v1 API
 // ---------------------------------------------------------------------------
 
 async function getFirebaseAccessToken(serviceAccountJson: string): Promise<string> {
@@ -133,6 +131,14 @@ async function sendFCMMessage(
 ): Promise<boolean> {
   const url = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
 
+  // Select channel based on notification type for proper heads-up / ringtone routing
+  let channelId = "formbhro_default";
+  if (data.type === "call") {
+    channelId = "formbhro_calls";
+  } else if (data.type === "message") {
+    channelId = "formbhro_messages";
+  }
+
   const message = {
     message: {
       token: fcmToken,
@@ -142,11 +148,30 @@ async function sendFCMMessage(
       },
       data,
       android: {
-        priority: "high",
+        priority: "HIGH",
         notification: {
-          channel_id: "formbhro_default",
-          click_action: "FLUTTER_NOTIFICATION_CLICK", // Capacitor handles this
+          channel_id: channelId,
+          sound: "default",
+          default_sound: true,
+          default_vibrate_timings: true,
+          notification_priority: "PRIORITY_MAX",
+          visibility: "PUBLIC",
           color: "#FF8A1F",
+        },
+      },
+      apns: {
+        headers: {
+          "apns-priority": "10",
+        },
+        payload: {
+          aps: {
+            alert: {
+              title,
+              body,
+            },
+            sound: "default",
+            badge: 1,
+          },
         },
       },
     },
@@ -175,40 +200,56 @@ async function sendFCMMessage(
 // ---------------------------------------------------------------------------
 
 Deno.serve(async (req) => {
-  // Only accept POST (webhook)
-  if (req.method !== "POST") {
-    return new Response("Method not allowed", { status: 405 });
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
   }
 
-  // Parse the webhook payload
+  if (req.method !== "POST") {
+    return new Response("Method not allowed", { status: 405, headers: corsHeaders });
+  }
+
+  // Parse payload (supports both Database Webhook & direct invocation)
   let payload: WebhookPayload;
   try {
     payload = (await req.json()) as WebhookPayload;
   } catch {
-    return new Response("Invalid JSON", { status: 400 });
+    return new Response("Invalid JSON", { status: 400, headers: corsHeaders });
   }
 
-  // Only handle notification inserts
-  if (payload.type !== "INSERT" || payload.table !== "notifications") {
-    return new Response("Not a notification insert", { status: 200 });
+  let notification: NotificationRecord;
+
+  if (payload.record && typeof payload.record === "object") {
+    // Database Webhook format
+    notification = payload.record;
+  } else if (payload.receiver_id && payload.title) {
+    // Direct invocation format
+    notification = {
+      id: crypto.randomUUID(),
+      receiver_id: payload.receiver_id,
+      title: payload.title,
+      body: payload.body ?? null,
+      type: payload.notification_type ?? "message",
+      request_id: payload.request_id ?? null,
+      chat_room_id: payload.chat_room_id ?? null,
+      route: payload.route,
+    };
+  } else {
+    return new Response("Invalid notification payload", { status: 200, headers: corsHeaders });
   }
 
-  const notification = payload.record;
-
-  // Read environment variables (injected by Supabase runtime)
+  // Read environment variables
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const FIREBASE_SERVICE_ACCOUNT_JSON = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_JSON");
 
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !FIREBASE_SERVICE_ACCOUNT_JSON) {
     console.error("[FCM] Missing required environment variables");
-    return new Response("Server configuration error", { status: 500 });
+    return new Response("Server configuration error", { status: 500, headers: corsHeaders });
   }
 
-  // Admin Supabase client — can bypass RLS to read device_tokens
+  // Admin Supabase client to fetch device tokens
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  // Look up all device tokens for the notification receiver
   const { data: tokens, error: tokenError } = await supabase
     .from("device_tokens")
     .select("fcm_token, platform")
@@ -216,25 +257,31 @@ Deno.serve(async (req) => {
 
   if (tokenError) {
     console.error("[FCM] Failed to fetch device tokens:", tokenError.message);
-    return new Response("Database error", { status: 500 });
+    return new Response("Database error", { status: 500, headers: corsHeaders });
   }
 
   if (!tokens || tokens.length === 0) {
     console.info(`[FCM] No device tokens for user ${notification.receiver_id}`);
-    return new Response("No tokens", { status: 200 });
+    return new Response(JSON.stringify({ message: "No active device tokens found" }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
-  // Build notification data payload for deep linking
+  // Build deep link data payload
   const serviceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT_JSON);
   const projectId = serviceAccount.project_id;
 
   const data: Record<string, string> = {
-    notificationId: notification.id,
+    notificationId: notification.id ?? crypto.randomUUID(),
     type: notification.type,
   };
   if (notification.request_id) data.requestId = notification.request_id;
   if (notification.chat_room_id) data.chatRoomId = notification.chat_room_id;
-  if (notification.request_id) {
+
+  if (notification.route) {
+    data.route = notification.route;
+  } else if (notification.request_id) {
     data.route = `/app/chats/${notification.request_id}`;
   } else {
     data.route = "/app";
@@ -246,10 +293,10 @@ Deno.serve(async (req) => {
     accessToken = await getFirebaseAccessToken(FIREBASE_SERVICE_ACCOUNT_JSON);
   } catch (e) {
     console.error("[FCM] Failed to get Firebase access token:", e);
-    return new Response("Firebase auth error", { status: 500 });
+    return new Response("Firebase auth error", { status: 500, headers: corsHeaders });
   }
 
-  // Send to all devices for this user
+  // Dispatch high-priority FCM notification to all registered devices
   const title = notification.title;
   const body = notification.body ?? "";
 
@@ -266,6 +313,6 @@ Deno.serve(async (req) => {
 
   return new Response(JSON.stringify({ sent, failed, total: results.length }), {
     status: 200,
-    headers: { "Content-Type": "application/json" },
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 });

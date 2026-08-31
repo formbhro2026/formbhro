@@ -23,6 +23,9 @@ import type {
   UserDocument,
 } from "@/data/user-module";
 import { useSession } from "@/lib/session";
+import { toast } from "sonner";
+import { playMessageNotificationSound } from "@/lib/audio-notifications";
+import { showSystemNotification } from "@/lib/fcm";
 
 const STATUS_MAP: Record<DbRequestStatus, RequestStatus> = {
   pending: "pending",
@@ -513,15 +516,37 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       if (!finalName.toLowerCase().endsWith(ext.toLowerCase())) {
         finalName = `${finalName}${ext}`;
       }
+
+      // If the user has an active request, link the document to it so team
+      // members can see it via their subscribeToRoom listener and document
+      // list fetch (which filters by request_id). Without this, personal
+      // documents (request_id = null, chat_room_id = null) are completely
+      // invisible to the support team.
+      const activeRef = Object.values(rooms.current).find(
+        (r) => r.chatRoomId !== null,
+      );
+      const requestId = activeRef?.requestId ?? undefined;
+      const chatRoomId = activeRef?.chatRoomId ?? undefined;
+
       const doc = await documentsApi.uploadDocument({
         file,
         fileName: finalName,
         uploaderRole: "user",
+        requestId,
+        chatRoomId,
       });
+
+      // Derive the UI reference for display
+      const reference =
+        requestId
+          ? Object.entries(rooms.current).find(([, r]) => r.requestId === requestId)?.[0] ?? ""
+          : "";
+      const title = requestId ? (rooms.current[reference]?.title ?? "My Request") : "Personal Document";
+
       setDocuments((prev) =>
         prev.some((d) => d.id === doc.id)
           ? prev
-          : [mapDocument(doc, "", "Personal Document"), ...prev],
+          : [mapDocument(doc, reference, title), ...prev],
       );
     },
     [mapDocument],
@@ -590,6 +615,34 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       setNotifications((prev) =>
         prev.some((n) => n.id === row.id) ? prev : [mapNotification(row), ...prev],
       );
+
+      if (row.type === "message") {
+        playMessageNotificationSound();
+        showSystemNotification(row.title || "New message", row.body || "You have a new message", {
+          data: {
+            requestId: row.request_id || "",
+            chatRoomId: row.chat_room_id || "",
+          },
+          onClick: () => {
+            if (row.request_id) {
+              window.location.href = `/app/chats/${row.request_id}`;
+            }
+          },
+        });
+
+        toast(row.title || "New message", {
+          description: row.body || "You have a new message",
+          duration: 6000,
+          action: row.request_id
+            ? {
+                label: "Open chat",
+                onClick: () => {
+                  window.location.href = `/app/chats/${row.request_id}`;
+                },
+              }
+            : undefined,
+        });
+      }
     });
   }, [user, mapNotification]);
 

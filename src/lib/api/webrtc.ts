@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
 export type WebRTCSignal = {
-  type: "offer" | "answer" | "candidate" | "hangup";
+  type: "offer" | "answer" | "candidate" | "hangup" | "request_offer";
   from: string;
   target: string;
   data: any;

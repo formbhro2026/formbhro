@@ -61,11 +61,13 @@ export function CallOverlay({
 
   if (!session.isActive && !session.error) return null;
 
+  const isIncomingAlert = session.isIncoming && !session.isAccepted;
+
   return (
     <div
       className={cn(
         "fixed z-[100] flex flex-col items-center justify-center bg-black/90 transition-all duration-300 backdrop-blur-md",
-        isMaximized
+        isMaximized || isIncomingAlert
           ? "inset-0"
           : "bottom-20 right-4 w-72 h-48 max-w-[calc(100vw-2rem)] rounded-2xl overflow-hidden shadow-2xl border border-white/10 sm:w-80 sm:h-52 lg:w-96 lg:h-64",
       )}
