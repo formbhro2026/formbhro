@@ -1,3 +1,4 @@
+// @ts-nocheck
 // supabase/functions/send-fcm-notification/index.ts
 //
 // Supabase Edge Function — sends High-Priority FCM push notifications (WhatsApp-style

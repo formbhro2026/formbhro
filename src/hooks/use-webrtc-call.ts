@@ -233,6 +233,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         }, 2500);
 
         // Trigger the FCM Push Notification for the incoming call
+        // @ts-expect-error trigger_call_notification is not in the generated types yet
         supabase
           .rpc("trigger_call_notification", {
             p_request_id: chatRoomId,

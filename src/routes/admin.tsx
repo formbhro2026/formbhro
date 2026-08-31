@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { AdminProvider } from "@/lib/admin-store";
+import { SessionProvider } from "@/lib/session";
 
 export const Route = createFileRoute("/admin")({
   ssr: false,
@@ -25,8 +26,10 @@ export const Route = createFileRoute("/admin")({
 
 function AdminRoot() {
   return (
-    <AdminProvider>
-      <Outlet />
-    </AdminProvider>
+    <SessionProvider>
+      <AdminProvider>
+        <Outlet />
+      </AdminProvider>
+    </SessionProvider>
   );
 }
