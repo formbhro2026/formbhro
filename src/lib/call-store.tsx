@@ -16,7 +16,7 @@ import {
 } from "react";
 import { useWebRTCCall, type CallSession } from "@/hooks/use-webrtc-call";
 import { CallOverlay } from "@/components/chat/CallOverlay";
-import { useUserStore as useStore } from "@/lib/user-store";
+import { UserStoreContext } from "@/lib/user-store-context";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/integrations/supabase/client";
 import { startIncomingCallRingtone, stopIncomingCallRingtone } from "@/lib/audio-notifications";
@@ -34,7 +34,7 @@ const CallContext = createContext<GlobalCallContextType | null>(null);
 
 export function GlobalCallProvider({ children }: { children: ReactNode }) {
   const { user } = useSession();
-  const userStore = useStore();
+  const userStore = useContext(UserStoreContext);
   const activeRequest = userStore?.activeRequest;
 
   // Track active call room ID (either explicit active request or incoming call room ID)
