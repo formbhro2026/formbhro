@@ -23,7 +23,7 @@ import {
   isCapacitor,
   showSystemNotification,
 } from "../lib/fcm";
-import { playMessageNotificationSound } from "../lib/audio-notifications";
+import { playMessageNotificationSound, startIncomingCallRingtone } from "../lib/audio-notifications";
 
 function NotFoundComponent() {
   return (
@@ -268,7 +268,10 @@ function RootComponent() {
 
     // Register FCM foreground notification handler → plays chime, triggers OS notification & shows rich top toast
     void onForegroundNotification((title, body, data) => {
-      if (data?.type !== "call") {
+      if (data?.type === "call") {
+        // Play the ringtone for incoming call notifications when app is in foreground
+        startIncomingCallRingtone();
+      } else {
         playMessageNotificationSound();
       }
 

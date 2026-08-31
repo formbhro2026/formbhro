@@ -17,7 +17,6 @@ import {
 import { useWebRTCCall, type CallSession } from "@/hooks/use-webrtc-call";
 import { CallOverlay } from "@/components/chat/CallOverlay";
 import { UserStoreContext } from "@/lib/user-store-context";
-import { useSession } from "@/lib/session";
 import { supabase } from "@/integrations/supabase/client";
 import { startIncomingCallRingtone, stopIncomingCallRingtone } from "@/lib/audio-notifications";
 
@@ -33,7 +32,19 @@ interface GlobalCallContextType {
 const CallContext = createContext<GlobalCallContextType | null>(null);
 
 export function GlobalCallProvider({ children }: { children: ReactNode }) {
-  const { user } = useSession();
+  // Use direct Supabase auth so this works in all shells (user, team, admin)
+  // without requiring a SessionProvider ancestor.
+  const [userId, setUserId] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    void supabase.auth.getUser().then(({ data }) => {
+      setUserId(data.user?.id ?? undefined);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserId(session?.user?.id ?? undefined);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
   const userStore = useContext(UserStoreContext);
   const activeRequest = userStore?.activeRequest;
 
@@ -58,17 +69,17 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
 
   // Listen to incoming call notifications globally for this authenticated user
   useEffect(() => {
-    if (!user?.id) return;
+    if (!userId) return;
 
     const channel = supabase
-      .channel(`global-calls:${user.id}`)
+      .channel(`global-calls:${userId}`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "notifications",
-          filter: `receiver_id=eq.${user.id}`,
+          filter: `receiver_id=eq.${userId}`,
         },
         (payload) => {
           const notif = payload.new as {
@@ -102,7 +113,7 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [user?.id]);
+  }, [userId]);
 
   // Auto-dismiss incoming alert after 30 seconds if not answered
   useEffect(() => {

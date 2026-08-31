@@ -233,19 +233,21 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         }, 2500);
 
         // Trigger the FCM Push Notification for the incoming call
-        // @ts-expect-error trigger_call_notification is not in the generated types yet
-        supabase
+        // trigger_call_notification is not yet in the generated Supabase types
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase as any)
           .rpc("trigger_call_notification", {
             p_request_id: chatRoomId,
             p_type: type,
           })
-          .then(({ error }) => {
+          .then(({ error }: { error: unknown }) => {
             if (error) {
               console.error("Failed to trigger call push notification:", error);
             }
           });
 
-        // Direct FCM push dispatch fallback
+        // Direct FCM push dispatch — passes caller_id so the edge function
+        // can resolve the correct receiver (the other party on the request).
         void supabase.functions
           .invoke("send-fcm-notification", {
             body: {
@@ -253,6 +255,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
               title: `Incoming ${type === "video" ? "Video" : "Voice"} Call`,
               body: "Tap to answer the call",
               request_id: chatRoomId,
+              caller_id: user.id,
               route: `/app/chats/${chatRoomId}`,
             },
           })

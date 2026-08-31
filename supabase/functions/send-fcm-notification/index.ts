@@ -48,6 +48,9 @@ interface WebhookPayload {
   request_id?: string;
   chat_room_id?: string;
   route?: string;
+  // When receiver_id is omitted, the function will resolve it from request_id
+  // by looking at the requests table (using the auth token to determine caller side).
+  caller_id?: string;
 }
 
 interface DeviceToken {
@@ -129,7 +132,7 @@ async function sendFCMMessage(
   title: string,
   body: string,
   data: Record<string, string>,
-): Promise<boolean> {
+): Promise<{ sent: boolean; invalidToken: boolean }> {
   const url = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
 
   // Select channel based on notification type for proper heads-up / ringtone routing
@@ -190,10 +193,15 @@ async function sendFCMMessage(
   if (!response.ok) {
     const errorText = await response.text();
     console.error(`[FCM] Send failed for token ${fcmToken.slice(0, 20)}...:`, errorText);
-    return false;
+    // Firebase reports invalid/expired tokens with these error codes
+    const invalidToken =
+      errorText.includes("UNREGISTERED") ||
+      errorText.includes("NOT_FOUND") ||
+      errorText.includes("INVALID_ARGUMENT");
+    return { sent: false, invalidToken };
   }
 
-  return true;
+  return { sent: true, invalidToken: false };
 }
 
 // ---------------------------------------------------------------------------
@@ -223,7 +231,7 @@ Deno.serve(async (req) => {
     // Database Webhook format
     notification = payload.record;
   } else if (payload.receiver_id && payload.title) {
-    // Direct invocation format
+    // Direct invocation format — receiver_id explicitly provided
     notification = {
       id: crypto.randomUUID(),
       receiver_id: payload.receiver_id,
@@ -233,6 +241,58 @@ Deno.serve(async (req) => {
       request_id: payload.request_id ?? null,
       chat_room_id: payload.chat_room_id ?? null,
       route: payload.route,
+    };
+  } else if (payload.request_id && payload.notification_type === "call" && payload.caller_id) {
+    // Direct invocation without explicit receiver_id:
+    // Resolve the receiver from the requests table server-side.
+    const SUPABASE_URL_EARLY = Deno.env.get("SUPABASE_URL");
+    const SUPABASE_SERVICE_ROLE_KEY_EARLY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!SUPABASE_URL_EARLY || !SUPABASE_SERVICE_ROLE_KEY_EARLY) {
+      return new Response("Server configuration error", { status: 500, headers: corsHeaders });
+    }
+    const sbAdmin = createClient(SUPABASE_URL_EARLY, SUPABASE_SERVICE_ROLE_KEY_EARLY);
+    // request_id may be a UUID or a reference string (e.g. FRM-XXXXX) depending on caller context
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      payload.request_id,
+    );
+    const { data: reqRow } = await sbAdmin
+      .from("requests")
+      .select("id, user_id, assigned_team_id")
+      .or(
+        isUuid
+          ? `id.eq.${payload.request_id}`
+          : `reference.eq.${payload.request_id},id.eq.${payload.request_id}`,
+      )
+      .maybeSingle();
+    if (!reqRow) {
+      return new Response("Request not found", { status: 200, headers: corsHeaders });
+    }
+    // The receiver is the party that is NOT the caller
+    const receiverId =
+      payload.caller_id === reqRow.user_id ? reqRow.assigned_team_id : reqRow.user_id;
+    if (!receiverId) {
+      console.info("[FCM] No receiver found for request", payload.request_id);
+      return new Response(JSON.stringify({ message: "No receiver for this request" }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    // Find chat room using the resolved DB UUID
+    const { data: roomRow } = await sbAdmin
+      .from("chat_rooms")
+      .select("id")
+      .eq("request_id", reqRow.id)
+      .maybeSingle();
+    const callTypeLabel = payload.title?.toLowerCase().includes("video") ? "Video" : "Voice";
+    notification = {
+      id: crypto.randomUUID(),
+      receiver_id: receiverId,
+      title: payload.title ?? `Incoming ${callTypeLabel} Call`,
+      body: payload.body ?? "Tap to answer the call",
+      type: "call",
+      request_id: reqRow.id,
+      chat_room_id: roomRow?.id ?? null,
+      route: payload.route ?? `/app/chats/${reqRow.id}`,
     };
   } else {
     return new Response("Invalid notification payload", { status: 200, headers: corsHeaders });
@@ -254,7 +314,9 @@ Deno.serve(async (req) => {
   const { data: tokens, error: tokenError } = await supabase
     .from("device_tokens")
     .select("fcm_token, platform")
-    .eq("user_id", notification.receiver_id);
+    .eq("user_id", notification.receiver_id)
+    .order("last_seen_at", { ascending: false })
+    .limit(3); // Send to at most 3 most recently active devices
 
   if (tokenError) {
     console.error("[FCM] Failed to fetch device tokens:", tokenError.message);
@@ -303,16 +365,34 @@ Deno.serve(async (req) => {
 
   const results = await Promise.allSettled(
     (tokens as DeviceToken[]).map((t) =>
-      sendFCMMessage(accessToken, projectId, t.fcm_token, title, body, data),
+      sendFCMMessage(accessToken, projectId, t.fcm_token, title, body, data).then((result) => ({
+        token: t.fcm_token,
+        ...result,
+      })),
     ),
   );
 
-  const sent = results.filter((r) => r.status === "fulfilled" && r.value).length;
+  const sent = results.filter(
+    (r) => r.status === "fulfilled" && r.value.sent,
+  ).length;
   const failed = results.length - sent;
 
-  console.info(`[FCM] Sent ${sent}/${results.length} notifications, ${failed} failed`);
+  // Clean up invalid/unregistered tokens so they don't keep accumulating
+  const invalidTokens = results
+    .filter((r) => r.status === "fulfilled" && r.value.invalidToken)
+    .map((r) => (r as PromiseFulfilledResult<{ token: string; sent: boolean; invalidToken: boolean }>).value.token);
 
-  return new Response(JSON.stringify({ sent, failed, total: results.length }), {
+  if (invalidTokens.length > 0) {
+    console.info(`[FCM] Removing ${invalidTokens.length} invalid token(s) from database`);
+    await supabase
+      .from("device_tokens")
+      .delete()
+      .in("fcm_token", invalidTokens);
+  }
+
+  console.info(`[FCM] Sent ${sent}/${results.length} notifications, ${failed} failed, ${invalidTokens.length} invalid tokens removed`);
+
+  return new Response(JSON.stringify({ sent, failed, total: results.length, invalidRemoved: invalidTokens.length }), {
     status: 200,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
