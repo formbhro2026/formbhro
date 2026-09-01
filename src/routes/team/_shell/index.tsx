@@ -54,24 +54,8 @@ function greeting() {
 
 function TeamHome() {
   const navigate = useNavigate();
-  const { member, requests, pool, assignToMe, openAdminChat } = useTeamStore();
+  const { member, requests, pool, assignToMe } = useTeamStore();
   const [claiming, setClaiming] = useState<string | null>(null);
-  const [openingAdminChat, setOpeningAdminChat] = useState(false);
-
-  const handleOpenAdminChat = async () => {
-    if (!member) return;
-    setOpeningAdminChat(true);
-    try {
-      const chatId = await openAdminChat();
-      if (chatId) {
-        void navigate({ to: "/team/work", search: { r: chatId } });
-      }
-    } catch (e) {
-      toast.error("Could not open admin chat");
-    } finally {
-      setOpeningAdminChat(false);
-    }
-  };
 
   const stats = useMemo(() => {
     const pending = requests.filter((r) => r.status === "pending").length;
@@ -133,15 +117,6 @@ function TeamHome() {
               Here's what's happening with your assigned requests today.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleOpenAdminChat}
-            disabled={openingAdminChat}
-            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-brand to-brand-dark px-4 py-2.5 text-xs font-semibold text-white shadow-lg shadow-brand/20 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
-          >
-            <MessageSquare className="h-4 w-4" />
-            {openingAdminChat ? "Connecting..." : "Direct Chat with Admin"}
-          </button>
         </header>
 
         {/* KPI Grid */}
