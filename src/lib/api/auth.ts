@@ -1,5 +1,4 @@
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
 import { ApiError, type AppRole, type Profile } from "./types";
 import { GoogleAuth } from "@codetrix-studio/capacitor-google-auth";
 
@@ -71,34 +70,21 @@ export async function signInWithGoogle(redirectPath: string = "/app") {
   const origin =
     typeof window !== "undefined" && window.location.origin
       ? window.location.origin
-      : "https://formbhro.lovable.app";
+      : "https://formbhro-oa2i.vercel.app";
   const redirectUri = `${origin}/auth`;
 
   // Standard Web OAuth flow: direct to Supabase
-  try {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: redirectUri,
-        queryParams: {
-          prompt: "select_account",
-        },
-      },
-    });
-    if (error) throw new ApiError(error.message);
-    return data;
-  } catch (err: unknown) {
-    console.warn("[Auth] Supabase OAuth error, trying Lovable OAuth fallback:", err);
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: redirectUri,
-      extraParams: {
-        project_id: "lovp_6bgg8rpczv88d8258svxwrn79x",
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: redirectUri,
+      queryParams: {
         prompt: "select_account",
       },
-    });
-    if (result?.error) throw new ApiError(result.error.message || String(result.error));
-    return result;
-  }
+    },
+  });
+  if (error) throw new ApiError(error.message);
+  return data;
 }
 
 /** Team & Admin module — email + password only. Accounts are created by the Admin. */
