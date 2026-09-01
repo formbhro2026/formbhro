@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { MessageSquareText } from "lucide-react";
+import { MessageSquareText, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UserHeader } from "@/components/layout/UserHeader";
 import { ChatHeader } from "@/components/chat/ChatHeader";
@@ -51,6 +51,7 @@ function ChatScreen() {
     attachFile,
     addNote,
     markRead,
+    loading,
   } = store;
   const [sheetTab, setSheetTab] = useState<"details" | "documents" | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
@@ -62,7 +63,13 @@ function ChatScreen() {
   const messages = messagesFor(requestId);
   const requestDocs = documentsFor(requestId);
   const preview = documents.find((d: any) => d.id === previewId) ?? null;
-  const { startCall } = useGlobalCall();
+  const { startCall, setActiveRoomId } = useGlobalCall();
+
+  useEffect(() => {
+    if (request?.id) {
+      setActiveRoomId(request.id);
+    }
+  }, [request?.id, setActiveRoomId]);
 
   useEffect(() => {
     markRead(requestId);
@@ -73,8 +80,20 @@ function ChatScreen() {
   }, [messages.length]);
 
   if (!request) {
+    if (loading) {
+      return (
+        <div className="flex min-h-screen flex-col bg-bg text-white">
+          <UserHeader title="Conversation" />
+          <main className="mx-auto flex w-full max-w-xl flex-1 flex-col items-center justify-center px-4 py-24 text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-brand mb-3" />
+            <p className="text-sm font-medium text-text-secondary">Loading conversation…</p>
+          </main>
+        </div>
+      );
+    }
+
     return (
-      <>
+      <div className="flex min-h-screen flex-col bg-bg text-white">
         <UserHeader title="Conversation" />
         <main className="mx-auto w-full max-w-xl flex-1 px-4 pb-28 pt-8">
           <EmptyState
@@ -91,7 +110,7 @@ function ChatScreen() {
             }
           />
         </main>
-      </>
+      </div>
     );
   }
 
@@ -113,7 +132,7 @@ function ChatScreen() {
             onOpenDetails={() => openSheet("details")}
             onOpenDocuments={() => openSheet("documents")}
             documentCount={requestDocs.length}
-            onStartCall={startCall}
+            onStartCall={(type) => startCall(type, request.id)}
           />
 
           <div

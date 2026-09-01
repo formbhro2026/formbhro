@@ -169,8 +169,9 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
   }, [chatRoomId, cleanup]);
 
   const startCall = useCallback(
-    async (type: "audio" | "video" | "screen" = "video") => {
-      if (!chatRoomId) return;
+    async (type: "audio" | "video" | "screen" = "video", targetRoomId?: string) => {
+      const activeId = targetRoomId || chatRoomId;
+      if (!activeId) return;
 
       try {
         cleanup();
@@ -212,7 +213,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
 
         lastOfferRef.current = { offer, type };
 
-        await sendSignal(chatRoomId, {
+        await sendSignal(activeId, {
           type: "offer",
           from: user.id,
           target: "all",
@@ -223,7 +224,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         if (offerIntervalRef.current) clearInterval(offerIntervalRef.current);
         offerIntervalRef.current = setInterval(() => {
           if (pcRef.current && lastOfferRef.current && myIdRef.current) {
-            void sendSignal(chatRoomId, {
+            void sendSignal(activeId, {
               type: "offer",
               from: myIdRef.current,
               target: "all",
@@ -237,7 +238,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (supabase as any)
           .rpc("trigger_call_notification", {
-            p_request_id: chatRoomId,
+            p_request_id: activeId,
             p_type: type,
           })
           .then(({ error }: { error: unknown }) => {
@@ -254,9 +255,9 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
               notification_type: "call",
               title: `Incoming ${type === "video" ? "Video" : "Voice"} Call`,
               body: "Tap to answer the call",
-              request_id: chatRoomId,
+              request_id: activeId,
               caller_id: user.id,
-              route: `/app/chats/${chatRoomId}`,
+              route: `/app/chats/${activeId}`,
             },
           })
           .catch((e) => console.warn("[FCM] Call push error:", e));

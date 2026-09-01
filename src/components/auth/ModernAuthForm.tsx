@@ -25,10 +25,12 @@ export function ModernAuthForm({
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
   const [isReadingOtp, setIsReadingOtp] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const handleGoogleSignIn = async () => {
     setIsGoogleSubmitting(true);
     setError(null);
+    setSuccessMessage(null);
     try {
       const res = await signInWithGoogle();
       if (
@@ -52,6 +54,7 @@ export function ModernAuthForm({
     e.preventDefault();
     setIsSubmitting(true);
     setError(null);
+    setSuccessMessage(null);
     try {
       if (mode === "login") {
         const { data, error: authError } = await supabase.auth.signInWithPassword({
@@ -60,7 +63,13 @@ export function ModernAuthForm({
         });
 
         if (authError) {
-          setError(authError.message);
+          if (authError.message.toLowerCase().includes("invalid login credentials")) {
+            setError(
+              "Invalid email or password. If you registered using Google, please use 'Sign in with Google' above. If you just signed up with email, please check your inbox for confirmation.",
+            );
+          } else {
+            setError(authError.message);
+          }
           return;
         }
 
@@ -89,6 +98,7 @@ export function ModernAuthForm({
           options: {
             data: {
               full_name: fullName.trim(),
+              role: "user",
             },
           },
         });
@@ -99,10 +109,11 @@ export function ModernAuthForm({
         }
 
         if (data?.session) {
+          setSuccessMessage("Account created successfully!");
           onSuccess?.();
         } else if (data?.user) {
           setMode("login");
-          setError("Account created! Please sign in with your password.");
+          setSuccessMessage("Account created successfully! Please sign in with your email and password.");
         }
       }
     } catch (e) {
@@ -226,6 +237,11 @@ export function ModernAuthForm({
             </div>
 
             {error && <p className="mt-4 text-center text-xs font-medium text-red-500">{error}</p>}
+            {successMessage && (
+              <p className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-50 p-3 text-center text-xs font-medium text-emerald-700">
+                {successMessage}
+              </p>
+            )}
 
             <div className="mt-8 grid grid-cols-2 gap-4">
               <div className="flex flex-col items-center text-center">
@@ -336,6 +352,11 @@ export function ModernAuthForm({
             </div>
 
             {error && <p className="mt-4 text-center text-xs font-medium text-red-500">{error}</p>}
+            {successMessage && (
+              <p className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-50 p-3 text-center text-xs font-medium text-emerald-700">
+                {successMessage}
+              </p>
+            )}
 
             <div className="mt-8 grid grid-cols-2 gap-4">
               <div className="flex flex-col items-center text-center">

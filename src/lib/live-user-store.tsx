@@ -193,105 +193,109 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const hydrate = useCallback(async () => {
-    if (!user) return;
-    setLoading(true);
-    try {
-      const [rows, notes, newsRows, docRows] = await Promise.all([
-        requestsApi.listRequests({ limit: 20 }),
-        notificationsApi.listNotifications(30),
-        notificationsApi.listNews(),
-        documentsApi.listDocuments({ limit: 100 }),
-      ]);
+  const isInitialHydrate = useRef(true);
 
-      const uniqueTeamIds = Array.from(
-        new Set(rows.map((r) => r.assigned_team_id).filter((id): id is string => Boolean(id))),
-      );
-      const profilesById =
-        uniqueTeamIds.length > 0 ? await authApi.getProfilesByIds(uniqueTeamIds) : {};
+  const hydrate = useCallback(
+    async (showLoading = false) => {
+      if (!user) return;
+      if (showLoading || isInitialHydrate.current) {
+        setLoading(true);
+      }
+      try {
+        const [rows, notes, newsRows, docRows] = await Promise.all([
+          requestsApi.listRequests({ limit: 20 }),
+          notificationsApi.listNotifications(30),
+          notificationsApi.listNews(),
+          documentsApi.listDocuments({ limit: 100 }),
+        ]);
 
-      teamNames.current = Object.fromEntries(
-        Object.entries(profilesById).map(([id, p]) => [id, p.full_name || "Support Team"]),
-      );
-      referenceById.current = Object.fromEntries(rows.map((r) => [r.id, r.reference || r.id]));
-      const mappedRequests = rows.map(mapRequest);
-      setRequests(mappedRequests);
+        referenceById.current = Object.fromEntries(rows.map((r) => [r.id, r.reference || r.id]));
+        const mappedRequests = rows.map(mapRequest);
+        setRequests(mappedRequests);
 
-      const nextRooms: typeof rooms.current = {};
+        const requestMap = Object.fromEntries(rows.map((r) => [r.id, r]));
+        const allDocuments: UserDocument[] = docRows.map((doc) => {
+          const req = doc.request_id ? requestMap[doc.request_id] : undefined;
+          const ref = req ? req.reference || req.id : "";
+          const title = req ? req.title : "Personal Document";
+          return mapDocument(doc, ref, title);
+        });
+        setDocuments(allDocuments);
 
-      // Fetch data for all requests in parallel
-      const roomResults = await Promise.all(
-        rows.map(async (row) => {
-          const reference = row.reference || row.id;
-          const room = await requestsApi.getChatRoom(row.id);
-          return { reference, row, room };
-        }),
-      );
+        setNotifications(notes.map(mapNotification));
+        setNews(
+          newsRows.map((n) => ({
+            id: n.id,
+            title: n.title,
+            description: n.description,
+            date: day(n.published_at),
+            category: n.category,
+            featured: n.featured,
+          })),
+        );
 
-      const allMessages: ChatMessage[] = [];
+        // INSTANT UNBLOCK: Unblock UI immediately after primary resources load
+        setLoading(false);
+        isInitialHydrate.current = false;
 
-      // Fetch messages for rooms that exist
-      await Promise.all(
-        roomResults.map(async ({ reference, row, room }) => {
-          nextRooms[reference] = {
-            requestId: row.id,
-            chatRoomId: room?.id ?? null,
-            title: row.title,
-          };
-          if (!room) return;
+        // Background Phase: Fetch team names and room messages concurrently
+        const uniqueTeamIds = Array.from(
+          new Set(rows.map((r) => r.assigned_team_id).filter((id): id is string => Boolean(id))),
+        );
 
-          const msgs = await messagesApi.listMessages(room.id, { limit: 50 });
-          allMessages.push(...msgs.map((m) => mapMessage(m, reference)));
-        }),
-      );
+        void (async () => {
+          if (uniqueTeamIds.length > 0) {
+            const profilesById = await authApi.getProfilesByIds(uniqueTeamIds);
+            teamNames.current = Object.fromEntries(
+              Object.entries(profilesById).map(([id, p]) => [id, p.full_name || "Support Team"]),
+            );
+            // Re-map requests with updated team names if available
+            setRequests(rows.map(mapRequest));
+          }
 
-      rooms.current = nextRooms;
-      setRoomsVersion((v) => v + 1);
+          const nextRooms: typeof rooms.current = {};
+          const allMessages: ChatMessage[] = [];
 
-      const requestMap = Object.fromEntries(rows.map((r) => [r.id, r]));
-      const allDocuments: UserDocument[] = docRows.map((doc) => {
-        const req = doc.request_id ? requestMap[doc.request_id] : undefined;
-        const ref = req ? req.reference || req.id : "";
-        const title = req ? req.title : "Personal Document";
-        return mapDocument(doc, ref, title);
-      });
+          // Fetch rooms & messages in parallel
+          await Promise.all(
+            rows.map(async (row) => {
+              const reference = row.reference || row.id;
+              const room = await requestsApi.getChatRoom(row.id);
+              nextRooms[reference] = {
+                requestId: row.id,
+                chatRoomId: room?.id ?? null,
+                title: row.title,
+              };
+              if (room) {
+                const msgs = await messagesApi.listMessages(room.id, { limit: 50 });
+                allMessages.push(...msgs.map((m) => mapMessage(m, reference)));
+              }
+            }),
+          );
 
-      // De-duplicate messages that might have arrived via realtime during fetch
-      setMessages((prev) => {
-        const existingIds = new Set(prev.map((m) => m.id));
-        const newMsgs = allMessages.filter((m) => !existingIds.has(m.id));
-        return [...prev, ...newMsgs];
-      });
+          rooms.current = nextRooms;
+          setRoomsVersion((v) => v + 1);
 
-      setDocuments((prev) => {
-        const existingIds = new Set(prev.map((d) => d.id));
-        const newDocs = allDocuments.filter((d) => !existingIds.has(d.id));
-        return [...prev, ...newDocs];
-      });
-
-      setNotifications(notes.map(mapNotification));
-      setNews(
-        newsRows.map((n) => ({
-          id: n.id,
-          title: n.title,
-          description: n.description,
-          date: day(n.published_at),
-          category: n.category,
-          featured: n.featured,
-        })),
-      );
-    } catch (err) {
-      console.error("[LiveUserStore] Hydration failed:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [user, mapRequest, mapMessage, mapDocument, mapNotification]);
+          setMessages((prev) => {
+            const existingIds = new Set(prev.map((m) => m.id));
+            const newMsgs = allMessages.filter((m) => !existingIds.has(m.id));
+            return [...prev, ...newMsgs];
+          });
+        })();
+      } catch (err) {
+        console.error("[LiveUserStore] Hydration failed:", err);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [user, mapRequest, mapMessage, mapDocument, mapNotification],
+  );
 
   useEffect(() => {
-    void hydrate();
+    void hydrate(true);
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        void hydrate();
+        void hydrate(false);
       }
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -355,13 +359,46 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
     [requests],
   );
 
-  const getRequest = useCallback((id: string) => requests.find((r) => r.id === id), [requests]);
+  const getRequest = useCallback(
+    (id: string) => {
+      if (!id) return undefined;
+      const cleanId = id.trim().toLowerCase();
+      return requests.find(
+        (r) =>
+          r.id?.toLowerCase() === cleanId ||
+          r.reference?.toLowerCase() === cleanId ||
+          (referenceById.current[id] &&
+            (r.id === referenceById.current[id] || r.reference === referenceById.current[id])),
+      );
+    },
+    [requests],
+  );
+
   const messagesFor = useCallback(
-    (id: string) => messages.filter((m) => m.requestId === id),
+    (id: string) => {
+      if (!id) return [];
+      const cleanId = id.trim().toLowerCase();
+      const ref = (referenceById.current[id] || id).trim().toLowerCase();
+      return messages.filter(
+        (m) =>
+          m.requestId?.toLowerCase() === cleanId ||
+          m.requestId?.toLowerCase() === ref,
+      );
+    },
     [messages],
   );
+
   const documentsFor = useCallback(
-    (id: string) => documents.filter((d) => d.requestId === id),
+    (id: string) => {
+      if (!id) return [];
+      const cleanId = id.trim().toLowerCase();
+      const ref = (referenceById.current[id] || id).trim().toLowerCase();
+      return documents.filter(
+        (d) =>
+          d.requestId?.toLowerCase() === cleanId ||
+          d.requestId?.toLowerCase() === ref,
+      );
+    },
     [documents],
   );
 

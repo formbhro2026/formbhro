@@ -24,21 +24,49 @@ type SessionValue = {
 
 const SessionContext = createContext<SessionValue | null>(null);
 
+const CACHE_KEY = "formbhro:auth_session_cache";
+
+function getCachedSession(): { profile: Profile | null; role: AppRole | null; userId: string } | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(CACHE_KEY) || localStorage.getItem(CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedSession(data: { profile: Profile | null; role: AppRole | null; userId: string } | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (!data) {
+      sessionStorage.removeItem(CACHE_KEY);
+      localStorage.removeItem(CACHE_KEY);
+    } else {
+      const json = JSON.stringify(data);
+      sessionStorage.setItem(CACHE_KEY, json);
+      localStorage.setItem(CACHE_KEY, json);
+    }
+  } catch {}
+}
+
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [loading, setLoading] = useState(true);
-  const [initialized, setInitialized] = useState(false);
+  const cached = getCachedSession();
+  const [loading, setLoading] = useState(!cached);
+  const [initialized, setInitialized] = useState(Boolean(cached));
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [role, setRole] = useState<AppRole | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(cached?.profile ?? null);
+  const [role, setRole] = useState<AppRole | null>(cached?.role ?? null);
 
   const load = useCallback(async (nextUser: User | null) => {
     setUser(nextUser);
     if (!nextUser) {
       setProfile(null);
       setRole(null);
+      setCachedSession(null);
       return;
     }
-    let retries = 3;
+    let retries = 2;
     let profileResult, rolesResult;
 
     while (retries > 0) {
@@ -53,14 +81,22 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
       retries--;
       if (retries > 0) {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 500));
       }
     }
 
-    setProfile(profileResult?.data ?? null);
+    const nextProfile = profileResult?.data ?? null;
+    setProfile(nextProfile);
     const roles = (rolesResult?.data ?? []).map((r) => r.role);
     if (rolesResult?.error) console.error("[Session] roles error:", rolesResult.error);
-    setRole(roles.includes("admin") ? "admin" : roles.includes("team") ? "team" : "user");
+    const nextRole: AppRole = roles.includes("admin") ? "admin" : roles.includes("team") ? "team" : "user";
+    setRole(nextRole);
+
+    setCachedSession({
+      profile: nextProfile,
+      role: nextRole,
+      userId: nextUser.id,
+    });
 
     // BAN ENFORCEMENT: Immediately log out users whose profile is suspended
     if (profileResult?.data && profileResult.data.is_active === false) {
@@ -68,9 +104,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setProfile(null);
       setRole(null);
-      // Optional: Redirection can be handled by app shell since user is now null,
-      // or we can force a location reload.
-      // The router in app.tsx will naturally redirect to /auth.
+      setCachedSession(null);
       return;
     }
   }, []);
@@ -85,9 +119,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           data: { session },
         } = await supabase.auth.getSession();
         if (active) {
-          await load(session?.user ?? null);
           if (session?.user) {
+            setUser(session.user);
             void initializeFCM(session.user.id);
+            // Quick background sync
+            void load(session.user);
+          } else {
+            await load(null);
           }
         }
       } catch (e) {

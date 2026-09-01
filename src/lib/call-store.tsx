@@ -27,6 +27,7 @@ interface GlobalCallContextType {
   hangup: (errorMessage?: string) => Promise<void>;
   switchCamera?: () => Promise<void>;
   activeRoomId: string | undefined;
+  setActiveRoomId: (roomId: string | undefined) => void;
 }
 
 const CallContext = createContext<GlobalCallContextType | null>(null);
@@ -136,7 +137,7 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
         return;
       }
       setCallRoomId(target);
-      await call.startCall(type);
+      await call.startCall(type, target);
     },
     [activeRequest?.id, callRoomId, call],
   );
@@ -182,6 +183,7 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
         hangup: handleHangup,
         switchCamera: call.switchCamera,
         activeRoomId: callRoomId,
+        setActiveRoomId: setCallRoomId,
       }}
     >
       {children}
@@ -219,6 +221,7 @@ export function useGlobalCall() {
       hangup: async () => {},
       switchCamera: async () => {},
       activeRoomId: undefined,
+      setActiveRoomId: () => {},
     };
   }
   return ctx;

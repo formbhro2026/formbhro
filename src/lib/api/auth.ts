@@ -114,7 +114,8 @@ export async function signUpWithEmail(email: string, password: string, fullName:
     password,
     options: {
       data: {
-        full_name: fullName,
+        full_name: fullName.trim(),
+        role: "user",
       },
     },
   });

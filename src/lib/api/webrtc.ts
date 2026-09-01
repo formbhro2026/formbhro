@@ -7,46 +7,84 @@ export type WebRTCSignal = {
   data: any;
 };
 
-export function sendSignal(chatRoomId: string, signal: WebRTCSignal) {
-  return supabase
-    .channel(`webrtc:${chatRoomId}`, {
-      config: { broadcast: { ack: true } },
+type ChannelEntry = {
+  channel: any;
+  status: "CONNECTING" | "SUBSCRIBED" | "CLOSED";
+  subscribers: Set<(signal: WebRTCSignal) => void>;
+  queue: WebRTCSignal[];
+};
+
+const activeChannels = new Map<string, ChannelEntry>();
+
+function getOrCreateChannel(chatRoomId: string): ChannelEntry {
+  let entry = activeChannels.get(chatRoomId);
+  if (entry) return entry;
+
+  const channel = supabase.channel(`webrtc:${chatRoomId}`, {
+    config: { broadcast: { ack: true } },
+  });
+
+  entry = {
+    channel,
+    status: "CONNECTING",
+    subscribers: new Set(),
+    queue: [],
+  };
+  activeChannels.set(chatRoomId, entry);
+
+  channel
+    .on("broadcast", { event: "signal" }, ({ payload }: { payload: WebRTCSignal }) => {
+      entry?.subscribers.forEach((cb) => cb(payload));
     })
-    .send({
+    .subscribe((status: string) => {
+      if (entry) {
+        if (status === "SUBSCRIBED") {
+          entry.status = "SUBSCRIBED";
+          // Flush any signals queued before the channel connected
+          while (entry.queue.length > 0) {
+            const nextSignal = entry.queue.shift();
+            if (nextSignal) {
+              void entry.channel.send({
+                type: "broadcast",
+                event: "signal",
+                payload: nextSignal,
+              });
+            }
+          }
+        } else if (status === "CLOSED" || status === "CHANNEL_ERROR") {
+          entry.status = "CLOSED";
+        }
+      }
+    });
+
+  return entry;
+}
+
+export async function sendSignal(chatRoomId: string, signal: WebRTCSignal) {
+  const entry = getOrCreateChannel(chatRoomId);
+
+  if (entry.status === "SUBSCRIBED") {
+    return entry.channel.send({
       type: "broadcast",
       event: "signal",
       payload: signal,
     });
+  }
+
+  // If not yet connected, queue it to send immediately when SUBSCRIBED
+  entry.queue.push(signal);
+  return { ok: true };
 }
 
 export function subscribeToSignals(chatRoomId: string, onSignal: (signal: WebRTCSignal) => void) {
-  let retryCount = 0;
-  const MAX_RETRIES = 5;
-  let channel: any = null;
-
-  const connect = () => {
-    channel = supabase
-      .channel(`webrtc:${chatRoomId}`, {
-        config: { broadcast: { ack: true } },
-      })
-      .on("broadcast", { event: "signal" }, ({ payload }) => {
-        onSignal(payload as WebRTCSignal);
-      })
-      .subscribe((status) => {
-        if (status === "CLOSED" || status === "CHANNEL_ERROR") {
-          if (retryCount < MAX_RETRIES) {
-            retryCount++;
-            setTimeout(connect, 1000 * retryCount);
-          }
-        } else if (status === "SUBSCRIBED") {
-          retryCount = 0;
-        }
-      });
-  };
-
-  connect();
+  const entry = getOrCreateChannel(chatRoomId);
+  entry.subscribers.add(onSignal);
 
   return () => {
-    if (channel) void supabase.removeChannel(channel);
+    entry.subscribers.delete(onSignal);
+    if (entry.subscribers.size === 0) {
+      void supabase.removeChannel(entry.channel);
+      activeChannels.delete(chatRoomId);
+    }
   };
 }

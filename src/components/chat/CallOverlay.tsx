@@ -61,19 +61,21 @@ export function CallOverlay({
 
   if (!session.isActive && !session.error) return null;
 
-  const isIncomingAlert = session.isIncoming && !session.isAccepted;
+  const isStaff =
+    typeof window !== "undefined" &&
+    (window.location.pathname.startsWith("/team") || window.location.pathname.startsWith("/admin"));
 
   return (
     <div
       className={cn(
-        "fixed z-[100] flex flex-col items-center justify-center bg-black/90 transition-all duration-300 backdrop-blur-md",
+        "fixed z-[100] flex flex-col items-center justify-center bg-black/95 transition-all duration-300 backdrop-blur-xl",
         isMaximized || isIncomingAlert
-          ? "inset-0"
+          ? "inset-0 p-4"
           : "bottom-20 right-4 w-72 h-48 max-w-[calc(100vw-2rem)] rounded-2xl overflow-hidden shadow-2xl border border-white/10 sm:w-80 sm:h-52 lg:w-96 lg:h-64",
       )}
     >
       {/* Remote Video (Full Size) */}
-      <div className="relative w-full h-full bg-surface-3 flex items-center justify-center">
+      <div className="relative w-full h-full bg-surface-3 rounded-2xl overflow-hidden flex items-center justify-center">
         {!session.isActive && session.error ? (
           <div className="flex flex-col items-center gap-4 text-center p-6">
             <div className="h-16 w-16 rounded-full bg-danger/20 flex items-center justify-center">
@@ -88,7 +90,7 @@ export function CallOverlay({
             <button
               id="call-overlay-error-close"
               onClick={onHangup}
-              className="mt-4 px-6 py-2 rounded-full bg-surface-4 text-white hover:bg-surface-5 transition-colors"
+              className="mt-4 px-6 py-2 rounded-full bg-surface-4 text-white hover:bg-surface-5 transition-colors cursor-pointer"
             >
               Close
             </button>
@@ -96,12 +98,12 @@ export function CallOverlay({
         ) : session.remoteStream ? (
           session.callType === "audio" ? (
             <div className="flex flex-col w-full h-full items-center justify-center gap-4 text-center p-6 bg-surface-3">
-              <div className="h-24 w-24 rounded-full bg-brand/20 flex items-center justify-center">
+              <div className="h-24 w-24 rounded-full bg-brand/20 flex items-center justify-center animate-pulse">
                 <Phone className="h-10 w-10 text-brand" />
               </div>
               <div>
                 <p className="text-white font-bold text-lg">In Call</p>
-                <p className="text-sm text-text-muted mt-1">Audio Only</p>
+                <p className="text-sm text-text-muted mt-1">Audio Connected</p>
               </div>
               <audio ref={audioRef} autoPlay />
             </div>
@@ -115,14 +117,18 @@ export function CallOverlay({
           )
         ) : (
           <div className="flex flex-col items-center gap-4 text-center p-6">
-            <div className="h-20 w-20 rounded-full bg-brand/20 flex items-center justify-center animate-pulse">
-              <Phone className="h-8 w-8 text-brand" />
+            <div className="h-24 w-24 rounded-full bg-brand/20 flex items-center justify-center animate-pulse ring-8 ring-brand/10">
+              <Phone className="h-10 w-10 text-brand" />
             </div>
             <div>
-              <p className="text-white font-bold">
-                {session.isIncoming ? "Incoming Call..." : "Calling Support..."}
+              <p className="text-white font-bold text-xl">
+                {session.isIncoming
+                  ? "Incoming Call..."
+                  : isStaff
+                    ? "Calling Client..."
+                    : "Calling Support..."}
               </p>
-              <p className="text-[10px] text-text-muted mt-1 uppercase tracking-widest font-bold">
+              <p className="text-xs text-brand font-semibold mt-1.5 uppercase tracking-widest">
                 {session.isScreenSharing
                   ? "Screen Sharing Session"
                   : session.callType === "audio"
@@ -151,36 +157,38 @@ export function CallOverlay({
 
         {/* Controls Overlay */}
         {session.isActive && (
-          <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/80 to-transparent flex flex-col gap-4">
+          <div className="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/90 via-black/50 to-transparent flex flex-col gap-4">
             {session.error && (
-              <p className="text-[10px] text-danger text-center font-bold bg-danger/10 py-1 rounded">
+              <p className="text-xs text-danger text-center font-bold bg-danger/10 py-1.5 rounded-lg border border-danger/20">
                 {session.error}
               </p>
             )}
 
-            <div className="flex items-center justify-center gap-4">
+            <div className="flex items-center justify-center gap-6">
               {session.isIncoming && !session.isAccepted ? (
                 <>
                   <button
                     onClick={onAccept}
-                    className="h-12 w-12 rounded-full bg-emerald-500 flex items-center justify-center text-white hover:bg-emerald-600 transition-colors shadow-lg"
+                    className="flex items-center gap-2.5 px-6 py-3.5 rounded-full bg-emerald-500 text-white font-bold hover:bg-emerald-600 active:scale-95 transition-all shadow-xl shadow-emerald-500/30 cursor-pointer text-sm"
                     title="Accept Call"
                   >
-                    <Phone className="h-6 w-6" />
+                    <Phone className="h-5 w-5" />
+                    <span>Accept Call</span>
                   </button>
                   <button
                     onClick={onHangup}
-                    className="h-12 w-12 rounded-full bg-red-500 flex items-center justify-center text-white hover:bg-red-600 transition-colors shadow-lg"
-                    title="Decline"
+                    className="flex items-center gap-2.5 px-6 py-3.5 rounded-full bg-red-500 text-white font-bold hover:bg-red-600 active:scale-95 transition-all shadow-xl shadow-red-500/30 cursor-pointer text-sm"
+                    title="Decline Call"
                   >
-                    <PhoneOff className="h-6 w-6" />
+                    <PhoneOff className="h-5 w-5" />
+                    <span>Decline</span>
                   </button>
                 </>
               ) : (
                 <>
                   <button
                     onClick={onHangup}
-                    className="h-12 w-12 rounded-full bg-red-500 flex items-center justify-center text-white hover:bg-red-600 transition-colors shadow-lg"
+                    className="h-14 w-14 rounded-full bg-red-500 flex items-center justify-center text-white hover:bg-red-600 active:scale-95 transition-all shadow-xl shadow-red-500/30 cursor-pointer"
                     title="End Call"
                   >
                     <PhoneOff className="h-6 w-6" />
@@ -188,7 +196,7 @@ export function CallOverlay({
                   {onSwitchCamera && !session.isScreenSharing && session.callType !== "audio" && (
                     <button
                       onClick={onSwitchCamera}
-                      className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
+                      className="h-12 w-12 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 active:scale-95 transition-all cursor-pointer"
                       title="Switch Camera"
                     >
                       <SwitchCamera className="h-5 w-5" />
@@ -196,7 +204,7 @@ export function CallOverlay({
                   )}
                   <button
                     onClick={() => setIsMaximized(!isMaximized)}
-                    className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
+                    className="h-12 w-12 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 active:scale-95 transition-all cursor-pointer"
                   >
                     {isMaximized ? (
                       <Minimize2 className="h-5 w-5" />
