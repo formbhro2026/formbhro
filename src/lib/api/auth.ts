@@ -8,7 +8,7 @@ export const NO_PUBLIC_SIGNUP_MESSAGE =
 
 import { isCapacitor, isCapacitorAndroid } from "../fcm";
 
-const GOOGLE_CLIENT_ID = "111790521008-kdr78o80m6h10voviku4r6uq9iq9nj2v.apps.googleusercontent.com";
+const GOOGLE_CLIENT_ID = "968890483464-hc7metveqh08o27mur4kbjp44j1aii9v.apps.googleusercontent.com";
 
 /** User module — Google login / signup. */
 export async function signInWithGoogle(redirectPath: string = "/app") {
