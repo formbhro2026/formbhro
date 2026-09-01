@@ -39,6 +39,7 @@ import {
   sendTyping,
 } from "@/lib/api/realtime";
 import { verifyTeamCode } from "@/lib/api/admin.functions";
+import { getOrCreateAdminTeamChat } from "@/lib/api/admin-team-chat";
 import {
   TEAM_TO_DB_STATUS,
   dayLabel,
@@ -167,6 +168,8 @@ type TeamStore = {
   transferChat: (requestId: string, targetAssigneeId: string) => Promise<void>;
   /** Escalate request to Admin attention. */
   escalateChat: (requestId: string) => Promise<void>;
+  /** Open direct chat thread with Admin. */
+  openAdminChat: () => Promise<string | null>;
   pool: TeamRequest[];
 };
 
@@ -784,6 +787,102 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     [member],
   );
 
+  const openAdminChat = useCallback(async (): Promise<string | null> => {
+    const currentMember = memberRef.current;
+    if (!currentMember) return null;
+
+    if (liveRef.current) {
+      const { request, room } = await getOrCreateAdminTeamChat(
+        currentMember.id,
+        currentMember.name,
+      );
+      const reqRef = request.reference || request.id;
+
+      rooms.current[reqRef] = { requestId: request.id, chatRoomId: room.id };
+      rooms.current[request.id] = { requestId: request.id, chatRoomId: room.id };
+      refByRequestId.current[request.id] = reqRef;
+
+      // Ensure room messages are loaded & subscribed in realtime
+      if (room.id) {
+        try {
+          const { messages: fetchedMsgs } = await messagesApi.listRoomMessages(room.id);
+          if (fetchedMsgs && fetchedMsgs.length > 0) {
+            setMessages((prev) => {
+              const existingIds = new Set(prev.map((m) => m.id));
+              const newMsgs = fetchedMsgs
+                .filter((m) => !existingIds.has(m.id))
+                .map((m) => mapTeamMessage(m, reqRef, currentMember.name));
+              return [...prev, ...newMsgs];
+            });
+          }
+        } catch {
+          // Ignore
+        }
+
+        subscribeToRoom(room.id, {
+          onMessage: (row) => {
+            setMessages((prev) => {
+              if (prev.some((m) => m.id === row.id)) return prev;
+              return [...prev, mapTeamMessage(row, reqRef, currentMember.name)];
+            });
+          },
+          onMessageUpdate: (row) => {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === row.id ? { ...m, ...mapTeamMessage(row, reqRef, currentMember.name) } : m,
+              ),
+            );
+          },
+          onDocument: (row) => {
+            setDocuments((prev) =>
+              prev.some((d) => d.id === row.id) ? prev : [mapTeamDocument(row, reqRef), ...prev],
+            );
+          },
+        });
+      }
+
+      // Map and ensure request is in state
+      const mapped = mapTeamRequest(request, currentMember.id, "Admin Support");
+      setRequests((prev) => {
+        const existingIdx = prev.findIndex(
+          (r) => r.id === reqRef || r.id === request.id || r.id === request.reference,
+        );
+        if (existingIdx >= 0) {
+          const next = [...prev];
+          next[existingIdx] = { ...next[existingIdx], ...mapped };
+          return next;
+        }
+        return [mapped, ...prev];
+      });
+
+      return reqRef;
+    } else {
+      const mockRef = "ADM-TM-DIRECT";
+      setRequests((prev) => {
+        if (prev.some((r) => r.id === mockRef)) return prev;
+        const mockReq: TeamRequest = {
+          id: mockRef,
+          title: "Direct Chat · Admin Support",
+          category: "Team Direct Report",
+          userName: "Admin Support",
+          userInitials: "AD",
+          status: "under-review",
+          priority: "high",
+          createdOn: "Today",
+          assignedAt: "Just now",
+          lastUpdated: "Just now",
+          lastMessage: "Direct Admin Support Channel",
+          unread: 0,
+          progress: 100,
+          assigneeId: currentMember.id,
+          timeline: [{ label: "Chat started", time: "Just now" }],
+        };
+        return [mockReq, ...prev];
+      });
+      return mockRef;
+    }
+  }, []);
+
   const sendMessage = useCallback(
     async (requestId: string, text: string) => {
       const name = member?.name ?? "Support";
@@ -1370,6 +1469,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       assignToMe,
       transferChat,
       escalateChat,
+      openAdminChat,
       pool,
     }),
     [
@@ -1418,6 +1518,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       assignToMe,
       transferChat,
       escalateChat,
+      openAdminChat,
       pool,
       analytics,
       fetchAnalytics,

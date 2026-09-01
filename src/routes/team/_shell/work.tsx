@@ -170,9 +170,15 @@ function WorkArea() {
     return out;
   }, [requests, query, state, priority, userFilter, typeFilter, ridFilter, sort]);
 
-  const listUnread = useMemo(() => list.reduce((sum, r) => sum + r.unread, 0), [list]);
-
-  const selected = search.r ? (requests.find((r) => r.id === search.r) ?? null) : null;
+  const selected = search.r
+    ? (requests.find(
+        (r) =>
+          r.id === search.r ||
+          r.id.toLowerCase() === search.r.toLowerCase() ||
+          r.id.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() ===
+            search.r.replace(/[^a-zA-Z0-9]/g, "").toLowerCase(),
+      ) ?? null)
+    : null;
 
   // Leaving a chat clears anything the member scrolled past but never reached.
   const openIdRef = useRef<string | null>(null);

@@ -54,7 +54,7 @@ function greeting() {
 
 function TeamHome() {
   const navigate = useNavigate();
-  const { member, requests, pool, assignToMe } = useTeamStore();
+  const { member, requests, pool, assignToMe, openAdminChat } = useTeamStore();
   const [claiming, setClaiming] = useState<string | null>(null);
   const [openingAdminChat, setOpeningAdminChat] = useState(false);
 
@@ -62,8 +62,10 @@ function TeamHome() {
     if (!member) return;
     setOpeningAdminChat(true);
     try {
-      const { request } = await getOrCreateAdminTeamChat(member.id, member.name);
-      void navigate({ to: "/team/work", search: { r: request.id } });
+      const chatId = await openAdminChat();
+      if (chatId) {
+        void navigate({ to: "/team/work", search: { r: chatId } });
+      }
     } catch (e) {
       toast.error("Could not open admin chat");
     } finally {

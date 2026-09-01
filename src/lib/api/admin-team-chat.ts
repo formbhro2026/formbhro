@@ -12,8 +12,7 @@ export async function getOrCreateAdminTeamChat(
   teamMemberName?: string,
 ): Promise<{ request: RequestRow; room: ChatRoomRow }> {
   const { data: userData } = await supabase.auth.getUser();
-  const uid = userData.user?.id;
-  if (!uid) throw new ApiError("Session expired. Please sign in again.", "unauthenticated");
+  const uid = userData.user?.id || teamMemberId;
 
   // 1. Try to find an existing direct chat request for this team member
   const { data: existingReqs, error: fetchErr } = await supabase
@@ -32,58 +31,42 @@ export async function getOrCreateAdminTeamChat(
 
   // 2. If not found, create one
   if (!request) {
-    const title = `Direct Chat · ${teamMemberName || "Team Member"}`;
+    const title = `Direct Chat · ${teamMemberName || "Admin Support"}`;
     const ref = `ADM-TM-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    const isCurrentTeamMember = uid === teamMemberId;
+    const { data: createdReq, error: insertErr } = await supabase
+      .from("requests")
+      .insert({
+        user_id: uid,
+        title,
+        category: DIRECT_CHAT_CATEGORY,
+        priority: "high",
+        status: "in_progress",
+        reference: ref,
+        assigned_team_id: teamMemberId,
+        assigned_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
 
-    if (isCurrentTeamMember) {
-      // Team member creating a direct report chat
-      const { data: createdReq, error: insertErr } = await supabase
-        .from("requests")
-        .insert({
-          user_id: uid,
-          title,
-          category: DIRECT_CHAT_CATEGORY,
-          priority: "high",
-          status: "in_progress",
-          reference: ref,
-        })
-        .select()
-        .single();
+    if (insertErr) {
+      throw new ApiError(insertErr.message, insertErr.code);
+    }
+    request = createdReq as RequestRow;
+  } else if (!request.assigned_team_id) {
+    // Ensure assigned_team_id is set so the team member query detects it
+    const { data: updatedReq } = await supabase
+      .from("requests")
+      .update({
+        assigned_team_id: teamMemberId,
+        assigned_at: request.assigned_at || new Date().toISOString(),
+      })
+      .eq("id", request.id)
+      .select()
+      .single();
 
-      if (insertErr) {
-        throw new ApiError(insertErr.message, insertErr.code);
-      }
-      request = createdReq as RequestRow;
-    } else {
-      // Admin initiating direct chat with team member
-      const { data: createdReq, error: insertErr } = await supabase
-        .from("requests")
-        .insert({
-          user_id: uid,
-          title,
-          category: DIRECT_CHAT_CATEGORY,
-          priority: "high",
-          status: "in_progress",
-          reference: ref,
-        })
-        .select()
-        .single();
-
-      if (insertErr) {
-        throw new ApiError(insertErr.message, insertErr.code);
-      }
-
-      // Assign the team member to this request
-      const { data: updatedReq, error: assignErr } = await supabase
-        .from("requests")
-        .update({ assigned_team_id: teamMemberId, assigned_at: new Date().toISOString() })
-        .eq("id", createdReq.id)
-        .select()
-        .single();
-
-      request = (updatedReq || createdReq) as RequestRow;
+    if (updatedReq) {
+      request = updatedReq as RequestRow;
     }
   }
 
