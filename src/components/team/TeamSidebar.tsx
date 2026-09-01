@@ -1,4 +1,5 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import {
   Home,
   Briefcase,
@@ -9,10 +10,13 @@ import {
   Bell,
   LifeBuoy,
   ArrowRight,
+  MessageSquare,
 } from "lucide-react";
 import logoAsset from "@/assets/logo.png.asset.json";
 import { cn } from "@/lib/utils";
 import { useTeamStore } from "@/lib/team-store";
+import { getOrCreateAdminTeamChat } from "@/lib/api/admin-team-chat";
+import { toast } from "sonner";
 
 export const TEAM_NAV = [
   { label: "Home", to: "/team", icon: Home, exact: true },
@@ -24,8 +28,24 @@ export const TEAM_NAV = [
 ] as const;
 
 export function TeamSidebar() {
+  const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { member, signOut, totalUnread, requests, unreadNotifications } = useTeamStore();
+  const [openingChat, setOpeningChat] = useState(false);
+
+  const handleOpenAdminChat = async () => {
+    if (!member) return;
+    setOpeningChat(true);
+    try {
+      const { request } = await getOrCreateAdminTeamChat(member.id, member.name);
+      void navigate({ to: "/team/work", search: { r: request.id } });
+    } catch (e) {
+      toast.error("Could not connect to Admin chat");
+    } finally {
+      setOpeningChat(false);
+    }
+  };
+
   const isActive = (to: string, exact: boolean) =>
     exact ? pathname === to : pathname.startsWith(to);
 
@@ -125,8 +145,21 @@ export function TeamSidebar() {
         </div>
 
         <div className="mt-auto space-y-1 border-t border-border-subtle py-4">
+          <button
+            type="button"
+            onClick={handleOpenAdminChat}
+            disabled={openingChat}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-brand-light transition-colors duration-200 hover:bg-brand/10 hover:text-white disabled:opacity-50 text-left"
+          >
+            <MessageSquare
+              className="h-4.5 w-4.5 text-brand shrink-0"
+              strokeWidth={1.75}
+              aria-hidden="true"
+            />{" "}
+            <span className="truncate">{openingChat ? "Connecting..." : "Chat with Admin"}</span>
+          </button>
           <a
-            href="mailto:support@formbhro.com"
+            href="mailto:formbhro@gmail.com"
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary transition-colors duration-200 hover:bg-white/5 hover:text-white"
           >
             <LifeBuoy

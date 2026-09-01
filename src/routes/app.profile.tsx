@@ -11,12 +11,15 @@ import {
   User,
   Camera,
   Settings,
+  Moon,
+  Sun,
 } from "lucide-react";
 import { UserHeader } from "@/components/layout/UserHeader";
 import { useUserStore } from "@/lib/user-store";
 import { useSession } from "@/lib/session";
 import { CONTACT } from "@/data/landing";
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/lib/theme-manager";
 
 export const Route = createFileRoute("/app/profile")({
   component: Profile,
@@ -39,6 +42,7 @@ export const Route = createFileRoute("/app/profile")({
 function Profile() {
   const { profile, updateProfile, uploadAvatar } = useUserStore();
   const { signOut } = useSession();
+  const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -251,6 +255,46 @@ function Profile() {
               </div>
             )}
           </form>
+        </section>
+
+        {/* Theme Preferences */}
+        <section className="rounded-3xl border border-border-subtle bg-surface-1 p-6 shadow-lg shadow-black/10">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-bold text-white uppercase tracking-widest flex items-center gap-2">
+              <Sun className="h-4 w-4 text-brand" /> Appearance &amp; Theme
+            </h2>
+            <span className="text-[10px] font-bold uppercase text-brand tracking-wider">
+              {theme === "dark" ? "Dark Mode" : "Light Mode"}
+            </span>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setTheme("dark")}
+              className={cn(
+                "flex items-center justify-center gap-2.5 rounded-2xl border p-4 text-xs font-bold transition-all",
+                theme === "dark"
+                  ? "border-brand bg-brand/10 text-white shadow-lg shadow-brand/10"
+                  : "border-border-subtle bg-surface-2 text-text-secondary hover:border-border-strong hover:text-white",
+              )}
+            >
+              <Moon className="h-4 w-4 text-brand" />
+              <span>Dark Theme</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTheme("light")}
+              className={cn(
+                "flex items-center justify-center gap-2.5 rounded-2xl border p-4 text-xs font-bold transition-all",
+                theme === "light"
+                  ? "border-brand bg-brand/10 text-brand-dark shadow-lg shadow-brand/10"
+                  : "border-border-subtle bg-surface-2 text-text-secondary hover:border-border-strong hover:text-white",
+              )}
+            >
+              <Sun className="h-4 w-4 text-amber-500" />
+              <span>Light Theme</span>
+            </button>
+          </div>
         </section>
 
         {/* Security & Support Grid */}

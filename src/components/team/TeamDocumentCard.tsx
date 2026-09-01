@@ -1,4 +1,4 @@
-import { Download, Eye, File, FileCode2, FileImage, FileText } from "lucide-react";
+import { Download, Eye, File, FileCode2, FileImage, FileText, Trash2 } from "lucide-react";
 import type { TeamDocument } from "@/data/team-module";
 import { downloadDocument } from "@/lib/team-files";
 import { useTeamDocumentUrl } from "@/lib/use-team-document-url";
@@ -9,13 +9,23 @@ export function TeamDocumentCard({
   document: doc,
   requestTitle,
   onPreview,
+  onDelete,
 }: {
   document: TeamDocument;
   requestTitle?: string;
   onPreview: () => void;
+  onDelete?: () => void;
 }) {
   const Icon = DOC_ICONS[doc.kind] ?? File;
   const thumbUrl = useTeamDocumentUrl(doc.kind === "image" ? doc : null);
+
+  const handleDelete = () => {
+    if (!onDelete) return;
+    if (confirm(`Are you sure you want to delete "${doc.name}"?`)) {
+      onDelete();
+    }
+  };
+
   return (
     <article className="flex flex-col rounded-2xl border border-border-subtle bg-surface-1 p-4 transition-colors duration-200 hover:border-border-strong">
       <div className="flex items-start gap-3">
@@ -36,7 +46,7 @@ export function TeamDocumentCard({
       <p className="mt-3 text-[11px] text-text-secondary">
         {doc.size} • {doc.uploadedAt} • by {doc.uploadedBy}
       </p>
-      <div className="mt-4 flex gap-2">
+      <div className="mt-4 flex flex-wrap gap-2">
         <button
           type="button"
           onClick={onPreview}
@@ -53,6 +63,16 @@ export function TeamDocumentCard({
         >
           <Download className="h-3.5 w-3.5" aria-hidden="true" /> Download
         </button>
+        {onDelete && (
+          <button
+            type="button"
+            onClick={handleDelete}
+            aria-label={`Delete ${doc.name}`}
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-[11px] font-semibold text-red-400 transition-colors duration-200 hover:bg-red-500/20 hover:text-red-300"
+          >
+            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" /> Delete
+          </button>
+        )}
       </div>
     </article>
   );

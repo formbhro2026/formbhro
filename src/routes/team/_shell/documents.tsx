@@ -35,7 +35,7 @@ const FILTERS = [
 ] as const;
 
 function TeamDocuments() {
-  const { documents, requests } = useTeamStore();
+  const { documents, requests, deleteDocument } = useTeamStore();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["key"]>("all");
   const [previewId, setPreviewId] = useState<string | null>(null);
@@ -120,6 +120,7 @@ function TeamDocuments() {
                 document={d}
                 requestTitle={titleFor(d.requestId)}
                 onPreview={() => setPreviewId(d.id)}
+                onDelete={() => void deleteDocument(d.id, d.storagePath)}
               />
             ))}
           </div>

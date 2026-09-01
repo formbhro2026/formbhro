@@ -53,7 +53,7 @@ function PrivacyPolicy() {
             <h2 className="text-lg font-semibold text-white mb-2">5. Contact Us</h2>
             <p>
               If you have any questions about this Privacy Policy, please contact us at{" "}
-              <strong>support@formbhro.com</strong>.
+              <strong>formbhro@gmail.com</strong>.
             </p>
           </section>
         </div>

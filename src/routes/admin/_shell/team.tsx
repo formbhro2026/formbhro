@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { UserPlus } from "lucide-react";
+import { UserPlus, MessageSquare } from "lucide-react";
 import { useAdmin } from "@/lib/admin-store";
 import {
   Button,
@@ -57,6 +57,7 @@ const BLANK = {
 };
 
 function AdminTeam() {
+  const navigate = useNavigate();
   const { team, profiles, roles, requestsPage, refresh, profileOf, stats } = useAdmin();
   const [q, setQ] = useState("");
   const [form, setForm] = useState({ ...BLANK });
@@ -345,9 +346,25 @@ function AdminTeam() {
                   </td>
                   <td className="px-3 py-2.5 text-text-muted">{formatDate(member.created_at)}</td>
                   <td className="px-3 py-2.5 text-right">
-                    <Button variant="ghost" onClick={() => setSelected(member.id)}>
-                      Manage
-                    </Button>
+                    <div className="flex items-center justify-end gap-1.5">
+                      <Button
+                        variant="ghost"
+                        className="gap-1.5 text-brand-light hover:text-white"
+                        onClick={() =>
+                          void navigate({
+                            to: "/admin/chats",
+                            search: { request: undefined, teamMember: member.id, type: "team" },
+                          })
+                        }
+                        title={`Direct chat with ${profile?.full_name || "member"}`}
+                      >
+                        <MessageSquare className="h-3.5 w-3.5" />
+                        Chat
+                      </Button>
+                      <Button variant="ghost" onClick={() => setSelected(member.id)}>
+                        Manage
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               );
@@ -361,9 +378,23 @@ function AdminTeam() {
         <Panel
           title={`Team profile — ${detailProfile.full_name}`}
           action={
-            <Button variant="ghost" onClick={() => setSelected(null)}>
-              Close
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                className="gap-1.5"
+                onClick={() =>
+                  void navigate({
+                    to: "/admin/chats",
+                    search: { request: undefined, teamMember: detail.id, type: "team" },
+                  })
+                }
+              >
+                <MessageSquare className="h-3.5 w-3.5" />
+                Direct Chat
+              </Button>
+              <Button variant="ghost" onClick={() => setSelected(null)}>
+                Close
+              </Button>
+            </div>
           }
         >
           <div className="grid gap-4 lg:grid-cols-3">

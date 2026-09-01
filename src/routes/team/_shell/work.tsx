@@ -114,6 +114,7 @@ function WorkArea() {
     getDocument,
     sendMessage,
     attachDocument,
+    deleteDocument,
     setStatus,
     markRead,
     assignToMe,
@@ -1269,7 +1270,14 @@ function Conversation({
                       </p>
                     )
                   )}
-                  {doc && <MessageAttachment document={doc} mine={mine} onPreview={onPreview} />}
+                  {doc && (
+                    <MessageAttachment
+                      document={doc}
+                      mine={mine}
+                      onPreview={onPreview}
+                      onDelete={(id, storagePath) => void deleteDocument(id, storagePath)}
+                    />
+                  )}
 
                   {editingId !== m.id && (
                     <div className={cn("mt-1.5 flex", mine ? "justify-end" : "justify-start")}>
@@ -1623,6 +1631,7 @@ function RequestPanel({
               document={d}
               requestTitle={r.title}
               onPreview={() => onPreview(d.id)}
+              onDelete={() => void deleteDocument(d.id, d.storagePath)}
             />
           ))}
         </div>

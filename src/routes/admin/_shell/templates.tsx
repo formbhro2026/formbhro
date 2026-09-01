@@ -110,21 +110,30 @@ function AdminTemplates() {
                   {r.body}
                 </p>
 
-                <div className="mt-4 flex justify-end gap-2 border-t border-border-subtle pt-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={() => setEditing(r)}
-                    className="p-1.5 text-text-muted hover:text-white rounded bg-surface-2 transition-colors"
-                    title="Edit"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(r.id)}
-                    className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition-colors"
-                    title="Delete"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                <div className="mt-4 flex items-center justify-between border-t border-border-subtle pt-3">
+                  <span className="text-[10px] text-text-muted">
+                    {r.is_global ? "Global Template" : "Standard"}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setEditing(r)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-border-subtle bg-surface-2 px-2.5 py-1.5 text-xs font-medium text-text-secondary hover:border-brand/40 hover:text-white transition-colors"
+                      title="Edit Quick Reply"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      <span>Edit</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(r.id)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/10 px-2.5 py-1.5 text-xs font-medium text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors"
+                      title="Delete Quick Reply"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span>Delete</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

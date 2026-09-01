@@ -127,6 +127,7 @@ type TeamStore = {
       blob?: File;
     },
   ) => void;
+  deleteDocument: (documentId: string, storagePath?: string) => Promise<void>;
   setStatus: (requestId: string, status: TeamStatus) => void;
   /** Marks every incoming user message on this request as read. */
   markRead: (requestId: string) => void;
@@ -919,6 +920,24 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     [member, assignToMe, touch],
   );
 
+  const deleteDocument = useCallback(async (documentId: string, storagePath?: string) => {
+    try {
+      if (storagePath) {
+        await documentsApi.deleteDocument(documentId, storagePath);
+      }
+      setDocuments((prev) => prev.filter((d) => d.id !== documentId));
+      setMessages((prev) =>
+        prev.map((m) => (m.documentId === documentId ? { ...m, documentId: undefined } : m)),
+      );
+      toast.success("Document deleted");
+    } catch (err: any) {
+      console.error("Delete document error:", err);
+      // Still remove from local state if already deleted remotely
+      setDocuments((prev) => prev.filter((d) => d.id !== documentId));
+      toast.error(err?.message || "Failed to delete document");
+    }
+  }, []);
+
   const setStatus = useCallback(
     (requestId: string, status: TeamStatus) => {
       const label =
@@ -1329,6 +1348,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       isUserTyping,
       notifyTyping,
       attachDocument,
+      deleteDocument,
       setStatus,
       markRead,
       markMessageRead,
@@ -1376,6 +1396,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       isUserTyping,
       notifyTyping,
       attachDocument,
+      deleteDocument,
       setStatus,
       markRead,
       markMessageRead,

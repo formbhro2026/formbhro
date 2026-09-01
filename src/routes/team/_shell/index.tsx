@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import {
   ArrowRight,
@@ -10,6 +10,7 @@ import {
   Hourglass,
   Info,
   MessageSquareText,
+  MessageSquare,
   Plus,
   SlidersHorizontal,
   Timer,
@@ -19,6 +20,8 @@ import { TeamStatusBadge, PriorityBadge } from "@/components/team/TeamStatusBadg
 import { EmptyState } from "@/components/common/EmptyState";
 import { useTeamStore } from "@/lib/team-store";
 import { cn } from "@/lib/utils";
+import { getOrCreateAdminTeamChat } from "@/lib/api/admin-team-chat";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/team/_shell/")({
   component: TeamHome,
@@ -50,8 +53,23 @@ function greeting() {
 }
 
 function TeamHome() {
+  const navigate = useNavigate();
   const { member, requests, pool, assignToMe } = useTeamStore();
   const [claiming, setClaiming] = useState<string | null>(null);
+  const [openingAdminChat, setOpeningAdminChat] = useState(false);
+
+  const handleOpenAdminChat = async () => {
+    if (!member) return;
+    setOpeningAdminChat(true);
+    try {
+      const { request } = await getOrCreateAdminTeamChat(member.id, member.name);
+      void navigate({ to: "/team/work", search: { r: request.id } });
+    } catch (e) {
+      toast.error("Could not open admin chat");
+    } finally {
+      setOpeningAdminChat(false);
+    }
+  };
 
   const stats = useMemo(() => {
     const pending = requests.filter((r) => r.status === "pending").length;
@@ -89,13 +107,24 @@ function TeamHome() {
     <>
       <TeamHeader title="Home" />
       <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 pb-28 pt-6 sm:px-6 lg:pb-10">
-        <header className="mb-6">
-          <h2 className="text-xl font-bold text-white sm:text-2xl">
-            {greeting()}, {member?.name.split(" ")[0]} 👋
-          </h2>
-          <p className="mt-1 text-sm text-text-muted">
-            Here's what's happening with your assigned requests today.
-          </p>
+        <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-white sm:text-2xl">
+              {greeting()}, {member?.name.split(" ")[0]} 👋
+            </h2>
+            <p className="mt-1 text-sm text-text-muted">
+              Here's what's happening with your assigned requests today.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleOpenAdminChat}
+            disabled={openingAdminChat}
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-brand to-brand-dark px-4 py-2.5 text-xs font-semibold text-white shadow-lg shadow-brand/20 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
+          >
+            <MessageSquare className="h-4 w-4" />
+            {openingAdminChat ? "Connecting..." : "Direct Chat with Admin"}
+          </button>
         </header>
 
         {/* KPI Grid */}

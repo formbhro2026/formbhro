@@ -24,6 +24,7 @@ import {
   showSystemNotification,
 } from "../lib/fcm";
 import { playMessageNotificationSound, startIncomingCallRingtone } from "../lib/audio-notifications";
+import { getInitialTheme, applyTheme } from "../lib/theme-manager";
 
 function NotFoundComponent() {
   return (
@@ -144,6 +145,10 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    applyTheme(getInitialTheme());
+  }, []);
 
   useEffect(() => {
     if (!isCapacitor()) return;

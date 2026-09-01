@@ -1,22 +1,32 @@
-import { Download, Eye } from "lucide-react";
+import { Download, Eye, Trash2 } from "lucide-react";
 import type { TeamDocument } from "@/data/team-module";
 import { downloadDocument } from "@/lib/team-files";
 import { useTeamDocumentUrl } from "@/lib/use-team-document-url";
 import { DOC_ICONS } from "@/components/team/TeamDocumentCard";
 import { cn } from "@/lib/utils";
 
-/** Attachment card rendered inside a chat bubble: thumbnail, preview and one-click download. */
+/** Attachment card rendered inside a chat bubble: thumbnail, preview, download and delete. */
 export function MessageAttachment({
   document: doc,
   mine,
   onPreview,
+  onDelete,
 }: {
   document: TeamDocument;
   mine: boolean;
   onPreview: (id: string) => void;
+  onDelete?: (id: string, storagePath: string) => void;
 }) {
   const Icon = DOC_ICONS[doc.kind];
   const imageUrl = useTeamDocumentUrl(doc.kind === "image" ? doc : null);
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onDelete) return;
+    if (confirm(`Are you sure you want to delete "${doc.name}"?`)) {
+      onDelete(doc.id, doc.storagePath || "");
+    }
+  };
 
   return (
     <div
@@ -79,6 +89,17 @@ export function MessageAttachment({
           >
             <Download className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
+          {onDelete && (
+            <button
+              type="button"
+              onClick={handleDelete}
+              aria-label={`Delete ${doc.name}`}
+              className="grid h-8 w-8 place-items-center rounded-lg text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors"
+              title="Delete Document"
+            >
+              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          )}
         </span>
       </div>
     </div>
