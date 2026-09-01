@@ -214,7 +214,7 @@ export async function loadTeamSnapshot(
       const list = await messagesApi.listMessages(chatRoomId, { limit: 100 });
       messages.push(...list.map((m) => mapTeamMessage(m, reference, memberName)));
     }
-    const docs = await documentsApi.listDocuments({ requestId: row.id });
+    const docs = await documentsApi.listDocuments({ requestId: row.id, userId: row.user_id });
     documents.push(...docs.map((d) => mapTeamDocument(d, reference)));
   }
 

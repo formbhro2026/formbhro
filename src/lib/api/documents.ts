@@ -104,10 +104,17 @@ export async function getSignedUrl(storagePath: string, expiresInSeconds = 300, 
 
 export async function listDocuments(opts?: {
   requestId?: string;
+  userId?: string;
   limit?: number;
 }): Promise<DocumentRow[]> {
   let query = supabase.from("documents").select("*").order("created_at", { ascending: false });
-  if (opts?.requestId) query = query.eq("request_id", opts.requestId);
+  if (opts?.requestId && opts?.userId) {
+    query = query.or(`request_id.eq.${opts.requestId},uploaded_by.eq.${opts.userId}`);
+  } else if (opts?.requestId) {
+    query = query.eq("request_id", opts.requestId);
+  } else if (opts?.userId) {
+    query = query.eq("uploaded_by", opts.userId);
+  }
   const { data, error } = await query.limit(opts?.limit ?? 100);
   if (error) throw new ApiError(error.message, error.code);
   return data ?? [];

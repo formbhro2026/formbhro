@@ -136,11 +136,11 @@ async function sendFCMMessage(
   const url = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
 
   // Select channel based on notification type for proper heads-up / ringtone routing
-  let channelId = "formbhro_default";
+  let channelId = "formbhro_default_v2";
   if (data.type === "call") {
-    channelId = "formbhro_calls";
+    channelId = "formbhro_calls_v2";
   } else if (data.type === "message") {
-    channelId = "formbhro_messages";
+    channelId = "formbhro_messages_v2";
   }
 
   const message = {

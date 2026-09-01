@@ -1266,27 +1266,30 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           // Push a bell notification for every new user message so the team
           // member is alerted even when viewing another tab.
           if (isUserMsg) {
-            const preview = row.body?.slice(0, 80) || "Attachment";
-            setNotifications((prev) => [
-              {
-                id: `msg-notif-${row.id}`,
-                type: "message" as const,
-                text: `New message: ${preview}`,
-                time: nowTime(),
-                read: false,
-                requestId: reference,
-              },
-              ...prev.filter((n) => n.id !== `msg-notif-${row.id}`),
-            ]);
-            // Browser push notification (if permission granted)
-            if (
-              typeof Notification !== "undefined" &&
-              Notification.permission === "granted"
-            ) {
-              new Notification("New message", {
-                body: preview,
-                tag: `msg-${reference}`,
-              });
+            const isChatOpen = window.location.pathname.includes("/team/work") && new URLSearchParams(window.location.search).get("id") === reference;
+            if (!isChatOpen) {
+              const preview = row.body?.slice(0, 80) || "Attachment";
+              setNotifications((prev) => [
+                {
+                  id: `msg-notif-${row.id}`,
+                  type: "message" as const,
+                  text: `New message: ${preview}`,
+                  time: nowTime(),
+                  read: false,
+                  requestId: reference,
+                },
+                ...prev.filter((n) => n.id !== `msg-notif-${row.id}`),
+              ]);
+              // Browser push notification (if permission granted)
+              if (
+                typeof Notification !== "undefined" &&
+                Notification.permission === "granted"
+              ) {
+                new Notification("New message", {
+                  body: preview,
+                  tag: `msg-${reference}`,
+                });
+              }
             }
           }
         },
@@ -1360,31 +1363,34 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       );
 
       if (row.type === "message") {
-        playMessageNotificationSound();
-        showSystemNotification(row.title || "New message", row.body || "New message received", {
-          data: {
-            requestId: row.request_id || "",
-            chatRoomId: row.chat_room_id || "",
-          },
-          onClick: () => {
-            if (row.request_id) {
-              window.location.href = `/team/work?id=${row.request_id}`;
-            }
-          },
-        });
-
-        toast(row.title || "New message", {
-          description: row.body || "New message received",
-          duration: 6000,
-          action: row.request_id
-            ? {
-                label: "Open chat",
-                onClick: () => {
-                  window.location.href = `/team/work?id=${row.request_id}`;
-                },
+        const isChatOpen = window.location.pathname.includes("/team/work") && new URLSearchParams(window.location.search).get("id") === row.request_id;
+        if (!isChatOpen) {
+          playMessageNotificationSound();
+          showSystemNotification(row.title || "New message", row.body || "New message received", {
+            data: {
+              requestId: row.request_id || "",
+              chatRoomId: row.chat_room_id || "",
+            },
+            onClick: () => {
+              if (row.request_id) {
+                window.location.href = `/team/work?id=${row.request_id}`;
               }
-            : undefined,
-        });
+            },
+          });
+
+          toast(row.title || "New message", {
+            description: row.body || "New message received",
+            duration: 6000,
+            action: row.request_id
+              ? {
+                  label: "Open chat",
+                  onClick: () => {
+                    window.location.href = `/team/work?id=${row.request_id}`;
+                  },
+                }
+              : undefined,
+          });
+        }
       }
     });
   }, [live, member]);

@@ -123,7 +123,7 @@ export async function setupAndroidNotificationChannels(): Promise<void> {
 
   const channels: NotificationChannelOptions[] = [
     {
-      id: "formbhro_calls",
+      id: "formbhro_calls_v2",
       name: "Incoming Calls",
       description: "Alerts for incoming audio and video calls",
       importance: 5, // IMPORTANCE_HIGH (pops on screen + rings)
@@ -134,7 +134,7 @@ export async function setupAndroidNotificationChannels(): Promise<void> {
       lightColor: "#FF8A1F",
     },
     {
-      id: "formbhro_messages",
+      id: "formbhro_messages_v2",
       name: "Messages & Updates",
       description: "New message alerts from experts and team members",
       importance: 5, // IMPORTANCE_HIGH (heads-up banner)
@@ -145,7 +145,7 @@ export async function setupAndroidNotificationChannels(): Promise<void> {
       lightColor: "#FF8A1F",
     },
     {
-      id: "formbhro_default",
+      id: "formbhro_default_v2",
       name: "General Notifications",
       description: "General system and request updates",
       importance: 5,
