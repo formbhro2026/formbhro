@@ -122,6 +122,7 @@ function WorkArea() {
   const { height: viewportHeight } = useVisualViewport();
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [sheet, setSheet] = useState(false);
+  const [claimingId, setClaimingId] = useState<string | null>(null);
 
   const query = search.q ?? "";
   const state = (search.f as "pending" | "completed" | undefined) ?? "all";
@@ -169,6 +170,8 @@ function WorkArea() {
       );
     return out;
   }, [requests, query, state, priority, userFilter, typeFilter, ridFilter, sort]);
+
+  const listUnread = useMemo(() => list.reduce((sum, r) => sum + r.unread, 0), [list]);
 
   const selected = search.r
     ? (requests.find(
@@ -228,9 +231,23 @@ function WorkArea() {
                     <div className="flex items-center justify-between gap-2">
                       <p className="truncate text-[11px] font-semibold text-white">{r.title}</p>
                       <button
-                        onClick={() => assignToMe(r.id)}
-                        className="shrink-0 rounded bg-brand/10 px-2 py-0.5 text-[9px] font-bold text-brand-light hover:bg-brand/20"
+                        onClick={async () => {
+                          if (claimingId) return;
+                          setClaimingId(r.id);
+                          try {
+                            await assignToMe(r.id);
+                          } catch {
+                            // Handled by store toast
+                          } finally {
+                            setClaimingId(null);
+                          }
+                        }}
+                        disabled={claimingId !== null}
+                        className="shrink-0 rounded bg-brand/10 px-2 py-0.5 text-[9px] font-bold text-brand-light hover:bg-brand/20 disabled:opacity-50 inline-flex items-center gap-1"
                       >
+                        {claimingId === r.id && (
+                          <div className="h-2 w-2 animate-spin rounded-full border border-brand-light border-t-transparent" />
+                        )}
                         Claim
                       </button>
                     </div>

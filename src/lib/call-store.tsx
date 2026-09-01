@@ -185,7 +185,7 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-      {activeSession.isActive && (
+      {(activeSession.isActive || Boolean(activeSession.error)) && (
         <CallOverlay
           session={activeSession}
           onAccept={handleAcceptCall}

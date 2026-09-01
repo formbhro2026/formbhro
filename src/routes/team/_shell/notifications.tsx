@@ -64,14 +64,28 @@ function TeamNotifications() {
                   )}
                 />
                 <div className="min-w-0 flex-1">
-                  <p
-                    className={cn(
-                      "text-xs leading-relaxed",
-                      n.read ? "text-text-muted" : "text-white font-medium",
-                    )}
-                  >
-                    {n.text}
-                  </p>
+                  {n.requestId ? (
+                    <Link
+                      to="/team/work"
+                      search={{ r: n.requestId }}
+                      onClick={() => markNotificationRead(n.id)}
+                      className={cn(
+                        "text-xs leading-relaxed hover:underline block",
+                        n.read ? "text-text-muted" : "text-white font-medium",
+                      )}
+                    >
+                      {n.text}
+                    </Link>
+                  ) : (
+                    <p
+                      className={cn(
+                        "text-xs leading-relaxed",
+                        n.read ? "text-text-muted" : "text-white font-medium",
+                      )}
+                    >
+                      {n.text}
+                    </p>
+                  )}
                   <p className="mt-1 text-[10px] text-text-muted">{n.time}</p>
                 </div>
                 {!n.read && (

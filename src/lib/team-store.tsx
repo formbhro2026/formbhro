@@ -672,9 +672,20 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     async (requestId: string) => {
       if (!member?.id) return;
       try {
-        // requestId is the UI reference (FRM-XXXXX). claim_request RPC needs DB UUID.
-        // Primary: look up from rooms.current (populated by hydrateLive).
-        // Fallback: query DB directly for the raw UUID.
+        if (!liveRef.current) {
+          // Demo / offline mode: update local store optimistically
+          setRequests((prev) =>
+            prev.map((r) =>
+              r.id === requestId
+                ? { ...r, assigneeId: member.id, status: "pending", lastUpdated: `Today • ${nowTime()}` }
+                : r,
+            ),
+          );
+          toast.success("Request claimed successfully!");
+          return;
+        }
+
+        // Live backend: requestId is the UI reference (FRM-XXXXX) or raw UUID.
         let dbUuid = rooms.current[requestId]?.requestId;
         if (!dbUuid) {
           const { data: rows } = await supabase
@@ -687,7 +698,6 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
 
         const { error } = await supabase.rpc("claim_request", { req_id: dbUuid });
         if (error) {
-          // Supabase returns PostgrestError (not Error), extract message properly
           const msg =
             typeof (error as { message?: string }).message === "string"
               ? (error as { message?: string }).message!
@@ -695,29 +705,28 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           throw new Error(msg);
         }
 
-        // Optimistically remove the request from the pool by setting the assigneeId
-        // so it no longer satisfies the pool filter (!r.assigneeId).
+        // Optimistically update request in state
         setRequests((prev) =>
           prev.map((r) =>
             r.id === requestId
-              ? { ...r, assigneeId: member.id, lastUpdated: `Today • ${nowTime()}` }
+              ? { ...r, assigneeId: member.id, status: "pending", lastUpdated: `Today • ${nowTime()}` }
               : r,
           ),
         );
 
-        // Ensure the chat room is in rooms.current so the realtime subscription
-        // effect picks it up and new messages trigger notifications.
+        // Ensure the chat room is mapped in rooms.current
         if (!rooms.current[requestId]?.chatRoomId) {
           try {
             const freshRoom = await requestsApi.getOrCreateChatRoom(dbUuid);
             rooms.current[requestId] = { requestId: dbUuid, chatRoomId: freshRoom.id };
             setRoomsTick((t) => t + 1);
           } catch {
-            // Non-fatal — realtime will still catch up on next load
+            // Non-fatal — realtime subscription will still attach
           }
         }
 
-        fetchAnalytics(); // Update stats
+        fetchAnalytics();
+        toast.success("Request claimed successfully!");
       } catch (err) {
         console.error("Failed to self-assign:", err);
         const msg =
@@ -727,6 +736,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
               ? (err as { message?: string }).message!
               : JSON.stringify(err);
         toast.error("Failed to claim request: " + msg);
+        throw err;
       }
     },
     [member, fetchAnalytics],
