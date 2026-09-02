@@ -1,9 +1,11 @@
-import { useMemo, useState } from "react";
-import { MessageSquareText, Search } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { MessageSquareText, Search, Zap } from "lucide-react";
 import { ChatListItem } from "@/components/chat/ChatListItem";
 import { EmptyState } from "@/components/common/EmptyState";
 import { cn } from "@/lib/utils";
 import { ACTIVE_STATUSES, type SupportRequest } from "@/data/user-module";
+import { listQuickReplies } from "@/lib/api/notifications";
+import type { QuickReplyRow } from "@/lib/api/types";
 
 const FILTERS = ["All", "Active", "Pending", "Completed"] as const;
 type Filter = (typeof FILTERS)[number];
@@ -19,8 +21,27 @@ export function ChatList({
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("All");
+  const [quickReplies, setQuickReplies] = useState<QuickReplyRow[]>([]);
+
+  useEffect(() => {
+    void listQuickReplies().then(setQuickReplies).catch(() => {});
+  }, []);
+
+  const isQuickMode = query.startsWith("/");
+  const quickFilter = isQuickMode ? query.slice(1).trim().toLowerCase() : "";
+
+  const matchingQuickReplies = useMemo(() => {
+    if (!isQuickMode) return [];
+    if (!quickFilter) return quickReplies;
+    return quickReplies.filter(
+      (qr) =>
+        qr.title.toLowerCase().includes(quickFilter) ||
+        qr.body.toLowerCase().includes(quickFilter),
+    );
+  }, [isQuickMode, quickFilter, quickReplies]);
 
   const filtered = useMemo(() => {
+    if (isQuickMode) return requests;
     return requests.filter((r) => {
       const matchesQuery =
         !query ||
@@ -34,7 +55,7 @@ export function ChatList({
         (filter === "Completed" && r.status === "completed");
       return matchesQuery && matchesFilter;
     });
-  }, [requests, query, filter]);
+  }, [requests, query, filter, isQuickMode]);
 
   return (
     <div className="flex min-h-0 flex-col bg-bg">
@@ -47,10 +68,33 @@ export function ChatList({
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search conversations"
+          placeholder="Search conversations or type '/' for Quick Chats..."
           aria-label="Search conversations"
           className="w-full rounded-2xl border border-border-subtle bg-surface-2 py-3 pl-10 pr-4 text-sm text-white placeholder:text-text-muted focus:border-brand/40 focus:ring-1 focus:ring-brand/10 outline-none transition-all"
         />
+
+        {isQuickMode && (
+          <div className="absolute top-full left-0 right-0 mt-2 max-h-60 overflow-y-auto rounded-xl border border-border-subtle bg-surface-2 p-2 shadow-2xl z-30 space-y-1">
+            <div className="px-2 py-1 text-[10px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1.5">
+              <Zap className="h-3 w-3 text-brand" /> Quick Custom Chats
+            </div>
+            {matchingQuickReplies.length === 0 ? (
+              <div className="p-3 text-center text-xs text-text-muted">
+                No quick custom chats match "{quickFilter}"
+              </div>
+            ) : (
+              matchingQuickReplies.map((qr) => (
+                <div
+                  key={qr.id}
+                  className="rounded-lg p-2.5 hover:bg-surface-3 transition-colors text-left"
+                >
+                  <div className="text-xs font-bold text-white">{qr.title}</div>
+                  <div className="text-[11px] text-text-secondary mt-0.5 line-clamp-2">{qr.body}</div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
       </div>
 
       <div className="mt-4 -mx-1 flex gap-2 overflow-x-auto px-1 pb-2 no-scrollbar">

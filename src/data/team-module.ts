@@ -106,6 +106,8 @@ export type TeamRequest = {
   timeline: TeamTimelineEntry[];
   /** True if this request has been flagged for Admin attention. */
   isEscalated: boolean;
+  /** Custom/predefined labels or tags for WhatsApp Business style chat tagging */
+  tags?: string[];
 };
 
 export type TeamNotification = {

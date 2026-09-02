@@ -23,6 +23,7 @@ import { STATUS_LABEL, type DbRequestStatus } from "@/lib/api/types";
 import { useWebRTCCall } from "@/hooks/use-webrtc-call";
 import { CallOverlay } from "@/components/chat/CallOverlay";
 import { MessageAttachment } from "@/components/team/MessageAttachment";
+import { ChatTagButton, ChatTagBadges } from "@/components/team/ChatTagModal";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/_shell/chats")({
@@ -312,6 +313,9 @@ function AdminChats() {
                       <p className="truncate text-[11px] text-text-secondary">
                         {r.last_message ?? r.title}
                       </p>
+                      {r.tags && r.tags.length > 0 && (
+                        <ChatTagBadges tags={r.tags} className="mt-1" />
+                      )}
                       <div className="mt-2 flex items-center justify-between">
                         <span className="text-[10px] text-text-muted font-mono">{r.reference}</span>
                         <Pill tone={r.status === "completed" ? "ok" : "brand"}>
@@ -408,6 +412,14 @@ function AdminChats() {
             action={
               active && (
                 <div className="flex items-center gap-2">
+                  <ChatTagButton
+                    requestId={active.id}
+                    currentTags={active.tags ?? []}
+                    onTagsUpdated={() => {
+                      void fetchRequestsPage(page);
+                      refresh();
+                    }}
+                  />
                   <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => startCall("audio")}

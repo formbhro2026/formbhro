@@ -8,6 +8,7 @@ export type WorkFilterValues = {
   user: string;
   rid: string;
   type: string;
+  tag?: string;
   state: "all" | "pending" | "completed";
   priority: "all" | Priority;
   sort: "newest" | "oldest";
@@ -23,6 +24,7 @@ export function WorkFilters({
   values,
   users,
   types,
+  tags = [],
   shown,
   total,
   onChange,
@@ -31,6 +33,7 @@ export function WorkFilters({
   values: WorkFilterValues;
   users: string[];
   types: string[];
+  tags?: string[];
   shown: number;
   total: number;
   onChange: (patch: Partial<WorkFilterValues>) => void;
@@ -193,7 +196,29 @@ export function WorkFilters({
             </select>
           </div>
 
-          <div className="col-span-2">
+          <div>
+            <label
+              htmlFor={`${id}-tag`}
+              className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-text-muted"
+            >
+              Chat Label / Tag
+            </label>
+            <select
+              id={`${id}-tag`}
+              value={values.tag ?? ""}
+              onChange={(e) => onChange({ tag: e.target.value || undefined })}
+              className={selectClass}
+            >
+              <option value="">All tags</option>
+              {tags.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
             <label
               htmlFor={`${id}-sort`}
               className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-text-muted"

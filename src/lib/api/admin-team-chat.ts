@@ -11,10 +11,30 @@ export async function getOrCreateAdminTeamChat(
   teamMemberId: string,
   teamMemberName?: string,
 ): Promise<{ request: RequestRow; room: ChatRoomRow }> {
+  // 1. Try invoking the secure server RPC
+  try {
+    const { data: rpcData, error: rpcErr } = await (supabase as any).rpc(
+      "get_or_create_admin_team_chat",
+      {
+        p_team_member_id: teamMemberId,
+        p_team_member_name: teamMemberName ?? null,
+      },
+    );
+
+    if (!rpcErr && rpcData?.request && rpcData?.room) {
+      return {
+        request: rpcData.request as RequestRow,
+        room: rpcData.room as ChatRoomRow,
+      };
+    }
+  } catch (rpcEx) {
+    console.warn("[AdminTeamChat] RPC error, falling back:", rpcEx);
+  }
+
   const { data: userData } = await supabase.auth.getUser();
   const uid = userData.user?.id || teamMemberId;
 
-  // 1. Try to find an existing direct chat request for this team member
+  // 2. Query fallback: find existing direct chat request for this team member
   const { data: existingReqs, error: fetchErr } = await supabase
     .from("requests")
     .select("*")
@@ -29,7 +49,7 @@ export async function getOrCreateAdminTeamChat(
 
   let request: RequestRow | null = existingReqs?.[0] ?? null;
 
-  // 2. If not found, create one
+  // 3. If not found, create one
   if (!request) {
     const title = `Direct Chat · ${teamMemberName || "Admin Support"}`;
     const ref = `ADM-TM-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -54,7 +74,6 @@ export async function getOrCreateAdminTeamChat(
     }
     request = createdReq as RequestRow;
   } else if (!request.assigned_team_id) {
-    // Ensure assigned_team_id is set so the team member query detects it
     const { data: updatedReq } = await supabase
       .from("requests")
       .update({
@@ -70,7 +89,7 @@ export async function getOrCreateAdminTeamChat(
     }
   }
 
-  // 3. Ensure chat room exists
+  // 4. Ensure chat room exists
   const room = await getOrCreateChatRoom(request.id);
   return { request, room };
 }

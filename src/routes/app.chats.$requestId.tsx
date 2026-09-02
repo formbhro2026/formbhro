@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { MessageSquareText, Loader2, Search, X } from "lucide-react";
+import { MessageSquareText, Loader2, Search, X, Zap, CornerDownLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UserHeader } from "@/components/layout/UserHeader";
 import { ChatHeader } from "@/components/chat/ChatHeader";
@@ -14,6 +14,8 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { useUserStore } from "@/lib/user-store";
 import { useVisualViewport } from "@/lib/use-visual-viewport";
 import { useGlobalCall } from "@/lib/call-store";
+import { listQuickReplies } from "@/lib/api/notifications";
+import type { QuickReplyRow } from "@/lib/api/types";
 
 export const Route = createFileRoute("/app/chats/$requestId")({
   component: ChatScreen,
@@ -57,6 +59,7 @@ function ChatScreen() {
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [quickReplies, setQuickReplies] = useState<QuickReplyRow[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const { height: viewportHeight, keyboardOpen } = useVisualViewport();
@@ -68,8 +71,25 @@ function ChatScreen() {
   const preview = documents.find((d: any) => d.id === previewId) ?? null;
   const { startCall, setActiveRoomId } = useGlobalCall();
 
+  useEffect(() => {
+    void listQuickReplies().then(setQuickReplies).catch(() => {});
+  }, []);
+
+  const isQuickChatSearch = searchQuery.startsWith("/");
+  const quickChatFilter = isQuickChatSearch ? searchQuery.slice(1).trim().toLowerCase() : "";
+
+  const filteredQuickReplies = useMemo(() => {
+    if (!isQuickChatSearch) return [];
+    if (!quickChatFilter) return quickReplies;
+    return quickReplies.filter(
+      (qr) =>
+        qr.title.toLowerCase().includes(quickChatFilter) ||
+        qr.body.toLowerCase().includes(quickChatFilter),
+    );
+  }, [isQuickChatSearch, quickChatFilter, quickReplies]);
+
   const filteredMessages = useMemo(() => {
-    if (!searchQuery.trim()) return messages;
+    if (!searchQuery.trim() || isQuickChatSearch) return messages;
     const q = searchQuery.toLowerCase();
     return messages.filter((m: any) => {
       const matchText = (m.text || "").toLowerCase().includes(q);
@@ -77,7 +97,7 @@ function ChatScreen() {
       const matchFile = (m.file?.name || "").toLowerCase().includes(q);
       return matchText || matchAuthor || matchFile;
     });
-  }, [messages, searchQuery]);
+  }, [messages, searchQuery, isQuickChatSearch]);
 
   useEffect(() => {
     if (request?.id) {
@@ -162,44 +182,91 @@ function ChatScreen() {
           />
 
           {searchOpen && (
-            <div className="flex items-center gap-2 border-b border-border-subtle bg-surface-1/95 px-3 py-2 backdrop-blur-sm">
-              <div className="relative min-w-0 flex-1">
-                <Search
-                  className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted"
-                  aria-hidden="true"
-                />
-                <input
-                  ref={searchInputRef}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") {
-                      setSearchOpen(false);
-                      setSearchQuery("");
-                    }
+            <div className="relative border-b border-border-subtle bg-surface-1/95 px-3 py-2 backdrop-blur-sm">
+              <div className="flex items-center gap-2">
+                <div className="relative min-w-0 flex-1">
+                  <Search
+                    className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted"
+                    aria-hidden="true"
+                  />
+                  <input
+                    ref={searchInputRef}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        setSearchOpen(false);
+                        setSearchQuery("");
+                      }
+                    }}
+                    type="search"
+                    placeholder="Search messages or type '/' for Quick Custom Chats..."
+                    aria-label="Search in this conversation"
+                    className="h-9 w-full rounded-xl border border-border-subtle bg-surface-2 pl-8 pr-3 text-xs text-white placeholder:text-text-muted outline-none focus:border-brand/40 transition-colors"
+                  />
+                </div>
+                {searchQuery.trim() && !isQuickChatSearch && (
+                  <span className="shrink-0 text-[10px] text-text-muted">
+                    {filteredMessages.length} {filteredMessages.length === 1 ? "result" : "results"}
+                  </span>
+                )}
+                {isQuickChatSearch && (
+                  <span className="shrink-0 rounded-md bg-brand/10 px-2 py-0.5 text-[10px] font-semibold text-brand">
+                    Quick Chats ({filteredQuickReplies.length})
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchOpen(false);
+                    setSearchQuery("");
                   }}
-                  type="search"
-                  placeholder="Search in this conversation..."
-                  aria-label="Search in this conversation"
-                  className="h-9 w-full rounded-xl border border-border-subtle bg-surface-2 pl-8 pr-3 text-xs text-white placeholder:text-text-muted outline-none focus:border-brand/40 transition-colors"
-                />
+                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-muted hover:bg-surface-2 hover:text-white transition-colors"
+                  aria-label="Close search"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
-              {searchQuery.trim() && (
-                <span className="shrink-0 text-[10px] text-text-muted">
-                  {filteredMessages.length} {filteredMessages.length === 1 ? "result" : "results"}
-                </span>
+
+              {/* Selectable Quick Custom Chats List on "/" */}
+              {isQuickChatSearch && (
+                <div className="mt-2 max-h-56 overflow-y-auto rounded-xl border border-border-subtle bg-surface-2 p-1.5 shadow-2xl space-y-1">
+                  <div className="px-2 py-1 text-[10px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1.5">
+                    <Zap className="h-3 w-3 text-brand" /> Quick Custom Chats
+                  </div>
+                  {filteredQuickReplies.length === 0 ? (
+                    <div className="p-3 text-center text-xs text-text-muted">
+                      No quick custom chats match "{quickChatFilter}"
+                    </div>
+                  ) : (
+                    filteredQuickReplies.map((qr) => (
+                      <button
+                        key={qr.id}
+                        type="button"
+                        onClick={() => {
+                          sendMessage(requestId, qr.body);
+                          setSearchQuery("");
+                          setSearchOpen(false);
+                          endRef.current?.scrollIntoView({ behavior: "smooth" });
+                        }}
+                        className="w-full text-left rounded-lg p-2.5 hover:bg-surface-3 transition-colors group flex items-start justify-between gap-2"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-white group-hover:text-brand transition-colors">
+                            {qr.title}
+                          </p>
+                          <p className="text-[11px] text-text-secondary mt-0.5 line-clamp-2">
+                            {qr.body}
+                          </p>
+                        </div>
+                        <span className="inline-flex items-center gap-1 rounded bg-brand/10 px-1.5 py-0.5 text-[9px] font-semibold text-brand opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                          Send <CornerDownLeft className="h-2.5 w-2.5" />
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
               )}
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchOpen(false);
-                  setSearchQuery("");
-                }}
-                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-muted hover:bg-surface-2 hover:text-white transition-colors"
-                aria-label="Close search"
-              >
-                <X className="h-4 w-4" />
-              </button>
             </div>
           )}
 

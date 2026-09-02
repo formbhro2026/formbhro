@@ -170,6 +170,8 @@ type TeamStore = {
   escalateChat: (requestId: string) => Promise<void>;
   /** Open direct chat thread with Admin. */
   openAdminChat: () => Promise<string | null>;
+  /** Update tags on a request in local store */
+  updateTags: (requestId: string, tags: string[]) => void;
   pool: TeamRequest[];
 };
 
@@ -1431,6 +1433,16 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     setNotifications((prev) => (prev.length ? [] : prev));
   }, []);
 
+  const updateTags = useCallback((requestId: string, tags: string[]) => {
+    setRequests((prev) =>
+      prev.map((r) =>
+        r.id === requestId || r.id.toLowerCase() === requestId.toLowerCase()
+          ? { ...r, tags }
+          : r,
+      ),
+    );
+  }, []);
+
   const unreadNotifications = useMemo(
     () => notifications.filter((n) => !n.read).length,
     [notifications],
@@ -1481,6 +1493,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       markNotificationRead,
       markNotificationUnread,
       clearNotifications,
+      updateTags,
       unreadNotifications,
       assignToMe,
       transferChat,
@@ -1530,6 +1543,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       markNotificationRead,
       markNotificationUnread,
       clearNotifications,
+      updateTags,
       unreadNotifications,
       assignToMe,
       transferChat,

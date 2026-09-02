@@ -43,6 +43,7 @@ import type { TeamDelivery, Priority, TeamMessage } from "@/data/team-module";
 import { WorkFilters } from "@/components/team/WorkFilters";
 import { MessageAttachment } from "@/components/team/MessageAttachment";
 import { TransferButton, EscalateButton } from "@/components/team/TransferModal";
+import { ChatTagButton, ChatTagBadges } from "@/components/team/ChatTagModal";
 
 import { useVisualViewport } from "@/lib/use-visual-viewport";
 import { useDialogA11y } from "@/lib/use-dialog-a11y";
@@ -63,6 +64,7 @@ type WorkSearch = {
   rid?: string;
   t?: string;
   p?: string;
+  tag?: string;
   sort?: string;
 };
 
@@ -76,6 +78,7 @@ export const Route = createFileRoute("/team/_shell/work")({
     u: str(search.u),
     rid: str(search.rid),
     t: str(search.t),
+    tag: str(search.tag),
     p: search.p === "low" || search.p === "medium" || search.p === "high" ? search.p : undefined,
     sort: search.sort === "oldest" ? "oldest" : undefined,
   }),
@@ -139,12 +142,18 @@ function WorkArea() {
       replace: true,
     });
 
+  const tagFilter = search.tag;
+
   const users = useMemo(
     () => Array.from(new Set(requests.map((r) => r.userName))).sort(),
     [requests],
   );
   const types = useMemo(
     () => Array.from(new Set(requests.map((r) => r.category))).sort(),
+    [requests],
+  );
+  const allTags = useMemo(
+    () => Array.from(new Set(requests.flatMap((r) => r.tags ?? []))).sort(),
     [requests],
   );
 
@@ -157,9 +166,10 @@ function WorkArea() {
       if (priority !== "all" && r.priority !== priority) return false;
       if (userFilter && r.userName !== userFilter) return false;
       if (typeFilter && r.category !== typeFilter) return false;
+      if (tagFilter && (!r.tags || !r.tags.includes(tagFilter))) return false;
       if (rid && !r.id.toLowerCase().includes(rid)) return false;
       if (!q) return true;
-      return `${r.userName} ${r.id} ${r.category} ${r.title}`.toLowerCase().includes(q);
+      return `${r.userName} ${r.id} ${r.category} ${r.title} ${(r.tags ?? []).join(" ")}`.toLowerCase().includes(q);
     });
     out = out
       .slice()
@@ -169,7 +179,7 @@ function WorkArea() {
           : b.createdOn.localeCompare(a.createdOn),
       );
     return out;
-  }, [requests, query, state, priority, userFilter, typeFilter, ridFilter, sort]);
+  }, [requests, query, state, priority, userFilter, typeFilter, tagFilter, ridFilter, sort]);
 
   const listUnread = useMemo(() => list.reduce((sum, r) => sum + r.unread, 0), [list]);
 
@@ -266,12 +276,14 @@ function WorkArea() {
               user: userFilter,
               rid: ridFilter,
               type: typeFilter,
+              tag: tagFilter,
               state,
               priority,
               sort,
             }}
             users={users}
             types={types}
+            tags={allTags}
             shown={list.length}
             total={requests.length}
             onChange={(patch) =>
@@ -280,6 +292,7 @@ function WorkArea() {
                 ...("user" in patch ? { u: patch.user || undefined } : {}),
                 ...("rid" in patch ? { rid: patch.rid || undefined } : {}),
                 ...("type" in patch ? { t: patch.type || undefined } : {}),
+                ...("tag" in patch ? { tag: patch.tag || undefined } : {}),
                 ...("state" in patch ? { f: patch.state === "all" ? undefined : patch.state } : {}),
                 ...("priority" in patch
                   ? { p: patch.priority === "all" ? undefined : patch.priority }
@@ -295,6 +308,7 @@ function WorkArea() {
                 u: undefined,
                 rid: undefined,
                 t: undefined,
+                tag: undefined,
                 f: undefined,
                 p: undefined,
               })
@@ -454,6 +468,9 @@ function ConversationCard({ request: r, active }: { request: TeamRequest; active
           <TeamStatusBadge status={r.status} />
           <PriorityBadge priority={r.priority} />
         </div>
+        {r.tags && r.tags.length > 0 && (
+          <ChatTagBadges tags={r.tags} className="mt-1.5" />
+        )}
         <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-text-muted">
           <span className="truncate">Assigned {r.assignedAt}</span>
           <span className="shrink-0">{r.lastUpdated}</span>
@@ -716,6 +733,7 @@ function Conversation({
     togglePin,
     pinnedFor,
     assignToMe,
+    updateTags,
   } = useTeamStore();
 
   const { member } = useTeamStore();
@@ -971,6 +989,13 @@ function Conversation({
             </button>
           )}
 
+          {/* Chat Tags Button */}
+          <ChatTagButton
+            requestId={r.id}
+            currentTags={r.tags}
+            onTagsUpdated={(newTags) => updateTags(r.id, newTags)}
+          />
+
           {/* Search — always visible */}
           <button
             type="button"
@@ -1044,64 +1069,102 @@ function Conversation({
       </header>
 
       {searchOpen && (
-        <div className="flex items-center gap-2 border-b border-white/10 bg-surface-1/80 px-3 py-2">
-          <div className="relative min-w-0 flex-1">
-            <Search
-              className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted"
-              aria-hidden="true"
-            />
-            <input
-              ref={searchInputRef}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  step(e.shiftKey ? -1 : 1);
-                } else if (e.key === "Escape") {
-                  e.preventDefault();
-                  closeSearch();
-                }
-              }}
-              type="search"
-              placeholder="Search in this conversation"
-              aria-label="Search messages in this conversation"
-              className="h-9 w-full rounded-xl border border-white/10 bg-surface-2 pl-8 pr-3 text-xs text-white placeholder:text-text-muted"
-            />
+        <div className="relative border-b border-white/10 bg-surface-1/95 px-3 py-2">
+          <div className="flex items-center gap-2">
+            <div className="relative min-w-0 flex-1">
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted"
+                aria-hidden="true"
+              />
+              <input
+                ref={searchInputRef}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    step(e.shiftKey ? -1 : 1);
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    closeSearch();
+                  }
+                }}
+                type="search"
+                placeholder="Search messages or type '/' for Quick Replies"
+                aria-label="Search messages in this conversation"
+                className="h-9 w-full rounded-xl border border-white/10 bg-surface-2 pl-8 pr-3 text-xs text-white placeholder:text-text-muted outline-none focus:border-brand/40"
+              />
+            </div>
+            {!query.startsWith("/") && (
+              <>
+                <span className="shrink-0 text-[10px] text-text-muted" role="status" aria-live="polite">
+                  {query.trim()
+                    ? matches.length
+                      ? `${matchIndex + 1} of ${matches.length}`
+                      : "No matches"
+                    : ""}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => step(-1)}
+                  disabled={matches.length === 0}
+                  aria-label="Previous match"
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-white hover:bg-white/5 disabled:opacity-40"
+                >
+                  <ChevronUp className="h-4 w-4" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => step(1)}
+                  disabled={matches.length === 0}
+                  aria-label="Next match"
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-white hover:bg-white/5 disabled:opacity-40"
+                >
+                  <ChevronDown className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={closeSearch}
+              aria-label="Close conversation search"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-text-muted hover:bg-white/5 hover:text-white"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
           </div>
-          <span className="shrink-0 text-[10px] text-text-muted" role="status" aria-live="polite">
-            {query.trim()
-              ? matches.length
-                ? `${matchIndex + 1} of ${matches.length}`
-                : "No matches"
-              : ""}
-          </span>
-          <button
-            type="button"
-            onClick={() => step(-1)}
-            disabled={matches.length === 0}
-            aria-label="Previous match"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-white hover:bg-white/5 disabled:opacity-40"
-          >
-            <ChevronUp className="h-4 w-4" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            onClick={() => step(1)}
-            disabled={matches.length === 0}
-            aria-label="Next match"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-white hover:bg-white/5 disabled:opacity-40"
-          >
-            <ChevronDown className="h-4 w-4" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            onClick={closeSearch}
-            aria-label="Close conversation search"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-white hover:bg-white/5"
-          >
-            <X className="h-4 w-4" aria-hidden="true" />
-          </button>
+
+          {/* Quick Replies list when typing / */}
+          {query.startsWith("/") && (
+            <div className="mt-2 max-h-52 overflow-y-auto rounded-xl border border-border-subtle bg-surface-2 p-1.5 shadow-2xl space-y-1">
+              <div className="px-2 py-1 text-[10px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1.5">
+                <Zap className="h-3 w-3 text-brand" /> Quick Custom Replies
+              </div>
+              {quickReplies
+                .filter(
+                  (qr) =>
+                    qr.title.toLowerCase().includes(query.slice(1).trim().toLowerCase()) ||
+                    qr.body.toLowerCase().includes(query.slice(1).trim().toLowerCase()),
+                )
+                .map((qr) => (
+                  <button
+                    key={qr.id}
+                    type="button"
+                    onClick={() => {
+                      setText((prev) => (prev ? prev + "\n\n" + qr.body : qr.body));
+                      closeSearch();
+                      document.getElementById("team-composer")?.focus();
+                    }}
+                    className="w-full text-left rounded-lg p-2 hover:bg-surface-3 transition-colors group"
+                  >
+                    <div className="text-xs font-semibold text-white group-hover:text-brand">
+                      {qr.title}
+                    </div>
+                    <div className="text-[11px] text-text-muted truncate mt-0.5">{qr.body}</div>
+                  </button>
+                ))}
+            </div>
+          )}
         </div>
       )}
 

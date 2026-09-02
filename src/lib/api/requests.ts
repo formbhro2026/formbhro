@@ -398,3 +398,24 @@ export async function deEscalateRequest(requestId: string): Promise<void> {
   const { error } = await supabase.rpc("de_escalate_request", { req_id: requestId });
   if (error) throw new ApiError(error.message, error.code);
 }
+
+/** Updates the tags on a request (Team/Admin chat tagging) */
+export async function updateRequestTags(requestId: string, tags: string[]): Promise<void> {
+  // 1. Try invoking the secure RPC
+  try {
+    const { error: rpcErr } = await (supabase as any).rpc("update_request_tags", {
+      p_request_id: requestId,
+      p_tags: tags,
+    });
+    if (!rpcErr) return;
+  } catch (err) {
+    console.warn("[Requests] update_request_tags RPC error, falling back to direct update:", err);
+  }
+
+  // 2. Fallback to direct update
+  const { error } = await (supabase as any)
+    .from("requests")
+    .update({ tags })
+    .eq("id", requestId);
+  if (error) throw new ApiError(error.message, error.code);
+}

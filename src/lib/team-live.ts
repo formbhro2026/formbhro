@@ -81,6 +81,7 @@ export function mapTeamRequest(
     assigneeId: row.assigned_team_id || "",
     timeline: [{ label: "Request created", time: stamp(row.created_at) }],
     isEscalated: row.is_escalated ?? false,
+    tags: Array.isArray(row.tags) ? row.tags : [],
   };
 }
 
