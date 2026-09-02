@@ -183,7 +183,15 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
     };
 
     pc.ontrack = (event) => {
-      setSession((prev) => ({ ...prev, remoteStream: event.streams[0] }));
+      if (event.streams && event.streams[0]) {
+        setSession((prev) => ({ ...prev, remoteStream: event.streams[0] }));
+      } else {
+        setSession((prev) => {
+          const currentRemote = prev.remoteStream || new MediaStream();
+          currentRemote.addTrack(event.track);
+          return { ...prev, remoteStream: currentRemote };
+        });
+      }
     };
 
     pc.oniceconnectionstatechange = () => {

@@ -257,7 +257,7 @@ Deno.serve(async (req) => {
     );
     const { data: reqRow } = await sbAdmin
       .from("requests")
-      .select("id, user_id, assigned_team_id")
+      .select("id, user_id, assigned_team_id, reference")
       .or(
         isUuid
           ? `id.eq.${payload.request_id}`
@@ -284,6 +284,11 @@ Deno.serve(async (req) => {
       .eq("request_id", reqRow.id)
       .maybeSingle();
     const callTypeLabel = payload.title?.toLowerCase().includes("video") ? "Video" : "Voice";
+    const refOrId = reqRow.reference || reqRow.id;
+    const targetRoute =
+      payload.route ||
+      (receiverId === reqRow.user_id ? `/app/chats/${refOrId}` : `/team/work?r=${refOrId}`);
+
     notification = {
       id: crypto.randomUUID(),
       receiver_id: receiverId,
@@ -292,7 +297,7 @@ Deno.serve(async (req) => {
       type: "call",
       request_id: reqRow.id,
       chat_room_id: roomRow?.id ?? null,
-      route: payload.route ?? `/app/chats/${reqRow.id}`,
+      route: targetRoute,
     };
   } else {
     return new Response("Invalid notification payload", { status: 200, headers: corsHeaders });
