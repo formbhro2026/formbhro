@@ -3,6 +3,7 @@ import { subscribeToSignals, sendSignal, type WebRTCSignal } from "@/lib/api/web
 import { supabase } from "@/integrations/supabase/client";
 import { isCapacitor } from "@/lib/fcm";
 import { startIncomingCallRingtone, stopIncomingCallRingtone } from "@/lib/audio-notifications";
+import { recordCallLog } from "@/lib/api/messages";
 
 export type CallSession = {
   isActive: boolean;
@@ -16,6 +17,19 @@ export type CallSession = {
   error: string | null;
   facingMode: "user" | "environment";
 };
+
+interface ActiveCallDetails {
+  callSessionId: string;
+  chatRoomId: string;
+  requestId: string;
+  callType: "audio" | "video";
+  callerId: string;
+  receiverId?: string;
+  connectedAt?: number;
+  status: "completed" | "missed" | "declined" | "cancelled";
+  isCaller: boolean;
+  logged: boolean;
+}
 
 const ICE_SERVERS = {
   iceServers: [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }],
@@ -135,10 +149,45 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const myIdRef = useRef<string | null>(null);
-  const lastOfferRef = useRef<{ offer: RTCSessionDescriptionInit; type: "audio" | "video" | "screen" } | null>(null);
+  const lastOfferRef = useRef<{ offer: RTCSessionDescriptionInit; type: "audio" | "video" | "screen"; sessionId?: string } | null>(null);
   const offerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const callDetailsRef = useRef<ActiveCallDetails | null>(null);
+
+  const finalizeCallLog = useCallback((errorMessage?: string) => {
+    const details = callDetailsRef.current;
+    if (!details || details.logged) return;
+    details.logged = true;
+
+    let finalStatus: "completed" | "missed" | "declined" | "cancelled" = details.status;
+    let durationSeconds = 0;
+
+    if (details.connectedAt) {
+      finalStatus = "completed";
+      durationSeconds = Math.max(1, Math.round((Date.now() - details.connectedAt) / 1000));
+    } else if (errorMessage?.includes("No answer") || details.status === "missed") {
+      finalStatus = "missed";
+    } else if (details.status === "declined") {
+      finalStatus = "declined";
+    } else {
+      finalStatus = "cancelled";
+    }
+
+    if (details.chatRoomId && details.requestId && details.callerId) {
+      void recordCallLog({
+        chatRoomId: details.chatRoomId,
+        requestId: details.requestId,
+        callSessionId: details.callSessionId,
+        callType: details.callType,
+        status: finalStatus,
+        callerId: details.callerId,
+        receiverId: details.receiverId,
+        durationSeconds,
+      });
+    }
+  }, []);
 
   const cleanup = useCallback((errorMessage?: string) => {
+    finalizeCallLog(errorMessage);
     stopIncomingCallRingtone();
     if (offerIntervalRef.current) {
       clearInterval(offerIntervalRef.current);
@@ -166,7 +215,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
       error: errorMessage || null,
       facingMode: "user",
     });
-  }, []);
+  }, [finalizeCallLog]);
 
   const createPeerConnection = useCallback(() => {
     const pc = new RTCPeerConnection(ICE_SERVERS);
@@ -239,6 +288,18 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         }
 
         localStreamRef.current = stream;
+        const callSessionId = "call_" + activeId + "_" + Date.now();
+        callDetailsRef.current = {
+          callSessionId,
+          chatRoomId: activeId,
+          requestId: activeId,
+          callType: type === "screen" ? "video" : type,
+          callerId: user.id,
+          status: "cancelled",
+          isCaller: true,
+          logged: false,
+        };
+
         setSession((prev) => ({
           ...prev,
           isActive: true,
@@ -256,13 +317,13 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
 
-        lastOfferRef.current = { offer, type };
+        lastOfferRef.current = { offer, type, sessionId: callSessionId };
 
         await sendSignal(activeId, {
           type: "offer",
           from: user.id,
           target: "all",
-          data: { offer, type },
+          data: { offer, type, sessionId: callSessionId },
         });
 
         // Repeatedly broadcast offer every 2.5 seconds while waiting for answer
@@ -293,6 +354,11 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
                 ? reqData.assigned_team_id
                 : reqData.user_id
               : undefined;
+
+            if (callDetailsRef.current) {
+              callDetailsRef.current.requestId = reqUuid;
+              callDetailsRef.current.receiverId = receiverId;
+            }
             const targetRoute =
               receiverId === reqData?.user_id
                 ? `/app/chats/${reqRef}`
@@ -407,6 +473,11 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
 
       stream.getTracks().forEach((track) => pc?.addTrack(track, stream));
 
+      if (callDetailsRef.current) {
+        callDetailsRef.current.status = "completed";
+        callDetailsRef.current.connectedAt = Date.now();
+      }
+
       if (pc.remoteDescription) {
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
@@ -488,6 +559,20 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
 
         switch (signal.type) {
           case "offer": {
+            const sid = signal.data.sessionId || ("call_" + chatRoomId + "_" + Date.now());
+            if (!callDetailsRef.current || callDetailsRef.current.logged) {
+              callDetailsRef.current = {
+                callSessionId: sid,
+                chatRoomId,
+                requestId: chatRoomId,
+                callType: signal.data.type === "screen" ? "video" : (signal.data.type || "video"),
+                callerId: signal.from,
+                status: "declined",
+                isCaller: false,
+                logged: false,
+              };
+            }
+
             let pc = pcRef.current;
             if (!pc) {
               pc = createPeerConnection();
@@ -497,6 +582,10 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
 
             // If user already clicked accept, answer immediately
             if (localStreamRef.current && myIdRef.current) {
+              if (callDetailsRef.current) {
+                callDetailsRef.current.status = "completed";
+                callDetailsRef.current.connectedAt = Date.now();
+              }
               const answer = await pc.createAnswer();
               await pc.setLocalDescription(answer);
               await sendSignal(chatRoomId, {
@@ -538,6 +627,10 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
             if (offerIntervalRef.current) {
               clearInterval(offerIntervalRef.current);
               offerIntervalRef.current = null;
+            }
+            if (callDetailsRef.current) {
+              callDetailsRef.current.status = "completed";
+              callDetailsRef.current.connectedAt = Date.now();
             }
             if (pcRef.current) {
               await pcRef.current.setRemoteDescription(new RTCSessionDescription(signal.data));

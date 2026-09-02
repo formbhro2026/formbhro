@@ -138,6 +138,7 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
     (row: MessageRow & { attachment?: DocumentRow | null }, reference: string): ChatMessage => ({
       id: row.id,
       requestId: reference,
+      senderId: row.sender_id ?? undefined,
       author: row.sender_role === "user" ? "user" : "support",
       authorName:
         row.sender_role === "user"
@@ -147,6 +148,8 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
             : "Support Team",
       time: time(row.created_at),
       text: row.body ?? undefined,
+      isSystem: row.is_system,
+      callLog: (row.reactions as any)?.call_log ?? undefined,
       file: row.attachment
         ? {
             id: row.attachment.id,

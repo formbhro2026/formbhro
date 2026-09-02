@@ -37,6 +37,7 @@ import { StatusSelect } from "@/components/team/StatusSelect";
 import { CategorySelect } from "@/components/team/CategorySelect";
 import { TeamDocumentCard } from "@/components/team/TeamDocumentCard";
 import { TeamDocumentPreview } from "@/components/team/TeamDocumentPreview";
+import { CallEventBubble } from "@/components/chat/CallEventBubble";
 import { EmptyState } from "@/components/common/EmptyState";
 import { useTeamStore } from "@/lib/team-store";
 import type { TeamDelivery, Priority, TeamMessage } from "@/data/team-module";
@@ -1280,7 +1281,20 @@ function Conversation({
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
         <ul className="mx-auto flex max-w-2xl flex-col gap-3">
           {shownMessages.map((m) => {
-            const mine = m.author === "team";
+            if (m.callLog) {
+              return (
+                <li key={m.id} className="list-none w-full">
+                  <CallEventBubble
+                    callLog={m.callLog as any}
+                    time={m.time}
+                    currentUserId={member?.id}
+                    onCallBack={(type) => startCall(type)}
+                  />
+                </li>
+              );
+            }
+
+            const mine = member && m.senderId ? m.senderId === member.id : m.author === "team";
             const doc = m.documentId ? getDocument(m.documentId) : undefined;
             const unread = !mine && !m.read;
             return (

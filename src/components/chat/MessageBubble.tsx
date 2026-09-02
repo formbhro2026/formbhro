@@ -1,5 +1,6 @@
 import { Check, CheckCheck, Clock, RotateCw } from "lucide-react";
 import { DocumentMessage } from "@/components/chat/DocumentMessage";
+import { CallEventBubble } from "@/components/chat/CallEventBubble";
 import { cn } from "@/lib/utils";
 import type { ChatMessage } from "@/data/user-module";
 
@@ -7,24 +8,42 @@ export function MessageBubble({
   message,
   onRetry,
   onViewFile,
+  currentUserId,
+  onCallBack,
 }: {
   message: ChatMessage;
   onRetry: (id: string) => void;
   onViewFile: (fileId: string) => void;
+  currentUserId?: string;
+  onCallBack?: (type: "audio" | "video") => void;
 }) {
-  const isUser = message.author === "user";
+  if (message.callLog) {
+    return (
+      <CallEventBubble
+        callLog={message.callLog}
+        time={message.time}
+        currentUserId={currentUserId}
+        onCallBack={onCallBack}
+      />
+    );
+  }
+
+  const isMine =
+    currentUserId && message.senderId
+      ? message.senderId === currentUserId
+      : message.author === "user";
 
   return (
     <div
       className={cn(
         "flex flex-col gap-1 w-full animate-in fade-in slide-in-from-bottom-2 duration-300",
-        isUser ? "items-end" : "items-start",
+        isMine ? "items-end" : "items-start",
       )}
     >
       <div
         className={cn(
           "relative max-w-[85%] px-3 py-1.5 text-[15px] leading-relaxed shadow-sm sm:max-w-[75%] lg:max-w-[65%] border-none transition-all duration-200",
-          isUser
+          isMine
             ? "rounded-[18px] rounded-tr-[4px] bg-chat-out text-chat-text"
             : "rounded-[18px] rounded-tl-[4px] bg-chat-in text-chat-text",
           message.file && "p-0.5 pb-0",

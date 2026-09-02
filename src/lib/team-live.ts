@@ -94,10 +94,13 @@ export function mapTeamMessage(
   return {
     id: row.id,
     requestId: reference,
+    senderId: row.sender_id ?? undefined,
     author: mine ? "team" : "user",
     authorName: mine ? memberName : "User",
     time: timeLabel(row.created_at),
     text: row.body ?? undefined,
+    isSystem: row.is_system,
+    callLog: (row.reactions as any)?.call_log ?? undefined,
     documentId: row.attachment_id ?? undefined,
     read: mine ? undefined : Boolean(row.seen),
     delivery: mine ? (row.seen ? "read" : "delivered") : undefined,

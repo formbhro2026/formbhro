@@ -295,6 +295,8 @@ function ChatScreen() {
                 message={m}
                 onRetry={retryMessage}
                 onViewFile={setPreviewId}
+                currentUserId={store.profile?.id}
+                onCallBack={(type) => startCall(type)}
               />
             ))}
             <div ref={endRef} />

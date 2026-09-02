@@ -149,3 +149,36 @@ export async function toggleReaction(messageId: string, emoji: string) {
   if (error) throw new ApiError(error.message, error.code);
   return reactions;
 }
+
+export async function recordCallLog(input: {
+  chatRoomId: string;
+  requestId: string;
+  callSessionId: string;
+  callType: "audio" | "video";
+  status: "completed" | "missed" | "declined" | "cancelled";
+  callerId: string;
+  receiverId?: string;
+  durationSeconds?: number;
+}): Promise<string | null> {
+  try {
+    const { data, error } = await (supabase as any).rpc("record_call_log", {
+      p_chat_room_id: input.chatRoomId,
+      p_request_id: input.requestId,
+      p_call_session_id: input.callSessionId,
+      p_call_type: input.callType,
+      p_status: input.status,
+      p_caller_id: input.callerId,
+      p_receiver_id: input.receiverId || null,
+      p_duration_seconds: input.durationSeconds || 0,
+    });
+    if (error) {
+      console.warn("[CallLog] record_call_log RPC error:", error.message);
+      return null;
+    }
+    return data as string;
+  } catch (err) {
+    console.warn("[CallLog] recordCallLog exception:", err);
+    return null;
+  }
+}
+

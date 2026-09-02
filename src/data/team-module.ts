@@ -55,10 +55,21 @@ export type TeamMessageVersion = { text: string; at: string };
 export type TeamMessage = {
   id: string;
   requestId: string;
+  senderId?: string;
   author: "user" | "team";
   authorName: string;
   time: string;
   text?: string;
+  isSystem?: boolean;
+  callLog?: {
+    call_session_id: string;
+    call_type: "audio" | "video";
+    status: "completed" | "missed" | "declined" | "cancelled";
+    caller_id: string;
+    receiver_id?: string;
+    duration_seconds?: number;
+    created_at?: string;
+  };
   documentId?: string;
   /** For user messages: whether the assigned team member has read it. */
   read?: boolean;

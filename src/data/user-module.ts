@@ -31,13 +31,26 @@ export const ACTIVE_STATUSES: RequestStatus[] = [
 
 export type FileKind = "pdf" | "image" | "doc";
 
+export interface CallLogData {
+  call_session_id: string;
+  call_type: "audio" | "video";
+  status: "completed" | "missed" | "declined" | "cancelled";
+  caller_id: string;
+  receiver_id?: string;
+  duration_seconds?: number;
+  created_at?: string;
+}
+
 export type ChatMessage = {
   id: string;
   requestId: string;
+  senderId?: string;
   author: "user" | "support";
   authorName: string;
   time: string;
   text?: string;
+  isSystem?: boolean;
+  callLog?: CallLogData;
   file?: {
     id: string;
     name: string;

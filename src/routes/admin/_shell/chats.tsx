@@ -23,8 +23,10 @@ import { getOrCreateAdminTeamChat } from "@/lib/api/admin-team-chat";
 import { STATUS_LABEL, type DbRequestStatus } from "@/lib/api/types";
 import { useWebRTCCall } from "@/hooks/use-webrtc-call";
 import { CallOverlay } from "@/components/chat/CallOverlay";
+import { CallEventBubble } from "@/components/chat/CallEventBubble";
 import { MessageAttachment } from "@/components/team/MessageAttachment";
 import { ChatTagButton, ChatTagBadges } from "@/components/team/ChatTagModal";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/_shell/chats")({
@@ -78,6 +80,11 @@ function AdminChats() {
   const [room, setRoom] = useState<any>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const [fetchedActive, setFetchedActive] = useState<any>(null);
+
+  const [currentAdminId, setCurrentAdminId] = useState<string | null>(null);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setCurrentAdminId(data.user?.id ?? null));
+  }, []);
 
   const active =
     requestsPage.find((r) => r.id === activeId) ??
@@ -475,7 +482,20 @@ function AdminChats() {
                 <div className="flex-1 flex flex-col min-w-0">
                   <div className="flex-1 space-y-4 overflow-y-auto pr-2 py-2">
                     {messages.map((m) => {
-                      const mine = m.sender_role === "admin";
+                      const callLog = (m.reactions as any)?.call_log;
+                      if (callLog) {
+                        return (
+                          <CallEventBubble
+                            key={m.id}
+                            callLog={callLog}
+                            time={formatDate(m.created_at)}
+                            currentUserId={currentAdminId ?? undefined}
+                            onCallBack={(type) => startCall(type)}
+                          />
+                        );
+                      }
+
+                      const mine = currentAdminId && m.sender_id ? m.sender_id === currentAdminId : m.sender_role === "admin";
                       return (
                         <div
                           key={m.id}
