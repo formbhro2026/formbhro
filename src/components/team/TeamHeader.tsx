@@ -88,11 +88,7 @@ export function TeamHeader({ title, onOpenNav }: { title?: string; onOpenNav?: (
                   </span>
                 )}
               </button>
-              {open && (
-                <div className="fixed right-4 top-[4.5rem] z-50 sm:absolute sm:right-0 sm:top-12">
-                  <TeamNotificationPanel onClose={() => setOpen(false)} />
-                </div>
-              )}
+              {open && <TeamNotificationPanel onClose={() => setOpen(false)} />}
             </div>
 
             <div className="flex items-center gap-2 rounded-full border border-border-subtle bg-surface-2 py-1 pl-1 pr-3">

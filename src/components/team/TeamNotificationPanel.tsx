@@ -43,16 +43,23 @@ export function TeamNotificationPanel({ onClose }: { onClose: () => void }) {
   );
 
   return (
-    <div
-      ref={panelRef}
-      role="dialog"
-      aria-modal="true"
-      aria-label={
-        unreadNotifications > 0 ? `Notifications, ${unreadNotifications} unread` : "Notifications"
-      }
-      className="w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-border-subtle bg-bg shadow-2xl"
-    >
-      <div className="flex items-center justify-between gap-2 border-b border-border-subtle px-4 py-3">
+    <>
+      {/* Mobile backdrop */}
+      <div
+        className="fixed inset-0 z-40 bg-black/40 backdrop-blur-xs sm:hidden"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={
+          unreadNotifications > 0 ? `Notifications, ${unreadNotifications} unread` : "Notifications"
+        }
+        className="fixed inset-x-3 top-16 z-50 flex max-h-[calc(100dvh-5.5rem)] flex-col overflow-hidden rounded-2xl border border-border-subtle bg-bg shadow-2xl duration-200 animate-in fade-in slide-in-from-top-2 sm:absolute sm:inset-auto sm:right-0 sm:top-12 sm:w-88"
+      >
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border-subtle px-4 py-3">
         <h2 className="text-sm font-semibold text-white">
           Notifications
           {unreadNotifications > 0 && (
@@ -107,7 +114,7 @@ export function TeamNotificationPanel({ onClose }: { onClose: () => void }) {
           </p>
         </div>
       ) : (
-        <ul className="max-h-80 overflow-y-auto">
+        <ul className="flex-1 overflow-y-auto overscroll-contain max-h-[calc(100dvh-14rem)] sm:max-h-80">
           {list.map((n: TeamNotification) => {
             const Icon = ICONS[n.type];
             const body = (
@@ -189,7 +196,7 @@ export function TeamNotificationPanel({ onClose }: { onClose: () => void }) {
       )}
 
       {notifications.length > 0 && (
-        <div className="border-t border-border-subtle px-3 py-2">
+        <div className="shrink-0 border-t border-border-subtle px-3 py-2">
           <button
             type="button"
             onClick={clearNotifications}
@@ -200,6 +207,7 @@ export function TeamNotificationPanel({ onClose }: { onClose: () => void }) {
           </button>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }
