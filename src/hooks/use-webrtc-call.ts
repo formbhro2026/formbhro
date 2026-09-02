@@ -485,17 +485,6 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
           })
           .catch((e) => console.warn("[CALL][FCM] Call push network error:", e));
 
-        // Trigger secure RPC for database notification row
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (supabase as any).rpc("trigger_call_notification", {
-            p_request_id: resolved.requestUuid,
-            p_type: type,
-          });
-        } catch (rpcErr) {
-          console.warn("[CALL][FCM] RPC trigger_call_notification error:", rpcErr);
-        }
-
         // Auto hangup after 30 seconds if not accepted
         setTimeout(() => {
           setSession((currentSession) => {

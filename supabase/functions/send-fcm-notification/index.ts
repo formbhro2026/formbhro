@@ -260,8 +260,124 @@ Deno.serve(async (req) => {
     if (notification.receiver_id) {
       targetUserIds.push(notification.receiver_id);
     }
+  } else if (payload.notification_type === "call") {
+    // CALL NOTIFICATION: Enforce single authority and idempotency by callSessionId
+    const callSessionId = payload.call_session_id || (payload as any).callSessionId;
+    if (!callSessionId) {
+      return new Response(JSON.stringify({ error: "call_session_id is required for call notifications" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // 1. Idempotency check: Check if a notification for this callSessionId already exists
+    const { data: existingNotif } = await sbAdmin
+      .from("notifications")
+      .select("id")
+      .eq("type", "call")
+      .eq("call_session_id", callSessionId)
+      .maybeSingle();
+
+    if (existingNotif) {
+      console.info(`[CALL][FCM] Idempotency: Call session ${callSessionId} already notified. Skipping duplicate.`);
+      return new Response(JSON.stringify({ sent: 0, failed: 0, duplicate: true, message: "Call session already notified" }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // 2. Resolve receiver if not explicitly provided
+    let receiverId = payload.receiver_id;
+    let reqRow: any = null;
+
+    if (payload.request_id) {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(payload.request_id);
+      const { data } = await sbAdmin
+        .from("requests")
+        .select("id, user_id, assigned_team_id, reference, category")
+        .or(isUuid ? `id.eq.${payload.request_id}` : `reference.eq.${payload.request_id},id.eq.${payload.request_id}`)
+        .maybeSingle();
+      reqRow = data;
+    }
+
+    if (!receiverId && reqRow && payload.caller_id) {
+      receiverId = payload.caller_id === reqRow.user_id ? reqRow.assigned_team_id : reqRow.user_id;
+      if (!receiverId && payload.caller_id === reqRow.user_id) {
+        // Unassigned or Admin Direct Chat fallback
+        const { data: adminProfiles } = await sbAdmin.from("profiles").select("id").eq("role", "admin");
+        if (adminProfiles && adminProfiles.length > 0) {
+          targetUserIds = adminProfiles.map((p) => p.id);
+          receiverId = targetUserIds[0];
+        }
+      }
+    }
+
+    if (receiverId) {
+      targetUserIds.push(receiverId);
+    }
+
+    if (targetUserIds.length === 0) {
+      console.info("[CALL][FCM] No receiver found for call", payload.request_id);
+      return new Response(JSON.stringify({ message: "No receiver for this call" }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Resolve chat room
+    let chatRoomId = payload.chat_room_id;
+    if (!chatRoomId && reqRow?.id) {
+      const { data: roomRow } = await sbAdmin.from("chat_rooms").select("id").eq("request_id", reqRow.id).maybeSingle();
+      chatRoomId = roomRow?.id ?? null;
+    }
+
+    const notifId = crypto.randomUUID();
+    const callTypeLabel = (payload.call_type || payload.title || "Voice").toLowerCase().includes("video") ? "Video" : "Voice";
+    const refOrId = reqRow?.reference || reqRow?.id || payload.request_id;
+    const targetRoute = payload.route || (receiverId === reqRow?.user_id ? `/app/chats/${refOrId}` : `/team/work?r=${refOrId}`);
+    const receiverRole = receiverId === reqRow?.user_id ? "user" : "team";
+
+    notification = {
+      id: notifId,
+      receiver_id: receiverId || targetUserIds[0],
+      title: payload.title ?? `Incoming ${callTypeLabel} Call`,
+      body: payload.body ?? "Tap to answer the call",
+      type: "call",
+      request_id: reqRow?.id || payload.request_id || null,
+      chat_room_id: chatRoomId ?? null,
+      route: targetRoute,
+    };
+
+    // 3. Create the ONE authoritative database notification row
+    try {
+      const { error: insertErr } = await sbAdmin.from("notifications").insert({
+        id: notifId,
+        receiver_id: notification.receiver_id,
+        role: receiverRole,
+        type: "call",
+        title: notification.title,
+        body: notification.body,
+        request_id: notification.request_id,
+        chat_room_id: notification.chat_room_id,
+        call_session_id: callSessionId,
+      });
+      if (insertErr) {
+        if (insertErr.code === "23505" || insertErr.message?.includes("notifications_call_session_unique_idx")) {
+          console.info(`[CALL][FCM] Concurrent duplicate call session ${callSessionId} prevented by DB index.`);
+          return new Response(JSON.stringify({ sent: 0, failed: 0, duplicate: true }), {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        console.warn("[CALL][FCM] Error inserting call notification row:", insertErr);
+      } else {
+        console.info(`[CALL][FCM] Created authoritative notification row for session ${callSessionId}`);
+      }
+    } catch (dbErr) {
+      console.warn("[CALL][FCM] Database insert exception:", dbErr);
+    }
   } else if (payload.receiver_id && payload.title) {
-    // Direct invocation format — receiver_id explicitly provided
+    // Direct invocation format — normal message or non-call notification
     notification = {
       id: crypto.randomUUID(),
       receiver_id: payload.receiver_id,
@@ -273,90 +389,6 @@ Deno.serve(async (req) => {
       route: payload.route,
     };
     targetUserIds.push(payload.receiver_id);
-  } else if (payload.request_id && payload.notification_type === "call" && payload.caller_id) {
-    // Direct invocation without explicit receiver_id:
-    // Resolve the receiver from the requests table server-side.
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      payload.request_id,
-    );
-    const { data: reqRow } = await sbAdmin
-      .from("requests")
-      .select("id, user_id, assigned_team_id, reference, category")
-      .or(
-        isUuid
-          ? `id.eq.${payload.request_id}`
-          : `reference.eq.${payload.request_id},id.eq.${payload.request_id}`,
-      )
-      .maybeSingle();
-    if (!reqRow) {
-      return new Response("Request not found", { status: 200, headers: corsHeaders });
-    }
-
-    // The receiver is the party that is NOT the caller
-    let receiverId =
-      payload.caller_id === reqRow.user_id ? reqRow.assigned_team_id : reqRow.user_id;
-
-    // If caller is the user/team member and request is Admin Direct Chat or unassigned:
-    if (!receiverId && payload.caller_id === reqRow.user_id) {
-      // Find all active admin user IDs to notify
-      const { data: adminProfiles } = await sbAdmin
-        .from("profiles")
-        .select("id")
-        .eq("role", "admin");
-      if (adminProfiles && adminProfiles.length > 0) {
-        targetUserIds = adminProfiles.map((p) => p.id);
-        receiverId = targetUserIds[0];
-      }
-    } else if (receiverId) {
-      targetUserIds.push(receiverId);
-    }
-
-    if (targetUserIds.length === 0) {
-      console.info("[FCM] No receiver found for request", payload.request_id);
-      return new Response(JSON.stringify({ message: "No receiver for this request" }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Find chat room using the resolved DB UUID
-    const { data: roomRow } = await sbAdmin
-      .from("chat_rooms")
-      .select("id")
-      .eq("request_id", reqRow.id)
-      .maybeSingle();
-    const callTypeLabel = payload.title?.toLowerCase().includes("video") ? "Video" : "Voice";
-    const refOrId = reqRow.reference || reqRow.id;
-    const targetRoute =
-      receiverId === reqRow.user_id ? `/app/chats/${refOrId}` : `/team/work?r=${refOrId}`;
-
-    notification = {
-      id: crypto.randomUUID(),
-      receiver_id: receiverId || targetUserIds[0],
-      title: payload.title ?? `Incoming ${callTypeLabel} Call`,
-      body: payload.body ?? "Tap to answer the call",
-      type: "call",
-      request_id: reqRow.id,
-      chat_room_id: roomRow?.id ?? null,
-      route: targetRoute,
-    };
-
-    // Insert into notifications table so in-app Realtime subscribers receive the call event
-    try {
-      await sbAdmin.from("notifications").insert({
-        id: notification.id,
-        receiver_id: notification.receiver_id,
-        role: receiverId === reqRow.user_id ? "user" : "team",
-        type: "call",
-        title: notification.title,
-        body: notification.body,
-        request_id: notification.request_id,
-        chat_room_id: notification.chat_room_id,
-        route: notification.route,
-      });
-    } catch (dbErr) {
-      console.warn("[FCM] Could not insert call notification into table:", dbErr);
-    }
   } else {
     return new Response("Invalid notification payload", { status: 200, headers: corsHeaders });
   }
