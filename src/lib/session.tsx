@@ -51,12 +51,11 @@ function setCachedSession(data: { profile: Profile | null; role: AppRole | null;
 }
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const cached = getCachedSession();
-  const [loading, setLoading] = useState(!cached);
-  const [initialized, setInitialized] = useState(Boolean(cached));
+  const [loading, setLoading] = useState(true);
+  const [initialized, setInitialized] = useState(false);
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(cached?.profile ?? null);
-  const [role, setRole] = useState<AppRole | null>(cached?.role ?? null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [role, setRole] = useState<AppRole | null>(null);
 
   const load = useCallback(async (nextUser: User | null) => {
     setUser(nextUser);
@@ -121,10 +120,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         if (active) {
           if (session?.user) {
             setUser(session.user);
+            // Strict account isolation: Only hydrate cache if it matches the current user
+            const cached = getCachedSession();
+            if (cached && cached.userId === session.user.id) {
+              setProfile(cached.profile);
+              setRole(cached.role);
+            } else {
+              setCachedSession(null);
+            }
             void initializeFCM(session.user.id);
-            // Quick background sync
-            void load(session.user);
+            // Background sync fresh data
+            await load(session.user);
           } else {
+            setCachedSession(null);
             await load(null);
           }
         }
@@ -170,6 +178,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setProfile(null);
     setRole(null);
+    setCachedSession(null);
   }, []);
 
   const value = useMemo<SessionValue>(

@@ -100,10 +100,13 @@ export function subscribeToMyNotifications(userId: string, onInsert: (n: Notific
   };
 }
 
+let requestChannelCounter = 0;
+
 /** Live status / assignment badges. RLS decides which rows actually arrive. */
 export function subscribeToRequests(onChange: (request: RequestRow) => void) {
+  const channelId = `requests-live-${++requestChannelCounter}-${Math.random().toString(36).slice(2, 7)}`;
   const channel = supabase
-    .channel("requests-live")
+    .channel(channelId)
     .on("postgres_changes", { event: "*", schema: "public", table: "requests" }, (payload) => {
       if (payload.new) onChange(payload.new as RequestRow);
     })

@@ -142,11 +142,47 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
     [activeRequest?.id, callRoomId, call],
   );
 
-  const handleAcceptCall = useCallback(async () => {
-    stopIncomingCallRingtone();
-    setIncomingAlert(null);
-    await call.acceptCall();
-  }, [call]);
+  const handleAcceptCall = useCallback(
+    async (targetRoomId?: string) => {
+      stopIncomingCallRingtone();
+      setIncomingAlert(null);
+      const target = targetRoomId || callRoomId;
+      if (target && target !== callRoomId) {
+        setCallRoomId(target);
+      }
+      await call.acceptCall(target);
+    },
+    [call, callRoomId],
+  );
+
+  // Native Android incoming call answer bridge:
+  // When IncomingCallActivity launches/resumes MainActivity with autoAnswer=true,
+  // MainActivity triggers 'formbhro:call_answered' and sets window.__FORMBHARO_PENDING_CALL_ANSWER__.
+  useEffect(() => {
+    const consumePending = () => {
+      if (typeof window === "undefined") return;
+      const pending = (window as any).__FORMBHARO_PENDING_CALL_ANSWER__;
+      if (pending && pending.autoAnswer) {
+        delete (window as any).__FORMBHARO_PENDING_CALL_ANSWER__;
+        console.log("[GlobalCall] Consuming pending call answer from native intent:", pending);
+        const target = pending.requestId || pending.chatRoomId;
+        void handleAcceptCall(target);
+      }
+    };
+
+    consumePending();
+
+    const onCallAnswered = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const detail = customEvent.detail || {};
+      console.log("[GlobalCall] Received formbhro:call_answered event:", detail);
+      const target = detail.requestId || detail.chatRoomId;
+      void handleAcceptCall(target);
+    };
+
+    window.addEventListener("formbhro:call_answered", onCallAnswered);
+    return () => window.removeEventListener("formbhro:call_answered", onCallAnswered);
+  }, [handleAcceptCall]);
 
   const handleHangup = useCallback(
     async (errorMessage?: string) => {

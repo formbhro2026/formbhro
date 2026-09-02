@@ -450,6 +450,9 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     setAuthed(false);
     setData(EMPTY);
+    setStats(null);
+    setRequestsPage([]);
+    setRequestsTotal(0);
   }, []);
 
   const value = useMemo<AdminStore>(() => {

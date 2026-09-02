@@ -329,10 +329,10 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       }
       if (!active) return;
       if (stored?.live) {
-        // A live session is only valid while the backend session is valid.
+        // A live session is only valid while the backend session matches the stored member.
         const { data } = await supabase.auth.getSession();
         if (!active) return;
-        if (data.session) {
+        if (data.session && data.session.user && data.session.user.id === stored.member.id) {
           setMember(stored.member);
           setLive(true);
         } else {
@@ -344,7 +344,17 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           }
         }
       } else if (stored) {
-        setMember(stored.member);
+        const { data } = await supabase.auth.getSession();
+        if (data.session && data.session.user && data.session.user.id === stored.member.id) {
+          setMember(stored.member);
+        } else {
+          try {
+            window.localStorage.removeItem(SESSION_KEY);
+            window.sessionStorage.removeItem(SESSION_KEY);
+          } catch {
+            /* ignore */
+          }
+        }
       }
       if (active) setHydrated(true);
     })();
@@ -568,6 +578,11 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     setLive(false);
     liveRef.current = false;
     rooms.current = {};
+    setRequests([]);
+    setPool([]);
+    setMessages([]);
+    setDocuments([]);
+    setNotifications([]);
     try {
       window.localStorage.removeItem(SESSION_KEY);
       window.sessionStorage.removeItem(SESSION_KEY);

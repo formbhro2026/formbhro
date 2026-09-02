@@ -256,7 +256,7 @@ function WorkArea() {
                     className="rounded-lg border border-border-subtle bg-surface-1 p-2"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <p className="truncate text-[11px] font-semibold text-white">{r.title}</p>
+                      <p className="truncate text-[11px] font-semibold text-text">{r.title}</p>
                       <button
                         onClick={async () => {
                           if (claimingId) return;
@@ -367,7 +367,7 @@ function WorkArea() {
                     <button
                       onClick={() => void loadMoreRequests()}
                       disabled={requestsLoadingMore}
-                      className="w-full rounded-lg border border-border-subtle bg-surface-2 py-2 text-[11px] font-semibold text-text-muted hover:text-white hover:bg-surface-3 transition-colors disabled:opacity-50"
+                      className="w-full rounded-lg border border-border-subtle bg-surface-2 py-2 text-[11px] font-semibold text-text-muted hover:text-text hover:bg-surface-3 transition-colors disabled:opacity-50"
                     >
                       {requestsLoadingMore ? "Loading..." : "Load More"}
                     </button>
@@ -459,16 +459,16 @@ function ConversationCard({ request: r, active }: { request: TeamRequest; active
           "block rounded-xl border p-3 transition-colors",
           active
             ? "border-brand/40 bg-brand/10"
-            : "border-white/10 bg-surface-2 hover:border-white/20",
+            : "border-border-subtle bg-surface-2 hover:border-border",
         )}
       >
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/10 bg-surface-3 text-[10px] font-bold text-brand-light">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-border-subtle bg-surface-3 text-[10px] font-bold text-brand">
               {r.userInitials}
             </span>
             <div className="min-w-0">
-              <p className="truncate text-xs font-semibold text-white">{r.userName}</p>
+              <p className="truncate text-xs font-semibold text-text">{r.userName}</p>
               <p className="truncate text-[10px] text-text-muted">{r.id}</p>
             </div>
           </div>
@@ -500,7 +500,7 @@ function ConversationCard({ request: r, active }: { request: TeamRequest; active
           onClick={() => markRead(r.id)}
           title="Mark as read"
           aria-label={`Mark ${r.unread} unread ${r.unread === 1 ? "message" : "messages"} from ${r.userName} as read`}
-          className="absolute right-1 top-1 inline-flex h-11 w-11 items-center justify-center rounded-full text-white transition-colors hover:bg-white/5"
+          className="absolute right-1 top-1 inline-flex h-11 w-11 items-center justify-center rounded-full text-text-secondary transition-colors hover:bg-surface-3"
         >
           <span className="grid h-5 min-w-5 place-items-center rounded-full bg-brand px-1.5 text-[10px] font-bold text-white">
             {r.unread}
@@ -666,7 +666,7 @@ function MessageReactions({
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
           aria-label="Add a reaction"
-          className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-surface-2 text-text-muted transition-colors hover:bg-white/5 hover:text-white"
+          className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-border-subtle bg-surface-2 text-text-muted transition-colors hover:bg-surface-3 hover:text-text"
         >
           <SmilePlus className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
@@ -933,22 +933,22 @@ function Conversation({
   return (
     <>
       {/* ===== RESPONSIVE HEADER ===== */}
-      <header className="relative z-40 border-b border-white/10 bg-surface-1">
+      <header className="relative z-40 border-b border-border-subtle bg-surface-1">
         {/* Row 1: Back + User info + critical icon actions */}
         <div className="flex items-center gap-2 px-3 py-2">
           <Link
             to="/team/work"
             search={(prev: WorkSearch) => ({ ...prev, r: undefined })}
             aria-label="Back to assigned chats"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-white hover:bg-white/5 lg:hidden"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 lg:hidden"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           </Link>
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/10 bg-surface-2 text-[11px] font-bold text-brand-light">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-border-subtle bg-surface-2 text-[11px] font-bold text-brand">
             {r.userInitials}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-semibold text-white">{r.userName}</p>
+            <p className="truncate text-xs font-semibold text-text">{r.userName}</p>
             <p className="truncate text-[10px] text-text-muted">
               {r.id} • {r.category}
             </p>
@@ -962,7 +962,7 @@ function Conversation({
                 <button
                   key={doc.id}
                   onClick={() => onPreview(doc.id)}
-                  className="group relative flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-surface-3 transition-all hover:bg-brand/20 hover:border-brand/40"
+                  className="group relative flex h-8 w-8 items-center justify-center rounded-lg border border-border-subtle bg-surface-3 transition-all hover:bg-brand/20 hover:border-brand/40"
                   title={doc.name}
                 >
                   <FileText className="h-3.5 w-3.5 text-text-muted group-hover:text-brand" />
@@ -971,7 +971,7 @@ function Conversation({
             {docCount > 3 && (
               <button
                 onClick={() => onOpenSheet()}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-surface-3 text-[10px] font-bold text-text-muted hover:bg-white/5"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-subtle bg-surface-3 text-[10px] font-bold text-text-muted hover:bg-surface-2"
               >
                 +{docCount - 3}
               </button>
@@ -982,7 +982,7 @@ function Conversation({
           <button
             type="button"
             onClick={() => startCall("audio")}
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-white hover:bg-white/5 hover:text-brand transition-colors"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 hover:text-brand transition-colors"
             title="Start Audio Call"
           >
             <Phone className="h-4 w-4" />
@@ -990,7 +990,7 @@ function Conversation({
           <button
             type="button"
             onClick={() => startCall("video")}
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-white hover:bg-white/5 hover:text-brand transition-colors"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 hover:text-brand transition-colors"
             title="Start Video Call"
           >
             <Video className="h-4 w-4" />
@@ -999,7 +999,7 @@ function Conversation({
             <button
               type="button"
               onClick={() => startCall("screen")}
-              className="hidden sm:inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-white hover:bg-white/5 hover:text-brand transition-colors"
+              className="hidden sm:inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 hover:text-brand transition-colors"
               title="Share Screen"
             >
               <Monitor className="h-4 w-4" />
@@ -1024,10 +1024,10 @@ function Conversation({
             aria-expanded={searchOpen}
             aria-label="Search in this conversation"
             className={cn(
-              "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border text-white transition-colors",
+              "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-colors",
               searchOpen
-                ? "border-brand/40 bg-brand/10 text-brand-light"
-                : "border-white/10 hover:bg-white/5",
+                ? "border-brand/40 bg-brand/10 text-brand"
+                : "border-border-subtle bg-surface-2 text-text hover:bg-surface-3",
             )}
           >
             <Search className="h-4 w-4" aria-hidden="true" />
@@ -1039,7 +1039,7 @@ function Conversation({
             onClick={onOpenSheet}
             aria-haspopup="dialog"
             aria-label={`Request details, ${docCount} documents`}
-            className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-white hover:bg-white/5 xl:hidden"
+            className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 xl:hidden"
           >
             <Info className="h-4 w-4" aria-hidden="true" />
             {docCount > 0 && (
@@ -1051,7 +1051,7 @@ function Conversation({
         </div>
 
         {/* Row 2: Secondary actions — wrap instead of overflow to allow dropdowns */}
-        <div className="flex flex-wrap items-center gap-2 border-t border-white/5 px-3 py-1.5 xl:hidden">
+        <div className="flex flex-wrap items-center gap-2 border-t border-border-subtle px-3 py-1.5 xl:hidden">
           <TransferButton request={r} />
           <EscalateButton request={r} />
           <ChatTagButton
@@ -1115,7 +1115,7 @@ function Conversation({
                 type="search"
                 placeholder="Search messages or type '/' for Quick Replies"
                 aria-label="Search messages in this conversation"
-                className="h-9 w-full rounded-xl border border-white/10 bg-surface-2 pl-8 pr-3 text-xs text-white placeholder:text-text-muted outline-none focus:border-brand/40"
+                className="h-9 w-full rounded-xl border border-border-subtle bg-surface-2 pl-8 pr-3 text-xs text-text placeholder:text-text-muted outline-none focus:border-brand/40"
               />
             </div>
             {!query.startsWith("/") && (
@@ -1132,7 +1132,7 @@ function Conversation({
                   onClick={() => step(-1)}
                   disabled={matches.length === 0}
                   aria-label="Previous match"
-                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-white hover:bg-white/5 disabled:opacity-40"
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 disabled:opacity-40"
                 >
                   <ChevronUp className="h-4 w-4" aria-hidden="true" />
                 </button>
@@ -1141,7 +1141,7 @@ function Conversation({
                   onClick={() => step(1)}
                   disabled={matches.length === 0}
                   aria-label="Next match"
-                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-white hover:bg-white/5 disabled:opacity-40"
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 disabled:opacity-40"
                 >
                   <ChevronDown className="h-4 w-4" aria-hidden="true" />
                 </button>
@@ -1151,7 +1151,7 @@ function Conversation({
               type="button"
               onClick={closeSearch}
               aria-label="Close conversation search"
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-text-muted hover:bg-white/5 hover:text-white"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text-muted hover:bg-surface-3 hover:text-text"
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -1180,7 +1180,7 @@ function Conversation({
                     }}
                     className="w-full text-left rounded-lg p-2 hover:bg-surface-3 transition-colors group"
                   >
-                    <div className="text-xs font-semibold text-white group-hover:text-brand">
+                    <div className="text-xs font-semibold text-text group-hover:text-brand">
                       {qr.title}
                     </div>
                     <div className="text-[11px] text-text-muted truncate mt-0.5">{qr.body}</div>
@@ -1213,7 +1213,7 @@ function Conversation({
       )}
 
       {reactionCounts.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5 border-b border-white/10 bg-surface-1/60 px-3 py-2">
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-border-subtle bg-surface-1/60 px-3 py-2">
           <span className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
             Reactions
           </span>
@@ -1229,8 +1229,8 @@ function Conversation({
                 className={cn(
                   "inline-flex min-h-8 items-center gap-1 rounded-full border px-2.5 text-[11px] font-semibold transition-colors",
                   active
-                    ? "border-brand bg-brand/20 text-brand-light"
-                    : "border-white/10 bg-surface-2 text-white hover:border-brand/40 hover:bg-white/5",
+                    ? "border-brand bg-brand/20 text-brand"
+                    : "border-border-subtle bg-surface-2 text-text hover:border-brand/40 hover:bg-surface-3",
                 )}
               >
                 <span aria-hidden="true">{emoji}</span>
@@ -1242,7 +1242,7 @@ function Conversation({
             <button
               type="button"
               onClick={() => setReactionFilter(null)}
-              className="ml-auto inline-flex min-h-8 items-center gap-1 rounded-full px-2 text-[11px] font-semibold text-text-muted hover:bg-white/5 hover:text-white"
+              className="ml-auto inline-flex min-h-8 items-center gap-1 rounded-full px-2 text-[11px] font-semibold text-text-muted hover:bg-surface-2 hover:text-text"
             >
               <X className="h-3 w-3" aria-hidden="true" />
               Clear
@@ -1259,9 +1259,9 @@ function Conversation({
       {pinned.length > 0 && (
         <section
           aria-label={`${pinned.length} pinned ${pinned.length === 1 ? "message" : "messages"}`}
-          className="border-b border-white/10 bg-surface-1/80 px-3 py-2"
+          className="border-b border-border-subtle bg-surface-1/80 px-3 py-2"
         >
-          <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-brand-light">
+          <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-brand">
             <Pin className="h-3 w-3" aria-hidden="true" />
             Pinned ({pinned.length})
           </p>
@@ -1273,7 +1273,7 @@ function Conversation({
                   <button
                     type="button"
                     onClick={() => jumpTo(pm.id)}
-                    className="min-h-9 min-w-0 flex-1 truncate rounded-xl border border-white/10 bg-surface-2 px-3 py-2 text-left text-[11px] text-white hover:border-brand/40 hover:bg-white/5"
+                    className="min-h-9 min-w-0 flex-1 truncate rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-left text-[11px] text-text hover:border-brand/40 hover:bg-surface-3"
                     aria-label={`Jump to pinned message from ${pm.authorName}`}
                   >
                     <span className="mr-1.5 font-semibold text-text-muted">{pm.authorName}:</span>
@@ -1283,7 +1283,7 @@ function Conversation({
                     type="button"
                     onClick={() => togglePin(pm.id)}
                     aria-label={`Unpin message from ${pm.authorName}`}
-                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-text-muted hover:bg-white/5 hover:text-white"
+                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text-muted hover:bg-surface-3 hover:text-text"
                   >
                     <PinOff className="h-3.5 w-3.5" aria-hidden="true" />
                   </button>
@@ -1335,7 +1335,7 @@ function Conversation({
                     "max-w-[85%] rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed sm:max-w-[70%]",
                     mine
                       ? "bg-brand text-white"
-                      : "bg-surface-2 border border-border-subtle text-white",
+                      : "bg-surface-2 border border-border-subtle text-text",
 
                     reactionFilter && "ring-1 ring-brand/60",
                     activeMatchId === m.id && "ring-2 ring-brand ring-offset-2 ring-offset-bg",
@@ -1363,7 +1363,7 @@ function Conversation({
                             setEditingId(null);
                           }
                         }}
-                        className="w-full resize-none rounded-lg border border-white/25 bg-black/25 px-2 py-1.5 text-xs text-white outline-none placeholder:text-white/50"
+                        className="w-full resize-none rounded-lg border border-border-subtle bg-surface-2 px-2 py-1.5 text-xs text-text outline-none placeholder:text-text-muted"
                       />
                       <div className="flex items-center gap-2">
                         <button
@@ -1372,14 +1372,14 @@ function Conversation({
                             editMessage(m.id, editDraft);
                             setEditingId(null);
                           }}
-                          className="inline-flex min-h-7 items-center rounded-full bg-white/20 px-2.5 text-[10px] font-semibold text-white hover:bg-white/30"
+                          className="inline-flex min-h-7 items-center rounded-full bg-brand px-2.5 text-[10px] font-semibold text-white hover:bg-brand-light"
                         >
                           Save
                         </button>
                         <button
                           type="button"
                           onClick={() => setEditingId(null)}
-                          className="inline-flex min-h-7 items-center rounded-full px-2.5 text-[10px] font-semibold text-white/80 hover:bg-white/15"
+                          className="inline-flex min-h-7 items-center rounded-full px-2.5 text-[10px] font-semibold text-text-secondary hover:bg-surface-3"
                         >
                           Cancel
                         </button>
@@ -1466,22 +1466,22 @@ function Conversation({
                   )}
 
                   {historyId === m.id && m.history?.length ? (
-                    <ol className="mt-2 space-y-1.5 rounded-lg bg-black/25 p-2 text-[10px]">
+                    <ol className="mt-2 space-y-1.5 rounded-lg border border-border-subtle bg-surface-2 p-2 text-[10px]">
                       {m.history.map((v, i) => (
                         <li key={`${m.id}-v${i}`} className="flex flex-col gap-0.5">
-                          <span className="font-semibold text-white/70">
+                          <span className="font-semibold text-text-muted">
                             {i === 0 ? "Original" : `Version ${i + 1}`} · {v.at}
                           </span>
-                          <span className="whitespace-pre-wrap break-words text-white/90">
+                          <span className="whitespace-pre-wrap break-words text-text">
                             {v.text}
                           </span>
                         </li>
                       ))}
-                      <li className="flex flex-col gap-0.5 border-t border-white/15 pt-1.5">
-                        <span className="font-semibold text-white/70">
+                      <li className="flex flex-col gap-0.5 border-t border-border-subtle pt-1.5">
+                        <span className="font-semibold text-text-muted">
                           Current · {m.editedAt ?? m.time}
                         </span>
-                        <span className="whitespace-pre-wrap break-words text-white/90">
+                        <span className="whitespace-pre-wrap break-words text-text">
                           {m.text}
                         </span>
                       </li>
@@ -1495,8 +1495,8 @@ function Conversation({
                       className={cn(
                         "mt-2 flex flex-wrap items-center gap-2 rounded-lg px-2 py-1.5 text-[10px]",
                         m.delivery === "failed"
-                          ? "bg-black/25 text-white"
-                          : "bg-black/15 text-white/80",
+                          ? "bg-danger/10 text-danger border border-danger/20"
+                          : "bg-surface-2 text-text-muted border border-border-subtle",
                       )}
                     >
                       <span>
@@ -1508,7 +1508,7 @@ function Conversation({
                         <button
                           type="button"
                           onClick={() => retryMessage(m.id)}
-                          className="inline-flex min-h-7 items-center gap-1 rounded-full bg-white/15 px-2 font-semibold text-white transition-colors hover:bg-white/25"
+                          className="inline-flex min-h-7 items-center gap-1 rounded-full bg-danger/20 px-2 font-semibold text-danger transition-colors hover:bg-danger/30"
                           aria-label="Retry sending this message"
                         >
                           <RefreshCw className="h-3 w-3" aria-hidden="true" />
@@ -1601,7 +1601,7 @@ function Conversation({
             type="button"
             onClick={() => fileRef.current?.click()}
             aria-label="Attach files or documents"
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 text-white hover:bg-white/5"
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3"
           >
             <Paperclip className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -1611,8 +1611,8 @@ function Conversation({
               onClick={() => setShowQuickReplies(!showQuickReplies)}
               aria-label="Insert quick reply"
               className={cn(
-                "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 transition-colors",
-                showQuickReplies ? "bg-white/10 text-white" : "text-white hover:bg-white/5",
+                "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text transition-colors",
+                showQuickReplies ? "bg-surface-3 text-brand" : "hover:bg-surface-3",
               )}
             >
               <Zap className="h-4 w-4" aria-hidden="true" />
@@ -1626,7 +1626,7 @@ function Conversation({
                   <button
                     key={qr.id}
                     type="button"
-                    className="w-full text-left rounded-lg px-3 py-2 text-sm text-white hover:bg-surface-2 transition-colors mb-1"
+                    className="w-full text-left rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-2 transition-colors mb-1"
                     onClick={() => {
                       setText((prev) => (prev ? prev + "\n\n" + qr.body : qr.body));
                       setShowQuickReplies(false);
@@ -1662,7 +1662,7 @@ function Conversation({
               }
             }}
             placeholder="Write a reply…"
-            className="max-h-32 min-h-11 w-full resize-none rounded-xl border border-border-subtle bg-surface-2 px-3 py-3 text-[11px] text-white placeholder:text-text-muted focus:border-brand/50 outline-none"
+            className="max-h-32 min-h-11 w-full resize-none rounded-xl border border-border-subtle bg-surface-2 px-3 py-3 text-[11px] text-text placeholder:text-text-muted focus:border-brand/50 outline-none"
           />
           <button
             type="submit"
@@ -1710,12 +1710,12 @@ function RequestPanel({
 
   return (
     <div className="p-4">
-      <h2 className="text-sm font-semibold text-white">Request Information</h2>
+      <h2 className="text-sm font-semibold text-text">Request Information</h2>
       <dl className="mt-3 space-y-2.5">
         {rows.map((row) => (
           <div key={row.label} className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3">
             <dt className="text-[11px] text-text-muted">{row.label}</dt>
-            <dd className="min-w-0 text-right text-[11px] font-semibold text-white">
+            <dd className="min-w-0 text-right text-[11px] font-semibold text-text">
               {row.label === "Current Status" ? (
                 <TeamStatusBadge status={r.status} />
               ) : row.label === "Priority" ? (
@@ -1742,7 +1742,7 @@ function RequestPanel({
         )}
       </div>
 
-      <h3 className="mt-6 text-sm font-semibold text-white">Documents</h3>
+      <h3 className="mt-6 text-sm font-semibold text-text">Documents</h3>
       {docs.length === 0 ? (
         <p className="mt-2 text-[11px] text-text-muted">No documents uploaded.</p>
       ) : (
@@ -1759,15 +1759,15 @@ function RequestPanel({
         </div>
       )}
 
-      <h3 className="mt-6 text-sm font-semibold text-white">Timeline</h3>
-      <ol className="mt-3 space-y-3 border-l border-white/10 pl-4">
+      <h3 className="mt-6 text-sm font-semibold text-text">Timeline</h3>
+      <ol className="mt-3 space-y-3 border-l border-border-subtle pl-4">
         {r.timeline.map((t, i) => (
           <li key={`${t.label}-${i}`} className="relative">
             <span
               className="absolute -left-[1.3rem] top-1.5 h-2 w-2 rounded-full bg-brand"
               aria-hidden="true"
             />
-            <p className="text-[11px] font-semibold text-white">{t.label}</p>
+            <p className="text-[11px] font-semibold text-text">{t.label}</p>
             <p className="text-[10px] text-text-muted">{t.time}</p>
           </li>
         ))}
@@ -1804,16 +1804,15 @@ function RequestSheet({
         role="dialog"
         aria-modal="true"
         aria-label="Request details"
-        className="relative flex max-h-[85vh] w-full flex-col rounded-t-2xl border border-white/10 bg-surface-1 duration-200 animate-in slide-in-from-bottom-4 shadow-2xl"
+        className="relative flex max-h-[85vh] w-full flex-col rounded-t-2xl border border-border-subtle bg-surface-1 duration-200 animate-in slide-in-from-bottom-4 shadow-2xl"
       >
-        <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-          <h2 className="text-sm font-semibold text-white">Request Details</h2>
+        <div className="flex items-center justify-between border-b border-border-subtle p-4">
+          <h2 className="text-sm font-semibold text-text">Request Details</h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close request details"
-
-            className="rounded-lg p-2 text-text-muted hover:bg-white/5 hover:text-white"
+            className="rounded-lg p-2 text-text-muted hover:bg-surface-2 hover:text-text"
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>

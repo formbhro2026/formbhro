@@ -434,9 +434,10 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
     [chatRoomId, cleanup, createPeerConnection],
   );
 
-  const acceptCall = useCallback(async () => {
+  const acceptCall = useCallback(async (targetRoomId?: string) => {
     stopIncomingCallRingtone();
-    if (!chatRoomId) return;
+    const activeRoomId = targetRoomId || chatRoomId;
+    if (!activeRoomId) return;
 
     try {
       const {
@@ -481,6 +482,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         callDetailsRef.current.connectedAt = Date.now();
       }
 
+      // Check if remote offer was already received
       if (pc.remoteDescription) {
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
@@ -493,7 +495,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         }));
 
         if (myIdRef.current) {
-          await sendSignal(chatRoomId, {
+          await sendSignal(activeRoomId, {
             type: "answer",
             from: myIdRef.current,
             target: "all",
@@ -510,7 +512,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         }));
 
         if (myIdRef.current) {
-          await sendSignal(chatRoomId, {
+          await sendSignal(activeRoomId, {
             type: "request_offer",
             from: myIdRef.current,
             target: "all",
