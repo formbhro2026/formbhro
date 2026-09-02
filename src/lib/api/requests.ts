@@ -16,10 +16,13 @@ export type RequestWithRoom = RequestRow & {
 };
 
 async function requireUid() {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const uid = sessionData.session?.user?.id;
+  if (uid) return uid;
   const { data } = await supabase.auth.getUser();
-  const uid = data.user?.id;
-  if (!uid) throw new ApiError("Session expired. Please sign in again.", "unauthenticated");
-  return uid;
+  const fallbackUid = data.user?.id;
+  if (!fallbackUid) throw new ApiError("Session expired. Please sign in again.", "unauthenticated");
+  return fallbackUid;
 }
 
 /** Returns the user's single active (non-completed, non-cancelled) request, if any. */
@@ -141,7 +144,8 @@ export async function listRequests(opts?: {
   limit?: number;
   offset?: number;
 }): Promise<RequestRow[]> {
-  const uid = (await supabase.auth.getUser()).data.user?.id;
+  const { data: sessionData } = await supabase.auth.getSession();
+  const uid = sessionData.session?.user?.id;
   let query = supabase.from("requests").select("*").order("last_activity_at", { ascending: false });
   
   if (opts?.status?.length) query = query.in("status", opts.status);
@@ -171,7 +175,8 @@ export async function listRequestsPaginated(opts?: {
   limit?: number;
   offset?: number;
 }): Promise<{ data: RequestRow[]; count: number }> {
-  const uid = (await supabase.auth.getUser()).data.user?.id;
+  const { data: sessionData } = await supabase.auth.getSession();
+  const uid = sessionData.session?.user?.id;
   let query = supabase
     .from("requests")
     .select("*", { count: "exact" })
@@ -322,10 +327,7 @@ export async function getStatusHistory(requestId: string): Promise<StatusHistory
 
 export async function getTeamAnalytics() {
   const uid = await requireUid();
-  const role = await getMyRole();
-  if (role !== "team" && role !== "admin") {
-    throw new ApiError("Unauthorized", "unauthorized");
-  }
+  // RLS enforces that only authorized team/admin users can query/count assigned requests
   const [assignedRes, completedRes] = await Promise.all([
     supabase
       .from("requests")

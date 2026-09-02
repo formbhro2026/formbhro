@@ -39,6 +39,23 @@ export function setActiveChat(state: Partial<ActiveChatState> | null): void {
 }
 
 /**
+ * Returns the currently active chat state.
+ */
+export function getActiveChat(): ActiveChatState {
+  return currentActiveChat;
+}
+
+/**
+ * Registers a callback whenever the active chat changes.
+ */
+export function onActiveChatChange(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+/**
  * Checks whether the incoming event targets the currently active/open chat room.
  * Matches against request UUID, request reference code, chat room UUID, or URL path.
  */

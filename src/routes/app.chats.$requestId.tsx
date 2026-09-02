@@ -75,7 +75,8 @@ function ChatScreen() {
 
   useEffect(() => {
     void listQuickReplies().then(setQuickReplies).catch(() => {});
-  }, []);
+    store.loadChat?.(requestId);
+  }, [requestId, store]);
 
   const isQuickChatSearch = searchQuery.startsWith("/");
   const quickChatFilter = isQuickChatSearch ? searchQuery.slice(1).trim().toLowerCase() : "";

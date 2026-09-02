@@ -54,6 +54,8 @@ export type UserStore = {
   isPeerTyping?: (requestId: string) => boolean;
   /** Broadcast that the user is typing in this request's room (throttled). */
   notifyTyping?: (requestId: string) => void;
+  /** On-demand chat message loader for active chat views. */
+  loadChat?: (requestId: string) => Promise<void>;
 };
 
 export const UserStoreContext = createContext<UserStore | null>(null);

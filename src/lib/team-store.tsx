@@ -364,8 +364,8 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   /** Replaces the demo seed with live backend records for the signed-in member. */
-  const hydrateLive = useCallback(async (safe: TeamMember) => {
-    setLoading(true);
+  const hydrateLive = useCallback(async (safe: TeamMember, silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const snapshot = await loadTeamSnapshot(safe.id, safe.name);
       rooms.current = snapshot.rooms;
@@ -377,16 +377,18 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       setDocuments(snapshot.documents);
       setNotifications(snapshot.notifications);
     } catch {
-      rooms.current = {};
-      refByRequestId.current = {};
-      setRequests([]);
-      setRequestsHasMore(false);
-      setRequestsPage(1);
-      setMessages([]);
-      setDocuments([]);
-      setNotifications([]);
+      if (!silent) {
+        rooms.current = {};
+        refByRequestId.current = {};
+        setRequests([]);
+        setRequestsHasMore(false);
+        setRequestsPage(1);
+        setMessages([]);
+        setDocuments([]);
+        setNotifications([]);
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
@@ -448,7 +450,8 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       
       const handleVisibilityChange = () => {
         if (document.visibilityState === "visible") {
-          void hydrateLive(member);
+          // Silent refresh on app resume to keep existing UI displayed without full-screen loading flash
+          void hydrateLive(member, true);
           fetchAnalytics();
         }
       };

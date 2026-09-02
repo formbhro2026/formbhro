@@ -118,13 +118,19 @@ export async function signOut() {
 }
 
 export async function getCurrentUser() {
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (sessionData.session?.user) return sessionData.session.user;
   const { data } = await supabase.auth.getUser();
   return data.user ?? null;
 }
 
 export async function getMyRole(): Promise<AppRole | null> {
-  const { data: userData } = await supabase.auth.getUser();
-  const uid = userData.user?.id;
+  const { data: sessionData } = await supabase.auth.getSession();
+  let uid = sessionData.session?.user?.id;
+  if (!uid) {
+    const { data: userData } = await supabase.auth.getUser();
+    uid = userData.user?.id;
+  }
   if (!uid) return null;
   const { data } = await supabase.from("user_roles").select("role").eq("user_id", uid);
   const roles = (data ?? []).map((r: { role: AppRole }) => r.role);
@@ -134,8 +140,12 @@ export async function getMyRole(): Promise<AppRole | null> {
 }
 
 export async function getMyProfile(): Promise<Profile | null> {
-  const { data: userData } = await supabase.auth.getUser();
-  const uid = userData.user?.id;
+  const { data: sessionData } = await supabase.auth.getSession();
+  let uid = sessionData.session?.user?.id;
+  if (!uid) {
+    const { data: userData } = await supabase.auth.getUser();
+    uid = userData.user?.id;
+  }
   if (!uid) return null;
   const { data, error } = await supabase.from("profiles").select("*").eq("id", uid).maybeSingle();
   if (error) throw new ApiError(error.message, error.code);

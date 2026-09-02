@@ -26,7 +26,8 @@ import { useSession } from "@/lib/session";
 import { toast } from "sonner";
 import { playMessageNotificationSound } from "@/lib/audio-notifications";
 import { showSystemNotification } from "@/lib/fcm";
-import { isChatActive } from "@/lib/active-chat-tracker";
+import { isChatActive, getActiveChat, onActiveChatChange } from "@/lib/active-chat-tracker";
+import { supabase } from "@/integrations/supabase/client";
 
 const STATUS_MAP: Record<DbRequestStatus, RequestStatus> = {
   pending: "pending",
@@ -108,6 +109,10 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
   const referenceById = useRef<Record<string, string>>({});
   /** assigned team member uuid -> display name. */
   const teamNames = useRef<Record<string, string>>({});
+  /** Set of room IDs that have already loaded their messages */
+  const loadedRoomsRef = useRef<Set<string>>(new Set());
+  /** The single chat room currently active/focused on screen */
+  const [activeChatRoom, setActiveChatRoom] = useState<{ chatRoomId: string; reference: string } | null>(null);
 
   const profile = useMemo<Profile>(() => {
     const name = dbProfile?.full_name ?? user?.user_metadata?.full_name ?? user?.email ?? "You";
@@ -263,50 +268,53 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
         isInitialHydrate.current = false;
         console.log(`[PERF][READY] T10: User store ready in ${Date.now() - t0}ms`);
 
-        // Background Phase: Fetch team names and room messages concurrently
+        // 1. Batch-fetch chat_rooms for ALL rows in a single query (1 call instead of 20)
+        const rowIds = rows.map((r) => r.id);
+        const { data: allRooms } = rowIds.length
+          ? await supabase
+              .from("chat_rooms")
+              .select("id, request_id, title")
+              .in("request_id", rowIds)
+          : { data: [] };
+
+        const roomByRequestId = new Map((allRooms ?? []).map((rm) => [rm.request_id, rm]));
+        const nextRooms: typeof rooms.current = {};
+        for (const row of rows) {
+          const reference = row.reference || row.id;
+          const rm = roomByRequestId.get(row.id);
+          nextRooms[reference] = {
+            requestId: row.id,
+            chatRoomId: rm?.id ?? null,
+            title: row.title,
+          };
+          referenceById.current[row.id] = reference;
+        }
+        rooms.current = nextRooms;
+
+        // 2. Fetch messages ONLY for the active / latest request needed by dashboard
+        const activeRow = rows.find((r) => r.status !== "completed") ?? rows[0];
+        if (activeRow) {
+          const activeRoom = roomByRequestId.get(activeRow.id);
+          if (activeRoom) {
+            loadedRoomsRef.current.add(activeRoom.id);
+            const msgs = await messagesApi.listMessages(activeRoom.id, { limit: 50 });
+            const ref = activeRow.reference || activeRow.id;
+            setMessages(msgs.map((m) => mapMessage(m, ref)));
+          }
+        }
+
+        // 3. Background: Fetch team names if any
         const uniqueTeamIds = Array.from(
           new Set(rows.map((r) => r.assigned_team_id).filter((id): id is string => Boolean(id))),
         );
-
-        void (async () => {
-          if (uniqueTeamIds.length > 0) {
-            const profilesById = await authApi.getProfilesByIds(uniqueTeamIds);
+        if (uniqueTeamIds.length > 0) {
+          void authApi.getProfilesByIds(uniqueTeamIds).then((profilesById) => {
             teamNames.current = Object.fromEntries(
               Object.entries(profilesById).map(([id, p]) => [id, p.full_name || "Support Team"]),
             );
-            // Re-map requests with updated team names if available
             setRequests(rows.map(mapRequest));
-          }
-
-          const nextRooms: typeof rooms.current = {};
-          const allMessages: ChatMessage[] = [];
-
-          // Fetch rooms & messages in parallel
-          await Promise.all(
-            rows.map(async (row) => {
-              const reference = row.reference || row.id;
-              const room = await requestsApi.getChatRoom(row.id);
-              nextRooms[reference] = {
-                requestId: row.id,
-                chatRoomId: room?.id ?? null,
-                title: row.title,
-              };
-              if (room) {
-                const msgs = await messagesApi.listMessages(room.id, { limit: 50 });
-                allMessages.push(...msgs.map((m) => mapMessage(m, reference)));
-              }
-            }),
-          );
-
-          rooms.current = nextRooms;
-          setRoomsVersion((v) => v + 1);
-
-          setMessages((prev) => {
-            const existingIds = new Set(prev.map((m) => m.id));
-            const newMsgs = allMessages.filter((m) => !existingIds.has(m.id));
-            return [...prev, ...newMsgs];
           });
-        })();
+        }
       } catch (err) {
         console.error("[LiveUserStore] Hydration failed:", err);
       } finally {
@@ -314,6 +322,55 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       }
     },
     [user, mapRequest, mapMessage, mapDocument, mapNotification],
+  );
+
+  /**
+   * On-demand chat message loader for active chat views.
+   * Replaces the historical startup storm.
+   */
+  const loadChat = useCallback(
+    async (reqIdOrRef: string) => {
+      if (!reqIdOrRef) return;
+      const clean = reqIdOrRef.trim().toLowerCase();
+      let matchedRef = reqIdOrRef;
+      for (const [ref, r] of Object.entries(rooms.current)) {
+        if (
+          ref.toLowerCase() === clean ||
+          r.requestId.toLowerCase() === clean ||
+          referenceById.current[reqIdOrRef] === ref
+        ) {
+          matchedRef = ref;
+          break;
+        }
+      }
+
+      let room = rooms.current[matchedRef];
+      if (!room?.chatRoomId) {
+        const rawRoom = await requestsApi.getChatRoom(room?.requestId || matchedRef);
+        if (rawRoom) {
+          room = {
+            requestId: rawRoom.request_id,
+            chatRoomId: rawRoom.id,
+            title: rawRoom.title || "Support Chat",
+          };
+          rooms.current[matchedRef] = room;
+          referenceById.current[rawRoom.request_id] = matchedRef;
+        }
+      }
+
+      if (room?.chatRoomId && !loadedRoomsRef.current.has(room.chatRoomId)) {
+        loadedRoomsRef.current.add(room.chatRoomId);
+        loadedRoomsRef.current.add(matchedRef.toLowerCase());
+        loadedRoomsRef.current.add(room.requestId.toLowerCase());
+        const msgs = await messagesApi.listMessages(room.chatRoomId, { limit: 50 });
+        setMessages((prev) => {
+          const existingIds = new Set(prev.map((m) => m.id));
+          const newMsgs = msgs.filter((m) => !existingIds.has(m.id)).map((m) => mapMessage(m, matchedRef));
+          return [...prev, ...newMsgs];
+        });
+      }
+    },
+    [mapMessage],
   );
 
   useEffect(() => {
@@ -327,43 +384,67 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [hydrate]);
 
-  // Live updates for every room the user owns.
+  // Track active chat room for exclusive on-demand WebSocket subscription
   useEffect(() => {
-    if (!user) return;
-    const entries = Object.entries(rooms.current).filter(([, r]) => r.chatRoomId);
-    const unsubscribers = entries.map(([reference, room]) =>
-      realtimeApi.subscribeToRoom(room.chatRoomId as string, {
-        onMessage: (row) => {
-          setMessages((prev) =>
-            prev.some((m) => m.id === row.id) ? prev : [...prev, mapMessage(row, reference)],
-          );
-        },
-        onMessageUpdate: (row) => {
-          setMessages((prev) =>
-            prev.map((m) => (m.id === row.id ? mapMessage(row, reference) : m)),
-          );
-        },
-        onDocument: (row) => {
-          setDocuments((prev) =>
-            prev.some((d) => d.id === row.id)
-              ? prev
-              : [mapDocument(row, reference, room.title), ...prev],
-          );
-        },
-        onTyping: (p) => {
-          if (!p?.typing || p.userId === user.id) return;
-          const token = (typingToken.current[reference] ?? 0) + 1;
-          typingToken.current[reference] = token;
-          setTypingIn((t) => ({ ...t, [reference]: true }));
-          setTimeout(() => {
-            if (typingToken.current[reference] !== token) return;
-            setTypingIn((t) => ({ ...t, [reference]: false }));
-          }, 2500);
-        },
-      }),
-    );
-    return () => unsubscribers.forEach((off) => off());
-  }, [user, loading, roomsVersion, mapMessage, mapDocument]);
+    const resolveActive = () => {
+      const cur = getActiveChat();
+      if (!cur.chatRoomId && !cur.requestId) {
+        setActiveChatRoom(null);
+        return;
+      }
+      const ref = cur.requestRef || referenceById.current[cur.requestId || ""] || cur.requestId || "";
+      const room = rooms.current[ref];
+      const roomId = cur.chatRoomId || room?.chatRoomId;
+      if (roomId) {
+        setActiveChatRoom({ chatRoomId: roomId, reference: ref });
+      } else {
+        setActiveChatRoom(null);
+      }
+    };
+
+    resolveActive();
+    return onActiveChatChange(resolveActive);
+  }, []);
+
+  // Exclusively subscribe to the active chat room in Realtime (1 socket instead of 20)
+  useEffect(() => {
+    if (!user || !activeChatRoom?.chatRoomId) return;
+    const { chatRoomId, reference } = activeChatRoom;
+    console.log(`[PERF][REALTIME] Subscribing on-demand to active room=${chatRoomId} (${reference})`);
+
+    // Ensure messages are loaded for the active chat
+    void loadChat(reference);
+
+    return realtimeApi.subscribeToRoom(chatRoomId, {
+      onMessage: (row) => {
+        setMessages((prev) =>
+          prev.some((m) => m.id === row.id) ? prev : [...prev, mapMessage(row, reference)],
+        );
+      },
+      onMessageUpdate: (row) => {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === row.id ? mapMessage(row, reference) : m)),
+        );
+      },
+      onDocument: (row) => {
+        setDocuments((prev) =>
+          prev.some((d) => d.id === row.id)
+            ? prev
+            : [mapDocument(row, reference, rooms.current[reference]?.title || "Document"), ...prev],
+        );
+      },
+      onTyping: (p) => {
+        if (!p?.typing || p.userId === user.id) return;
+        const token = (typingToken.current[reference] ?? 0) + 1;
+        typingToken.current[reference] = token;
+        setTypingIn((t) => ({ ...t, [reference]: true }));
+        setTimeout(() => {
+          if (typingToken.current[reference] !== token) return;
+          setTypingIn((t) => ({ ...t, [reference]: false }));
+        }, 2500);
+      },
+    });
+  }, [user, activeChatRoom, mapMessage, mapDocument, loadChat]);
 
   // Request status / progress changes pushed from the team panel.
   useEffect(() => {
@@ -404,13 +485,17 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       if (!id) return [];
       const cleanId = id.trim().toLowerCase();
       const ref = (referenceById.current[id] || id).trim().toLowerCase();
+      // On-demand message loading when messages are accessed for a specific chat
+      if (!loadedRoomsRef.current.has(cleanId) && !loadedRoomsRef.current.has(ref)) {
+        void loadChat(ref);
+      }
       return messages.filter(
         (m) =>
           m.requestId?.toLowerCase() === cleanId ||
           m.requestId?.toLowerCase() === ref,
       );
     },
-    [messages],
+    [messages, loadChat],
   );
 
   const documentsFor = useCallback(
@@ -773,6 +858,7 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       rooms,
       isPeerTyping,
       notifyTyping,
+      loadChat,
       live: true,
       loading,
       sidebarOpen,
@@ -806,6 +892,7 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       sidebarOpen,
       isPeerTyping,
       notifyTyping,
+      loadChat,
     ],
   );
 

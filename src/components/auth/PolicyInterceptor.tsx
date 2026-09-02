@@ -7,10 +7,42 @@ import { Loader2 } from "lucide-react";
 
 type Policy = Database["public"]["Tables"]["policies"]["Row"];
 
+type CachedPolicyAck = {
+  ackedAt: number;
+  allAcknowledged: boolean;
+};
+
+const POLICY_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function getPolicyCache(userId: string): CachedPolicyAck | null {
+  if (typeof window === "undefined" || !userId) return null;
+  try {
+    const raw = sessionStorage.getItem(`formbhro:policy_ack:${userId}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as CachedPolicyAck;
+    if (parsed && typeof parsed.ackedAt === "number" && Date.now() - parsed.ackedAt < POLICY_CACHE_TTL_MS) {
+      return parsed;
+    }
+  } catch {}
+  return null;
+}
+
+function setPolicyCache(userId: string, allAcknowledged: boolean) {
+  if (typeof window === "undefined" || !userId) return;
+  try {
+    sessionStorage.setItem(
+      `formbhro:policy_ack:${userId}`,
+      JSON.stringify({ ackedAt: Date.now(), allAcknowledged }),
+    );
+  } catch {}
+}
+
 export function PolicyInterceptor({ children }: { children: React.ReactNode }) {
   const { user, initialized } = useSession();
   const [unacknowledgedPolicies, setUnacknowledgedPolicies] = useState<Policy[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cachedAck = user ? getPolicyCache(user.id) : null;
+  // If we already have a valid local cache stating all policies are acknowledged, unblock UI immediately
+  const [loading, setLoading] = useState(() => !cachedAck || !cachedAck.allAcknowledged);
   const [acknowledging, setAcknowledging] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,46 +55,52 @@ export function PolicyInterceptor({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    const currentCached = getPolicyCache(user.id);
+    const hasCachedAck = currentCached?.allAcknowledged ?? false;
+
     async function checkPolicies() {
-      setLoading(true);
+      // Only show blocking loader if not already validated in cache
+      if (!hasCachedAck) {
+        setLoading(true);
+      }
       setError(null);
       try {
-        // Fetch all active policies
-        const { data: activePolicies, error: policyError } = await supabase
-          .from("policies")
-          .select("*")
-          .eq("is_active", true);
+        // Parallelize active policies and user acknowledgments queries
+        const [activePoliciesRes, acksRes] = await Promise.all([
+          supabase.from("policies").select("*").eq("is_active", true),
+          supabase.from("policy_acknowledgments").select("policy_id").eq("user_id", user!.id),
+        ]);
 
-        if (policyError) throw policyError;
+        if (activePoliciesRes.error) throw activePoliciesRes.error;
+        if (acksRes.error) throw acksRes.error;
 
-        if (!activePolicies || activePolicies.length === 0) {
+        const activePolicies = activePoliciesRes.data ?? [];
+        const acks = acksRes.data ?? [];
+
+        if (activePolicies.length === 0) {
           setUnacknowledgedPolicies([]);
+          setPolicyCache(user!.id, true);
           setLoading(false);
           return;
         }
 
-        // Fetch user acknowledgments
-        const { data: acks, error: ackError } = await supabase
-          .from("policy_acknowledgments")
-          .select("policy_id")
-          .eq("user_id", user!.id);
-
-        if (ackError) throw ackError;
-
-        const ackedPolicyIds = new Set(acks?.map((a) => a.policy_id) || []);
+        const ackedPolicyIds = new Set(acks.map((a) => a.policy_id));
         const unacked = activePolicies.filter((p) => !ackedPolicyIds.has(p.id));
 
         setUnacknowledgedPolicies(unacked);
+        setPolicyCache(user!.id, unacked.length === 0);
       } catch (err) {
         const error = err as Error;
         console.error("Error checking policies:", error);
-        setError("Failed to verify policy status. Please refresh the page.");
+        if (!hasCachedAck) {
+          setError("Failed to verify policy status. Please refresh the page.");
+        }
       } finally {
         setLoading(false);
       }
     }
 
-    checkPolicies();
+    void checkPolicies();
   }, [user, initialized]);
 
   const handleAcknowledgeAll = async () => {
@@ -81,6 +119,7 @@ export function PolicyInterceptor({ children }: { children: React.ReactNode }) {
       if (error) throw error;
 
       setUnacknowledgedPolicies([]);
+      setPolicyCache(user.id, true);
     } catch (err) {
       const error = err as Error;
       console.error("Error acknowledging policies:", error);
