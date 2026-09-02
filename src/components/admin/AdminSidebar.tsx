@@ -49,8 +49,8 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
             className={cn(
               "flex min-h-10 items-center gap-3 rounded-xl px-3 text-xs font-medium transition-colors duration-200",
               active
-                ? "bg-brand/10 text-white"
-                : "text-text-secondary hover:bg-white/5 hover:text-white",
+                ? "bg-brand/10 text-brand font-semibold"
+                : "text-text-secondary hover:bg-surface-2 hover:text-text",
             )}
           >
             <Icon
@@ -75,7 +75,7 @@ function SignOutButton({ onDone }: { onDone?: () => void }) {
         void signOut();
         onDone?.();
       }}
-      className="m-2 flex min-h-10 items-center gap-3 rounded-xl px-3 text-xs font-medium text-text-secondary transition-colors duration-200 hover:bg-white/5 hover:text-white"
+      className="m-2 flex min-h-10 items-center gap-3 rounded-xl px-3 text-xs font-medium text-text-secondary transition-colors duration-200 hover:bg-surface-2 hover:text-text"
     >
       <LogOut className="h-4 w-4 text-text-muted" strokeWidth={1.75} aria-hidden="true" />
       Logout

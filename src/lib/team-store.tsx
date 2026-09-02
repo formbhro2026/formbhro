@@ -174,6 +174,7 @@ type TeamStore = {
   /** Update tags on a request in local store */
   updateTags: (requestId: string, tags: string[]) => void;
   pool: TeamRequest[];
+  loading: boolean;
 };
 
 const Ctx = createContext<TeamStore | null>(null);
@@ -181,6 +182,7 @@ const Ctx = createContext<TeamStore | null>(null);
 export function TeamStoreProvider({ children }: { children: ReactNode }) {
   const [member, setMember] = useState<TeamMember | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [live, setLive] = useState(false);
   const liveRef = useRef(false);
   useEffect(() => {
@@ -362,6 +364,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
 
   /** Replaces the demo seed with live backend records for the signed-in member. */
   const hydrateLive = useCallback(async (safe: TeamMember) => {
+    setLoading(true);
     try {
       const snapshot = await loadTeamSnapshot(safe.id, safe.name);
       rooms.current = snapshot.rooms;
@@ -381,6 +384,8 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       setMessages([]);
       setDocuments([]);
       setNotifications([]);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -1487,10 +1492,12 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       escalateChat,
       openAdminChat,
       pool,
+      loading,
     }),
     [
       member,
       hydrated,
+      loading,
       live,
       signIn,
       signInWithTeamAuth,

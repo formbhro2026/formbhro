@@ -20,7 +20,7 @@ export function Panel({
     >
       {(title || action) && (
         <header className="mb-4 flex items-center justify-between gap-3">
-          {title && <h2 className="text-sm font-semibold text-white">{title}</h2>}
+          {title && <h2 className="text-sm font-semibold text-text">{title}</h2>}
           {action}
         </header>
       )}
@@ -34,11 +34,13 @@ export function StatCard({
   value,
   icon: Icon,
   hint,
+  loading = false,
 }: {
   label: string;
   value: string | number;
   icon: LucideIcon;
   hint?: string;
+  loading?: boolean;
 }) {
   return (
     <div className="rounded-2xl border border-border-subtle bg-surface-1 p-4">
@@ -48,7 +50,11 @@ export function StatCard({
           <Icon className="h-4 w-4 text-brand" strokeWidth={1.75} aria-hidden="true" />
         </span>
       </div>
-      <p className="mt-3 text-2xl font-bold text-white tabular-nums">{value}</p>
+      {loading ? (
+        <div className="mt-3 h-8 w-16 rounded bg-surface-2 animate-pulse" />
+      ) : (
+        <p className="mt-3 text-2xl font-bold text-text tabular-nums">{value}</p>
+      )}
       {hint && <p className="mt-1 text-[11px] text-text-secondary">{hint}</p>}
     </div>
   );

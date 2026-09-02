@@ -54,7 +54,7 @@ function greeting() {
 
 function TeamHome() {
   const navigate = useNavigate();
-  const { member, requests, pool, assignToMe } = useTeamStore();
+  const { member, requests, pool, assignToMe, loading } = useTeamStore();
   const [claiming, setClaiming] = useState<string | null>(null);
 
   const stats = useMemo(() => {
@@ -85,9 +85,9 @@ function TeamHome() {
       label: "Assigned Chats",
       value: requests.length,
       icon: MessageSquareText,
-      color: "text-white",
+      color: "text-text",
     },
-    { label: "Pending", value: stats.pending, icon: Clock, color: "text-amber-300" },
+    { label: "Pending", value: stats.pending, icon: Clock, color: "text-amber-400" },
     {
       label: "Waiting for Documents",
       value: stats.waiting,
@@ -98,10 +98,10 @@ function TeamHome() {
       label: "Completed Today",
       value: stats.completedToday,
       icon: CircleCheck,
-      color: "text-emerald-400",
+      color: "text-emerald-500",
     },
-    { label: "Avg. Response Time", value: stats.avgResponseTime, icon: Timer, color: "text-white" },
-    { label: "Satisfaction Score", value: stats.satisfactionScore, icon: Briefcase, color: "text-brand-light" },
+    { label: "Avg. Response Time", value: stats.avgResponseTime, icon: Timer, color: "text-text" },
+    { label: "Satisfaction Score", value: stats.satisfactionScore, icon: Briefcase, color: "text-brand" },
   ];
 
   return (
@@ -110,7 +110,7 @@ function TeamHome() {
       <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 pb-28 pt-6 sm:px-6 lg:pb-10">
         <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-xl font-bold text-white sm:text-2xl">
+            <h2 className="text-xl font-bold text-text sm:text-2xl">
               {greeting()}, {member?.name.split(" ")[0]} 👋
             </h2>
             <p className="mt-1 text-sm text-text-muted">
@@ -128,9 +128,13 @@ function TeamHome() {
             >
               <div className="flex items-center gap-2">
                 <card.icon className="h-4 w-4 text-brand" strokeWidth={1.75} />
-                <span className={cn("text-lg font-bold tabular-nums", card.color)}>
-                  {card.value}
-                </span>
+                {loading ? (
+                  <div className="h-6 w-8 rounded bg-surface-2 animate-pulse" />
+                ) : (
+                  <span className={cn("text-lg font-bold tabular-nums", card.color)}>
+                    {card.value}
+                  </span>
+                )}
               </div>
               <p className="mt-2 text-[11px] font-medium text-text-muted uppercase tracking-wider">
                 {card.label}
@@ -144,29 +148,35 @@ function TeamHome() {
           <div className="space-y-6">
             <section className="rounded-2xl border border-border-subtle bg-surface-1 overflow-hidden">
               <div className="flex items-center justify-between border-b border-border-subtle px-5 py-4">
-                <h3 className="flex items-center gap-2 text-sm font-bold text-white uppercase tracking-wider">
+                <h3 className="flex items-center gap-2 text-sm font-bold text-text uppercase tracking-wider">
                   New Requests{" "}
-                  <span className="grid h-5 min-w-5 place-items-center rounded-full bg-brand/20 text-[10px] text-brand-light">
-                    {pool.length}
+                  <span className="grid h-5 min-w-5 place-items-center rounded-full bg-brand/20 text-[10px] text-brand">
+                    {loading ? "…" : pool.length}
                   </span>
                 </h3>
               </div>
 
               <div className="p-2">
-                {pool.length === 0 ? (
+                {loading ? (
+                  <div className="space-y-2 p-2 animate-pulse">
+                    {[1, 2].map((i) => (
+                      <div key={i} className="h-14 w-full rounded-xl bg-surface-2" />
+                    ))}
+                  </div>
+                ) : pool.length === 0 ? (
                   <div className="py-8 text-center">
                     <p className="text-sm font-medium text-text-muted">No new requests in the pool.</p>
                   </div>
                 ) : (
                   <ul className="space-y-1">
                     {pool.slice(0, 5).map((r) => (
-                      <li key={r.id} className="group flex items-center justify-between gap-4 rounded-xl p-3 transition-colors hover:bg-white/5">
+                      <li key={r.id} className="group flex items-center justify-between gap-4 rounded-xl p-3 transition-colors hover:bg-surface-2">
                         <div className="flex items-center gap-4 min-w-0">
-                          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/10 bg-surface-3 text-xs font-bold text-text-muted">
+                          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-border-subtle bg-surface-3 text-xs font-bold text-text-muted">
                             {r.userInitials}
                           </div>
                           <div className="min-w-0">
-                            <h4 className="truncate text-sm font-semibold text-white">
+                            <h4 className="truncate text-sm font-semibold text-text">
                               {r.title}
                             </h4>
                             <p className="truncate text-xs text-text-muted mt-0.5">
@@ -205,21 +215,27 @@ function TeamHome() {
 
             <section className="rounded-2xl border border-border-subtle bg-surface-1 overflow-hidden">
               <div className="flex items-center justify-between border-b border-border-subtle px-5 py-4">
-                <h3 className="flex items-center gap-2 text-sm font-bold text-white uppercase tracking-wider">
+                <h3 className="flex items-center gap-2 text-sm font-bold text-text uppercase tracking-wider">
                   Assigned Chats{" "}
-                  <span className="grid h-5 min-w-5 place-items-center rounded-full bg-brand/20 text-[10px] text-brand-light">
-                    {requests.length}
+                  <span className="grid h-5 min-w-5 place-items-center rounded-full bg-brand/20 text-[10px] text-brand">
+                    {loading ? "…" : requests.length}
                   </span>
                 </h3>
                 <div className="flex items-center gap-2">
-                  <button className="text-text-muted hover:text-white transition-colors">
+                  <button className="text-text-muted hover:text-text transition-colors">
                     <SlidersHorizontal className="h-4 w-4" />
                   </button>
                 </div>
               </div>
 
               <div className="p-2">
-                {requests.length === 0 ? (
+                {loading ? (
+                  <div className="space-y-2 p-2 animate-pulse">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="h-16 w-full rounded-xl bg-surface-2" />
+                    ))}
+                  </div>
+                ) : requests.length === 0 ? (
                   <div className="py-10">
                     <EmptyState
                       icon={MessageSquareText}
@@ -234,14 +250,14 @@ function TeamHome() {
                         <Link
                           to="/team/work"
                           search={{ r: r.id }}
-                          className="group flex items-center gap-4 rounded-xl p-3 transition-colors hover:bg-white/5"
+                          className="group flex items-center gap-4 rounded-xl p-3 transition-colors hover:bg-surface-2"
                         >
-                          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/10 bg-surface-3 text-xs font-bold text-brand-light">
+                          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-border-subtle bg-surface-3 text-xs font-bold text-brand">
                             {r.userInitials}
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between gap-2">
-                              <h4 className="truncate text-sm font-semibold text-white">
+                              <h4 className="truncate text-sm font-semibold text-text">
                                 {r.title}
                               </h4>
                               <span className="shrink-0 text-[10px] text-text-muted">
@@ -274,9 +290,10 @@ function TeamHome() {
                 {requests.length > 5 && (
                   <Link
                     to="/team/work"
-                    className="flex w-full items-center justify-center gap-2 py-4 text-xs font-semibold text-brand-light hover:text-white transition-colors border-t border-border-subtle mt-1"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold text-brand hover:underline"
                   >
-                    View All Chats
+                    View all assigned chats ({requests.length})
+                    <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 )}
               </div>

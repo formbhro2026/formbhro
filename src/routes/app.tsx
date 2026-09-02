@@ -103,7 +103,7 @@ function AppShell() {
       <FillNowProvider>
         <GlobalCallProvider>
           <div
-            className={cn("h-[100dvh] flex flex-col text-white antialiased bg-bg overflow-hidden")}
+            className={cn("h-[100dvh] flex flex-col text-text antialiased bg-bg overflow-hidden")}
           >
             <UserSidebar />
             <div

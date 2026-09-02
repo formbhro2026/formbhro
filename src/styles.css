@@ -39,7 +39,8 @@ body {
 }
 
 .light-theme,
-html.light-theme {
+html.light-theme,
+body.light-theme {
   --color-bg: #f4f6f8;
   --color-surface-1: #ffffff;
   --color-surface-2: #f0f2f5;
@@ -47,8 +48,42 @@ html.light-theme {
   --color-text: #111827;
   --color-text-secondary: #4b5563;
   --color-text-muted: #6b7280;
-  --color-border-subtle: rgba(0, 0, 0, 0.1);
+  --color-border-subtle: rgba(0, 0, 0, 0.08);
   --color-border-strong: rgba(255, 122, 0, 0.6);
+
+  /* WhatsApp Light Tokens */
+  --color-chat-bg: #efeae2;
+  --color-chat-out: #d9fdd3;
+  --color-chat-in: #ffffff;
+  --color-chat-text: #111b21;
+  --color-chat-meta: #667781;
+  --color-chat-accent: #008069;
+
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+
+.dark-theme,
+html.dark-theme,
+body.dark-theme {
+  --color-bg: #050505;
+  --color-surface-1: #0a0a0a;
+  --color-surface-2: #111111;
+  --color-surface-3: #1a1a1a;
+  --color-text: #ffffff;
+  --color-text-secondary: #a3a3a3;
+  --color-text-muted: #737373;
+  --color-border-subtle: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 122, 0, 0.45);
+
+  /* WhatsApp Dark Tokens */
+  --color-chat-bg: #0b141a;
+  --color-chat-out: #005c4b;
+  --color-chat-in: #202c33;
+  --color-chat-text: #e9edef;
+  --color-chat-meta: #8696a0;
+  --color-chat-accent: #53bdeb;
+
   background-color: var(--color-bg);
   color: var(--color-text);
 }

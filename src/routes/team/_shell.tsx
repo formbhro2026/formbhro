@@ -26,7 +26,7 @@ function TeamShell() {
 
   return (
     <GlobalCallProvider>
-      <div className="min-h-screen bg-bg text-white antialiased">
+      <div className="min-h-screen bg-bg text-text antialiased">
         <TeamSidebar />
         <div className="flex min-h-screen flex-col lg:pl-60">
           <Outlet />

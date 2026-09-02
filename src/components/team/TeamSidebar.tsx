@@ -96,7 +96,7 @@ export function TeamSidebar() {
       </div>
 
       <div className="mx-3 mt-3 rounded-xl border border-border-subtle bg-surface-2 px-3 py-2.5">
-        <p className="truncate text-xs font-semibold text-white">{member?.name}</p>
+        <p className="truncate text-xs font-semibold text-text">{member?.name}</p>
         <p className="mt-0.5 truncate text-[11px] text-text-muted">{member?.role}</p>
       </div>
 
@@ -118,8 +118,8 @@ export function TeamSidebar() {
                     className={cn(
                       "relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors duration-200 text-left disabled:opacity-50",
                       isAdminChatActive
-                        ? "bg-brand/10 font-semibold text-white"
-                        : "font-medium text-text-secondary hover:bg-white/5 hover:text-white",
+                        ? "bg-brand/10 font-semibold text-brand"
+                        : "font-medium text-text-secondary hover:bg-surface-2 hover:text-text",
                     )}
                   >
                     {isAdminChatActive && (
@@ -158,8 +158,8 @@ export function TeamSidebar() {
                   className={cn(
                     "relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors duration-200",
                     active
-                      ? "bg-brand/10 font-semibold text-white"
-                      : "font-medium text-text-secondary hover:bg-white/5 hover:text-white",
+                      ? "bg-brand/10 font-semibold text-brand"
+                      : "font-medium text-text-secondary hover:bg-surface-2 hover:text-text",
                   )}
                 >
                   {active && (

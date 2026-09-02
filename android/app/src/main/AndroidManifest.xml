@@ -30,6 +30,27 @@
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
 
+        <activity
+            android:name=".IncomingCallActivity"
+            android:theme="@style/Theme.AppCompat.NoActionBar"
+            android:launchMode="singleTop"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:excludeFromRecents="true"
+            android:exported="true" />
+
+        <receiver
+            android:name=".IncomingCallActionReceiver"
+            android:exported="false" />
+
+        <service
+            android:name=".FormbharoFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter android:priority="100">
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="formbhro_calls_v2" />

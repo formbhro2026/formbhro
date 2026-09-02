@@ -16,8 +16,9 @@ function isToday(value?: string | null) {
 }
 
 function AdminDashboard() {
-  const { requestsPage, profileOf, stats, activity } = useAdmin();
+  const { requestsPage, profileOf, stats, activity, loading } = useAdmin();
 
+  const isStatsLoading = !stats || loading;
   const totalUsers = stats?.users ?? 0;
   const completed = stats?.completed ?? 0;
   const active = (stats?.total ?? 0) - completed;
@@ -28,10 +29,10 @@ function AdminDashboard() {
     <div className="space-y-6">
       {/* KPI Cards */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Total Users" value={totalUsers} icon={Users} />
-        <StatCard label="Team Members" value={stats?.teamCount ?? 0} icon={UserCog} />
-        <StatCard label="Active Requests" value={active} icon={Inbox} />
-        <StatCard label="Completed" value={completed} icon={CheckCircle2} />
+        <StatCard label="Total Users" value={totalUsers} icon={Users} loading={isStatsLoading} />
+        <StatCard label="Team Members" value={stats?.teamCount ?? 0} icon={UserCog} loading={isStatsLoading} />
+        <StatCard label="Active Requests" value={active} icon={Inbox} loading={isStatsLoading} />
+        <StatCard label="Completed" value={completed} icon={CheckCircle2} loading={isStatsLoading} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -42,30 +43,42 @@ function AdminDashboard() {
               <p className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
                 Pending
               </p>
-              <p className="mt-1 text-2xl font-bold text-white">{pending}</p>
+              {isStatsLoading ? (
+                <div className="mt-1 h-8 w-12 rounded bg-surface-3 animate-pulse" />
+              ) : (
+                <p className="mt-1 text-2xl font-bold text-text">{pending}</p>
+              )}
             </div>
             <div className="rounded-2xl bg-surface-2 p-4 border border-border-subtle">
               <p className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
                 Response Time
               </p>
-              <p className="mt-1 text-2xl font-bold text-white">
-                {stats?.avgResponse
-                  ? stats.avgResponse < 1
-                    ? `${Math.round(stats.avgResponse * 60)}m`
-                    : `~${stats.avgResponse.toFixed(1)}h`
-                  : "0h"}
-              </p>
+              {isStatsLoading ? (
+                <div className="mt-1 h-8 w-16 rounded bg-surface-3 animate-pulse" />
+              ) : (
+                <p className="mt-1 text-2xl font-bold text-text">
+                  {stats?.avgResponse
+                    ? stats.avgResponse < 1
+                      ? `${Math.round(stats.avgResponse * 60)}m`
+                      : `~${stats.avgResponse.toFixed(1)}h`
+                    : "0h"}
+                </p>
+              )}
             </div>
             <div className="rounded-2xl bg-surface-2 p-4 border border-border-subtle">
               <p className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
                 New Today
               </p>
-              <p className="mt-1 text-2xl font-bold text-white">{stats?.daily ?? 0}</p>
+              {isStatsLoading ? (
+                <div className="mt-1 h-8 w-12 rounded bg-surface-3 animate-pulse" />
+              ) : (
+                <p className="mt-1 text-2xl font-bold text-text">{stats?.daily ?? 0}</p>
+              )}
             </div>
           </div>
 
           <div className="mt-6">
-            <h3 className="text-xs font-bold text-white mb-4">Request Status Distribution</h3>
+            <h3 className="text-xs font-bold text-text mb-4">Request Status Distribution</h3>
             <div className="flex h-2 w-full overflow-hidden rounded-full bg-surface-3">
               <div
                 className="bg-amber-500"
@@ -111,7 +124,7 @@ function AdminDashboard() {
               <li key={a.id} className="flex gap-3 text-xs">
                 <div className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-brand" />
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium text-white line-clamp-1">{a.label || a.action}</p>
+                  <p className="font-medium text-text line-clamp-1">{a.label || a.action}</p>
                   <p className="text-[10px] text-text-muted">{formatDate(a.created_at)}</p>
                 </div>
               </li>
@@ -149,7 +162,7 @@ function AdminDashboard() {
               <tbody>
                 {requestsPage.slice(0, 5).map((r) => (
                   <tr key={r.id} className="border-b border-border-subtle/50 last:border-0">
-                    <td className="py-3 pr-2 font-medium text-white">{r.reference}</td>
+                    <td className="py-3 pr-2 font-medium text-text">{r.reference}</td>
                     <td className="py-3 px-2 text-text-secondary">
                       {profileOf(r.user_id)?.full_name || "User"}
                     </td>
@@ -173,7 +186,7 @@ function AdminDashboard() {
                   <CheckCircle2 className="h-4 w-4" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-white">Database Connection</p>
+                  <p className="text-xs font-bold text-text">Database Connection</p>
                   <p className="text-[10px] text-text-muted uppercase tracking-tight">
                     Active & Stable
                   </p>
@@ -188,9 +201,9 @@ function AdminDashboard() {
                   <MessagesSquare className="h-4 w-4" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-white">Realtime Service</p>
+                  <p className="text-xs font-bold text-text">Realtime Service</p>
                   <p className="text-[10px] text-text-muted uppercase tracking-tight">
-                    Operational
+                    Connected
                   </p>
                 </div>
               </div>

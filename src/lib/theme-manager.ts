@@ -14,12 +14,21 @@ export function getInitialTheme(): ThemeMode {
 export function applyTheme(theme: ThemeMode) {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
+  const body = document.body;
   if (theme === "light") {
     root.classList.add("light-theme");
     root.classList.remove("dark-theme");
+    if (body) {
+      body.classList.add("light-theme");
+      body.classList.remove("dark-theme");
+    }
   } else {
     root.classList.add("dark-theme");
     root.classList.remove("light-theme");
+    if (body) {
+      body.classList.add("dark-theme");
+      body.classList.remove("light-theme");
+    }
   }
   localStorage.setItem(THEME_STORAGE_KEY, theme);
 }

@@ -25,19 +25,30 @@ export const Route = createFileRoute("/app/chats/")({
 import { PullToRefresh } from "@/components/common/PullToRefresh";
 
 function MyChats() {
-  const { requests, refresh } = useUserStore();
+  const { requests, refresh, loading } = useUserStore();
 
   return (
-    <div className="flex min-h-full flex-col bg-bg">
+    <div className="flex min-h-full flex-col bg-bg text-text">
       <UserHeader title="My Chats" />
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 pb-28 pt-5 sm:px-6 lg:pb-10">
         <PullToRefresh onRefresh={refresh}>
-          <h1 className="text-xl font-bold text-white tracking-tight">My Chats</h1>
+          <h1 className="text-xl font-bold text-text tracking-tight">My Chats</h1>
           <p className="mt-1 text-sm text-text-secondary">
             Track and continue your active form requests.
           </p>
           <div className="mt-6">
-            <ChatList requests={requests} />
+            {loading ? (
+              <div className="space-y-3 animate-pulse">
+                {[1, 2, 3, 4].map((i) => (
+                  <div
+                    key={i}
+                    className="h-20 w-full rounded-[20px] bg-surface-1 border border-border-subtle"
+                  />
+                ))}
+              </div>
+            ) : (
+              <ChatList requests={requests} />
+            )}
           </div>
         </PullToRefresh>
       </main>

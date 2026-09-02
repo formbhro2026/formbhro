@@ -33,7 +33,7 @@ function AdminShell() {
 
   return (
     <GlobalCallProvider>
-      <div className="min-h-screen bg-bg text-white antialiased">
+      <div className="min-h-screen bg-bg text-text antialiased">
         <AdminSidebar />
         <div className="lg:pl-60 xl:pl-64">
           <AdminTopbar title={current?.label ?? "Dashboard"} />

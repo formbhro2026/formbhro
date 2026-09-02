@@ -94,8 +94,8 @@ export function UserSidebar() {
                     className={cn(
                       "relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors duration-200",
                       active
-                        ? "bg-brand/10 font-semibold text-white"
-                        : "font-medium text-text-secondary hover:bg-surface-2 hover:text-white",
+                        ? "bg-brand/10 font-semibold text-brand"
+                        : "font-medium text-text-secondary hover:bg-surface-2 hover:text-text",
                     )}
                   >
                     {active && (
@@ -123,14 +123,14 @@ export function UserSidebar() {
               to="/app/profile"
               hash="help"
               title="Help & Support"
-              className="flex h-10 w-10 items-center justify-center rounded-xl text-text-muted hover:text-white transition-all active:scale-90"
+              className="flex h-10 w-10 items-center justify-center rounded-xl text-text-muted hover:text-text transition-all active:scale-90"
             >
               <LifeBuoy className="h-4.5 w-4.5" strokeWidth={1.75} />
             </Link>
             <button
               type="button"
               onClick={() => void logout()}
-              className="flex h-10 w-10 items-center justify-center rounded-xl text-text-muted hover:text-white transition-all active:scale-90"
+              className="flex h-10 w-10 items-center justify-center rounded-xl text-text-muted hover:text-text transition-all active:scale-90"
               title="Logout"
             >
               <LogOut className="h-4.5 w-4.5" strokeWidth={1.75} />

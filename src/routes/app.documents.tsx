@@ -43,7 +43,7 @@ const CATEGORIES = [
 import { PullToRefresh } from "@/components/common/PullToRefresh";
 
 function MyDocuments() {
-  const { documents, requests, attachFile, refresh } = useUserStore();
+  const { documents, requests, attachFile, refresh, loading } = useUserStore();
   const { openAddDocument } = useAddDocument();
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState<string | null>(null);
@@ -62,71 +62,60 @@ function MyDocuments() {
     [documents, query, kind, requestFilter],
   );
 
-  const preview = documents.find((d) => d.id === previewId) ?? null;
+  const preview = useMemo(
+    () => documents.find((d) => d.id === previewId),
+    [documents, previewId],
+  );
 
   return (
-    <div className="flex min-h-full flex-col bg-bg">
+    <div className="flex min-h-full flex-col bg-bg text-text">
       <UserHeader title="My Documents" />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-28 pt-5 sm:px-6 lg:pb-10">
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 pb-28 pt-5 sm:px-6 lg:pb-10">
         <PullToRefresh onRefresh={refresh}>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-xl font-bold text-white tracking-tight">My Documents</h1>
+              <h1 className="text-xl font-bold text-text tracking-tight">My Documents</h1>
               <p className="mt-1 text-sm text-text-secondary">
-                Track all assets shared in your requests.
+                View, download, and manage all your documents in one secure place.
               </p>
             </div>
             <button
               type="button"
               onClick={openAddDocument}
-              className="flex items-center gap-2 rounded-2xl bg-brand px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-brand/20 hover:bg-brand-light active:scale-95 transition-all"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-brand/20 transition-all hover:bg-brand-light active:scale-95"
             >
               <Plus className="h-4 w-4" /> Add Document
             </button>
           </div>
 
-          <div className="mt-6">
-            <DocumentUpload requests={requests} onUpload={attachFile} />
-          </div>
-
-          <div className="mt-8 space-y-4">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,16rem)]">
-              <div className="relative">
-                <Search
-                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
-                  aria-hidden="true"
-                />
+          <div className="mt-6 flex flex-col gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="relative flex-1">
+                <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
                 <input
                   type="search"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search by filename..."
-                  aria-label="Search documents"
-                  className="w-full rounded-2xl border border-border-subtle bg-surface-1 py-3 pl-10 pr-4 text-sm text-white placeholder:text-text-muted focus:border-brand/40 outline-none transition-all"
+                  placeholder="Search documents by name..."
+                  className="w-full rounded-xl border border-border-subtle bg-surface-1 py-2.5 pl-10 pr-4 text-xs font-medium text-text placeholder:text-text-muted focus:border-brand/40 outline-none transition-all"
                 />
               </div>
-              <div className="relative">
-                <Filter
-                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
-                  aria-hidden="true"
-                />
+
+              <div className="relative min-w-[200px]">
+                <Filter className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted pointer-events-none" />
                 <select
                   value={requestFilter}
                   onChange={(e) => setRequestFilter(e.target.value)}
-                  aria-label="Filter by request"
-                  className="w-full appearance-none rounded-2xl border border-border-subtle bg-surface-1 py-3 pl-10 pr-10 text-sm text-white focus:border-brand/40 outline-none transition-all cursor-pointer"
+                  className="w-full appearance-none rounded-xl border border-border-subtle bg-surface-1 py-2.5 pl-10 pr-8 text-xs font-medium text-text focus:border-brand/40 outline-none transition-all cursor-pointer"
                 >
-                  <option value="all">All Documents</option>
+                  <option value="all">All Requests</option>
                   <option value="personal">Personal Documents</option>
                   {requests.map((r) => (
                     <option key={r.id} value={r.id}>
-                      {r.title}
+                      {r.title} ({r.id})
                     </option>
                   ))}
                 </select>
-                <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-text-muted">
-                  <Plus className="h-3 w-3 rotate-45" />
-                </div>
               </div>
             </div>
 
@@ -141,7 +130,7 @@ function MyDocuments() {
                     "shrink-0 rounded-full border px-4 py-2 text-[10px] font-bold uppercase tracking-wider transition-all duration-200",
                     kind === c.kind
                       ? "border-brand/40 bg-brand/10 text-brand shadow-lg shadow-brand/5"
-                      : "border-border-subtle text-text-muted hover:border-text-secondary hover:text-white",
+                      : "border-border-subtle text-text-muted hover:border-text-secondary hover:text-text",
                   )}
                 >
                   {c.label}
@@ -151,7 +140,16 @@ function MyDocuments() {
           </div>
 
           <div className="mt-6">
-            {filtered.length === 0 ? (
+            {loading ? (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 animate-pulse">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <div
+                    key={i}
+                    className="h-32 w-full rounded-[20px] bg-surface-1 border border-border-subtle"
+                  />
+                ))}
+              </div>
+            ) : filtered.length === 0 ? (
               <div className="py-12">
                 <EmptyState
                   icon={FileText}
