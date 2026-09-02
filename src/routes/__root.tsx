@@ -245,31 +245,33 @@ function RootComponent() {
       }
     };
 
-    import("@capacitor/app").then(({ App }) => {
-      // Hardware back button handler for Android
-      App.addListener("backButton", ({ canGoBack }) => {
-        const path = window.location.pathname;
-        if (!canGoBack || path === "/app" || path === "/") {
-          App.exitApp();
-        } else {
-          window.history.back();
-        }
-      });
-
-      // Warm Start listener
-      App.addListener("appUrlOpen", (data) => {
-        if (data?.url) void handleOAuthDeepLink(data.url);
-      });
-
-      // Cold Start listener
-      App.getLaunchUrl()
-        .then((launchUrl) => {
-          if (launchUrl?.url) void handleOAuthDeepLink(launchUrl.url);
-        })
-        .catch((e) => {
-          console.warn("[Root] getLaunchUrl error:", e);
+    if (isCapacitor()) {
+      import("@capacitor/app").then(({ App }) => {
+        // Hardware back button handler for Android
+        App.addListener("backButton", ({ canGoBack }) => {
+          const path = window.location.pathname;
+          if (!canGoBack || path === "/app" || path === "/") {
+            App.exitApp();
+          } else {
+            window.history.back();
+          }
         });
-    });
+
+        // Warm Start listener
+        App.addListener("appUrlOpen", (data) => {
+          if (data?.url) void handleOAuthDeepLink(data.url);
+        });
+
+        // Cold Start listener
+        App.getLaunchUrl()
+          .then((launchUrl) => {
+            if (launchUrl?.url) void handleOAuthDeepLink(launchUrl.url);
+          })
+          .catch((e) => {
+            console.warn("[Root] getLaunchUrl error:", e);
+          });
+      });
+    }
 
     // Register FCM foreground notification handler → plays chime, triggers OS notification & shows rich top toast
     void onForegroundNotification((title, body, data) => {
