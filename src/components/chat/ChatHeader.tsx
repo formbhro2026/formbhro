@@ -21,7 +21,7 @@ export function ChatHeader({
   isSearching?: boolean;
 }) {
   return (
-    <header className="sticky top-0 z-20 border-b border-border-subtle bg-surface-1/95 backdrop-blur-sm py-1">
+    <header className="sticky top-0 z-20 border-b border-border-subtle bg-surface-1/95 backdrop-blur-sm py-1 pt-[max(0.25rem,env(safe-area-inset-top))]">
       <div className="flex items-center justify-between gap-2 px-2 sm:px-4">
         <Link
           to="/app/chats"

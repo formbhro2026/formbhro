@@ -172,7 +172,7 @@ export function AdminTopbar({ title }: { title: string }) {
   const { loading } = useAdmin();
   return (
     <>
-      <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-border-subtle bg-bg/95 px-4 backdrop-blur-xl">
+      <header className="sticky top-0 z-20 flex min-h-14 items-center gap-3 border-b border-border-subtle bg-bg/95 px-4 backdrop-blur-xl pt-[env(safe-area-inset-top)]">
         <button
           type="button"
           onClick={() => setNavOpen(true)}

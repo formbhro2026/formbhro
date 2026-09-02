@@ -26,7 +26,7 @@ export function UserHeader({ title }: { title?: string }) {
   }, [open]);
 
   return (
-    <header className="sticky top-0 z-30 bg-surface-1 border-b border-border-subtle">
+    <header className="sticky top-0 z-30 bg-surface-1 border-b border-border-subtle pt-[env(safe-area-inset-top)]">
       <div className="flex h-16 lg:h-14 items-center justify-between gap-3 px-4 sm:px-6">
         {/* Mobile Sidebar Toggle */}
         <button
