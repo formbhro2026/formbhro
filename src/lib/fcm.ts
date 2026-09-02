@@ -244,13 +244,20 @@ export async function getFCMToken(): Promise<string | null> {
   const result = await getMessagingPlugin();
   if (!result) return null;
 
-  try {
-    const { token } = await result.plugin.getToken({});
-    return token ?? null;
-  } catch (e) {
-    console.error("[FCM] getToken error:", e);
-    return null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const { token } = await result.plugin.getToken({});
+      if (token && token.trim().length > 0) {
+        return token;
+      }
+    } catch (e) {
+      console.warn(`[FCM] getToken attempt ${attempt} error:`, e);
+    }
+    if (attempt < 3) {
+      await new Promise((resolve) => setTimeout(resolve, 600));
+    }
   }
+  return null;
 }
 
 /**

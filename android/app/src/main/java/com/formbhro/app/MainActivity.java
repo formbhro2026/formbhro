@@ -15,23 +15,24 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        // Request runtime permissions for Android 6.0+ (API 23+)
-        String[] permissions = {
-            Manifest.permission.RECORD_AUDIO,
-            Manifest.permission.CAMERA,
-            Manifest.permission.MODIFY_AUDIO_SETTINGS
-        };
-        
-        boolean needRequest = false;
-        for (String perm : permissions) {
+        // Request runtime permissions for Android (Microphone, Camera, Audio, Notifications)
+        java.util.List<String> permList = new java.util.ArrayList<>();
+        permList.add(Manifest.permission.RECORD_AUDIO);
+        permList.add(Manifest.permission.CAMERA);
+        permList.add(Manifest.permission.MODIFY_AUDIO_SETTINGS);
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            permList.add(Manifest.permission.POST_NOTIFICATIONS);
+        }
+
+        java.util.List<String> needed = new java.util.ArrayList<>();
+        for (String perm : permList) {
             if (ContextCompat.checkSelfPermission(this, perm) != PackageManager.PERMISSION_GRANTED) {
-                needRequest = true;
-                break;
+                needed.add(perm);
             }
         }
-        
-        if (needRequest) {
-            ActivityCompat.requestPermissions(this, permissions, 1001);
+
+        if (!needed.isEmpty()) {
+            ActivityCompat.requestPermissions(this, needed.toArray(new String[0]), 1001);
         }
 
         // Create high-importance notification channels for incoming calls & messages (Android 8.0+)
@@ -46,8 +47,20 @@ public class MainActivity extends BridgeActivity {
                 );
                 callChannel.setDescription("Alerts for incoming audio and video calls");
                 callChannel.enableVibration(true);
+                callChannel.setVibrationPattern(new long[]{0, 1000, 500, 1000, 500, 1000});
                 callChannel.enableLights(true);
                 callChannel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
+                callChannel.setBypassDnd(true);
+
+                android.media.AudioAttributes audioAttributes = new android.media.AudioAttributes.Builder()
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                    .build();
+                android.net.Uri ringtoneUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_RINGTONE);
+                if (ringtoneUri != null) {
+                    callChannel.setSound(ringtoneUri, audioAttributes);
+                }
+
                 manager.createNotificationChannel(callChannel);
 
                 // High-importance Messages channel
