@@ -37,6 +37,7 @@ export function CallOverlay({
   useEffect(() => {
     if (remoteVideoRef.current && session.remoteStream && session.callType !== "audio") {
       remoteVideoRef.current.srcObject = session.remoteStream;
+      remoteVideoRef.current.play().catch((err) => console.error("Video autoplay failed:", err));
     }
   }, [session.remoteStream, session.callType]);
 
