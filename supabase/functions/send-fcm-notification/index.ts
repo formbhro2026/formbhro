@@ -155,12 +155,13 @@ async function sendFCMMessage(
         priority: "HIGH",
         notification: {
           channel_id: channelId,
+          icon: "ic_stat_notification",
+          color: "#FF8A1F",
           sound: "default",
           default_sound: true,
           default_vibrate_timings: true,
           notification_priority: "PRIORITY_MAX",
           visibility: "PUBLIC",
-          color: "#FF8A1F",
         },
       },
       apns: {
@@ -226,10 +227,25 @@ Deno.serve(async (req) => {
   }
 
   let notification: NotificationRecord;
+  let targetUserIds: string[] = [];
+
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const FIREBASE_SERVICE_ACCOUNT_JSON = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_JSON");
+
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !FIREBASE_SERVICE_ACCOUNT_JSON) {
+    console.error("[FCM] Missing required environment variables");
+    return new Response("Server configuration error", { status: 500, headers: corsHeaders });
+  }
+
+  const sbAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   if (payload.record && typeof payload.record === "object") {
     // Database Webhook format
     notification = payload.record;
+    if (notification.receiver_id) {
+      targetUserIds.push(notification.receiver_id);
+    }
   } else if (payload.receiver_id && payload.title) {
     // Direct invocation format — receiver_id explicitly provided
     notification = {
@@ -242,22 +258,16 @@ Deno.serve(async (req) => {
       chat_room_id: payload.chat_room_id ?? null,
       route: payload.route,
     };
+    targetUserIds.push(payload.receiver_id);
   } else if (payload.request_id && payload.notification_type === "call" && payload.caller_id) {
     // Direct invocation without explicit receiver_id:
     // Resolve the receiver from the requests table server-side.
-    const SUPABASE_URL_EARLY = Deno.env.get("SUPABASE_URL");
-    const SUPABASE_SERVICE_ROLE_KEY_EARLY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    if (!SUPABASE_URL_EARLY || !SUPABASE_SERVICE_ROLE_KEY_EARLY) {
-      return new Response("Server configuration error", { status: 500, headers: corsHeaders });
-    }
-    const sbAdmin = createClient(SUPABASE_URL_EARLY, SUPABASE_SERVICE_ROLE_KEY_EARLY);
-    // request_id may be a UUID or a reference string (e.g. FRM-XXXXX) depending on caller context
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       payload.request_id,
     );
     const { data: reqRow } = await sbAdmin
       .from("requests")
-      .select("id, user_id, assigned_team_id, reference")
+      .select("id, user_id, assigned_team_id, reference, category")
       .or(
         isUuid
           ? `id.eq.${payload.request_id}`
@@ -267,16 +277,34 @@ Deno.serve(async (req) => {
     if (!reqRow) {
       return new Response("Request not found", { status: 200, headers: corsHeaders });
     }
+
     // The receiver is the party that is NOT the caller
-    const receiverId =
+    let receiverId =
       payload.caller_id === reqRow.user_id ? reqRow.assigned_team_id : reqRow.user_id;
-    if (!receiverId) {
+
+    // If caller is the user/team member and request is Admin Direct Chat or unassigned:
+    if (!receiverId && payload.caller_id === reqRow.user_id) {
+      // Find all active admin user IDs to notify
+      const { data: adminProfiles } = await sbAdmin
+        .from("profiles")
+        .select("id")
+        .eq("role", "admin");
+      if (adminProfiles && adminProfiles.length > 0) {
+        targetUserIds = adminProfiles.map((p) => p.id);
+        receiverId = targetUserIds[0];
+      }
+    } else if (receiverId) {
+      targetUserIds.push(receiverId);
+    }
+
+    if (targetUserIds.length === 0) {
       console.info("[FCM] No receiver found for request", payload.request_id);
       return new Response(JSON.stringify({ message: "No receiver for this request" }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
     // Find chat room using the resolved DB UUID
     const { data: roomRow } = await sbAdmin
       .from("chat_rooms")
@@ -290,7 +318,7 @@ Deno.serve(async (req) => {
 
     notification = {
       id: crypto.randomUUID(),
-      receiver_id: receiverId,
+      receiver_id: receiverId || targetUserIds[0],
       title: payload.title ?? `Incoming ${callTypeLabel} Call`,
       body: payload.body ?? "Tap to answer the call",
       type: "call",
@@ -319,25 +347,13 @@ Deno.serve(async (req) => {
     return new Response("Invalid notification payload", { status: 200, headers: corsHeaders });
   }
 
-  // Read environment variables
-  const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const FIREBASE_SERVICE_ACCOUNT_JSON = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_JSON");
-
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !FIREBASE_SERVICE_ACCOUNT_JSON) {
-    console.error("[FCM] Missing required environment variables");
-    return new Response("Server configuration error", { status: 500, headers: corsHeaders });
-  }
-
-  // Admin Supabase client to fetch device tokens
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-  const { data: tokens, error: tokenError } = await supabase
+  // Admin Supabase client to fetch device tokens for all target user IDs
+  const { data: tokens, error: tokenError } = await sbAdmin
     .from("device_tokens")
     .select("fcm_token, platform")
-    .eq("user_id", notification.receiver_id)
+    .in("user_id", targetUserIds)
     .order("last_seen_at", { ascending: false })
-    .limit(3); // Send to at most 3 most recently active devices
+    .limit(5); // Send to at most 5 most recently active devices
 
   if (tokenError) {
     console.error("[FCM] Failed to fetch device tokens:", tokenError.message);
@@ -405,7 +421,7 @@ Deno.serve(async (req) => {
 
   if (invalidTokens.length > 0) {
     console.info(`[FCM] Removing ${invalidTokens.length} invalid token(s) from database`);
-    await supabase
+    await sbAdmin
       .from("device_tokens")
       .delete()
       .in("fcm_token", invalidTokens);
