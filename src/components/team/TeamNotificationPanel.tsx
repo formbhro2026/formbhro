@@ -57,7 +57,7 @@ export function TeamNotificationPanel({ onClose }: { onClose: () => void }) {
         aria-label={
           unreadNotifications > 0 ? `Notifications, ${unreadNotifications} unread` : "Notifications"
         }
-        className="fixed inset-x-3 top-16 z-50 flex max-h-[calc(100dvh-5.5rem)] flex-col overflow-hidden rounded-2xl border border-border-subtle bg-bg shadow-2xl duration-200 animate-in fade-in slide-in-from-top-2 sm:absolute sm:inset-auto sm:right-0 sm:top-12 sm:w-88"
+        className="fixed inset-x-3 top-[calc(4.25rem+env(safe-area-inset-top))] z-50 flex max-h-[calc(100dvh-4.25rem-4.75rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] flex-col overflow-hidden rounded-2xl border border-border-subtle bg-bg shadow-2xl duration-200 animate-in fade-in slide-in-from-top-2 sm:absolute sm:inset-auto sm:right-0 sm:top-12 sm:max-h-[calc(100dvh-6rem)] sm:w-88"
       >
         <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border-subtle px-4 py-3">
         <h2 className="text-sm font-semibold text-white">
@@ -114,7 +114,7 @@ export function TeamNotificationPanel({ onClose }: { onClose: () => void }) {
           </p>
         </div>
       ) : (
-        <ul className="flex-1 overflow-y-auto overscroll-contain max-h-[calc(100dvh-14rem)] sm:max-h-80">
+        <ul className="flex-1 overflow-y-auto overscroll-contain max-h-[calc(100dvh-13rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] sm:max-h-80">
           {list.map((n: TeamNotification) => {
             const Icon = ICONS[n.type];
             const body = (
