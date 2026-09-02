@@ -59,7 +59,7 @@ export function MessageBubble({
               pageCount={message.file.pageCount}
               dimensions={message.file.dimensions}
               time={message.time}
-              tone={isUser ? "emerald" : "dark"}
+              tone={isMine ? "emerald" : "dark"}
               onView={() => onViewFile(message.file!.id)}
             />
           </div>
@@ -70,7 +70,7 @@ export function MessageBubble({
               <span className="text-[10px] text-chat-meta font-medium leading-none">
                 {message.time}
               </span>
-              {isUser && message.state && (
+              {isMine && message.state && (
                 <span className="flex items-center ml-0.5">
                   {message.state === "sending" && (
                     <Clock className="h-3 w-3 text-chat-meta opacity-70" />
@@ -94,7 +94,7 @@ export function MessageBubble({
         )}
       </div>
 
-      {isUser && message.state === "failed" && (
+      {isMine && message.state === "failed" && (
         <button
           type="button"
           onClick={() => onRetry(message.id)}
