@@ -34,18 +34,14 @@ export async function getOrCreateAdminTeamChat(
   const { data: userData } = await supabase.auth.getUser();
   const uid = userData.user?.id || teamMemberId;
 
-  // 2. Query fallback: find existing direct chat request for this team member
-  const { data: existingReqs, error: fetchErr } = await supabase
+  // 2. Query fallback: find existing direct chat or active request for this team member
+  const { data: existingReqs } = await supabase
     .from("requests")
     .select("*")
-    .eq("category", DIRECT_CHAT_CATEGORY)
-    .or(`user_id.eq.${teamMemberId},assigned_team_id.eq.${teamMemberId}`)
+    .or(`user_id.eq.${uid},assigned_team_id.eq.${uid}`)
+    .not("status", "in", '("completed","cancelled")')
     .order("created_at", { ascending: false })
     .limit(1);
-
-  if (fetchErr) {
-    console.warn("Could not query existing admin-team chat:", fetchErr);
-  }
 
   let request: RequestRow | null = existingReqs?.[0] ?? null;
 
