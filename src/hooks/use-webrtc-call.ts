@@ -389,6 +389,9 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
                   body: "Tap to answer the call",
                   request_id: reqUuid,
                   caller_id: user.id,
+                  caller_name: (user as any).user_metadata?.full_name || user.email?.split("@")[0] || "Formbhro Support",
+                  call_session_id: callSessionId,
+                  call_type: type,
                   route: targetRoute,
                 },
               })

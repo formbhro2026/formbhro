@@ -143,27 +143,41 @@ async function sendFCMMessage(
     channelId = "formbhro_messages_v2";
   }
 
-  const message = {
+  const isCall = data.type === "call";
+
+  const message: Record<string, unknown> = {
     message: {
       token: fcmToken,
-      notification: {
+      data: {
+        ...data,
         title,
         body,
       },
-      data,
       android: {
         priority: "HIGH",
-        notification: {
-          channel_id: channelId,
-          icon: "ic_stat_notification",
-          color: "#FF8A1F",
-          sound: "default",
-          default_sound: true,
-          default_vibrate_timings: true,
-          notification_priority: "PRIORITY_MAX",
-          visibility: "PUBLIC",
-        },
+        ...(isCall
+          ? {}
+          : {
+              notification: {
+                channel_id: channelId,
+                icon: "ic_stat_notification",
+                color: "#FF8A1F",
+                sound: "default",
+                default_sound: true,
+                default_vibrate_timings: true,
+                notification_priority: "PRIORITY_MAX",
+                visibility: "PUBLIC",
+              },
+            }),
       },
+      ...(!isCall
+        ? {
+            notification: {
+              title,
+              body,
+            },
+          }
+        : {}),
       apns: {
         headers: {
           "apns-priority": "10",
@@ -174,7 +188,7 @@ async function sendFCMMessage(
               title,
               body,
             },
-            sound: "default",
+            sound: isCall ? "ringtone.caf" : "default",
             badge: 1,
           },
         },
@@ -378,6 +392,18 @@ Deno.serve(async (req) => {
   };
   if (notification.request_id) data.requestId = notification.request_id;
   if (notification.chat_room_id) data.chatRoomId = notification.chat_room_id;
+  if (payload.call_session_id || (payload as any).callSessionId) {
+    data.callSessionId = payload.call_session_id || (payload as any).callSessionId;
+  }
+  if (payload.call_type || (payload as any).callType) {
+    data.callType = payload.call_type || (payload as any).callType;
+  }
+  if (payload.caller_name || (payload as any).callerName) {
+    data.callerName = payload.caller_name || (payload as any).callerName;
+  }
+  if (payload.caller_id || (payload as any).callerId) {
+    data.callerId = payload.caller_id || (payload as any).callerId;
+  }
 
   if (notification.route) {
     data.route = notification.route;
