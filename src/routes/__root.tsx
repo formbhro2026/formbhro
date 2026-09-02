@@ -328,7 +328,14 @@ function RootComponent() {
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <SplashScreen />
       <Outlet />
-      <Toaster position="top-center" />
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          style: {
+            marginTop: "max(0.5rem, env(safe-area-inset-top))",
+          },
+        }}
+      />
     </QueryClientProvider>
   );
 }
