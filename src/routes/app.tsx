@@ -95,7 +95,7 @@ function AppShell() {
   const StoreProvider = LiveUserStoreProvider;
   const pathname = location.pathname;
   const isDashboard = pathname === "/app";
-  const isChatRoom = pathname.startsWith("/app/chats/");
+  const isChatRoom = pathname.startsWith("/app/chats/") && pathname !== "/app/chats";
 
   return (
     <StoreProvider key={user?.id ?? "demo"}>
@@ -105,10 +105,17 @@ function AppShell() {
             className={cn("h-[100dvh] flex flex-col text-white antialiased bg-bg overflow-hidden")}
           >
             <UserSidebar />
-            <div className="flex-1 overflow-y-auto overflow-x-hidden lg:pl-60">
+            <div
+              className={cn(
+                "flex-1 lg:pl-60",
+                isChatRoom
+                  ? "flex flex-col min-h-0 overflow-hidden"
+                  : "overflow-y-auto overflow-x-hidden",
+              )}
+            >
               <Outlet />
             </div>
-            <MobileBottomNav />
+            {!isChatRoom && <MobileBottomNav />}
           </div>
         </GlobalCallProvider>
       </FillNowProvider>

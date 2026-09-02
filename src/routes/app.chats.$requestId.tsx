@@ -150,8 +150,12 @@ function ChatScreen() {
 
   return (
     <div
-      className="flex flex-col bg-bg"
-      style={{ height: viewportHeight ? `${viewportHeight}px` : "100dvh" }}
+      className="flex flex-col bg-bg h-full flex-1 min-h-0 overflow-hidden"
+      style={
+        viewportHeight
+          ? { height: `${viewportHeight}px`, maxHeight: `${viewportHeight}px` }
+          : undefined
+      }
     >
       <div className="grid min-h-0 flex-1 xl:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,20rem)_minmax(0,1fr)_minmax(0,20rem)]">
         {/* Conversation list (desktop) */}
@@ -298,7 +302,7 @@ function ChatScreen() {
           <div
             className={cn(
               "transition-[padding] bg-surface-1",
-              keyboardOpen ? "pb-0" : "pb-[76px] lg:pb-0",
+              keyboardOpen ? "pb-0" : "pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:pb-3",
             )}
           >
             <MessageComposer

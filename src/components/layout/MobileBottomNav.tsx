@@ -19,6 +19,10 @@ export function MobileBottomNav() {
   const isActive = (to: string, exact: boolean) =>
     exact ? pathname === to : pathname.startsWith(to);
 
+  // Hide the bottom nav on mobile when inside an active chat room to give the chat full screen space
+  const isChatRoom = pathname.startsWith("/app/chats/") && pathname !== "/app/chats";
+  if (isChatRoom) return null;
+
   const Item = ({
     label,
     to,

@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { canShareScreen } from "@/lib/utils";
+import { canShareScreen, cn } from "@/lib/utils";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ArrowLeft,
   Monitor,
   Paperclip,
   Phone,
@@ -233,13 +234,14 @@ function AdminChats() {
   const currentTeamMemberProfile = selectedTeamMemberId
     ? profiles.find((p) => p.id === selectedTeamMemberId)
     : null;
+  const isMobileDetailOpen = Boolean(active || (chatType === "team" && selectedTeamMemberId));
 
   return (
     <div className="fixed inset-0 lg:left-60 xl:left-64 top-14 z-10 bg-bg overflow-hidden">
       <div className="grid h-full gap-4 p-4 xl:grid-cols-[320px_1fr]">
         <Panel
           title={chatType === "monitor" ? "Customer Chats" : "Team Direct Chats"}
-          className="h-full overflow-y-auto"
+          className={cn("h-full overflow-y-auto", isMobileDetailOpen ? "hidden xl:block" : "block")}
           action={
             <div className="flex bg-surface-2 p-0.5 rounded-lg border border-border-subtle">
               <button
@@ -397,16 +399,35 @@ function AdminChats() {
           )}
         </Panel>
 
-        <div className="flex flex-col h-full gap-4 overflow-hidden">
+        <div
+          className={cn(
+            "flex flex-col h-full gap-4 overflow-hidden",
+            !isMobileDetailOpen ? "hidden xl:flex" : "flex",
+          )}
+        >
           <Panel
             title={
-              chatType === "team"
-                ? currentTeamMemberProfile
-                  ? `Direct Chat with ${currentTeamMemberProfile.full_name}`
-                  : "Direct Team Chat"
-                : active
-                  ? `${active.reference} — ${active.title}`
-                  : "Select a conversation"
+              <div className="flex items-center gap-2 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveId(undefined);
+                    setSelectedTeamMemberId(undefined);
+                  }}
+                  className="xl:hidden inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-brand hover:bg-white/5"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" /> Back
+                </button>
+                <span className="truncate text-xs font-bold text-white">
+                  {chatType === "team"
+                    ? currentTeamMemberProfile
+                      ? `Direct Chat with ${currentTeamMemberProfile.full_name}`
+                      : "Direct Team Chat"
+                    : active
+                      ? `${active.reference} — ${active.title}`
+                      : "Select a conversation"}
+                </span>
+              </div>
             }
             className="flex-1 flex flex-col overflow-hidden"
             action={
