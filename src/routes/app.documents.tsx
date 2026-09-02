@@ -11,6 +11,7 @@ import { useAddDocument } from "@/components/layout/FillNowProvider";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/documents")({
+  ssr: false,
   component: MyDocuments,
   head: () => ({
     meta: [

@@ -12,6 +12,7 @@ import { PolicyInterceptor } from "@/components/auth/PolicyInterceptor";
 import { GlobalCallProvider } from "@/lib/call-store";
 
 export const Route = createFileRoute("/app")({
+  ssr: false,
   validateSearch: (search: Record<string, unknown>): { fill?: string | boolean } =>
     search.fill === undefined ? {} : { fill: search.fill as string | boolean },
   component: AppLayout,

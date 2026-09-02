@@ -49,7 +49,15 @@ function NotFoundComponent() {
 }
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  console.error(error);
+  if (process.env.NODE_ENV !== "production") {
+    console.error("[TanStack Router Root Boundary Caught Error]:", {
+      name: error?.name,
+      message: error?.message,
+      stack: error?.stack,
+    });
+  } else {
+    console.error("[Root Error]:", error?.message || "Unknown error");
+  }
   const router = useRouter();
   useEffect(() => {
     reportLovableError(error, { boundary: "tanstack_root_error_component" });

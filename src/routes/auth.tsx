@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { isCapacitor } from "@/lib/fcm";
 
 export const Route = createFileRoute("/auth")({
+  ssr: false,
   validateSearch: (search: Record<string, unknown>): { redirect_to?: string; source?: string } => ({
     ...(search.redirect_to !== undefined ? { redirect_to: String(search.redirect_to) } : {}),
     ...(search.source !== undefined ? { source: String(search.source) } : {}),

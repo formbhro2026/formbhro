@@ -18,6 +18,7 @@ import { listQuickReplies } from "@/lib/api/notifications";
 import type { QuickReplyRow } from "@/lib/api/types";
 
 export const Route = createFileRoute("/app/chats/$requestId")({
+  ssr: false,
   component: ChatScreen,
   head: () => ({
     meta: [

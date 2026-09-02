@@ -4,6 +4,7 @@ import { ChatList } from "@/components/chat/ChatList";
 import { useUserStore } from "@/lib/user-store";
 
 export const Route = createFileRoute("/app/chats/")({
+  ssr: false,
   component: MyChats,
   head: () => ({
     meta: [

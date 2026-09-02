@@ -10,6 +10,7 @@ import { MobileDashboard } from "@/components/dashboard/MobileDashboard";
 import { useUserStore } from "@/lib/user-store";
 
 export const Route = createFileRoute("/app/")({
+  ssr: false,
   component: UserHome,
   head: () => ({
     meta: [

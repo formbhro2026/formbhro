@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/theme-manager";
 
 export const Route = createFileRoute("/app/profile")({
+  ssr: false,
   component: Profile,
   head: () => ({
     meta: [

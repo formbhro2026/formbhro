@@ -7,6 +7,7 @@ import { useUserStore } from "@/lib/user-store";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/app/news")({
+  ssr: false,
   component: NewsUpdates,
   head: () => ({
     meta: [
