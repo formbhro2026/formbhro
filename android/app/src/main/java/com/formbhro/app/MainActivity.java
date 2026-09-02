@@ -8,9 +8,12 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import android.content.pm.PackageManager;
 import android.Manifest;
+import android.content.Intent;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
+    private String pendingCallAnswerJs = null;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -19,6 +22,8 @@ public class MainActivity extends BridgeActivity {
             setShowWhenLocked(true);
             setTurnScreenOn(true);
         }
+        
+        handleCallIntent(getIntent());
         
         // Request runtime permissions for Android (Microphone, Camera, Audio, Notifications)
         java.util.List<String> permList = new java.util.ArrayList<>();
@@ -96,12 +101,85 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleCallIntent(intent);
+    }
+
+    private void handleCallIntent(Intent intent) {
+        if (intent == null) return;
+        boolean autoAnswer = intent.getBooleanExtra("autoAnswer", false);
+        String action = intent.getAction();
+        if (autoAnswer || "ACTION_INCOMING_CALL_ANSWERED".equals(action)) {
+            final String callSessionId = intent.getStringExtra("callSessionId") != null ? intent.getStringExtra("callSessionId") : "";
+            final String requestId = intent.getStringExtra("requestId") != null ? intent.getStringExtra("requestId") : "";
+            final String chatRoomId = intent.getStringExtra("chatRoomId") != null ? intent.getStringExtra("chatRoomId") : "";
+            final String callType = intent.getStringExtra("callType") != null ? intent.getStringExtra("callType") : "voice";
+            final String route = intent.getStringExtra("route") != null ? intent.getStringExtra("route") : "";
+
+            android.util.Log.i("MainActivity", "[MainActivity] Handling incoming call answer intent: session=" + callSessionId + " req=" + requestId);
+
+            final String js = String.format(
+                "window.__FORMBHARO_PENDING_CALL_ANSWER__ = {" +
+                "  callSessionId: '%s'," +
+                "  requestId: '%s'," +
+                "  chatRoomId: '%s'," +
+                "  callType: '%s'," +
+                "  route: '%s'," +
+                "  autoAnswer: true," +
+                "  timestamp: %d" +
+                "};" +
+                "window.dispatchEvent(new CustomEvent('formbhro:call_answered', {" +
+                "  detail: window.__FORMBHARO_PENDING_CALL_ANSWER__" +
+                "}));",
+                escapeJs(callSessionId),
+                escapeJs(requestId),
+                escapeJs(chatRoomId),
+                escapeJs(callType),
+                escapeJs(route),
+                System.currentTimeMillis()
+            );
+
+            deliverJsToWebView(js);
+        }
+    }
+
+    private void deliverJsToWebView(final String js) {
+        pendingCallAnswerJs = js;
+        runOnUiThread(() -> {
+            if (this.bridge != null && this.bridge.getWebView() != null) {
+                WebView webView = this.bridge.getWebView();
+                webView.evaluateJavascript(js, null);
+                pendingCallAnswerJs = null;
+            }
+        });
+        // Also schedule a retry in case WebView is still completing initial page load
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+            if (this.bridge != null && this.bridge.getWebView() != null) {
+                this.bridge.getWebView().evaluateJavascript(js, null);
+            }
+        }, 1500);
+    }
+
+    private String escapeJs(String str) {
+        if (str == null) return "";
+        return str.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "");
+    }
+
+    @Override
     public void onResume() {
         super.onResume();
         if (this.bridge != null && this.bridge.getWebView() != null) {
             WebView webView = this.bridge.getWebView();
             webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
             
+            // If there was a pending call answer JS waiting for WebView initialization, run it now
+            if (pendingCallAnswerJs != null) {
+                webView.evaluateJavascript(pendingCallAnswerJs, null);
+                pendingCallAnswerJs = null;
+            }
+
             // Ensure WebRTC getUserMedia permissions are granted in WebView
             webView.setWebChromeClient(new WebChromeClient() {
                 @Override

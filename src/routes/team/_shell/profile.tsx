@@ -60,7 +60,7 @@ function TeamProfile() {
               {member?.initials}
             </span>
             <div className="min-w-0">
-              <h2 className="truncate text-lg font-bold text-white">{member?.name}</h2>
+              <h2 className="truncate text-lg font-bold text-text">{member?.name}</h2>
               <p className="mt-0.5 flex items-center justify-center gap-1.5 text-xs text-text-secondary sm:justify-start">
                 <ShieldCheck className="h-3.5 w-3.5 text-brand" aria-hidden="true" /> {member?.role}
               </p>
@@ -77,21 +77,21 @@ function TeamProfile() {
                 className="rounded-xl border border-border-subtle bg-surface-2 px-3.5 py-2.5"
               >
                 <dt className="text-[11px] text-text-muted">{d.label}</dt>
-                <dd className="mt-0.5 truncate text-xs font-semibold text-white">{d.value}</dd>
+                <dd className="mt-0.5 truncate text-xs font-semibold text-text">{d.value}</dd>
               </div>
             ))}
           </dl>
         </section>
 
         <section className="mt-4 rounded-2xl border border-border-subtle bg-surface-1 p-5">
-          <h3 className="text-sm font-semibold text-white">Performance</h3>
+          <h3 className="text-sm font-semibold text-text">Performance</h3>
           <dl className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-3">
             {performance.map((p) => (
               <div
                 key={p.label}
                 className="rounded-xl border border-border-subtle bg-surface-2 px-3.5 py-3"
               >
-                <dd className="text-base font-bold tabular-nums text-white">{p.value}</dd>
+                <dd className="text-base font-bold tabular-nums text-text">{p.value}</dd>
                 <dt className="mt-0.5 text-[11px] leading-tight text-text-muted">{p.label}</dt>
               </div>
             ))}
@@ -105,7 +105,7 @@ function TeamProfile() {
               setName(member?.name ?? "");
               setEditing(true);
             }}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border-strong px-4 text-xs font-semibold text-white transition-colors hover:bg-white/5"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border-strong px-4 text-xs font-semibold text-text transition-colors hover:bg-surface-2"
           >
             <Pencil className="h-3.5 w-3.5" aria-hidden="true" /> Edit Profile
           </button>
@@ -116,7 +116,7 @@ function TeamProfile() {
                 "Password changes are admin controlled. Please contact your administrator.",
               )
             }
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border-strong px-4 text-xs font-semibold text-white transition-colors hover:bg-white/5"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border-strong px-4 text-xs font-semibold text-text transition-colors hover:bg-surface-2"
           >
             <KeyRound className="h-3.5 w-3.5" aria-hidden="true" /> Change Password
           </button>
@@ -153,7 +153,7 @@ function TeamProfile() {
               id="edit-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mt-1.5 h-11 w-full rounded-xl border border-border-subtle bg-surface-2 px-3 text-sm text-white focus:border-brand/50"
+              className="mt-1.5 h-11 w-full rounded-xl border border-border-subtle bg-surface-2 px-3 text-sm text-text focus:border-brand/50"
             />
           </div>
         </ConfirmDialog>

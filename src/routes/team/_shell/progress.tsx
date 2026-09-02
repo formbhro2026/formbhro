@@ -51,7 +51,7 @@ function TeamProgress() {
     <>
       <TeamHeader title="Progress" />
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-28 pt-6 sm:px-6 lg:pb-10">
-        <h2 className="text-lg font-bold text-white">Progress</h2>
+        <h2 className="text-lg font-bold text-text">Progress</h2>
         <p className="mt-1 text-xs text-text-secondary">
           All requests assigned to you, grouped by status.
         </p>
@@ -73,7 +73,7 @@ function TeamProgress() {
                 "min-h-9 shrink-0 rounded-full border px-3.5 text-[11px] font-semibold transition-colors",
                 tab === t.key
                   ? "border-brand/40 bg-brand/10 text-brand-light"
-                  : "border-border-strong px-3.5 text-text-secondary hover:bg-white/5",
+                  : "border-border-strong px-3.5 text-text-secondary hover:bg-surface-2",
               )}
             >
               {t.label} ({counts.get(t.key) ?? 0})
@@ -97,7 +97,7 @@ function TeamProgress() {
                       <Link
                         to="/team/work"
                         search={{ r: r.id }}
-                        className="truncate text-sm font-semibold text-white hover:underline"
+                        className="truncate text-sm font-semibold text-text hover:underline"
                       >
                         {r.title}
                       </Link>
@@ -112,7 +112,7 @@ function TeamProgress() {
                     <span>Assigned {r.assignedAt}</span>
                     <span className="tabular-nums">{r.progress}%</span>
                   </div>
-                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10">
+                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-3">
                     <div
                       className="h-full rounded-full bg-gradient-to-r from-brand-dark to-brand-light"
                       style={{ width: `${r.progress}%` }}

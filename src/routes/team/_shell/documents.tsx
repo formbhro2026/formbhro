@@ -64,7 +64,7 @@ function TeamDocuments() {
     <>
       <TeamHeader title="Documents" />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-28 pt-6 sm:px-6 lg:pb-10">
-        <h2 className="text-lg font-bold text-white">Assigned Documents</h2>
+        <h2 className="text-lg font-bold text-text">Assigned Documents</h2>
         <p className="mt-1 text-xs text-text-secondary">
           Only documents from requests assigned to you are shown.
         </p>
@@ -83,7 +83,7 @@ function TeamDocuments() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search file, request ID or user"
-              className="h-11 w-full rounded-xl border border-border-subtle bg-surface-1 pl-9 pr-3 text-xs text-white placeholder:text-text-muted focus:border-brand/50"
+              className="h-11 w-full rounded-xl border border-border-subtle bg-surface-1 pl-9 pr-3 text-xs text-text placeholder:text-text-muted focus:border-brand/50"
             />
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1">
@@ -97,7 +97,7 @@ function TeamDocuments() {
                   "min-h-9 shrink-0 rounded-full border px-3 text-[11px] font-semibold transition-colors",
                   filter === f.key
                     ? "border-brand/40 bg-brand/10 text-brand-light"
-                    : "border-border-strong text-text-secondary hover:bg-white/5",
+                    : "border-border-strong text-text-secondary hover:bg-surface-2",
                 )}
               >
                 {f.label}
@@ -115,7 +115,7 @@ function TeamDocuments() {
             />
           </div>
         ) : (
-          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 [&_article_h3]:!text-text [&_article_button:not([aria-label*='Delete'])]:!text-text [&_article_button:not([aria-label*='Delete'])]:hover:!bg-surface-2">
             {visible.map((d) => (
               <TeamDocumentCard
                 key={d.id}
