@@ -61,6 +61,7 @@ export function CallOverlay({
 
   if (!session.isActive && !session.error) return null;
 
+  const isIncomingAlert = session.isIncoming && !session.isAccepted;
   const isStaff =
     typeof window !== "undefined" &&
     (window.location.pathname.startsWith("/team") || window.location.pathname.startsWith("/admin"));
