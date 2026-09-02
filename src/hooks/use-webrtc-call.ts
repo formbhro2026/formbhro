@@ -25,6 +25,10 @@ const requestMediaPermissions = async (
   type: "audio" | "video" | "screen" = "video",
   facingMode: "user" | "environment" = "user",
 ): Promise<MediaStream> => {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    throw new Error("Media devices are not supported in this browser/device.");
+  }
+
   if (type === "screen") {
     if (isCapacitor() || !navigator.mediaDevices.getDisplayMedia) {
       throw new Error("Screen sharing is not supported on mobile devices.");
@@ -49,13 +53,7 @@ const requestMediaPermissions = async (
       });
 
       try {
-        const audioStream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-        });
+        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const audioTrack = audioStream.getAudioTracks()[0];
         if (audioTrack) {
           screenStream.addTrack(audioTrack);
@@ -67,27 +65,56 @@ const requestMediaPermissions = async (
       return screenStream;
     }
   } else if (type === "audio") {
-    return await navigator.mediaDevices.getUserMedia({
-      video: false,
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-      },
-    });
+    // 1. Try optimal audio constraints
+    try {
+      return await navigator.mediaDevices.getUserMedia({
+        video: false,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+    } catch (audioConstrainedErr) {
+      console.warn("Constrained audio getUserMedia failed, retrying with basic audio: true:", audioConstrainedErr);
+      // 2. Fallback to basic audio
+      return await navigator.mediaDevices.getUserMedia({
+        video: false,
+        audio: true,
+      });
+    }
   } else {
-    return await navigator.mediaDevices.getUserMedia({
-      video: {
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
-        facingMode: facingMode,
-      },
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-      },
-    });
+    // Video call
+    // 1. Try optimal HD video constraints
+    try {
+      return await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: facingMode,
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+    } catch (videoConstrainedErr) {
+      console.warn("Constrained video getUserMedia failed, retrying with simple video/audio:", videoConstrainedErr);
+      try {
+        // 2. Fallback to simple facingMode
+        return await navigator.mediaDevices.getUserMedia({
+          video: { facingMode },
+          audio: true,
+        });
+      } catch {
+        // 3. Fallback to basic video & audio
+        return await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true,
+        });
+      }
+    }
   }
 };
 
@@ -184,11 +211,21 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         let stream: MediaStream;
         try {
           stream = await requestMediaPermissions(type);
-        } catch (mediaErr) {
+        } catch (mediaErr: any) {
           console.error("Media permissions error:", mediaErr);
-          const errorMessage = isCapacitor()
-            ? "Camera and microphone permissions are required. Please enable them in app settings."
-            : "Camera and microphone access is required for video calls.";
+          const errName = mediaErr?.name || "";
+          let errorMessage = isCapacitor()
+            ? "Microphone and camera permissions are required. Please enable them in app settings."
+            : "Microphone and camera access is required for calls.";
+
+          if (errName === "NotAllowedError" || errName === "PermissionDeniedError") {
+            errorMessage = "Permission denied. Please allow microphone and camera access in your browser or device settings.";
+          } else if (errName === "NotFoundError" || errName === "DevicesNotFoundError") {
+            errorMessage = "No microphone or camera was detected on this device.";
+          } else if (errName === "NotReadableError" || errName === "TrackStartError") {
+            errorMessage = "Microphone/Camera is currently in use by another app.";
+          }
+
           setSession((prev) => ({ ...prev, error: errorMessage }));
           return;
         }
@@ -300,11 +337,21 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
       let stream: MediaStream;
       try {
         stream = await requestMediaPermissions(session.callType || "video");
-      } catch (mediaErr) {
+      } catch (mediaErr: any) {
         console.error("Media permissions error:", mediaErr);
-        const errorMessage = isCapacitor()
-          ? "Camera and microphone permissions are required. Please enable them in app settings."
-          : "Camera and microphone access is required for video calls.";
+        const errName = mediaErr?.name || "";
+        let errorMessage = isCapacitor()
+          ? "Microphone and camera permissions are required. Please enable them in app settings."
+          : "Microphone and camera access is required for calls.";
+
+        if (errName === "NotAllowedError" || errName === "PermissionDeniedError") {
+          errorMessage = "Permission denied. Please allow microphone and camera access in your browser or device settings.";
+        } else if (errName === "NotFoundError" || errName === "DevicesNotFoundError") {
+          errorMessage = "No microphone or camera was detected on this device.";
+        } else if (errName === "NotReadableError" || errName === "TrackStartError") {
+          errorMessage = "Microphone/Camera is currently in use by another app.";
+        }
+
         setSession((prev) => ({ ...prev, error: errorMessage }));
         return;
       }
