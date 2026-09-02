@@ -627,23 +627,36 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     return map;
   }, [messages]);
 
+  const isUserRequest = useCallback(
+    (r: TeamRequest) =>
+      r.category !== "Team Direct Report" &&
+      !r.id.startsWith("ADM-TM") &&
+      !r.title?.toLowerCase().startsWith("direct chat"),
+    [],
+  );
+
   // Permission boundary: a team member sees their own assigned records + all unassigned records.
   const assigned = useMemo(
     () =>
       member
         ? requests
-            .filter((r) => r.assigneeId === member.id)
+            .filter((r) => r.assigneeId === member.id && isUserRequest(r))
             .map((r) => ({ ...r, unread: unreadByRequest[r.id] ?? 0 }))
         : [],
-    [requests, member, unreadByRequest],
+    [requests, member, unreadByRequest, isUserRequest],
   );
 
   const pool = useMemo(
     () =>
       member
-        ? requests.filter((r) => !r.assigneeId && !["completed", "cancelled"].includes(r.status))
+        ? requests.filter(
+            (r) =>
+              !r.assigneeId &&
+              !["completed", "cancelled"].includes(r.status) &&
+              isUserRequest(r),
+          )
         : [],
-    [requests, member],
+    [requests, member, isUserRequest],
   );
   const assignedIds = useMemo(() => new Set(assigned.map((r) => r.id)), [assigned]);
 
@@ -846,48 +859,11 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // Map and ensure request is in state
-      const mapped = {
-        ...mapTeamRequest(request, currentMember.id, "Admin Support"),
-        assigneeId: currentMember.id,
-      };
-      setRequests((prev) => {
-        const existingIdx = prev.findIndex(
-          (r) => r.id === reqRef || r.id === request.id || r.id === request.reference,
-        );
-        if (existingIdx >= 0) {
-          const next = [...prev];
-          next[existingIdx] = { ...next[existingIdx], ...mapped };
-          return next;
-        }
-        return [mapped, ...prev];
-      });
-
+      // Note: We do NOT insert the Admin chat into the Work requests state
+      // because Admin chat is isolated in /team/admin-chat.
       return reqRef;
     } else {
-      const mockRef = "ADM-TM-DIRECT";
-      setRequests((prev) => {
-        if (prev.some((r) => r.id === mockRef)) return prev;
-        const mockReq: TeamRequest = {
-          id: mockRef,
-          title: "Direct Chat · Admin Support",
-          category: "Team Direct Report",
-          userName: "Admin Support",
-          userInitials: "AD",
-          status: "under-review",
-          priority: "high",
-          createdOn: "Today",
-          assignedAt: "Just now",
-          lastUpdated: "Just now",
-          lastMessage: "Direct Admin Support Channel",
-          unread: 0,
-          progress: 100,
-          assigneeId: currentMember.id,
-          timeline: [{ label: "Chat started", time: "Just now" }],
-        };
-        return [mockReq, ...prev];
-      });
-      return mockRef;
+      return "ADM-TM-DIRECT";
     }
   }, []);
 
@@ -1324,6 +1300,15 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       }),
     );
     const offRequests = subscribeToRequests((row) => {
+      // Internal Admin direct chats are isolated in /team/admin-chat and never enter Work requests
+      if (
+        row.category === "Team Direct Report" ||
+        (row.reference && row.reference.startsWith("ADM-TM")) ||
+        (row.title && row.title.toLowerCase().startsWith("direct chat"))
+      ) {
+        return;
+      }
+
       setRequests((prev) => {
         // If it's assigned to someone else (not null and not this member), remove it from the pool.
         if (row.assigned_team_id !== null && row.assigned_team_id !== member.id) {

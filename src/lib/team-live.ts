@@ -158,10 +158,16 @@ export async function loadTeamSnapshot(
   // 2. Load the top 20 active pool requests
   const { data: poolRows, count } = await requestsApi.listRequestsPaginated({ archived: false, limit });
 
+  // Helper to ensure internal Admin direct chats never pollute Work requests
+  const isUserReq = (r: RequestRow) =>
+    r.category !== "Team Direct Report" &&
+    !r.reference?.startsWith("ADM-TM") &&
+    !r.title?.toLowerCase().startsWith("direct chat");
+
   // Merge and deduplicate
   const map = new Map<string, RequestRow>();
-  for (const r of poolRows ?? []) map.set(r.id, r);
-  for (const r of myRequests ?? []) map.set(r.id, r);
+  for (const r of poolRows ?? []) if (isUserReq(r)) map.set(r.id, r);
+  for (const r of myRequests ?? []) if (isUserReq(r)) map.set(r.id, r);
   const rows = Array.from(map.values()).sort(
     (a, b) => new Date(b.last_activity_at ?? 0).getTime() - new Date(a.last_activity_at ?? 0).getTime()
   );

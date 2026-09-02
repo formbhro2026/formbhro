@@ -21,7 +21,7 @@ import { toast } from "sonner";
 export const TEAM_NAV = [
   { label: "Home", to: "/team", icon: Home, exact: true },
   { label: "Work Area", to: "/team/work", icon: Briefcase, exact: false },
-  { label: "Admin Chat", type: "admin-chat" as const, icon: MessageSquare },
+  { label: "Admin Chat", to: "/team/admin-chat", icon: MessageSquare, exact: true },
   { label: "Documents", to: "/team/documents", icon: FileText, exact: false },
   { label: "Progress", to: "/team/progress", icon: BarChart3, exact: false },
   { label: "Notifications", to: "/team/notifications", icon: Bell, exact: false },
@@ -29,41 +29,8 @@ export const TEAM_NAV = [
 ] as const;
 
 export function TeamSidebar() {
-  const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const search = useRouterState({ select: (s) => s.location.search as Record<string, unknown> });
-  const { member, signOut, totalUnread, requests, unreadNotifications, openAdminChat } =
-    useTeamStore();
-  const [openingChat, setOpeningChat] = useState(false);
-
-  const activeRequestId = search?.r as string | undefined;
-  const isAdminChatActive =
-    pathname === "/team/work" &&
-    Boolean(
-      activeRequestId &&
-        (activeRequestId.startsWith("ADM-TM") ||
-          requests.some(
-            (r) =>
-              (r.id === activeRequestId || r.id.toLowerCase() === activeRequestId.toLowerCase()) &&
-              r.category === "Team Direct Report",
-          )),
-    );
-
-  const handleOpenAdminChat = async () => {
-    if (!member) return;
-    setOpeningChat(true);
-    try {
-      const chatId = await openAdminChat();
-      if (chatId) {
-        void navigate({ to: "/team/work", search: { r: chatId } });
-      }
-    } catch (e) {
-      console.error("[TeamSidebar] openAdminChat error:", e);
-      toast.error(e instanceof Error ? e.message : "Could not connect to Admin chat");
-    } finally {
-      setOpeningChat(false);
-    }
-  };
+  const { member, signOut, totalUnread, requests, unreadNotifications } = useTeamStore();
 
   const isActive = (to: string, exact: boolean) =>
     exact ? pathname === to : pathname.startsWith(to);
@@ -107,43 +74,7 @@ export function TeamSidebar() {
         <ul className="space-y-1">
           {TEAM_NAV.map((item) => {
             const Icon = item.icon;
-            if ("type" in item && item.type === "admin-chat") {
-              return (
-                <li key="admin-chat">
-                  <button
-                    type="button"
-                    onClick={handleOpenAdminChat}
-                    disabled={openingChat}
-                    aria-current={isAdminChatActive ? "page" : undefined}
-                    className={cn(
-                      "relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors duration-200 text-left disabled:opacity-50",
-                      isAdminChatActive
-                        ? "bg-brand/10 font-semibold text-brand"
-                        : "font-medium text-text-secondary hover:bg-surface-2 hover:text-text",
-                    )}
-                  >
-                    {isAdminChatActive && (
-                      <span
-                        aria-hidden="true"
-                        className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-brand"
-                      />
-                    )}
-                    <Icon
-                      className={cn(
-                        "h-4.5 w-4.5 shrink-0",
-                        isAdminChatActive ? "text-brand" : "text-text-muted",
-                      )}
-                      strokeWidth={1.75}
-                    />
-                    <span className="truncate">
-                      {openingChat ? "Connecting..." : "Direct Chat with Admin"}
-                    </span>
-                  </button>
-                </li>
-              );
-            }
-
-            const active = isActive(item.to, item.exact) && !isAdminChatActive;
+            const active = isActive(item.to, item.exact);
             const badge =
               item.to === "/team/work"
                 ? totalUnread
@@ -178,8 +109,7 @@ export function TeamSidebar() {
                   <span className="truncate">{item.label}</span>
                   {badge > 0 && (
                     <span className="ml-auto grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-brand px-1.5 text-[10px] font-bold text-white">
-                      {badge > 99 ? "99+" : badge}
-                      <span className="sr-only"> unread</span>
+                      {badge}
                     </span>
                   )}
                 </Link>
@@ -200,19 +130,17 @@ export function TeamSidebar() {
         </div>
 
         <div className="mt-auto space-y-1 border-t border-border-subtle py-4">
-          <button
-            type="button"
-            onClick={handleOpenAdminChat}
-            disabled={openingChat}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-brand-light transition-colors duration-200 hover:bg-brand/10 hover:text-white disabled:opacity-50 text-left"
+          <Link
+            to="/team/admin-chat"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-brand-light transition-colors duration-200 hover:bg-brand/10 hover:text-brand text-left"
           >
             <MessageSquare
               className="h-4.5 w-4.5 text-brand shrink-0"
               strokeWidth={1.75}
               aria-hidden="true"
             />{" "}
-            <span className="truncate">{openingChat ? "Connecting..." : "Chat with Admin"}</span>
-          </button>
+            <span className="truncate">Chat with Admin</span>
+          </Link>
           <a
             href="mailto:formbhro@gmail.com"
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary transition-colors duration-200 hover:bg-white/5 hover:text-white"

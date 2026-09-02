@@ -137,6 +137,13 @@ function WorkArea() {
   const typeFilter = search.t ?? "";
   const sort = (search.sort as "oldest" | undefined) ?? "newest";
 
+  // Redirect legacy /team/work?r=ADM-TM... links directly to dedicated /team/admin-chat
+  useEffect(() => {
+    if (search.r && (search.r.startsWith("ADM-TM") || search.r === "ADM-TM-DIRECT")) {
+      void navigate({ to: "/team/admin-chat", replace: true });
+    }
+  }, [search.r, navigate]);
+
   const setSearch = (patch: WorkSearch) =>
     navigate({
       to: "/team/work",
@@ -146,23 +153,34 @@ function WorkArea() {
 
   const tagFilter = search.tag;
 
-  const users = useMemo(
-    () => Array.from(new Set(requests.map((r) => r.userName))).sort(),
+  const userRequests = useMemo(
+    () =>
+      requests.filter(
+        (r) =>
+          r.category !== "Team Direct Report" &&
+          !r.id.startsWith("ADM-TM") &&
+          !r.title?.toLowerCase().startsWith("direct chat"),
+      ),
     [requests],
+  );
+
+  const users = useMemo(
+    () => Array.from(new Set(userRequests.map((r) => r.userName))).sort(),
+    [userRequests],
   );
   const types = useMemo(
-    () => Array.from(new Set(requests.map((r) => r.category))).sort(),
-    [requests],
+    () => Array.from(new Set(userRequests.map((r) => r.category))).sort(),
+    [userRequests],
   );
   const allTags = useMemo(
-    () => Array.from(new Set(requests.flatMap((r) => r.tags ?? []))).sort(),
-    [requests],
+    () => Array.from(new Set(userRequests.flatMap((r) => r.tags ?? []))).sort(),
+    [userRequests],
   );
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
     const rid = ridFilter.trim().toLowerCase();
-    let out = requests.filter((r) => {
+    let out = userRequests.filter((r) => {
       if (state === "pending" && r.status === "completed") return false;
       if (state === "completed" && r.status !== "completed") return false;
       if (priority !== "all" && r.priority !== priority) return false;

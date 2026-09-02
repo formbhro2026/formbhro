@@ -96,5 +96,12 @@ export function isChatActive(target: {
     }
   }
 
+  // Team admin chat URL: /team/admin-chat
+  if (pathname.includes("/team/admin-chat")) {
+    if (activeReqId && target.requestId && activeReqId === String(target.requestId).trim().toLowerCase()) return true;
+    if (activeReqRef && target.requestRef && activeReqRef === String(target.requestRef).trim().toLowerCase()) return true;
+    if (activeRoomId && target.chatRoomId && activeRoomId === String(target.chatRoomId).trim().toLowerCase()) return true;
+  }
+
   return false;
 }

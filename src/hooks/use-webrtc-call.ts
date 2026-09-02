@@ -359,10 +359,16 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
               callDetailsRef.current.requestId = reqUuid;
               callDetailsRef.current.receiverId = receiverId;
             }
+            const isDirectAdminChat =
+              reqData?.category === "Team Direct Report" ||
+              (reqRef && reqRef.startsWith("ADM-TM"));
+
             const targetRoute =
               receiverId === reqData?.user_id
                 ? `/app/chats/${reqRef}`
-                : `/team/work?r=${reqRef}`;
+                : isDirectAdminChat
+                  ? `/team/admin-chat`
+                  : `/team/work?r=${reqRef}`;
 
             if (receiverId) {
               // Direct insert into notifications table to notify active in-app Realtime listeners
