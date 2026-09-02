@@ -328,13 +328,13 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         /* ignore */
       }
       if (!active) return;
-      if (stored?.live) {
-        // A live session is only valid while the backend session matches the stored member.
+      if (stored) {
         const { data } = await supabase.auth.getSession();
         if (!active) return;
         if (data.session && data.session.user && data.session.user.id === stored.member.id) {
           setMember(stored.member);
           setLive(true);
+          persistSession(stored.member, true, true);
         } else {
           try {
             window.localStorage.removeItem(SESSION_KEY);
@@ -342,19 +342,10 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           } catch {
             /* ignore */
           }
+          if (active) setLoading(false);
         }
-      } else if (stored) {
-        const { data } = await supabase.auth.getSession();
-        if (data.session && data.session.user && data.session.user.id === stored.member.id) {
-          setMember(stored.member);
-        } else {
-          try {
-            window.localStorage.removeItem(SESSION_KEY);
-            window.sessionStorage.removeItem(SESSION_KEY);
-          } catch {
-            /* ignore */
-          }
-        }
+      } else {
+        if (active) setLoading(false);
       }
       if (active) setHydrated(true);
     })();
@@ -463,8 +454,10 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       };
       document.addEventListener("visibilitychange", handleVisibilityChange);
       return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+    } else if (hydrated && !member) {
+      setLoading(false);
     }
-  }, [live, member, hydrateLive, fetchAnalytics]);
+  }, [live, member, hydrated, hydrateLive, fetchAnalytics]);
 
   const signIn = useCallback(
     async (email: string, password: string, remember: boolean) => {
