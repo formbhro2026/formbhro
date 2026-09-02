@@ -35,6 +35,92 @@ const ICE_SERVERS = {
   iceServers: [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }],
 };
 
+export interface ResolvedCallRoom {
+  canonicalRoomId: string;
+  requestUuid: string;
+  requestReference?: string;
+  chatRoomId?: string;
+  receiverId?: string;
+  targetRoute?: string;
+  isDirectAdminChat?: boolean;
+}
+
+const canonicalRoomCache = new Map<string, ResolvedCallRoom>();
+
+export async function resolveCanonicalCallRoom(rawId: string, currentUserId?: string): Promise<ResolvedCallRoom> {
+  if (!rawId) return { canonicalRoomId: "", requestUuid: "" };
+
+  const cached = canonicalRoomCache.get(rawId);
+  if (cached && (!currentUserId || cached.receiverId !== undefined)) {
+    return cached;
+  }
+
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawId);
+
+  try {
+    const { data: reqData } = await supabase
+      .from("requests")
+      .select("id, user_id, assigned_team_id, reference, category")
+      .or(isUuid ? `id.eq.${rawId}` : `reference.eq.${rawId},id.eq.${rawId}`)
+      .maybeSingle();
+
+    if (reqData) {
+      const isDirectAdminChat =
+        reqData.category === "Team Direct Report" ||
+        (reqData.reference && reqData.reference.startsWith("ADM-TM"));
+
+      const receiverId = currentUserId
+        ? currentUserId === reqData.user_id
+          ? reqData.assigned_team_id
+          : reqData.user_id
+        : undefined;
+
+      const targetRoute =
+        receiverId === reqData.user_id
+          ? `/app/chats/${reqData.reference || reqData.id}`
+          : isDirectAdminChat
+            ? `/team/admin-chat`
+            : `/team/work?r=${reqData.reference || reqData.id}`;
+
+      const resolved: ResolvedCallRoom = {
+        canonicalRoomId: reqData.id,
+        requestUuid: reqData.id,
+        requestReference: reqData.reference,
+        receiverId,
+        targetRoute,
+        isDirectAdminChat,
+      };
+
+      canonicalRoomCache.set(rawId, resolved);
+      canonicalRoomCache.set(reqData.id, resolved);
+      if (reqData.reference) canonicalRoomCache.set(reqData.reference, resolved);
+      return resolved;
+    }
+
+    if (isUuid) {
+      // If not in requests table directly, check if it is a chat_room ID
+      const { data: roomData } = await supabase
+        .from("chat_rooms")
+        .select("id, request_id")
+        .eq("id", rawId)
+        .maybeSingle();
+      if (roomData?.request_id) {
+        return resolveCanonicalCallRoom(roomData.request_id, currentUserId);
+      }
+    }
+  } catch (err) {
+    console.warn("[CALL][SIGNAL] Room resolution error:", err);
+  }
+
+  // Fallback
+  const fallback: ResolvedCallRoom = {
+    canonicalRoomId: rawId,
+    requestUuid: rawId,
+  };
+  canonicalRoomCache.set(rawId, fallback);
+  return fallback;
+}
+
 const requestMediaPermissions = async (
   type: "audio" | "video" | "screen" = "video",
   facingMode: "user" | "environment" = "user",
@@ -79,7 +165,6 @@ const requestMediaPermissions = async (
       return screenStream;
     }
   } else if (type === "audio") {
-    // 1. Try optimal audio constraints
     try {
       return await navigator.mediaDevices.getUserMedia({
         video: false,
@@ -91,7 +176,6 @@ const requestMediaPermissions = async (
       });
     } catch (audioConstrainedErr) {
       console.warn("Constrained audio getUserMedia failed, retrying with basic audio: true:", audioConstrainedErr);
-      // 2. Fallback to basic audio
       return await navigator.mediaDevices.getUserMedia({
         video: false,
         audio: true,
@@ -99,7 +183,6 @@ const requestMediaPermissions = async (
     }
   } else {
     // Video call
-    // 1. Try optimal HD video constraints
     try {
       return await navigator.mediaDevices.getUserMedia({
         video: {
@@ -116,13 +199,11 @@ const requestMediaPermissions = async (
     } catch (videoConstrainedErr) {
       console.warn("Constrained video getUserMedia failed, retrying with simple video/audio:", videoConstrainedErr);
       try {
-        // 2. Fallback to simple facingMode
         return await navigator.mediaDevices.getUserMedia({
           video: { facingMode },
           audio: true,
         });
       } catch {
-        // 3. Fallback to basic video & audio
         return await navigator.mediaDevices.getUserMedia({
           video: true,
           audio: true,
@@ -146,12 +227,36 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
     facingMode: "user",
   });
 
+  const [canonicalRoomId, setCanonicalRoomId] = useState<string | undefined>(undefined);
+  const canonicalRoomIdRef = useRef<string | undefined>(undefined);
+
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const myIdRef = useRef<string | null>(null);
   const lastOfferRef = useRef<{ offer: RTCSessionDescriptionInit; type: "audio" | "video" | "screen"; sessionId?: string } | null>(null);
   const offerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const callDetailsRef = useRef<ActiveCallDetails | null>(null);
+
+  // Keep canonicalRoomId synced when chatRoomId changes
+  useEffect(() => {
+    if (!chatRoomId) {
+      setCanonicalRoomId(undefined);
+      canonicalRoomIdRef.current = undefined;
+      return;
+    }
+
+    let active = true;
+    void resolveCanonicalCallRoom(chatRoomId).then((res) => {
+      if (active && res.canonicalRoomId) {
+        setCanonicalRoomId(res.canonicalRoomId);
+        canonicalRoomIdRef.current = res.canonicalRoomId;
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [chatRoomId]);
 
   const finalizeCallLog = useCallback((errorMessage?: string) => {
     const details = callDetailsRef.current;
@@ -221,8 +326,9 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
     const pc = new RTCPeerConnection(ICE_SERVERS);
 
     pc.onicecandidate = (event) => {
-      if (event.candidate && chatRoomId && myIdRef.current) {
-        sendSignal(chatRoomId, {
+      const activeRoom = canonicalRoomIdRef.current || chatRoomId;
+      if (event.candidate && activeRoom && myIdRef.current) {
+        void sendSignal(activeRoom, {
           type: "candidate",
           from: myIdRef.current,
           target: "all",
@@ -254,8 +360,8 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
 
   const startCall = useCallback(
     async (type: "audio" | "video" | "screen" = "video", targetRoomId?: string) => {
-      const activeId = targetRoomId || chatRoomId;
-      if (!activeId) return;
+      const rawId = targetRoomId || chatRoomId;
+      if (!rawId) return;
 
       try {
         cleanup();
@@ -264,6 +370,12 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         } = await supabase.auth.getUser();
         if (!user) return;
         myIdRef.current = user.id;
+
+        // 1. Resolve canonical signaling room ID BEFORE creating offer or subscribing
+        const resolved = await resolveCanonicalCallRoom(rawId, user.id);
+        const canonicalRoom = resolved.canonicalRoomId;
+        canonicalRoomIdRef.current = canonicalRoom;
+        setCanonicalRoomId(canonicalRoom);
 
         let stream: MediaStream;
         try {
@@ -288,13 +400,18 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         }
 
         localStreamRef.current = stream;
-        const callSessionId = "call_" + activeId + "_" + Date.now();
+
+        // Generate callSessionId EXACTLY ONCE
+        const callSessionId = "call_" + canonicalRoom + "_" + Date.now();
+        console.log(`[CALL][WEBRTC] Starting call: session=${callSessionId} canonicalRoom=${canonicalRoom} req=${resolved.requestUuid} ref=${resolved.requestReference}`);
+
         callDetailsRef.current = {
           callSessionId,
-          chatRoomId: activeId,
-          requestId: activeId,
+          chatRoomId: canonicalRoom,
+          requestId: resolved.requestUuid,
           callType: type === "screen" ? "video" : type,
           callerId: user.id,
+          receiverId: resolved.receiverId,
           status: "cancelled",
           isCaller: true,
           logged: false,
@@ -319,18 +436,19 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
 
         lastOfferRef.current = { offer, type, sessionId: callSessionId };
 
-        await sendSignal(activeId, {
+        console.log(`[CALL][SIGNAL] Sending offer on canonical room: ${canonicalRoom}`);
+        await sendSignal(canonicalRoom, {
           type: "offer",
           from: user.id,
           target: "all",
-          data: { offer, type, sessionId: callSessionId },
+          data: { offer, type, sessionId: callSessionId, requestId: resolved.requestUuid },
         });
 
         // Repeatedly broadcast offer every 2.5 seconds while waiting for answer
         if (offerIntervalRef.current) clearInterval(offerIntervalRef.current);
         offerIntervalRef.current = setInterval(() => {
           if (pcRef.current && lastOfferRef.current && myIdRef.current) {
-            void sendSignal(activeId, {
+            void sendSignal(canonicalRoom, {
               type: "offer",
               from: myIdRef.current,
               target: "all",
@@ -339,81 +457,44 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
           }
         }, 2500);
 
-        // Resolve request UUID, reference, and receiver to trigger reliable call notifications
-        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(activeId);
-        void supabase
-          .from("requests")
-          .select("id, user_id, assigned_team_id, reference")
-          .or(isUuid ? `id.eq.${activeId}` : `reference.eq.${activeId},id.eq.${activeId}`)
-          .maybeSingle()
-          .then(async ({ data: reqData }) => {
-            const reqUuid = reqData?.id || activeId;
-            const reqRef = reqData?.reference || reqData?.id || activeId;
-            const receiverId = reqData
-              ? user.id === reqData.user_id
-                ? reqData.assigned_team_id
-                : reqData.user_id
-              : undefined;
+        // Dispatches single authoritative FCM notification + database notification
+        const callerName = (user as any).user_metadata?.full_name || user.email?.split("@")[0] || "Formbhro Support";
+        console.log(`[CALL][FCM] Invoking send-fcm-notification: receiver=${resolved.receiverId} req=${resolved.requestUuid} route=${resolved.targetRoute}`);
 
-            if (callDetailsRef.current) {
-              callDetailsRef.current.requestId = reqUuid;
-              callDetailsRef.current.receiverId = receiverId;
+        void supabase.functions
+          .invoke("send-fcm-notification", {
+            body: {
+              receiver_id: resolved.receiverId,
+              notification_type: "call",
+              title: `Incoming ${type === "video" ? "Video" : "Voice"} Call`,
+              body: "Tap to answer the call",
+              request_id: resolved.requestUuid,
+              caller_id: user.id,
+              caller_name: callerName,
+              call_session_id: callSessionId,
+              call_type: type,
+              route: resolved.targetRoute,
+            },
+          })
+          .then(({ data, error }) => {
+            if (error) {
+              console.warn("[CALL][FCM] send-fcm-notification error:", error);
+            } else {
+              console.log("[CALL][FCM] send-fcm-notification dispatched successfully:", data);
             }
-            const isDirectAdminChat =
-              reqData?.category === "Team Direct Report" ||
-              (reqRef && reqRef.startsWith("ADM-TM"));
+          })
+          .catch((e) => console.warn("[CALL][FCM] Call push network error:", e));
 
-            const targetRoute =
-              receiverId === reqData?.user_id
-                ? `/app/chats/${reqRef}`
-                : isDirectAdminChat
-                  ? `/team/admin-chat`
-                  : `/team/work?r=${reqRef}`;
-
-            if (receiverId) {
-              // Direct insert into notifications table to notify active in-app Realtime listeners
-              void supabase.from("notifications").insert({
-                receiver_id: receiverId,
-                role: user.id === reqData?.user_id ? "team" : "user",
-                type: "call",
-                title: `Incoming ${type === "video" ? "Video" : "Voice"} Call`,
-                body: "Tap to answer the call",
-                request_id: reqUuid,
-                route: targetRoute,
-              }).then(({ error: notifErr }) => {
-                if (notifErr) console.warn("[Call] Notification insert error:", notifErr.message);
-              });
-            }
-
-            // Direct FCM push dispatch with high-priority Android & APNs payload
-            void supabase.functions
-              .invoke("send-fcm-notification", {
-                body: {
-                  receiver_id: receiverId,
-                  notification_type: "call",
-                  title: `Incoming ${type === "video" ? "Video" : "Voice"} Call`,
-                  body: "Tap to answer the call",
-                  request_id: reqUuid,
-                  caller_id: user.id,
-                  caller_name: (user as any).user_metadata?.full_name || user.email?.split("@")[0] || "Formbhro Support",
-                  call_session_id: callSessionId,
-                  call_type: type,
-                  route: targetRoute,
-                },
-              })
-              .catch((e) => console.warn("[FCM] Call push error:", e));
-
-            // Also call the RPC function for database compatibility
-            try {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              await (supabase as any).rpc("trigger_call_notification", {
-                p_request_id: reqUuid,
-                p_type: type,
-              });
-            } catch (rpcErr) {
-              console.warn("[FCM] RPC trigger_call_notification error:", rpcErr);
-            }
+        // Trigger secure RPC for database notification row
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (supabase as any).rpc("trigger_call_notification", {
+            p_request_id: resolved.requestUuid,
+            p_type: type,
           });
+        } catch (rpcErr) {
+          console.warn("[CALL][FCM] RPC trigger_call_notification error:", rpcErr);
+        }
 
         // Auto hangup after 30 seconds if not accepted
         setTimeout(() => {
@@ -442,14 +523,21 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
 
   const acceptCall = useCallback(async (targetRoomId?: string) => {
     stopIncomingCallRingtone();
-    const activeRoomId = targetRoomId || chatRoomId;
-    if (!activeRoomId) return;
+    const rawId = targetRoomId || canonicalRoomIdRef.current || chatRoomId;
+    if (!rawId) return;
 
     try {
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (user) myIdRef.current = user.id;
+
+      const resolved = await resolveCanonicalCallRoom(rawId, user?.id);
+      const activeRoomId = resolved.canonicalRoomId;
+      canonicalRoomIdRef.current = activeRoomId;
+      setCanonicalRoomId(activeRoomId);
+
+      console.log(`[CALL][ANSWER] Accepting call on canonical room: ${activeRoomId}`);
 
       let stream: MediaStream;
       try {
@@ -495,12 +583,14 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
 
         setSession((prev) => ({
           ...prev,
+          isActive: true,
           isAccepted: true,
           isIncoming: false,
           localStream: stream,
         }));
 
         if (myIdRef.current) {
+          console.log(`[CALL][SIGNAL] Sending answer on canonical room: ${activeRoomId}`);
           await sendSignal(activeRoomId, {
             type: "answer",
             from: myIdRef.current,
@@ -518,6 +608,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         }));
 
         if (myIdRef.current) {
+          console.log(`[CALL][SIGNAL] Requesting offer on canonical room: ${activeRoomId}`);
           await sendSignal(activeRoomId, {
             type: "request_offer",
             from: myIdRef.current,
@@ -542,8 +633,10 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         clearInterval(offerIntervalRef.current);
         offerIntervalRef.current = null;
       }
-      if (chatRoomId && myIdRef.current) {
-        await sendSignal(chatRoomId, {
+      const activeRoom = canonicalRoomIdRef.current || chatRoomId;
+      if (activeRoom && myIdRef.current) {
+        console.log(`[CALL][HANGUP] Sending hangup on canonical room: ${activeRoom}`);
+        await sendSignal(activeRoom, {
           type: "hangup",
           from: myIdRef.current,
           target: "all",
@@ -556,7 +649,8 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
   );
 
   useEffect(() => {
-    if (!chatRoomId) return;
+    const activeSignalingRoom = canonicalRoomId || chatRoomId;
+    if (!activeSignalingRoom) return;
 
     let alive = true;
 
@@ -564,18 +658,22 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
       if (alive && user) myIdRef.current = user.id;
     });
 
+    console.log(`[CALL][SIGNAL] Subscribing to WebRTC signals on channel: webrtc:${activeSignalingRoom}`);
+
     const setupSubscription = () => {
-      return subscribeToSignals(chatRoomId, async (signal) => {
+      return subscribeToSignals(activeSignalingRoom, async (signal) => {
         if (!alive || signal.from === myIdRef.current) return;
 
         switch (signal.type) {
           case "offer": {
-            const sid = signal.data.sessionId || ("call_" + chatRoomId + "_" + Date.now());
+            const sid = signal.data.sessionId || ("call_" + activeSignalingRoom + "_" + Date.now());
+            console.log(`[CALL][SIGNAL] Received offer: session=${sid} from=${signal.from}`);
+
             if (!callDetailsRef.current || callDetailsRef.current.logged) {
               callDetailsRef.current = {
                 callSessionId: sid,
-                chatRoomId,
-                requestId: chatRoomId,
+                chatRoomId: activeSignalingRoom,
+                requestId: signal.data.requestId || activeSignalingRoom,
                 callType: signal.data.type === "screen" ? "video" : (signal.data.type || "video"),
                 callerId: signal.from,
                 status: "declined",
@@ -599,7 +697,9 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
               }
               const answer = await pc.createAnswer();
               await pc.setLocalDescription(answer);
-              await sendSignal(chatRoomId, {
+
+              console.log(`[CALL][SIGNAL] Sending immediate answer on canonical room: ${activeSignalingRoom}`);
+              await sendSignal(activeSignalingRoom, {
                 type: "answer",
                 from: myIdRef.current,
                 target: "all",
@@ -625,8 +725,9 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
             break;
           }
           case "request_offer":
+            console.log(`[CALL][SIGNAL] Received request_offer on: ${activeSignalingRoom}`);
             if (lastOfferRef.current && myIdRef.current) {
-              void sendSignal(chatRoomId, {
+              void sendSignal(activeSignalingRoom, {
                 type: "offer",
                 from: myIdRef.current,
                 target: "all",
@@ -635,6 +736,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
             }
             break;
           case "answer":
+            console.log(`[CALL][SIGNAL] Received answer on: ${activeSignalingRoom}`);
             if (offerIntervalRef.current) {
               clearInterval(offerIntervalRef.current);
               offerIntervalRef.current = null;
@@ -658,6 +760,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
             }
             break;
           case "hangup":
+            console.log(`[CALL][HANGUP] Received hangup signal on: ${activeSignalingRoom}`);
             cleanup();
             break;
         }
@@ -670,7 +773,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
       alive = false;
       unsubscribe();
     };
-  }, [chatRoomId, createPeerConnection, cleanup]);
+  }, [canonicalRoomId, chatRoomId, createPeerConnection, cleanup]);
 
   const switchCamera = useCallback(async () => {
     if (!localStreamRef.current || session.isScreenSharing) return;
@@ -708,12 +811,15 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
       setSession((prev) => ({ ...prev, localStream: updatedStream }));
     } catch (err) {
       console.error("Could not switch camera:", err);
-      setSession((prev) => ({
-        ...prev,
-        facingMode: prev.facingMode === "user" ? "environment" : "user",
-      }));
     }
-  }, [session.isScreenSharing, session.facingMode]);
+  }, [session.facingMode, session.isScreenSharing]);
 
-  return { session, startCall, acceptCall, hangup, switchCamera };
+  return {
+    session,
+    startCall,
+    acceptCall,
+    hangup,
+    switchCamera,
+    canonicalRoomId,
+  };
 }

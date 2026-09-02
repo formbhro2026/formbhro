@@ -445,5 +445,21 @@ export async function initializeFCM(userId: string): Promise<boolean> {
   }
 
   await saveFCMToken(userId, token);
+
+  // 4. Listen for token refresh events and persist automatically
+  try {
+    const result = await getMessagingPlugin();
+    if (result && (result.plugin as any).addListener) {
+      await (result.plugin as any).addListener("tokenReceived", async (event: { token: string }) => {
+        if (event?.token) {
+          console.log("[CALL][FCM] Refreshed token received:", event.token.substring(0, 10) + "...");
+          await saveFCMToken(userId, event.token);
+        }
+      });
+    }
+  } catch (err) {
+    console.warn("[FCM] Could not register tokenReceived listener:", err);
+  }
+
   return true;
 }

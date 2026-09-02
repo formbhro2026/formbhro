@@ -118,7 +118,7 @@ public class MainActivity extends BridgeActivity {
             final String callType = intent.getStringExtra("callType") != null ? intent.getStringExtra("callType") : "voice";
             final String route = intent.getStringExtra("route") != null ? intent.getStringExtra("route") : "";
 
-            android.util.Log.i("MainActivity", "[MainActivity] Handling incoming call answer intent: session=" + callSessionId + " req=" + requestId);
+            android.util.Log.i("MainActivity", "[CALL][BRIDGE] Handling call answer intent: session=" + callSessionId + " req=" + requestId + " route=" + route);
 
             final String js = String.format(
                 "window.__FORMBHARO_PENDING_CALL_ANSWER__ = {" +
@@ -149,6 +149,7 @@ public class MainActivity extends BridgeActivity {
         pendingCallAnswerJs = js;
         runOnUiThread(() -> {
             if (this.bridge != null && this.bridge.getWebView() != null) {
+                android.util.Log.i("MainActivity", "[CALL][BRIDGE] Evaluating JS in WebView directly");
                 WebView webView = this.bridge.getWebView();
                 webView.evaluateJavascript(js, null);
                 pendingCallAnswerJs = null;
@@ -157,6 +158,7 @@ public class MainActivity extends BridgeActivity {
         // Also schedule a retry in case WebView is still completing initial page load
         new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
             if (this.bridge != null && this.bridge.getWebView() != null) {
+                android.util.Log.i("MainActivity", "[CALL][BRIDGE] Evaluating fallback/delayed JS in WebView");
                 this.bridge.getWebView().evaluateJavascript(js, null);
             }
         }, 1500);

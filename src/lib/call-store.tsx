@@ -158,13 +158,21 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
   // Native Android incoming call answer bridge:
   // When IncomingCallActivity launches/resumes MainActivity with autoAnswer=true,
   // MainActivity triggers 'formbhro:call_answered' and sets window.__FORMBHARO_PENDING_CALL_ANSWER__.
+  const handledCallSessionsRef = useRef<Set<string>>(new Set());
+
   useEffect(() => {
     const consumePending = () => {
       if (typeof window === "undefined") return;
       const pending = (window as any).__FORMBHARO_PENDING_CALL_ANSWER__;
       if (pending && pending.autoAnswer) {
         delete (window as any).__FORMBHARO_PENDING_CALL_ANSWER__;
-        console.log("[GlobalCall] Consuming pending call answer from native intent:", pending);
+        const sid = pending.callSessionId;
+        if (sid && handledCallSessionsRef.current.has(sid)) {
+          console.log("[CALL][BRIDGE] Skipping already handled call session:", sid);
+          return;
+        }
+        if (sid) handledCallSessionsRef.current.add(sid);
+        console.log("[CALL][BRIDGE] Consuming pending call answer from native intent:", pending);
         const target = pending.requestId || pending.chatRoomId;
         void handleAcceptCall(target);
       }
@@ -175,7 +183,13 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
     const onCallAnswered = (e: Event) => {
       const customEvent = e as CustomEvent;
       const detail = customEvent.detail || {};
-      console.log("[GlobalCall] Received formbhro:call_answered event:", detail);
+      const sid = detail.callSessionId;
+      if (sid && handledCallSessionsRef.current.has(sid)) {
+        console.log("[CALL][BRIDGE] Skipping duplicate formbhro:call_answered for session:", sid);
+        return;
+      }
+      if (sid) handledCallSessionsRef.current.add(sid);
+      console.log("[CALL][BRIDGE] Received formbhro:call_answered event:", detail);
       const target = detail.requestId || detail.chatRoomId;
       void handleAcceptCall(target);
     };
