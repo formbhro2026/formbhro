@@ -830,27 +830,6 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         } catch {
           // Ignore
         }
-
-        subscribeToRoom(room.id, {
-          onMessage: (row) => {
-            setMessages((prev) => {
-              if (prev.some((m) => m.id === row.id)) return prev;
-              return [...prev, mapTeamMessage(row, reqRef, currentMember.name)];
-            });
-          },
-          onMessageUpdate: (row) => {
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === row.id ? { ...m, ...mapTeamMessage(row, reqRef, currentMember.name) } : m,
-              ),
-            );
-          },
-          onDocument: (row) => {
-            setDocuments((prev) =>
-              prev.some((d) => d.id === row.id) ? prev : [mapTeamDocument(row, reqRef), ...prev],
-            );
-          },
-        });
       }
 
       // Map and ensure request is in state

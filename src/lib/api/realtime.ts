@@ -16,8 +16,18 @@ export function subscribeToRoom(
     onTyping?: (payload: { userId: string; name: string; typing: boolean }) => void;
   },
 ) {
+  const topic = `room:${chatRoomId}`;
+
+  // Clean up any existing channel with the same topic before creating/subscribing anew
+  const existing = supabase.getChannels().find(
+    (c) => c.topic === `realtime:${topic}` || c.topic === topic,
+  );
+  if (existing) {
+    void supabase.removeChannel(existing);
+  }
+
   const channel: RealtimeChannel = supabase
-    .channel(`room:${chatRoomId}`)
+    .channel(topic)
     .on(
       "postgres_changes",
       {
@@ -63,9 +73,12 @@ export function sendTyping(
   chatRoomId: string,
   payload: { userId: string; name: string; typing: boolean },
 ) {
-  return supabase
-    .channel(`room:${chatRoomId}`)
-    .send({ type: "broadcast", event: "typing", payload });
+  const topic = `room:${chatRoomId}`;
+  const channel =
+    supabase.getChannels().find((c) => c.topic === `realtime:${topic}` || c.topic === topic) ??
+    supabase.channel(topic);
+
+  return channel.send({ type: "broadcast", event: "typing", payload });
 }
 
 export function subscribeToMyNotifications(userId: string, onInsert: (n: NotificationRow) => void) {
