@@ -46,14 +46,6 @@ function Index() {
     });
   }, [navigate]);
 
-  if (typeof window !== "undefined" && isCapacitor()) {
-    return (
-      <div className="min-h-screen bg-bg flex items-center justify-center">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand border-t-transparent" />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen scroll-smooth bg-bg text-text antialiased selection:bg-brand/30 selection:text-white dark">
       <Navbar />
