@@ -4,6 +4,7 @@ import { Bell, Menu } from "lucide-react";
 import logoAsset from "@/assets/logo.png.asset.json";
 import { useUserStore } from "@/lib/user-store";
 import { NotificationPanel } from "@/components/notifications/NotificationPanel";
+import { cn } from "@/lib/utils";
 
 export function UserHeader({ title }: { title?: string }) {
   const { notifications, profile, setSidebarOpen } = useUserStore();

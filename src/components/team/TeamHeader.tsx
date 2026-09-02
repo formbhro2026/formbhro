@@ -4,6 +4,7 @@ import { Bell, Menu, Search } from "lucide-react";
 import logoAsset from "@/assets/logo.png.asset.json";
 import { useTeamStore } from "@/lib/team-store";
 import { TeamNotificationPanel } from "@/components/team/TeamNotificationPanel";
+import { cn } from "@/lib/utils";
 
 export function TeamHeader({ title, onOpenNav }: { title?: string; onOpenNav?: () => void }) {
   const { unreadNotifications, member } = useTeamStore();
