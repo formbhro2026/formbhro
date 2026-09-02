@@ -13,7 +13,12 @@ export function TeamHeader({ title, onOpenNav }: { title?: string; onOpenNav?: (
   const unread = unreadNotifications > 0;
 
   return (
-    <header className="sticky top-0 z-30 border-b border-border-subtle bg-bg/85 backdrop-blur-xl pt-[env(safe-area-inset-top)]">
+    <header
+      className={cn(
+        "sticky top-0 border-b border-border-subtle bg-bg/85 backdrop-blur-xl pt-[env(safe-area-inset-top)] transition-all",
+        open ? "z-[60]" : "z-30",
+      )}
+    >
       <div className="flex h-16 items-center justify-between gap-4 px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-4">
           {onOpenNav && (

@@ -933,7 +933,7 @@ function Conversation({
   return (
     <>
       {/* ===== RESPONSIVE HEADER ===== */}
-      <header className="relative z-40 border-b border-border-subtle bg-surface-1">
+      <header className="relative z-40 border-b border-border-subtle bg-surface-1 pt-[env(safe-area-inset-top)] lg:pt-0">
         {/* Row 1: Back + User info + critical icon actions */}
         <div className="flex items-center gap-2 px-3 py-2">
           <Link

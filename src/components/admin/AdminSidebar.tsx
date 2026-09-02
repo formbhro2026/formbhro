@@ -172,7 +172,12 @@ export function AdminTopbar({ title }: { title: string }) {
   const { loading } = useAdmin();
   return (
     <>
-      <header className="sticky top-0 z-20 flex min-h-14 items-center gap-3 border-b border-border-subtle bg-bg/95 px-4 backdrop-blur-xl pt-[env(safe-area-inset-top)]">
+      <header
+        className={cn(
+          "sticky top-0 flex min-h-14 items-center gap-3 border-b border-border-subtle bg-bg/95 px-4 backdrop-blur-xl pt-[env(safe-area-inset-top)] transition-all",
+          open ? "z-[60]" : "z-20",
+        )}
+      >
         <button
           type="button"
           onClick={() => setNavOpen(true)}
@@ -195,10 +200,10 @@ export function AdminTopbar({ title }: { title: string }) {
             {open && (
               <>
                 <div
-                  className="fixed inset-0 z-40 bg-black/20"
+                  className="fixed inset-0 z-[60] bg-black/20"
                   onClick={() => setOpen(false)}
                 />
-                <div className="fixed inset-x-3 top-[calc(3.75rem+env(safe-area-inset-top))] z-50 max-w-sm rounded-2xl border border-border-subtle bg-bg shadow-2xl overflow-hidden sm:absolute sm:inset-x-auto sm:right-0 sm:top-11 sm:w-80">
+                <div className="fixed inset-x-3 top-[calc(3.75rem+env(safe-area-inset-top))] z-[70] max-w-sm rounded-2xl border border-border-subtle bg-bg shadow-2xl overflow-hidden sm:absolute sm:inset-x-auto sm:right-0 sm:top-11 sm:w-80">
                   <div className="border-b border-border-subtle px-4 py-3">
                     <h3 className="text-xs font-bold text-white">System Notifications</h3>
                   </div>
