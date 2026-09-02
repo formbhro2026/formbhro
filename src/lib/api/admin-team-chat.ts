@@ -54,6 +54,7 @@ export async function getOrCreateAdminTeamChat(
     const title = `Direct Chat · ${teamMemberName || "Admin Support"}`;
     const ref = `ADM-TM-${Math.floor(1000 + Math.random() * 9000)}`;
 
+    // Insert with assigned_team_id: null to adhere strictly to client RLS policy (assigned_team_id IS NULL)
     const { data: createdReq, error: insertErr } = await supabase
       .from("requests")
       .insert({
@@ -63,8 +64,6 @@ export async function getOrCreateAdminTeamChat(
         priority: "high",
         status: "in_progress",
         reference: ref,
-        assigned_team_id: teamMemberId,
-        assigned_at: new Date().toISOString(),
       })
       .select()
       .single();
@@ -73,19 +72,12 @@ export async function getOrCreateAdminTeamChat(
       throw new ApiError(insertErr.message, insertErr.code);
     }
     request = createdReq as RequestRow;
-  } else if (!request.assigned_team_id) {
-    const { data: updatedReq } = await supabase
-      .from("requests")
-      .update({
-        assigned_team_id: teamMemberId,
-        assigned_at: request.assigned_at || new Date().toISOString(),
-      })
-      .eq("id", request.id)
-      .select()
-      .single();
 
-    if (updatedReq) {
-      request = updatedReq as RequestRow;
+    // Self-claim if assigned_team_id is not set
+    try {
+      await supabase.rpc("claim_request", { req_id: request.id });
+    } catch {
+      // Non-fatal if already assigned or creator is admin
     }
   }
 
