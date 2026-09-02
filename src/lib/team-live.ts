@@ -215,20 +215,60 @@ export async function loadTeamSnapshot(
     rooms[reference] = { requestId: r.id, chatRoomId: roomByRequestId[r.id] ?? null };
   }
 
+  const tBatchStart = Date.now();
+  console.log(`[PERF][HYDRATION] T5: loadTeamSnapshot starting batch queries for ${rows.length} requests`);
+
+  // 1. Map requests synchronously
   for (const row of rows) {
-    const reference = row.reference || row.id;
     requests.push(mapTeamRequest(row, memberId, names[row.user_id] ?? "User"));
-    // Room already in map from batch fetch above — just load messages if room exists
-    const chatRoomId = roomByRequestId[row.id];
-    if (chatRoomId) {
-      const list = await messagesApi.listMessages(chatRoomId, { limit: 100 });
-      messages.push(...list.map((m) => mapTeamMessage(m, reference, memberName)));
-    }
-    const docs = await documentsApi.listDocuments({ requestId: row.id, userId: row.user_id });
-    documents.push(...docs.map((d) => mapTeamDocument(d, reference)));
   }
 
-  const notes = await notificationsApi.listNotifications(30);
+  const chatRoomIds = rows
+    .map((r) => roomByRequestId[r.id])
+    .filter((id): id is string => Boolean(id));
+
+  // 2. Fetch messages, documents, and notifications in a single parallel batch
+  const [messagesResult, docsResult, notes] = await Promise.all([
+    chatRoomIds.length
+      ? supabase
+          .from("messages")
+          .select("*, attachment:documents(*)")
+          .in("chat_room_id", chatRoomIds)
+          .order("created_at", { ascending: true })
+          .limit(300)
+      : Promise.resolve({ data: [] }),
+    rowIds.length
+      ? supabase
+          .from("documents")
+          .select("*")
+          .in("request_id", rowIds)
+          .order("created_at", { ascending: false })
+          .limit(200)
+      : Promise.resolve({ data: [] }),
+    notificationsApi.listNotifications(30),
+  ]);
+
+  console.log(`[PERF][HYDRATION] T6: loadTeamSnapshot batched data resolved in ${Date.now() - tBatchStart}ms`);
+
+  // Build chatRoomId -> reference map for quick mapping
+  const chatRoomToRef: Record<string, string> = {};
+  for (const r of allReqs) {
+    const chatRoomId = roomByRequestId[r.id];
+    if (chatRoomId) {
+      chatRoomToRef[chatRoomId] = r.reference || r.id;
+    }
+  }
+
+  for (const m of (messagesResult as any).data ?? []) {
+    const reference = chatRoomToRef[m.chat_room_id] || m.chat_room_id;
+    messages.push(mapTeamMessage(m, reference, memberName));
+  }
+
+  for (const d of (docsResult as any).data ?? []) {
+    const req = map.get(d.request_id);
+    const reference = req ? (req.reference || req.id) : (d.request_id || "");
+    documents.push(mapTeamDocument(d, reference));
+  }
   return {
     requests,
     requestsHasMore: (count ?? 0) > limit,

@@ -57,6 +57,9 @@ export function ModernAuthForm({
     setSuccessMessage(null);
     try {
       if (mode === "login") {
+        const t0 = Date.now();
+        console.log(`[PERF][AUTH] T0: Login button pressed. email=${email.trim()}`);
+
         const { data, error: authError } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password,
@@ -73,21 +76,21 @@ export function ModernAuthForm({
           return;
         }
 
+        console.log(`[PERF][AUTH] T1: signInWithPassword complete in ${Date.now() - t0}ms`);
+
         if (data?.user) {
-          // Check role for redirection
-          const { data: roles } = await supabase
-            .from("user_roles")
-            .select("role")
-            .eq("user_id", data.user.id);
-
-          const roleList = (roles ?? []).map((r) => r.role);
-          let dest = "/app";
-          if (roleList.includes("admin")) dest = "/admin";
-          else if (roleList.includes("team")) dest = "/team";
-
           if (onSuccess) {
             onSuccess();
           } else {
+            const { data: roles } = await supabase
+              .from("user_roles")
+              .select("role")
+              .eq("user_id", data.user.id);
+
+            const roleList = (roles ?? []).map((r) => r.role);
+            let dest = "/app";
+            if (roleList.includes("admin")) dest = "/admin";
+            else if (roleList.includes("team")) dest = "/team";
             window.location.href = dest;
           }
         }

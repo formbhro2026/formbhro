@@ -24,23 +24,17 @@ import { useFillNow } from "@/components/layout/FillNowProvider";
 import { cn } from "@/lib/utils";
 
 export function MobileDashboard() {
-  const { requests, profile, loading } = useUserStore();
+  const { requests, profile, loading, news } = useUserStore();
   const { openFillNow, isStartingChat } = useFillNow();
-  const [announcements, setAnnouncements] = useState<
-    Array<{ id: string; title: string; category?: string; image_url?: string | null }>
-  >([]);
 
-  useEffect(() => {
-    const fetchNews = async () => {
-      const { data } = await supabase
-        .from("news")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(3);
-      if (data) setAnnouncements(data);
-    };
-    fetchNews();
-  }, []);
+  const announcements = useMemo(() => {
+    return (news ?? []).slice(0, 3).map((n) => ({
+      id: n.id,
+      title: n.title,
+      category: n.category,
+      image_url: null,
+    }));
+  }, [news]);
 
   const recentRequest = requests[0];
   const activeRequest = requests.find((r) => r.status !== "completed");

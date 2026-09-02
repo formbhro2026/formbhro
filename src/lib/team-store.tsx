@@ -462,23 +462,28 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(
     async (email: string, password: string, remember: boolean) => {
       try {
+        const t0 = Date.now();
+        console.log(`[PERF][AUTH] T0: Team signIn starting for email=${email}`);
         const { data: authData, error: authError } = await signInWithPassword(email, password);
         if (authError) throw authError;
 
+        console.log(`[PERF][AUTH] T1: Team signInWithPassword complete in ${Date.now() - t0}ms`);
         const user = authData.user;
-        const role = await getMyRole();
+
+        const [role, profile, { data: teamRow }] = await Promise.all([
+          getMyRole(),
+          getMyProfile(),
+          supabase
+            .from("team_members")
+            .select("*")
+            .eq("id", user!.id)
+            .maybeSingle(),
+        ]);
 
         if (role !== "team" && role !== "admin") {
           await apiSignOut();
           return { ok: false, error: "This account does not have team access." };
         }
-
-        const profile = await getMyProfile();
-        const { data: teamRow } = await supabase
-          .from("team_members")
-          .select("*")
-          .eq("id", user!.id)
-          .maybeSingle();
 
         const name = profile?.full_name || email.split("@")[0]!;
         const safe: TeamMember = {

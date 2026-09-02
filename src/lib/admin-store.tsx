@@ -72,20 +72,15 @@ interface AdminStore extends AdminData {
 const Ctx = createContext<AdminStore | null>(null);
 
 async function loadAll(): Promise<AdminData> {
-  const [team, activity, news, settings] = await Promise.all([
+  const [team, activity, news, settings, notificationsRes] = await Promise.all([
     supabase.from("team_members").select("*"),
     supabase.from("activity_logs").select("*").order("created_at", { ascending: false }).limit(200),
     supabase.from("news").select("*").order("published_at", { ascending: false }).limit(100),
     supabase.from("settings").select("*").maybeSingle(),
+    listAllNotifications({ data: { limit: 150 } }).catch(() => []),
   ]);
 
-  let notifications: NotificationRow[] = [];
-  try {
-    notifications = (await listAllNotifications({ data: { limit: 150 } })) as NotificationRow[];
-  } catch {
-    notifications = [];
-  }
-
+  const notifications = (notificationsRes as NotificationRow[]) || [];
   const teamData = team.data ?? [];
   const teamIds = teamData.map((t) => t.id);
 
@@ -209,8 +204,15 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(
     async (silent = false) => {
       if (!silent) setLoading(true);
+      const t0 = Date.now();
+      console.log("[PERF][STORE] T5: Admin refresh started");
       try {
-        const [allData, statsData] = await Promise.all([loadAll(), getAdminAnalytics()]);
+        const [allData, statsData] = await Promise.all([
+          loadAll(),
+          getAdminAnalytics(),
+          fetchRequestsPage(lastFetchParams.current.page, lastFetchParams.current.filters),
+        ]);
+        console.log(`[PERF][HYDRATION] T6: Admin parallel queries resolved in ${Date.now() - t0}ms`);
         setData((prev) => {
           // merge dynamically loaded profiles with the team profiles from loadAll
           const profileMap = new Map(prev.profiles.map((p) => [p.id, p]));
@@ -229,8 +231,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         setReady(true);
         setHasLoaded(true);
         setError(null);
-        // also re-fetch the current page to ensure everything is perfectly synced
-        await fetchRequestsPage(lastFetchParams.current.page, lastFetchParams.current.filters);
+        console.log(`[PERF][READY] T10: Admin store ready in ${Date.now() - t0}ms`);
       } catch (err) {
         console.error(err);
         setError("Failed to load admin data.");

@@ -51,11 +51,24 @@ function setCachedSession(data: { profile: Profile | null; role: AppRole | null;
 }
 
 export function SessionProvider({ children }: { children: ReactNode }) {
+  // If already wrapped in a parent SessionProvider (e.g. from __root.tsx), pass through transparently
+  const parent = useContext(SessionContext);
+  if (parent) {
+    return <>{children}</>;
+  }
+
+  return <SessionProviderInner>{children}</SessionProviderInner>;
+}
+
+function SessionProviderInner({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
+
+  // In-flight deduplication ref to prevent duplicate profiles + user_roles queries
+  const inFlightLoadRef = useRef<{ userId: string; promise: Promise<void> } | null>(null);
 
   const load = useCallback(async (nextUser: User | null) => {
     setUser(nextUser);
@@ -63,48 +76,70 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setProfile(null);
       setRole(null);
       setCachedSession(null);
+      inFlightLoadRef.current = null;
       return;
     }
-    let retries = 2;
-    let profileResult, rolesResult;
 
-    while (retries > 0) {
-      [profileResult, rolesResult] = await Promise.all([
-        supabase.from("profiles").select("*").eq("id", nextUser.id).maybeSingle(),
-        supabase.from("user_roles").select("role").eq("user_id", nextUser.id),
-      ]);
-
-      if (!profileResult.error && !rolesResult.error) {
-        break;
-      }
-
-      retries--;
-      if (retries > 0) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-      }
+    if (inFlightLoadRef.current && inFlightLoadRef.current.userId === nextUser.id) {
+      return inFlightLoadRef.current.promise;
     }
 
-    const nextProfile = profileResult?.data ?? null;
-    setProfile(nextProfile);
-    const roles = (rolesResult?.data ?? []).map((r) => r.role);
-    if (rolesResult?.error) console.error("[Session] roles error:", rolesResult.error);
-    const nextRole: AppRole = roles.includes("admin") ? "admin" : roles.includes("team") ? "team" : "user";
-    setRole(nextRole);
+    const fetchPromise = (async () => {
+      const t0 = Date.now();
+      console.log(`[PERF][PROFILE] T3: Fetching profile & role for user=${nextUser.id}`);
 
-    setCachedSession({
-      profile: nextProfile,
-      role: nextRole,
-      userId: nextUser.id,
-    });
+      let retries = 2;
+      let profileResult, rolesResult;
 
-    // BAN ENFORCEMENT: Immediately log out users whose profile is suspended
-    if (profileResult?.data && profileResult.data.is_active === false) {
-      await supabase.auth.signOut();
-      setUser(null);
-      setProfile(null);
-      setRole(null);
-      setCachedSession(null);
-      return;
+      while (retries > 0) {
+        [profileResult, rolesResult] = await Promise.all([
+          supabase.from("profiles").select("*").eq("id", nextUser.id).maybeSingle(),
+          supabase.from("user_roles").select("role").eq("user_id", nextUser.id),
+        ]);
+
+        if (!profileResult.error && !rolesResult.error) {
+          break;
+        }
+
+        retries--;
+        if (retries > 0) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+      }
+
+      const nextProfile = profileResult?.data ?? null;
+      setProfile(nextProfile);
+      const roles = (rolesResult?.data ?? []).map((r) => r.role);
+      if (rolesResult?.error) console.error("[Session] roles error:", rolesResult.error);
+      const nextRole: AppRole = roles.includes("admin") ? "admin" : roles.includes("team") ? "team" : "user";
+      setRole(nextRole);
+
+      console.log(`[PERF][ROLE] T4: Resolved role=${nextRole} in ${Date.now() - t0}ms`);
+
+      setCachedSession({
+        profile: nextProfile,
+        role: nextRole,
+        userId: nextUser.id,
+      });
+
+      // BAN ENFORCEMENT: Immediately log out users whose profile is suspended
+      if (profileResult?.data && profileResult.data.is_active === false) {
+        await supabase.auth.signOut();
+        setUser(null);
+        setProfile(null);
+        setRole(null);
+        setCachedSession(null);
+        return;
+      }
+    })();
+
+    inFlightLoadRef.current = { userId: nextUser.id, promise: fetchPromise };
+    try {
+      await fetchPromise;
+    } finally {
+      if (inFlightLoadRef.current?.userId === nextUser.id) {
+        inFlightLoadRef.current = null;
+      }
     }
   }, []);
 
@@ -113,24 +148,35 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
     // Initial load
     const init = async () => {
+      const t0 = Date.now();
       try {
+        console.log("[PERF][SESSION] T2: getSession starting...");
         const {
           data: { session },
         } = await supabase.auth.getSession();
+        console.log(`[PERF][SESSION] T2: getSession resolved in ${Date.now() - t0}ms`);
+
         if (active) {
           if (session?.user) {
             setUser(session.user);
             // Strict account isolation: Only hydrate cache if it matches the current user
             const cached = getCachedSession();
             if (cached && cached.userId === session.user.id) {
+              console.log("[PERF][SESSION] Instant cache hit: unblocking UI immediately");
               setProfile(cached.profile);
               setRole(cached.role);
+              // Unblock UI immediately with validated cached data
+              setLoading(false);
+              setInitialized(true);
+              void initializeFCM(session.user.id);
+              // Background sync fresh data
+              void load(session.user);
+              return;
             } else {
               setCachedSession(null);
+              void initializeFCM(session.user.id);
+              await load(session.user);
             }
-            void initializeFCM(session.user.id);
-            // Background sync fresh data
-            await load(session.user);
           } else {
             setCachedSession(null);
             await load(null);

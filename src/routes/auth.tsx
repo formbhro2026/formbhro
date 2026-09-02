@@ -194,15 +194,13 @@ function AuthPage() {
       else if (role === "team") defaultDest = "/team";
 
       const dest = search.redirect_to ? decodeURIComponent(search.redirect_to) : defaultDest;
-      // Use router navigate (not window.location.href) to keep the React tree alive
-      // and avoid creating a brand-new SessionProvider that races with the auth state.
+      console.log(`[PERF][AUTH] Navigating to ${dest} after authentication`);
       void navigate({ to: dest as "/app" | "/admin" | "/team", replace: true });
     }
   }, [user, authSuccess, loading, initialized, role, search.redirect_to, appReturnUrl, navigate]);
 
-  const handleSuccess = async () => {
+  const handleSuccess = () => {
     setAuthSuccess(true);
-    await refresh();
   };
 
   // If handing off to the Android app, show dedicated handoff UI with fallback button

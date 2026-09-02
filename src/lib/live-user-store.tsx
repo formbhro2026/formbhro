@@ -75,12 +75,23 @@ function uid(prefix: string) {
 export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
   const { user, profile: dbProfile, refresh } = useSession();
 
-  const [requests, setRequests] = useState<SupportRequest[]>([]);
+  const cacheKey = user ? `formbhro:user_requests:${user.id}` : null;
+  const getInitialRequests = (): SupportRequest[] => {
+    if (typeof window === "undefined" || !cacheKey) return [];
+    try {
+      const raw = sessionStorage.getItem(cacheKey);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const [requests, setRequests] = useState<SupportRequest[]>(getInitialRequests);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [documents, setDocuments] = useState<UserDocument[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [news, setNews] = useState<NewsItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => getInitialRequests().length === 0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   /** bumped whenever the room map changes so realtime subscriptions re-attach. */
   const [roomsVersion, setRoomsVersion] = useState(0);
@@ -151,39 +162,40 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       text: row.body ?? undefined,
       isSystem: row.is_system,
       callLog: (row.reactions as any)?.call_log ?? undefined,
-      file: row.attachment
+      documentId: row.attachment_id ?? undefined,
+      read: Boolean(row.seen),
+      delivery: row.seen ? "read" : "delivered",
+      attachment: row.attachment
         ? {
             id: row.attachment.id,
             name: row.attachment.file_name,
             kind: fileKind(row.attachment.kind),
             size: sizeLabel(row.attachment.size_bytes),
-            storagePath: row.attachment.storage_path,
+            url: row.attachment.storage_path ?? undefined,
           }
         : undefined,
-      state: row.seen ? "read" : "delivered",
     }),
     [],
   );
 
   const mapDocument = useCallback(
-    (row: DocumentRow, reference: string, title: string): UserDocument => ({
+    (row: DocumentRow, reference: string, requestTitle: string): UserDocument => ({
       id: row.id,
       name: row.file_name,
       kind: fileKind(row.kind),
       size: sizeLabel(row.size_bytes),
-      requestId: reference,
-      requestTitle: title,
+      uploadedAt: day(row.created_at),
       uploadedBy: row.uploader_role === "user" ? "You" : "Support Team",
-      date: day(row.created_at),
-      storagePath: row.storage_path,
+      requestId: reference,
+      requestTitle,
+      storagePath: row.storage_path ?? undefined,
     }),
     [],
   );
 
   const mapNotification = useCallback((row: NotificationRow): AppNotification => {
-    const type = (["message", "document", "status", "completed", "announcement"] as const).includes(
-      row.type as never,
-    )
+    const allowed = ["assigned", "message", "document", "status", "admin"] as const;
+    const type = (allowed as readonly string[]).includes(row.type)
       ? (row.type as AppNotification["type"])
       : "message";
     return {
@@ -193,7 +205,6 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       time: time(row.created_at),
       read: Boolean(row.is_read),
       requestId: row.request_id ? referenceById.current[row.request_id] : undefined,
-      to: type === "announcement" ? "news" : "chat",
     };
   }, []);
 
@@ -202,7 +213,9 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
   const hydrate = useCallback(
     async (showLoading = false) => {
       if (!user) return;
-      if (showLoading || isInitialHydrate.current) {
+      const t0 = Date.now();
+      console.log(`[PERF][STORE] T5: User store hydration started for user=${user.id}`);
+      if (showLoading && isInitialHydrate.current && !sessionStorage.getItem(`formbhro:user_requests:${user.id}`)) {
         setLoading(true);
       }
       try {
@@ -213,9 +226,16 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
           documentsApi.listDocuments({ limit: 100 }),
         ]);
 
+        console.log(`[PERF][HYDRATION] T6: User store primary queries resolved in ${Date.now() - t0}ms`);
+
         referenceById.current = Object.fromEntries(rows.map((r) => [r.id, r.reference || r.id]));
         const mappedRequests = rows.map(mapRequest);
         setRequests(mappedRequests);
+        if (cacheKey) {
+          try {
+            sessionStorage.setItem(cacheKey, JSON.stringify(mappedRequests));
+          } catch {}
+        }
 
         const requestMap = Object.fromEntries(rows.map((r) => [r.id, r]));
         const allDocuments: UserDocument[] = docRows.map((doc) => {
@@ -241,6 +261,7 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
         // INSTANT UNBLOCK: Unblock UI immediately after primary resources load
         setLoading(false);
         isInitialHydrate.current = false;
+        console.log(`[PERF][READY] T10: User store ready in ${Date.now() - t0}ms`);
 
         // Background Phase: Fetch team names and room messages concurrently
         const uniqueTeamIds = Array.from(

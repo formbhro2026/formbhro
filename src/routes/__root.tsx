@@ -15,6 +15,7 @@ import appCss from "../styles.css?url";
 import { Toaster } from "../components/ui/sonner";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { SplashScreen } from "../components/common/SplashScreen";
+import { SessionProvider } from "../lib/session";
 
 import {
   onForegroundNotification,
@@ -344,17 +345,19 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <SplashScreen />
-      <Outlet />
-      <Toaster
-        position="top-center"
-        toastOptions={{
-          style: {
-            marginTop: "max(0.5rem, env(safe-area-inset-top))",
-          },
-        }}
-      />
+      <SessionProvider>
+        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <SplashScreen />
+        <Outlet />
+        <Toaster
+          position="top-center"
+          toastOptions={{
+            style: {
+              marginTop: "max(0.5rem, env(safe-area-inset-top))",
+            },
+          }}
+        />
+      </SessionProvider>
     </QueryClientProvider>
   );
 }
