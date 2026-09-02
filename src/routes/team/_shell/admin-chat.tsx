@@ -2,7 +2,8 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTeamStore } from "@/lib/team-store";
 import { getOrCreateAdminTeamChat } from "@/lib/api/admin-team-chat";
-import * as messagesApi from "@/lib/api/messages";
+import { listMessages, sendMessage } from "@/lib/api/messages";
+import { subscribeToRoom } from "@/lib/api/realtime";
 import type { MessageRow, RequestRow, ChatRoomRow } from "@/lib/api/types";
 import { setActiveChat } from "@/lib/active-chat-tracker";
 import { useWebRTCCall } from "@/hooks/use-webrtc-call";
@@ -102,7 +103,7 @@ function TeamAdminChatPage() {
 
         // Load existing conversation history
         if (result.room.id) {
-          const { messages: fetched } = await messagesApi.listRoomMessages(result.room.id);
+          const fetched = await listMessages(result.room.id);
           if (!active) return;
           const mapped: LocalMessage[] = (fetched ?? []).map((m) => ({
             id: m.id,
@@ -136,50 +137,57 @@ function TeamAdminChatPage() {
   useEffect(() => {
     if (!room?.id) return;
 
-    const unsubscribe = messagesApi.subscribeToRoomMessages(room.id, (incoming: MessageRow) => {
-      setMessages((prev) => {
-        // If already exists, do not duplicate
-        if (prev.some((m) => m.id === incoming.id)) {
-          return prev.map((m) =>
-            m.id === incoming.id
-              ? {
-                  ...m,
-                  body: incoming.body,
-                  delivery: "delivered",
-                }
-              : m,
+    const unsubscribe = subscribeToRoom(room.id, {
+      onMessage: (incoming: MessageRow) => {
+        setMessages((prev) => {
+          // If already exists, do not duplicate
+          if (prev.some((m) => m.id === incoming.id)) {
+            return prev.map((m) =>
+              m.id === incoming.id
+                ? {
+                    ...m,
+                    body: incoming.body,
+                    delivery: "delivered",
+                  }
+                : m,
+            );
+          }
+
+          // Check if there is an optimistic message with matching body
+          const optIdx = prev.findIndex(
+            (m) => m.delivery === "sending" && m.body === incoming.body && m.senderRole === "team",
           );
-        }
+          if (optIdx >= 0) {
+            const copy = [...prev];
+            copy[optIdx] = {
+              id: incoming.id,
+              senderRole: "team",
+              senderName: member?.name || "You",
+              body: incoming.body,
+              createdAt: incoming.created_at,
+              delivery: "delivered",
+            };
+            return copy;
+          }
 
-        // Check if there is an optimistic message with matching body
-        const optIdx = prev.findIndex(
-          (m) => m.delivery === "sending" && m.body === incoming.body && m.senderRole === "team",
+          return [
+            ...prev,
+            {
+              id: incoming.id,
+              senderRole: incoming.sender_role === "admin" ? "admin" : "team",
+              senderName: incoming.sender_role === "admin" ? "Admin Support" : member?.name || "You",
+              body: incoming.body,
+              createdAt: incoming.created_at,
+              delivery: "delivered",
+            },
+          ];
+        });
+      },
+      onMessageUpdate: (incoming: MessageRow) => {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === incoming.id ? { ...m, body: incoming.body } : m)),
         );
-        if (optIdx >= 0) {
-          const copy = [...prev];
-          copy[optIdx] = {
-            id: incoming.id,
-            senderRole: "team",
-            senderName: member?.name || "You",
-            body: incoming.body,
-            createdAt: incoming.created_at,
-            delivery: "delivered",
-          };
-          return copy;
-        }
-
-        return [
-          ...prev,
-          {
-            id: incoming.id,
-            senderRole: incoming.sender_role === "admin" ? "admin" : "team",
-            senderName: incoming.sender_role === "admin" ? "Admin Support" : member?.name || "You",
-            body: incoming.body,
-            createdAt: incoming.created_at,
-            delivery: "delivered",
-          },
-        ];
-      });
+      },
     });
 
     return () => {
@@ -213,7 +221,7 @@ function TeamAdminChatPage() {
     setSending(true);
 
     try {
-      const sent = await messagesApi.sendMessageWithRetry({
+      const sent = await sendMessage({
         chatRoomId: room.id,
         requestId: request.id,
         body: trimmed,
@@ -269,7 +277,7 @@ function TeamAdminChatPage() {
 
       const attachmentBody = `Shared attachment: [${file.name}](${publicUrl})`;
 
-      const sent = await messagesApi.sendMessageWithRetry({
+      const sent = await sendMessage({
         chatRoomId: room.id,
         requestId: request.id,
         body: attachmentBody,
