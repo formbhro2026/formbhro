@@ -24,6 +24,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { playMessageNotificationSound } from "@/lib/audio-notifications";
 import { showSystemNotification } from "@/lib/fcm";
+import { isChatActive } from "@/lib/active-chat-tracker";
 import { signInWithPassword, getMyRole, getMyProfile, signOut as apiSignOut } from "@/lib/api/auth";
 import { markMessagesSeen } from "./api/messages";
 import { assignRequest, updateRequestStatus, getTeamAnalytics } from "./api/requests";
@@ -1347,7 +1348,11 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       );
 
       if (row.type === "message") {
-        const isChatOpen = window.location.pathname.includes("/team/work") && new URLSearchParams(window.location.search).get("id") === row.request_id;
+        const isChatOpen = isChatActive({
+          requestId: row.request_id,
+          chatRoomId: row.chat_room_id,
+          route: row.route,
+        });
         if (!isChatOpen) {
           playMessageNotificationSound();
           showSystemNotification(row.title || "New message", row.body || "New message received", {

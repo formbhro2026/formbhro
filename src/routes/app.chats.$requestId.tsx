@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { useUserStore } from "@/lib/user-store";
 import { useVisualViewport } from "@/lib/use-visual-viewport";
 import { useGlobalCall } from "@/lib/call-store";
+import { setActiveChat } from "@/lib/active-chat-tracker";
 import { listQuickReplies } from "@/lib/api/notifications";
 import type { QuickReplyRow } from "@/lib/api/types";
 
@@ -104,7 +105,15 @@ function ChatScreen() {
     if (request?.id) {
       setActiveRoomId(request.id);
     }
-  }, [request?.id, setActiveRoomId]);
+    setActiveChat({
+      requestId: request?.id || requestId,
+      requestRef: request?.reference || requestId,
+      chatRoomId: request?.chatRoomId || null,
+    });
+    return () => {
+      setActiveChat(null);
+    };
+  }, [request?.id, request?.reference, request?.chatRoomId, requestId, setActiveRoomId]);
 
   useEffect(() => {
     markRead(requestId);

@@ -23,6 +23,7 @@ import {
   isCapacitor,
   showSystemNotification,
 } from "../lib/fcm";
+import { isChatActive } from "../lib/active-chat-tracker";
 import { playMessageNotificationSound, startIncomingCallRingtone } from "../lib/audio-notifications";
 import { getInitialTheme, applyTheme } from "../lib/theme-manager";
 
@@ -287,6 +288,16 @@ function RootComponent() {
         // Play the ringtone for incoming call notifications when app is in foreground
         startIncomingCallRingtone();
       } else {
+        // Suppress sound, system notification, and toast if the user is already viewing the target chat
+        const isCurrentChatActive = isChatActive({
+          requestId: data?.requestId,
+          chatRoomId: data?.chatRoomId,
+          route: data?.route,
+        });
+        if (isCurrentChatActive) {
+          return;
+        }
+
         playMessageNotificationSound();
       }
 

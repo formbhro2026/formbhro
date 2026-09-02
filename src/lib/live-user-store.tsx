@@ -26,6 +26,7 @@ import { useSession } from "@/lib/session";
 import { toast } from "sonner";
 import { playMessageNotificationSound } from "@/lib/audio-notifications";
 import { showSystemNotification } from "@/lib/fcm";
+import { isChatActive } from "@/lib/active-chat-tracker";
 
 const STATUS_MAP: Record<DbRequestStatus, RequestStatus> = {
   pending: "pending",
@@ -657,7 +658,11 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       );
 
       if (row.type === "message") {
-        const isChatOpen = window.location.pathname.includes(`/chats/${row.request_id}`);
+        const isChatOpen = isChatActive({
+          requestId: row.request_id,
+          chatRoomId: row.chat_room_id,
+          route: row.route,
+        });
         if (!isChatOpen) {
           playMessageNotificationSound();
           showSystemNotification(row.title || "New message", row.body || "You have a new message", {

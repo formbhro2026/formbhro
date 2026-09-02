@@ -40,6 +40,7 @@ import { TeamDocumentPreview } from "@/components/team/TeamDocumentPreview";
 import { CallEventBubble } from "@/components/chat/CallEventBubble";
 import { EmptyState } from "@/components/common/EmptyState";
 import { useTeamStore } from "@/lib/team-store";
+import { setActiveChat } from "@/lib/active-chat-tracker";
 import type { TeamDelivery, Priority, TeamMessage } from "@/data/team-module";
 import { WorkFilters } from "@/components/team/WorkFilters";
 import { MessageAttachment } from "@/components/team/MessageAttachment";
@@ -193,6 +194,21 @@ function WorkArea() {
             search.r.replace(/[^a-zA-Z0-9]/g, "").toLowerCase(),
       ) ?? null)
     : null;
+
+  useEffect(() => {
+    if (selected) {
+      setActiveChat({
+        requestId: (selected as any).dbUuid || selected.id,
+        requestRef: selected.id,
+        chatRoomId: (selected as any).chatRoomId || null,
+      });
+    } else {
+      setActiveChat(null);
+    }
+    return () => {
+      setActiveChat(null);
+    };
+  }, [selected]);
 
   // Leaving a chat clears anything the member scrolled past but never reached.
   const openIdRef = useRef<string | null>(null);

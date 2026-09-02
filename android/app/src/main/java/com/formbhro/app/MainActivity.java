@@ -15,6 +15,11 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true);
+            setTurnScreenOn(true);
+        }
+        
         // Request runtime permissions for Android (Microphone, Camera, Audio, Notifications)
         java.util.List<String> permList = new java.util.ArrayList<>();
         permList.add(Manifest.permission.RECORD_AUDIO);
