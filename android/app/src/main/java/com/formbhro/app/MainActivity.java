@@ -118,6 +118,11 @@ public class MainActivity extends BridgeActivity {
             final String callType = intent.getStringExtra("callType") != null ? intent.getStringExtra("callType") : "voice";
             final String route = intent.getStringExtra("route") != null ? intent.getStringExtra("route") : "";
 
+            // Clear intent extras to prevent duplicate execution on onResume or configuration change
+            intent.removeExtra("autoAnswer");
+            intent.setAction(null);
+            setIntent(new Intent());
+
             android.util.Log.i("MainActivity", "[CALL][BRIDGE] Handling call answer intent: session=" + callSessionId + " req=" + requestId + " route=" + route);
 
             final String js = String.format(
@@ -155,11 +160,12 @@ public class MainActivity extends BridgeActivity {
                 pendingCallAnswerJs = null;
             }
         });
-        // Also schedule a retry in case WebView is still completing initial page load
+        // Fallback retry ONLY if WebView was not ready yet on first attempt
         new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-            if (this.bridge != null && this.bridge.getWebView() != null) {
+            if (this.bridge != null && this.bridge.getWebView() != null && pendingCallAnswerJs != null) {
                 android.util.Log.i("MainActivity", "[CALL][BRIDGE] Evaluating fallback/delayed JS in WebView");
-                this.bridge.getWebView().evaluateJavascript(js, null);
+                this.bridge.getWebView().evaluateJavascript(pendingCallAnswerJs, null);
+                pendingCallAnswerJs = null;
             }
         }, 1500);
     }

@@ -235,7 +235,24 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
   const myIdRef = useRef<string | null>(null);
   const lastOfferRef = useRef<{ offer: RTCSessionDescriptionInit; type: "audio" | "video" | "screen"; sessionId?: string } | null>(null);
   const offerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const noAnswerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const terminalSessionsRef = useRef<Set<string>>(new Set());
   const callDetailsRef = useRef<ActiveCallDetails | null>(null);
+
+  // Sync current user ID eagerly & via auth change
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session: authSession } }) => {
+      if (authSession?.user?.id) {
+        myIdRef.current = authSession.user.id;
+      }
+    });
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, authSession) => {
+      myIdRef.current = authSession?.user?.id ?? null;
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Keep canonicalRoomId synced when chatRoomId changes
   useEffect(() => {
@@ -292,11 +309,22 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
   }, []);
 
   const cleanup = useCallback((errorMessage?: string) => {
+    const currentSid = callDetailsRef.current?.callSessionId;
+    if (currentSid) {
+      terminalSessionsRef.current.add(currentSid);
+      console.log(`[CALL][TRACE][CLEANUP] Marked callSessionId=${currentSid} as terminal. timestamp=${Date.now()}`);
+    }
+
     finalizeCallLog(errorMessage);
     stopIncomingCallRingtone();
+
     if (offerIntervalRef.current) {
       clearInterval(offerIntervalRef.current);
       offerIntervalRef.current = null;
+    }
+    if (noAnswerTimeoutRef.current) {
+      clearTimeout(noAnswerTimeoutRef.current);
+      noAnswerTimeoutRef.current = null;
     }
     lastOfferRef.current = null;
 
@@ -401,9 +429,19 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
 
         localStreamRef.current = stream;
 
+        // Clear any previous interval or timeout
+        if (offerIntervalRef.current) {
+          clearInterval(offerIntervalRef.current);
+          offerIntervalRef.current = null;
+        }
+        if (noAnswerTimeoutRef.current) {
+          clearTimeout(noAnswerTimeoutRef.current);
+          noAnswerTimeoutRef.current = null;
+        }
+
         // Generate callSessionId EXACTLY ONCE
         const callSessionId = "call_" + canonicalRoom + "_" + Date.now();
-        console.log(`[CALL][WEBRTC] Starting call: session=${callSessionId} canonicalRoom=${canonicalRoom} req=${resolved.requestUuid} ref=${resolved.requestReference}`);
+        console.log(`[CALL][TRACE][START] callSessionId=${callSessionId} requestId=${resolved.requestUuid} canonicalRoomId=${canonicalRoom} userId=${user.id} timestamp=${Date.now()} source=startCall`);
 
         callDetailsRef.current = {
           callSessionId,
@@ -436,7 +474,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
 
         lastOfferRef.current = { offer, type, sessionId: callSessionId };
 
-        console.log(`[CALL][SIGNAL] Sending offer on canonical room: ${canonicalRoom}`);
+        console.log(`[CALL][TRACE][OFFER] Sending offer: callSessionId=${callSessionId} requestId=${resolved.requestUuid} canonicalRoomId=${canonicalRoom} userId=${user.id} timestamp=${Date.now()} source=startCall`);
         await sendSignal(canonicalRoom, {
           type: "offer",
           from: user.id,
@@ -444,10 +482,17 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
           data: { offer, type, sessionId: callSessionId, requestId: resolved.requestUuid },
         });
 
-        // Repeatedly broadcast offer every 2.5 seconds while waiting for answer
-        if (offerIntervalRef.current) clearInterval(offerIntervalRef.current);
+        // Broadcast offer every 2.5 seconds until answered or terminal
         offerIntervalRef.current = setInterval(() => {
+          if (terminalSessionsRef.current.has(callSessionId)) {
+            if (offerIntervalRef.current) {
+              clearInterval(offerIntervalRef.current);
+              offerIntervalRef.current = null;
+            }
+            return;
+          }
           if (pcRef.current && lastOfferRef.current && myIdRef.current) {
+            console.log(`[CALL][TRACE][OFFER] (Retry broadcast) callSessionId=${callSessionId} canonicalRoomId=${canonicalRoom} timestamp=${Date.now()} source=offerInterval`);
             void sendSignal(canonicalRoom, {
               type: "offer",
               from: myIdRef.current,
@@ -459,7 +504,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
 
         // Dispatches single authoritative FCM notification + database notification
         const callerName = (user as any).user_metadata?.full_name || user.email?.split("@")[0] || "Formbhro Support";
-        console.log(`[CALL][FCM] Invoking send-fcm-notification: receiver=${resolved.receiverId} req=${resolved.requestUuid} route=${resolved.targetRoute}`);
+        console.log(`[CALL][TRACE][NOTIFICATION] Invoking send-fcm-notification: callSessionId=${callSessionId} receiver=${resolved.receiverId} req=${resolved.requestUuid} timestamp=${Date.now()}`);
 
         void supabase.functions
           .invoke("send-fcm-notification", {
@@ -485,14 +530,16 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
           })
           .catch((e) => console.warn("[CALL][FCM] Call push network error:", e));
 
-        // Auto hangup after 30 seconds if not accepted
-        setTimeout(() => {
+        // Auto hangup after 30 seconds if not accepted (safe lifecycle cancellation)
+        noAnswerTimeoutRef.current = setTimeout(() => {
+          if (terminalSessionsRef.current.has(callSessionId)) return;
           setSession((currentSession) => {
             if (
               currentSession.isActive &&
               currentSession.isOutgoing &&
               !currentSession.isAccepted
             ) {
+              console.log(`[CALL][TRACE][HANGUP] Auto-hangup (no answer timeout): callSessionId=${callSessionId} timestamp=${Date.now()}`);
               hangup("No answer from the other side.");
               return currentSession;
             }
@@ -526,7 +573,8 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
       canonicalRoomIdRef.current = activeRoomId;
       setCanonicalRoomId(activeRoomId);
 
-      console.log(`[CALL][ANSWER] Accepting call on canonical room: ${activeRoomId}`);
+      const sid = callDetailsRef.current?.callSessionId || "call_" + activeRoomId;
+      console.log(`[CALL][TRACE][ACCEPT] Accepting call: callSessionId=${sid} canonicalRoomId=${activeRoomId} userId=${user?.id} timestamp=${Date.now()}`);
 
       let stream: MediaStream;
       try {
@@ -579,12 +627,12 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         }));
 
         if (myIdRef.current) {
-          console.log(`[CALL][SIGNAL] Sending answer on canonical room: ${activeRoomId}`);
+          console.log(`[CALL][TRACE][ANSWER] Sending answer: callSessionId=${sid} canonicalRoomId=${activeRoomId} timestamp=${Date.now()}`);
           await sendSignal(activeRoomId, {
             type: "answer",
             from: myIdRef.current,
             target: "all",
-            data: answer,
+            data: { ...answer, sessionId: sid },
           });
         }
       } else {
@@ -597,12 +645,12 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         }));
 
         if (myIdRef.current) {
-          console.log(`[CALL][SIGNAL] Requesting offer on canonical room: ${activeRoomId}`);
+          console.log(`[CALL][TRACE][REQUEST_OFFER] Requesting offer: callSessionId=${sid} canonicalRoomId=${activeRoomId} timestamp=${Date.now()}`);
           await sendSignal(activeRoomId, {
             type: "request_offer",
             from: myIdRef.current,
             target: "all",
-            data: null,
+            data: { sessionId: sid },
           });
         }
       }
@@ -617,19 +665,29 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
 
   const hangup = useCallback(
     async (errorMessage?: string) => {
+      const currentSid = callDetailsRef.current?.callSessionId;
+      if (currentSid) {
+        terminalSessionsRef.current.add(currentSid);
+        console.log(`[CALL][TRACE][HANGUP] Hangup initiated for callSessionId=${currentSid} timestamp=${Date.now()}`);
+      }
+
       stopIncomingCallRingtone();
       if (offerIntervalRef.current) {
         clearInterval(offerIntervalRef.current);
         offerIntervalRef.current = null;
       }
+      if (noAnswerTimeoutRef.current) {
+        clearTimeout(noAnswerTimeoutRef.current);
+        noAnswerTimeoutRef.current = null;
+      }
       const activeRoom = canonicalRoomIdRef.current || chatRoomId;
       if (activeRoom && myIdRef.current) {
-        console.log(`[CALL][HANGUP] Sending hangup on canonical room: ${activeRoom}`);
+        console.log(`[CALL][TRACE][HANGUP] Sending hangup signal: callSessionId=${currentSid} canonicalRoomId=${activeRoom} timestamp=${Date.now()}`);
         await sendSignal(activeRoom, {
           type: "hangup",
           from: myIdRef.current,
           target: "all",
-          data: null,
+          data: { sessionId: currentSid },
         });
       }
       cleanup(typeof errorMessage === "string" ? errorMessage : undefined);
@@ -651,12 +709,46 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
 
     const setupSubscription = () => {
       return subscribeToSignals(activeSignalingRoom, async (signal) => {
-        if (!alive || signal.from === myIdRef.current) return;
+        if (!alive) return;
+
+        // 1. Synchronously drop self-broadcasted signals
+        const currentUserId = myIdRef.current || (await supabase.auth.getSession()).data.session?.user?.id;
+        if (currentUserId && !myIdRef.current) myIdRef.current = currentUserId;
+
+        if (signal.from && currentUserId && signal.from === currentUserId) {
+          return;
+        }
+
+        const sid = signal.data?.sessionId || signal.data?.callSessionId;
+
+        console.log(`[CALL][TRACE][RECEIVED_SIGNAL] type=${signal.type} callSessionId=${sid} from=${signal.from} canonicalRoomId=${activeSignalingRoom} timestamp=${Date.now()}`);
+
+        // 2. Drop any signal belonging to a terminal/ended call session
+        if (sid && terminalSessionsRef.current.has(sid)) {
+          console.log(`[CALL][TRACE][IGNORE_TERMINAL] Dropping stale signal for terminal callSessionId=${sid} type=${signal.type}`);
+          return;
+        }
 
         switch (signal.type) {
           case "offer": {
-            const sid = signal.data.sessionId || ("call_" + activeSignalingRoom + "_" + Date.now());
-            console.log(`[CALL][SIGNAL] Received offer: session=${sid} from=${signal.from}`);
+            if (!sid) {
+              console.warn("[CALL][SIGNAL] Offer missing sessionId, ignoring to prevent phantom calls");
+              return;
+            }
+
+            // Drop offer if this session was already terminated
+            if (terminalSessionsRef.current.has(sid)) {
+              console.log(`[CALL][TRACE][OFFER] Ignoring stale offer for terminal session: ${sid}`);
+              return;
+            }
+
+            // Drop offer if we are already connected to an ongoing call
+            if (callDetailsRef.current && callDetailsRef.current.callSessionId !== sid && callDetailsRef.current.status === "completed") {
+              console.log(`[CALL][TRACE][OFFER] Dropping offer: another call is currently active`);
+              return;
+            }
+
+            console.log(`[CALL][TRACE][OFFER] Processing incoming offer: callSessionId=${sid} from=${signal.from} timestamp=${Date.now()}`);
 
             if (!callDetailsRef.current || callDetailsRef.current.logged) {
               callDetailsRef.current = {
@@ -687,12 +779,12 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
               const answer = await pc.createAnswer();
               await pc.setLocalDescription(answer);
 
-              console.log(`[CALL][SIGNAL] Sending immediate answer on canonical room: ${activeSignalingRoom}`);
+              console.log(`[CALL][TRACE][ANSWER] Sending immediate answer: callSessionId=${sid} canonicalRoomId=${activeSignalingRoom} timestamp=${Date.now()}`);
               await sendSignal(activeSignalingRoom, {
                 type: "answer",
                 from: myIdRef.current,
                 target: "all",
-                data: answer,
+                data: { ...answer, sessionId: sid },
               });
               setSession((prev) => ({
                 ...prev,
@@ -714,8 +806,15 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
             break;
           }
           case "request_offer":
-            console.log(`[CALL][SIGNAL] Received request_offer on: ${activeSignalingRoom}`);
+            console.log(`[CALL][TRACE][REQUEST_OFFER] Received request_offer on: ${activeSignalingRoom} session=${sid}`);
+            // Only retransmit if this outgoing call is active and NOT terminal
             if (lastOfferRef.current && myIdRef.current) {
+              const offerSid = lastOfferRef.current.sessionId;
+              if (offerSid && terminalSessionsRef.current.has(offerSid)) {
+                console.log(`[CALL][TRACE][REQUEST_OFFER] Dropping request_offer: session ${offerSid} is terminal`);
+                return;
+              }
+              console.log(`[CALL][TRACE][OFFER] (Retransmitting offer on request) session=${offerSid}`);
               void sendSignal(activeSignalingRoom, {
                 type: "offer",
                 from: myIdRef.current,
@@ -725,10 +824,14 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
             }
             break;
           case "answer":
-            console.log(`[CALL][SIGNAL] Received answer on: ${activeSignalingRoom}`);
+            console.log(`[CALL][TRACE][ANSWER] Received answer on: ${activeSignalingRoom} session=${sid}`);
             if (offerIntervalRef.current) {
               clearInterval(offerIntervalRef.current);
               offerIntervalRef.current = null;
+            }
+            if (noAnswerTimeoutRef.current) {
+              clearTimeout(noAnswerTimeoutRef.current);
+              noAnswerTimeoutRef.current = null;
             }
             if (callDetailsRef.current) {
               callDetailsRef.current.status = "completed";
@@ -749,7 +852,10 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
             }
             break;
           case "hangup":
-            console.log(`[CALL][HANGUP] Received hangup signal on: ${activeSignalingRoom}`);
+            console.log(`[CALL][TRACE][HANGUP] Received remote hangup on: ${activeSignalingRoom} session=${sid}`);
+            if (sid) {
+              terminalSessionsRef.current.add(sid);
+            }
             cleanup();
             break;
         }

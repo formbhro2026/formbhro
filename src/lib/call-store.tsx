@@ -91,9 +91,18 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
           };
 
           if (notif.type === "call" && notif.request_id) {
+            const sid = (notif as any).call_session_id;
+            if (sid && handledCallSessionsRef.current.has(sid)) {
+              console.log("[GlobalCall] Skipping already handled or terminal call session:", sid);
+              return;
+            }
+            if (sid) handledCallSessionsRef.current.add(sid);
+
             console.log(
               "[GlobalCall] Incoming call notification received for request:",
               notif.request_id,
+              "session:",
+              sid,
             );
             const callType: "audio" | "video" = notif.title?.toLowerCase().includes("video")
               ? "video"
@@ -115,6 +124,15 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
       void supabase.removeChannel(channel);
     };
   }, [userId]);
+
+  // When WebRTC call ends or becomes inactive, ensure incomingAlert is cleared immediately
+  useEffect(() => {
+    if (!call.session.isActive && !call.session.isIncoming && incomingAlert) {
+      console.log("[GlobalCall] Auto-clearing incoming alert because WebRTC session is inactive");
+      stopIncomingCallRingtone();
+      setIncomingAlert(null);
+    }
+  }, [call.session.isActive, call.session.isIncoming, incomingAlert]);
 
   // Auto-dismiss incoming alert after 30 seconds if not answered
   useEffect(() => {
