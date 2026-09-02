@@ -37,7 +37,8 @@ export function TeamBottomNav() {
         void navigate({ to: "/team/work", search: { r: chatId } });
       }
     } catch (err) {
-      toast.error("Could not connect to Admin chat");
+      console.error("[TeamBottomNav] openAdminChat error:", err);
+      toast.error(err instanceof Error ? err.message : "Could not connect to Admin chat");
     } finally {
       setOpeningChat(false);
     }

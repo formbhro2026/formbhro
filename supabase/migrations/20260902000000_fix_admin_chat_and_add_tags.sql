@@ -1,5 +1,38 @@
 -- Migration: Fix Admin Team Chat connection & Add Chat Tags
--- 1. Create secure get_or_create_admin_team_chat function
+
+-- 1. Ensure 'Team Direct Report' exists in categories and trigger allows it
+INSERT INTO public.categories (name, description, is_active)
+VALUES ('Team Direct Report', 'Direct chat between team members and admin', true)
+ON CONFLICT (name) DO UPDATE SET is_active = true;
+
+CREATE OR REPLACE FUNCTION public.validate_request_category()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF TG_OP = 'UPDATE' AND NEW.category = OLD.category THEN
+    RETURN NEW;
+  END IF;
+
+  -- Always permit internal direct chat and core categories
+  IF NEW.category IN ('Team Direct Report', 'General', 'Other') THEN
+    RETURN NEW;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.categories 
+    WHERE name = NEW.category AND is_active = true
+  ) THEN
+    RAISE EXCEPTION 'Invalid or inactive category: %', NEW.category;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+-- 2. Create secure get_or_create_admin_team_chat function
 CREATE OR REPLACE FUNCTION public.get_or_create_admin_team_chat(
   p_team_member_id uuid,
   p_team_member_name text DEFAULT NULL
@@ -82,11 +115,11 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.get_or_create_admin_team_chat(uuid, text) TO authenticated;
 
--- 2. Add tags column to requests for WhatsApp Business style chat tags
+-- 3. Add tags column to requests for WhatsApp Business style chat tags
 ALTER TABLE public.requests ADD COLUMN IF NOT EXISTS tags text[] DEFAULT '{}'::text[];
 CREATE INDEX IF NOT EXISTS requests_tags_idx ON public.requests USING GIN (tags);
 
--- 3. Secure update_request_tags RPC
+-- 4. Secure update_request_tags RPC
 CREATE OR REPLACE FUNCTION public.update_request_tags(p_request_id uuid, p_tags text[])
 RETURNS void
 LANGUAGE plpgsql

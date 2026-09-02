@@ -854,7 +854,10 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       }
 
       // Map and ensure request is in state
-      const mapped = mapTeamRequest(request, currentMember.id, "Admin Support");
+      const mapped = {
+        ...mapTeamRequest(request, currentMember.id, "Admin Support"),
+        assigneeId: currentMember.id,
+      };
       setRequests((prev) => {
         const existingIdx = prev.findIndex(
           (r) => r.id === reqRef || r.id === request.id || r.id === request.reference,

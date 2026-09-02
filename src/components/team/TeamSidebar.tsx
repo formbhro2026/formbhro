@@ -58,7 +58,8 @@ export function TeamSidebar() {
         void navigate({ to: "/team/work", search: { r: chatId } });
       }
     } catch (e) {
-      toast.error("Could not connect to Admin chat");
+      console.error("[TeamSidebar] openAdminChat error:", e);
+      toast.error(e instanceof Error ? e.message : "Could not connect to Admin chat");
     } finally {
       setOpeningChat(false);
     }

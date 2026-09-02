@@ -55,7 +55,10 @@ export async function getOrCreateAdminTeamChat(
     const ref = `ADM-TM-${Math.floor(1000 + Math.random() * 9000)}`;
 
     // Insert with assigned_team_id: null to adhere strictly to client RLS policy (assigned_team_id IS NULL)
-    const { data: createdReq, error: insertErr } = await supabase
+    let createdReq: RequestRow | null = null;
+    let insertErr: any = null;
+
+    const res1 = await supabase
       .from("requests")
       .insert({
         user_id: uid,
@@ -68,17 +71,50 @@ export async function getOrCreateAdminTeamChat(
       .select()
       .single();
 
-    if (insertErr) {
-      throw new ApiError(insertErr.message, insertErr.code);
+    if (!res1.error && res1.data) {
+      createdReq = res1.data as RequestRow;
+    } else {
+      insertErr = res1.error;
+      // If rejected due to category integrity trigger on pre-migration database, retry with seeded category
+      if (res1.error?.message?.toLowerCase().includes("category")) {
+        const res2 = await supabase
+          .from("requests")
+          .insert({
+            user_id: uid,
+            title,
+            category: "Other",
+            priority: "high",
+            status: "in_progress",
+            reference: ref,
+          })
+          .select()
+          .single();
+        if (!res2.error && res2.data) {
+          createdReq = res2.data as RequestRow;
+          insertErr = null;
+        }
+      }
     }
-    request = createdReq as RequestRow;
+
+    if (insertErr || !createdReq) {
+      throw new ApiError(
+        insertErr?.message || "Could not initialize direct chat request",
+        insertErr?.code,
+      );
+    }
+    request = createdReq;
 
     // Self-claim if assigned_team_id is not set
     try {
       await supabase.rpc("claim_request", { req_id: request.id });
     } catch {
-      // Non-fatal if already assigned or creator is admin
+      // Non-fatal
     }
+  }
+
+  // Set assigned_team_id in memory if not present
+  if (!request.assigned_team_id) {
+    request.assigned_team_id = teamMemberId;
   }
 
   // 4. Ensure chat room exists
