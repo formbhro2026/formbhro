@@ -212,7 +212,7 @@ function WorkArea() {
       <div
         className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,19rem)_minmax(0,1fr)_minmax(0,20rem)]"
         style={
-          viewportHeight
+          selected && viewportHeight
             ? { height: `${viewportHeight}px`, maxHeight: `${viewportHeight}px` }
             : undefined
         }
@@ -989,11 +989,12 @@ function Conversation({
             </button>
           )}
 
-          {/* Chat Tags Button */}
+          {/* Chat Tags Button on xl+ */}
           <ChatTagButton
             requestId={r.id}
             currentTags={r.tags}
             onTagsUpdated={(newTags) => updateTags(r.id, newTags)}
+            className="hidden xl:inline-flex"
           />
 
           {/* Search — always visible */}
@@ -1036,6 +1037,11 @@ function Conversation({
         <div className="flex flex-wrap items-center gap-2 border-t border-white/5 px-3 py-1.5 xl:hidden">
           <TransferButton request={r} />
           <EscalateButton request={r} />
+          <ChatTagButton
+            requestId={r.id}
+            currentTags={r.tags}
+            onTagsUpdated={(newTags) => updateTags(r.id, newTags)}
+          />
           {unreadCount > 0 && (
             <button
               type="button"
@@ -1047,7 +1053,7 @@ function Conversation({
               {unreadCount} unread
             </button>
           )}
-          <div className="min-w-[9rem] flex-1">
+          <div className="min-w-[7.5rem] flex-1">
             <StatusSelect requestId={r.id} status={r.status} onChange={onStatus} />
           </div>
         </div>

@@ -41,10 +41,12 @@ export function ChatTagButton({
   requestId,
   currentTags = [],
   onTagsUpdated,
+  className,
 }: {
   requestId: string;
   currentTags?: string[];
   onTagsUpdated?: (newTags: string[]) => void;
+  className?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [tags, setTags] = useState<string[]>(currentTags);
@@ -94,10 +96,11 @@ export function ChatTagButton({
         title="Manage Chat Tags"
         aria-label="Manage Chat Tags"
         className={cn(
-          "inline-flex h-9 min-w-9 items-center justify-center gap-1.5 rounded-xl border px-2.5 text-xs font-semibold transition-colors",
+          "inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-xl border px-2.5 text-xs font-semibold transition-colors",
           currentTags.length > 0
             ? "border-brand/40 bg-brand/10 text-brand-light hover:bg-brand/20"
             : "border-white/10 bg-surface-2 text-text-secondary hover:bg-white/5 hover:text-white",
+          className,
         )}
       >
         <Tag className="h-4 w-4" />
@@ -107,7 +110,7 @@ export function ChatTagButton({
       {open &&
         createPortal(
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-            <div className="w-full max-w-sm rounded-2xl border border-border-subtle bg-surface-2 p-5 shadow-2xl">
+            <div className="w-full max-w-sm max-w-[calc(100vw-2rem)] rounded-2xl border border-border-subtle bg-surface-2 p-5 shadow-2xl">
               <div className="flex items-center justify-between pb-3 border-b border-border-subtle">
                 <div className="flex items-center gap-2">
                   <Tag className="h-4 w-4 text-brand" />

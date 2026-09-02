@@ -45,11 +45,11 @@ export function ChatHeader({
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
           <button
             type="button"
             onClick={() => onStartCall?.("audio")}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 hover:text-brand"
+            className="inline-flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 hover:text-brand"
             title="Start Audio Call"
           >
             <Phone className="h-4 w-4" />
@@ -58,7 +58,7 @@ export function ChatHeader({
           <button
             type="button"
             onClick={() => onStartCall?.("video")}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 hover:text-brand"
+            className="inline-flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 hover:text-brand"
             title="Start Video Call"
           >
             <Video className="h-4 w-4" />
@@ -68,7 +68,7 @@ export function ChatHeader({
             <button
               type="button"
               onClick={() => onStartCall?.("screen")}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 hover:text-brand"
+              className="inline-flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 hover:text-brand"
               title="Share Screen"
             >
               <Monitor className="h-4 w-4" />
@@ -79,7 +79,7 @@ export function ChatHeader({
             <button
               type="button"
               onClick={onToggleSearch}
-              className={`inline-flex h-9 w-9 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 hover:text-brand ${isSearching ? "bg-surface-2 text-brand" : ""}`}
+              className={`inline-flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 hover:text-brand ${isSearching ? "bg-surface-2 text-brand" : ""}`}
               title="Search in this conversation"
               aria-label="Search in this conversation"
             >
@@ -93,9 +93,9 @@ export function ChatHeader({
               onClick={onOpenDocuments}
               aria-label={`Documents in this request (${documentCount})`}
               aria-haspopup="dialog"
-              className="relative inline-flex h-10 w-10 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 2xl:hidden"
+              className="relative inline-flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 2xl:hidden"
             >
-              <FileText className="h-5 w-5" aria-hidden="true" />
+              <FileText className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
             </button>
           )}
           <button
@@ -103,9 +103,9 @@ export function ChatHeader({
             onClick={onOpenDetails}
             aria-label="Request details"
             aria-haspopup="dialog"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 2xl:hidden"
+            className="inline-flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 2xl:hidden"
           >
-            <Info className="h-5 w-5" aria-hidden="true" />
+            <Info className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
           </button>
         </div>
       </div>
