@@ -193,14 +193,20 @@ export function AdminTopbar({ title }: { title: string }) {
               <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-brand" />
             </button>
             {open && (
-              <div className="absolute right-0 top-11 z-50 w-72 overflow-hidden rounded-2xl border border-border-subtle bg-bg shadow-2xl">
-                <div className="border-b border-border-subtle px-4 py-3">
-                  <h3 className="text-xs font-bold text-white">System Notifications</h3>
+              <>
+                <div
+                  className="fixed inset-0 z-40 bg-black/20"
+                  onClick={() => setOpen(false)}
+                />
+                <div className="fixed inset-x-3 top-[calc(3.75rem+env(safe-area-inset-top))] z-50 max-w-sm rounded-2xl border border-border-subtle bg-bg shadow-2xl overflow-hidden sm:absolute sm:inset-x-auto sm:right-0 sm:top-11 sm:w-80">
+                  <div className="border-b border-border-subtle px-4 py-3">
+                    <h3 className="text-xs font-bold text-white">System Notifications</h3>
+                  </div>
+                  <div className="p-8 text-center text-[11px] text-text-muted">
+                    No new system alerts.
+                  </div>
                 </div>
-                <div className="p-8 text-center text-[11px] text-text-muted">
-                  No new system alerts.
-                </div>
-              </div>
+              </>
             )}
           </div>
 

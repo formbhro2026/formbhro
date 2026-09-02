@@ -237,7 +237,7 @@ function AdminChats() {
   const isMobileDetailOpen = Boolean(active || (chatType === "team" && selectedTeamMemberId));
 
   return (
-    <div className="fixed inset-0 lg:left-60 xl:left-64 top-14 z-10 bg-bg overflow-hidden">
+    <div className="fixed inset-0 lg:left-60 xl:left-64 top-[calc(3.5rem+env(safe-area-inset-top))] z-10 bg-bg overflow-hidden">
       <div className="grid h-full gap-4 p-4 xl:grid-cols-[320px_1fr]">
         <Panel
           title={chatType === "monitor" ? "Customer Chats" : "Team Direct Chats"}
