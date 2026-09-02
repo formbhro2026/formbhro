@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, FileText, Info, Monitor, Phone, Video } from "lucide-react";
+import { ArrowLeft, FileText, Info, Monitor, Phone, Search, Video } from "lucide-react";
 import { canShareScreen } from "@/lib/utils";
 import type { SupportRequest } from "@/data/user-module";
 
@@ -9,12 +9,16 @@ export function ChatHeader({
   onOpenDocuments,
   documentCount = 0,
   onStartCall,
+  onToggleSearch,
+  isSearching = false,
 }: {
   request: SupportRequest;
   onOpenDetails: () => void;
   onOpenDocuments?: () => void;
   documentCount?: number;
   onStartCall?: (type: "audio" | "video" | "screen") => void;
+  onToggleSearch?: () => void;
+  isSearching?: boolean;
 }) {
   return (
     <header className="sticky top-0 z-20 border-b border-border-subtle bg-surface-1/95 backdrop-blur-sm py-1">
@@ -68,6 +72,18 @@ export function ChatHeader({
               title="Share Screen"
             >
               <Monitor className="h-4 w-4" />
+            </button>
+          )}
+
+          {onToggleSearch && (
+            <button
+              type="button"
+              onClick={onToggleSearch}
+              className={`inline-flex h-9 w-9 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 hover:text-brand ${isSearching ? "bg-surface-2 text-brand" : ""}`}
+              title="Search in this conversation"
+              aria-label="Search in this conversation"
+            >
+              <Search className="h-4 w-4" />
             </button>
           )}
 

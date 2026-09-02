@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { MessageSquareText, Loader2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { MessageSquareText, Loader2, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UserHeader } from "@/components/layout/UserHeader";
 import { ChatHeader } from "@/components/chat/ChatHeader";
@@ -55,6 +55,9 @@ function ChatScreen() {
   } = store;
   const [sheetTab, setSheetTab] = useState<"details" | "documents" | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const { height: viewportHeight, keyboardOpen } = useVisualViewport();
   const openSheet = useCallback((tab: "details" | "documents") => setSheetTab(tab), []);
@@ -64,6 +67,17 @@ function ChatScreen() {
   const requestDocs = documentsFor(requestId);
   const preview = documents.find((d: any) => d.id === previewId) ?? null;
   const { startCall, setActiveRoomId } = useGlobalCall();
+
+  const filteredMessages = useMemo(() => {
+    if (!searchQuery.trim()) return messages;
+    const q = searchQuery.toLowerCase();
+    return messages.filter((m: any) => {
+      const matchText = (m.text || "").toLowerCase().includes(q);
+      const matchAuthor = (m.authorName || "").toLowerCase().includes(q);
+      const matchFile = (m.file?.name || "").toLowerCase().includes(q);
+      return matchText || matchAuthor || matchFile;
+    });
+  }, [messages, searchQuery]);
 
   useEffect(() => {
     if (request?.id) {
@@ -133,7 +147,61 @@ function ChatScreen() {
             onOpenDocuments={() => openSheet("documents")}
             documentCount={requestDocs.length}
             onStartCall={(type) => startCall(type, request.id)}
+            onToggleSearch={() => {
+              setSearchOpen((prev) => {
+                const next = !prev;
+                if (next) {
+                  setTimeout(() => searchInputRef.current?.focus(), 50);
+                } else {
+                  setSearchQuery("");
+                }
+                return next;
+              });
+            }}
+            isSearching={searchOpen}
           />
+
+          {searchOpen && (
+            <div className="flex items-center gap-2 border-b border-border-subtle bg-surface-1/95 px-3 py-2 backdrop-blur-sm">
+              <div className="relative min-w-0 flex-1">
+                <Search
+                  className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted"
+                  aria-hidden="true"
+                />
+                <input
+                  ref={searchInputRef}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      setSearchOpen(false);
+                      setSearchQuery("");
+                    }
+                  }}
+                  type="search"
+                  placeholder="Search in this conversation..."
+                  aria-label="Search in this conversation"
+                  className="h-9 w-full rounded-xl border border-border-subtle bg-surface-2 pl-8 pr-3 text-xs text-white placeholder:text-text-muted outline-none focus:border-brand/40 transition-colors"
+                />
+              </div>
+              {searchQuery.trim() && (
+                <span className="shrink-0 text-[10px] text-text-muted">
+                  {filteredMessages.length} {filteredMessages.length === 1 ? "result" : "results"}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchOpen(false);
+                  setSearchQuery("");
+                }}
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-muted hover:bg-surface-2 hover:text-white transition-colors"
+                aria-label="Close search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
 
           <div
             className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-chat-bg px-3 py-4 pb-4 sm:px-4 relative"
@@ -150,7 +218,7 @@ function ChatScreen() {
                 TODAY
               </p>
             </div>
-            {messages.map((m: any) => (
+            {filteredMessages.map((m: any) => (
               <MessageBubble
                 key={m.id}
                 message={m}

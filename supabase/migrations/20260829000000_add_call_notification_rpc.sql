@@ -2,7 +2,7 @@
 
 -- This function is executed as SECURITY DEFINER to bypass RLS on notifications, 
 -- but checks authorization explicitly inside.
-CREATE OR REPLACE FUNCTION public.trigger_call_notification(p_request_id uuid, p_type text)
+CREATE OR REPLACE FUNCTION public.trigger_call_notification(p_request_id text, p_type text)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -13,8 +13,8 @@ DECLARE
   _receiver uuid;
   _receiver_role app_role;
 BEGIN
-  -- Look up the request
-  SELECT * INTO _req FROM requests WHERE id = p_request_id;
+  -- Look up the request by UUID or reference string
+  SELECT * INTO _req FROM requests WHERE id::text = p_request_id OR reference = p_request_id LIMIT 1;
   IF NOT FOUND THEN 
     RETURN; 
   END IF;
@@ -44,7 +44,7 @@ BEGIN
     DECLARE
       _room_id uuid;
     BEGIN
-      SELECT id INTO _room_id FROM chat_rooms WHERE request_id = p_request_id LIMIT 1;
+      SELECT id INTO _room_id FROM chat_rooms WHERE request_id = _req.id LIMIT 1;
 
       INSERT INTO notifications (receiver_id, role, type, title, body, request_id, chat_room_id)
       VALUES (
@@ -53,7 +53,7 @@ BEGIN
         'call',
         'Incoming ' || initcap(p_type) || ' Call',
         'Tap here to join the call',
-        p_request_id,
+        _req.id,
         _room_id
       );
     END;

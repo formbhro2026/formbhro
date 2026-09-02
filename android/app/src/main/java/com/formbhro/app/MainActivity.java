@@ -33,6 +33,48 @@ public class MainActivity extends BridgeActivity {
         if (needRequest) {
             ActivityCompat.requestPermissions(this, permissions, 1001);
         }
+
+        // Create high-importance notification channels for incoming calls & messages (Android 8.0+)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            android.app.NotificationManager manager = getSystemService(android.app.NotificationManager.class);
+            if (manager != null) {
+                // High-importance Incoming Calls channel (heads-up popup + sound + vibration)
+                android.app.NotificationChannel callChannel = new android.app.NotificationChannel(
+                    "formbhro_calls_v2",
+                    "Incoming Calls",
+                    android.app.NotificationManager.IMPORTANCE_HIGH
+                );
+                callChannel.setDescription("Alerts for incoming audio and video calls");
+                callChannel.enableVibration(true);
+                callChannel.enableLights(true);
+                callChannel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
+                manager.createNotificationChannel(callChannel);
+
+                // High-importance Messages channel
+                android.app.NotificationChannel msgChannel = new android.app.NotificationChannel(
+                    "formbhro_messages_v2",
+                    "Messages & Updates",
+                    android.app.NotificationManager.IMPORTANCE_HIGH
+                );
+                msgChannel.setDescription("New message alerts from experts and team members");
+                msgChannel.enableVibration(true);
+                msgChannel.enableLights(true);
+                msgChannel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
+                manager.createNotificationChannel(msgChannel);
+
+                // Default Notification channel
+                android.app.NotificationChannel defChannel = new android.app.NotificationChannel(
+                    "formbhro_default_v2",
+                    "General Notifications",
+                    android.app.NotificationManager.IMPORTANCE_HIGH
+                );
+                defChannel.setDescription("General system and request updates");
+                defChannel.enableVibration(true);
+                defChannel.enableLights(true);
+                defChannel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
+                manager.createNotificationChannel(defChannel);
+            }
+        }
     }
 
     @Override

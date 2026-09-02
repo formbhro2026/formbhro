@@ -286,8 +286,7 @@ Deno.serve(async (req) => {
     const callTypeLabel = payload.title?.toLowerCase().includes("video") ? "Video" : "Voice";
     const refOrId = reqRow.reference || reqRow.id;
     const targetRoute =
-      payload.route ||
-      (receiverId === reqRow.user_id ? `/app/chats/${refOrId}` : `/team/work?r=${refOrId}`);
+      receiverId === reqRow.user_id ? `/app/chats/${refOrId}` : `/team/work?r=${refOrId}`;
 
     notification = {
       id: crypto.randomUUID(),
@@ -299,6 +298,23 @@ Deno.serve(async (req) => {
       chat_room_id: roomRow?.id ?? null,
       route: targetRoute,
     };
+
+    // Insert into notifications table so in-app Realtime subscribers receive the call event
+    try {
+      await sbAdmin.from("notifications").insert({
+        id: notification.id,
+        receiver_id: notification.receiver_id,
+        role: receiverId === reqRow.user_id ? "user" : "team",
+        type: "call",
+        title: notification.title,
+        body: notification.body,
+        request_id: notification.request_id,
+        chat_room_id: notification.chat_room_id,
+        route: notification.route,
+      });
+    } catch (dbErr) {
+      console.warn("[FCM] Could not insert call notification into table:", dbErr);
+    }
   } else {
     return new Response("Invalid notification payload", { status: 200, headers: corsHeaders });
   }

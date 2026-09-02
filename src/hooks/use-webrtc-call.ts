@@ -278,34 +278,67 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
           }
         }, 2500);
 
-        // Trigger the FCM Push Notification for the incoming call
-        // trigger_call_notification is not yet in the generated Supabase types
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase as any)
-          .rpc("trigger_call_notification", {
-            p_request_id: activeId,
-            p_type: type,
-          })
-          .then(({ error }: { error: unknown }) => {
-            if (error) {
-              console.error("Failed to trigger call push notification:", error);
+        // Resolve request UUID, reference, and receiver to trigger reliable call notifications
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(activeId);
+        void supabase
+          .from("requests")
+          .select("id, user_id, assigned_team_id, reference")
+          .or(isUuid ? `id.eq.${activeId}` : `reference.eq.${activeId},id.eq.${activeId}`)
+          .maybeSingle()
+          .then(async ({ data: reqData }) => {
+            const reqUuid = reqData?.id || activeId;
+            const reqRef = reqData?.reference || reqData?.id || activeId;
+            const receiverId = reqData
+              ? user.id === reqData.user_id
+                ? reqData.assigned_team_id
+                : reqData.user_id
+              : undefined;
+            const targetRoute =
+              receiverId === reqData?.user_id
+                ? `/app/chats/${reqRef}`
+                : `/team/work?r=${reqRef}`;
+
+            if (receiverId) {
+              // Direct insert into notifications table to notify active in-app Realtime listeners
+              void supabase.from("notifications").insert({
+                receiver_id: receiverId,
+                role: user.id === reqData?.user_id ? "team" : "user",
+                type: "call",
+                title: `Incoming ${type === "video" ? "Video" : "Voice"} Call`,
+                body: "Tap to answer the call",
+                request_id: reqUuid,
+                route: targetRoute,
+              }).then(({ error: notifErr }) => {
+                if (notifErr) console.warn("[Call] Notification insert error:", notifErr.message);
+              });
+            }
+
+            // Direct FCM push dispatch with high-priority Android & APNs payload
+            void supabase.functions
+              .invoke("send-fcm-notification", {
+                body: {
+                  receiver_id: receiverId,
+                  notification_type: "call",
+                  title: `Incoming ${type === "video" ? "Video" : "Voice"} Call`,
+                  body: "Tap to answer the call",
+                  request_id: reqUuid,
+                  caller_id: user.id,
+                  route: targetRoute,
+                },
+              })
+              .catch((e) => console.warn("[FCM] Call push error:", e));
+
+            // Also call the RPC function for database compatibility
+            try {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              await (supabase as any).rpc("trigger_call_notification", {
+                p_request_id: reqUuid,
+                p_type: type,
+              });
+            } catch (rpcErr) {
+              console.warn("[FCM] RPC trigger_call_notification error:", rpcErr);
             }
           });
-
-        // Direct FCM push dispatch — passes caller_id so the edge function
-        // can resolve the correct receiver (the other party on the request).
-        void supabase.functions
-          .invoke("send-fcm-notification", {
-            body: {
-              notification_type: "call",
-              title: `Incoming ${type === "video" ? "Video" : "Voice"} Call`,
-              body: "Tap to answer the call",
-              request_id: activeId,
-              caller_id: user.id,
-              route: `/app/chats/${activeId}`,
-            },
-          })
-          .catch((e) => console.warn("[FCM] Call push error:", e));
 
         // Auto hangup after 30 seconds if not accepted
         setTimeout(() => {
