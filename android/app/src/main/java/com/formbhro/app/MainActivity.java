@@ -153,22 +153,15 @@ public class MainActivity extends BridgeActivity {
 
     private void deliverJsToWebView(final String js) {
         pendingCallAnswerJs = js;
-        runOnUiThread(() -> {
-            if (this.bridge != null && this.bridge.getWebView() != null) {
-                android.util.Log.i("MainActivity", "[CALL][BRIDGE] Evaluating JS in WebView directly");
-                WebView webView = this.bridge.getWebView();
-                webView.evaluateJavascript(js, null);
-                pendingCallAnswerJs = null;
-            }
-        });
-        // Fallback retry ONLY if WebView was not ready yet on first attempt
-        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-            if (this.bridge != null && this.bridge.getWebView() != null && pendingCallAnswerJs != null) {
-                android.util.Log.i("MainActivity", "[CALL][BRIDGE] Evaluating fallback/delayed JS in WebView");
-                this.bridge.getWebView().evaluateJavascript(pendingCallAnswerJs, null);
-                pendingCallAnswerJs = null;
-            }
-        }, 1500);
+        long[] delays = new long[]{0, 300, 700, 1400, 2400, 4000, 6000};
+        for (long delay : delays) {
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                if (pendingCallAnswerJs != null && MainActivity.this.bridge != null && MainActivity.this.bridge.getWebView() != null) {
+                    android.util.Log.i("MainActivity", "[CALL][BRIDGE] Evaluating JS in WebView (delay=" + delay + "ms)");
+                    MainActivity.this.bridge.getWebView().evaluateJavascript(pendingCallAnswerJs, null);
+                }
+            }, delay);
+        }
     }
 
     private String escapeJs(String str) {

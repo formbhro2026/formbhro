@@ -228,6 +228,8 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
     };
 
     consumePending();
+    const pollInterval = setInterval(consumePending, 400);
+    const stopPollTimer = setTimeout(() => clearInterval(pollInterval), 8000);
 
     const onCallAnswered = (e: Event) => {
       const customEvent = e as CustomEvent;
@@ -248,7 +250,11 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
     };
 
     window.addEventListener("formbhro:call_answered", onCallAnswered);
-    return () => window.removeEventListener("formbhro:call_answered", onCallAnswered);
+    return () => {
+      clearInterval(pollInterval);
+      clearTimeout(stopPollTimer);
+      window.removeEventListener("formbhro:call_answered", onCallAnswered);
+    };
   }, [handleAcceptCall]);
 
   const handleHangup = useCallback(
