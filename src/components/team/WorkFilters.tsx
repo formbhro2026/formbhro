@@ -12,7 +12,18 @@ export type WorkFilterValues = {
   state: "all" | "pending" | "completed";
   priority: "all" | Priority;
   sort: "newest" | "oldest";
+  dateRange?: "all" | "today" | "yesterday" | "this-week" | "this-month" | "custom";
+  customDate?: string;
 };
+
+const DATES = [
+  { key: "all", label: "All Dates" },
+  { key: "today", label: "Today" },
+  { key: "yesterday", label: "Yesterday" },
+  { key: "this-week", label: "This Week" },
+  { key: "this-month", label: "This Month" },
+  { key: "custom", label: "Custom" },
+] as const;
 
 const STATES = [
   { key: "all", label: "All" },
@@ -69,6 +80,44 @@ export function WorkFilters({
           className="h-10 w-full rounded-xl border border-border-subtle bg-surface-2 pl-9 pr-3 text-xs text-white placeholder:text-text-muted focus:border-brand/50"
         />
       </div>
+
+      {/* Date Filter Row */}
+      <div className="mt-2 flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+        {DATES.map((d) => {
+          const isSelected = (values.dateRange || "all") === d.key;
+          return (
+            <button
+              key={d.key}
+              type="button"
+              aria-pressed={isSelected}
+              onClick={() => onChange({ dateRange: d.key })}
+              className={cn(
+                "min-h-7 shrink-0 rounded-lg border px-2 text-[10px] font-semibold transition-colors",
+                isSelected
+                  ? "border-brand/50 bg-brand/15 text-brand-light font-bold"
+                  : "border-border-subtle bg-surface-2 text-text-muted hover:text-text hover:bg-surface-3",
+              )}
+            >
+              {d.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {values.dateRange === "custom" && (
+        <div className="mt-2 flex items-center gap-2 rounded-lg border border-border-subtle bg-surface-2 p-2">
+          <label htmlFor={`${id}-custom-date`} className="text-[10px] font-semibold text-text-muted">
+            Pick Date:
+          </label>
+          <input
+            id={`${id}-custom-date`}
+            type="date"
+            value={values.customDate ?? ""}
+            onChange={(e) => onChange({ customDate: e.target.value })}
+            className="h-7 rounded border border-border-subtle bg-surface-1 px-2 text-xs text-white focus:border-brand/50"
+          />
+        </div>
+      )}
 
       <div className="mt-2 flex items-center gap-2 overflow-x-auto pb-1">
         {STATES.map((s) => (

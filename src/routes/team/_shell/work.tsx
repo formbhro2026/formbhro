@@ -42,7 +42,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { useTeamStore } from "@/lib/team-store";
 import { setActiveChat } from "@/lib/active-chat-tracker";
 import type { TeamDelivery, Priority, TeamMessage } from "@/data/team-module";
-import { WorkFilters } from "@/components/team/WorkFilters";
+import { WorkFilters, type WorkFilterValues } from "@/components/team/WorkFilters";
 import { MessageAttachment } from "@/components/team/MessageAttachment";
 import { TransferButton, EscalateButton } from "@/components/team/TransferModal";
 import { ChatTagButton, ChatTagBadges } from "@/components/team/ChatTagModal";
@@ -59,6 +59,7 @@ import { Zap } from "lucide-react";
 
 type WorkSearch = {
   r?: string;
+  id?: string;
   q?: string;
   f?: string;
   u?: string;
@@ -67,13 +68,16 @@ type WorkSearch = {
   p?: string;
   tag?: string;
   sort?: string;
+  d?: string;
+  cd?: string;
 };
 
 const str = (v: unknown) => (typeof v === "string" && v ? v : undefined);
 
 export const Route = createFileRoute("/team/_shell/work")({
   validateSearch: (search: Record<string, unknown>): WorkSearch => ({
-    r: str(search.r),
+    r: str(search.r) || str(search.id),
+    id: str(search.id),
     q: str(search.q),
     f: search.f === "pending" || search.f === "completed" ? search.f : undefined,
     u: str(search.u),
@@ -82,6 +86,8 @@ export const Route = createFileRoute("/team/_shell/work")({
     tag: str(search.tag),
     p: search.p === "low" || search.p === "medium" || search.p === "high" ? search.p : undefined,
     sort: search.sort === "oldest" ? "oldest" : undefined,
+    d: str(search.d),
+    cd: str(search.cd),
   }),
   component: WorkArea,
   head: () => ({
@@ -135,6 +141,8 @@ function WorkArea() {
   const ridFilter = search.rid ?? "";
   const typeFilter = search.t ?? "";
   const sort = (search.sort as "oldest" | undefined) ?? "newest";
+  const dateRange = (search.d as WorkFilterValues["dateRange"]) ?? "all";
+  const customDate = search.cd ?? "";
 
   // Redirect legacy /team/work?r=ADM-TM... links directly to dedicated /team/admin-chat
   useEffect(() => {
@@ -176,6 +184,54 @@ function WorkArea() {
     [userRequests],
   );
 
+function matchesDateFilter(r: TeamRequest, range: string, custom: string) {
+  if (range === "all" || !range) return true;
+  const raw = r.lastActivityAt || r.assignedAtRaw || r.createdAt;
+  if (!raw) return true;
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return true;
+
+  const now = new Date();
+  const toYMD = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const targetYMD = toYMD(d);
+  const todayYMD = toYMD(now);
+
+  if (range === "today") {
+    return targetYMD === todayYMD;
+  }
+
+  if (range === "yesterday") {
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    return targetYMD === toYMD(yesterday);
+  }
+
+  if (range === "this-week") {
+    const startOfWeek = new Date(now);
+    const dayOfWeek = startOfWeek.getDay();
+    const diff = startOfWeek.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+    startOfWeek.setDate(diff);
+    startOfWeek.setHours(0, 0, 0, 0);
+    return d >= startOfWeek;
+  }
+
+  if (range === "this-month") {
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  }
+
+  if (range === "custom" && custom) {
+    return targetYMD === custom;
+  }
+
+  return true;
+}
+
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
     const rid = ridFilter.trim().toLowerCase();
@@ -187,6 +243,7 @@ function WorkArea() {
       if (typeFilter && r.category !== typeFilter) return false;
       if (tagFilter && (!r.tags || !r.tags.includes(tagFilter))) return false;
       if (rid && !r.id.toLowerCase().includes(rid)) return false;
+      if (!matchesDateFilter(r, dateRange, customDate)) return false;
       if (!q) return true;
       return `${r.userName} ${r.id} ${r.category} ${r.title} ${(r.tags ?? []).join(" ")}`
         .toLowerCase()
@@ -200,11 +257,11 @@ function WorkArea() {
           : b.createdOn.localeCompare(a.createdOn),
       );
     return out;
-  }, [requests, query, state, priority, userFilter, typeFilter, tagFilter, ridFilter, sort]);
+  }, [requests, query, state, priority, userFilter, typeFilter, tagFilter, ridFilter, sort, dateRange, customDate]);
 
   const listUnread = useMemo(() => list.reduce((sum, r) => sum + r.unread, 0), [list]);
 
-  const searchR = search.r;
+  const searchR = search.r || search.id;
   const selected = searchR
     ? (requests.find(
         (r) =>
@@ -317,6 +374,8 @@ function WorkArea() {
               state,
               priority,
               sort,
+              dateRange,
+              customDate,
             }}
             users={users}
             types={types}
@@ -337,6 +396,10 @@ function WorkArea() {
                 ...("sort" in patch
                   ? { sort: patch.sort === "oldest" ? "oldest" : undefined }
                   : {}),
+                ...("dateRange" in patch
+                  ? { d: patch.dateRange === "all" ? undefined : patch.dateRange }
+                  : {}),
+                ...("customDate" in patch ? { cd: patch.customDate || undefined } : {}),
               })
             }
             onReset={() =>
@@ -348,6 +411,8 @@ function WorkArea() {
                 tag: undefined,
                 f: undefined,
                 p: undefined,
+                d: undefined,
+                cd: undefined,
               })
             }
           />
@@ -474,7 +539,7 @@ function ConversationCard({ request: r, active }: { request: TeamRequest; active
     <div className="relative">
       <Link
         to="/team/work"
-        search={(prev: WorkSearch) => ({ ...prev, r: r.id })}
+        search={(prev: WorkSearch) => ({ ...prev, r: r.id, id: undefined })}
         className={cn(
           "block rounded-xl border p-3 transition-colors",
           active
@@ -792,6 +857,7 @@ function Conversation({
     node.classList.add("ring-2", "ring-brand", "rounded-2xl");
     window.setTimeout(() => node.classList.remove("ring-2", "ring-brand", "rounded-2xl"), 1600);
   }, []);
+  const navigate = useNavigate();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
   const [historyId, setHistoryId] = useState<string | null>(null);
@@ -962,14 +1028,25 @@ function Conversation({
       <header className="relative z-40 border-b border-border-subtle bg-surface-1 pt-[env(safe-area-inset-top)] lg:pt-0">
         {/* Row 1: Back + User info + critical icon actions */}
         <div className="flex items-center gap-2 px-3 py-2">
-          <Link
-            to="/team/work"
-            search={(prev: WorkSearch) => ({ ...prev, r: undefined })}
+          <button
+            type="button"
+            onClick={() => {
+              void navigate({
+                to: "/team/work",
+                search: (prev: WorkSearch) => {
+                  const next = { ...prev };
+                  delete (next as any).r;
+                  delete (next as any).id;
+                  return next;
+                },
+                replace: false,
+              });
+            }}
             aria-label="Back to assigned chats"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 lg:hidden"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 transition-colors lg:hidden"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          </Link>
+          </button>
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-border-subtle bg-surface-2 text-[11px] font-bold text-brand">
             {r.userInitials}
           </span>

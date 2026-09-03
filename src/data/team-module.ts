@@ -123,6 +123,10 @@ export type TeamRequest = {
   requestUuid?: string;
   /** Chat room UUID primary key from chat_rooms.id */
   chatRoomId?: string | null;
+  /** Exact ISO assignment timestamp from database assigned_at */
+  assignedAtRaw?: string | null;
+  /** Exact ISO activity timestamp from database last_activity_at */
+  lastActivityAt?: string | null;
   /** Exact ISO completion timestamp from database completed_at */
   completedAt?: string | null;
   /** Exact ISO creation timestamp from database created_at */

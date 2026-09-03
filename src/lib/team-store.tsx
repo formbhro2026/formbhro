@@ -24,7 +24,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { playMessageNotificationSound } from "@/lib/audio-notifications";
 import { showSystemNotification } from "@/lib/fcm";
-import { isChatActive, shouldDeliverNotification } from "@/lib/active-chat-tracker";
+import { isChatActive, shouldDeliverNotification, getActiveChat, onActiveChatChange } from "@/lib/active-chat-tracker";
 import { signInWithPassword, getMyRole, getMyProfile, signOut as apiSignOut } from "@/lib/api/auth";
 import { markMessagesSeen } from "./api/messages";
 import { assignRequest, updateRequestStatus, getTeamAnalytics } from "./api/requests";
@@ -200,6 +200,8 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
   const [documents, setDocuments] = useState<TeamDocument[]>([]);
   const [notifications, setNotifications] = useState<TeamNotification[]>([]);
   const [typingIn, setTypingIn] = useState<Record<string, boolean>>({});
+  const [roomsVersion, setRoomsVersion] = useState(0);
+  const loadedRoomsRef = useRef<Set<string>>(new Set());
   const timers = useRef<number[]>([]);
   const memberRef = useRef<TeamMember | null>(null);
   useEffect(() => {
@@ -236,6 +238,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         // Cache it by both reference and UUID so subsequent sends don't need to re-fetch
         rooms.current[requestId] = { requestId: actualReqUuid, chatRoomId: freshRoom.id };
         rooms.current[actualReqUuid] = { requestId: actualReqUuid, chatRoomId: freshRoom.id };
+        setRoomsVersion((v) => v + 1);
         room = rooms.current[requestId];
       } catch {
         setMessages((prev) =>
@@ -378,6 +381,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       setMessages(snapshot.messages);
       setDocuments(snapshot.documents);
       setNotifications(snapshot.notifications);
+      setRoomsVersion((v) => v + 1);
     } catch {
       if (!silent) {
         rooms.current = {};
@@ -388,6 +392,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         setMessages([]);
         setDocuments([]);
         setNotifications([]);
+        setRoomsVersion((v) => v + 1);
       }
     } finally {
       if (!silent) setLoading(false);
@@ -668,7 +673,42 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
 
   const getRequest = useCallback((id: string) => assigned.find((r) => r.id === id), [assigned]);
   const messagesFor = useCallback(
-    (id: string) => visibleMessages.filter((m) => m.requestId === id),
+    (id: string) => {
+      if (!id) return [];
+      const cleanId = id.trim().toLowerCase();
+      const ref = (refByRequestId.current[id] || id).trim().toLowerCase();
+      const matchedUuid = Object.entries(refByRequestId.current).find(
+        ([, r]) => r.toLowerCase() === cleanId,
+      )?.[0]?.toLowerCase();
+      const room = rooms.current[id] || (ref ? rooms.current[ref] : undefined);
+      const roomReqId = room?.requestId?.toLowerCase();
+
+      // On-demand message loading if not yet loaded in initial batch
+      if (room?.chatRoomId && !loadedRoomsRef.current.has(room.chatRoomId)) {
+        loadedRoomsRef.current.add(room.chatRoomId);
+        loadedRoomsRef.current.add(cleanId);
+        loadedRoomsRef.current.add(ref);
+        void messagesApi.listMessages(room.chatRoomId, { limit: 50 }).then((msgs) => {
+          setMessages((prev) => {
+            const existingIds = new Set(prev.map((m) => m.id));
+            const newMsgs = msgs
+              .filter((m) => !existingIds.has(m.id))
+              .map((m) => mapTeamMessage(m, ref || id, memberRef.current?.name ?? "Support"));
+            return [...prev, ...newMsgs];
+          });
+        });
+      }
+
+      return visibleMessages.filter((m) => {
+        const req = m.requestId?.toLowerCase();
+        return (
+          req === cleanId ||
+          req === ref ||
+          (matchedUuid && req === matchedUuid) ||
+          (roomReqId && req === roomReqId)
+        );
+      });
+    },
     [visibleMessages],
   );
   const documentsFor = useCallback(
@@ -1344,7 +1384,66 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       offs.forEach((off) => off());
       offRequests();
     };
-  }, [live, member, requests.length, startTyping, roomsTick]);
+  }, [live, member, roomsVersion, startTyping]);
+
+  // Active chat dedicated realtime streaming listener
+  useEffect(() => {
+    if (!live || !member) return;
+    let unsubActive: (() => void) | null = null;
+    let alive = true;
+
+    const syncActiveChat = () => {
+      if (!alive) return;
+      if (unsubActive) {
+        unsubActive();
+        unsubActive = null;
+      }
+      const cur = getActiveChat();
+      const target = cur.requestId || cur.requestRef;
+      if (!target) return;
+
+      const ref =
+        cur.requestRef || refByRequestId.current[cur.requestId || ""] || cur.requestId || "";
+      const room = rooms.current[ref] || (cur.requestId ? rooms.current[cur.requestId] : undefined);
+      const roomId = cur.chatRoomId || room?.chatRoomId;
+
+      if (roomId) {
+        unsubActive = subscribeToRoom(roomId, {
+          onMessage: (row) => {
+            setMessages((prev) => {
+              if (prev.some((m) => m.id === row.id)) return prev;
+              return [...prev, mapTeamMessage(row, ref || target, member.name)];
+            });
+          },
+          onMessageUpdate: (row) => {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === row.id ? { ...m, ...mapTeamMessage(row, ref || target, member.name) } : m,
+              ),
+            );
+          },
+          onDocument: (row) => {
+            setDocuments((prev) =>
+              prev.some((d) => d.id === row.id)
+                ? prev
+                : [mapTeamDocument(row, ref || target), ...prev],
+            );
+          },
+          onTyping: (payload) => {
+            if (payload.typing) startTyping(ref || target, 2500);
+          },
+        });
+      }
+    };
+
+    syncActiveChat();
+    const unsubChange = onActiveChatChange(syncActiveChat);
+    return () => {
+      alive = false;
+      unsubChange();
+      if (unsubActive) unsubActive();
+    };
+  }, [live, member, startTyping]);
 
   // Live notification centre: new rows stream straight into the bell.
   useEffect(() => {

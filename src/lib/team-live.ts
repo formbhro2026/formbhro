@@ -85,6 +85,8 @@ export function mapTeamRequest(
     timeline: [{ label: "Request created", time: stamp(row.created_at) }],
     isEscalated: row.is_escalated ?? false,
     tags: Array.isArray(row.tags) ? row.tags : [],
+    assignedAtRaw: row.assigned_at ?? row.created_at ?? null,
+    lastActivityAt: row.last_activity_at ?? row.created_at ?? null,
     completedAt: row.completed_at ?? null,
     createdAt: row.created_at,
   };
