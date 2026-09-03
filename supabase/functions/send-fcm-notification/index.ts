@@ -299,7 +299,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2. Resolve receiver if not explicitly provided
+    // 2. Resolve receiver and apply call routing policy
     let receiverId = payload.receiver_id;
     let reqRow: any = null;
 
@@ -319,33 +319,94 @@ Deno.serve(async (req) => {
       reqRow = data;
     }
 
-    if (!receiverId && reqRow && payload.caller_id) {
-      receiverId = payload.caller_id === reqRow.user_id ? reqRow.assigned_team_id : reqRow.user_id;
-      if (!receiverId && payload.caller_id === reqRow.user_id) {
-        // Unassigned or Pool fallback: Notify all active team members and admins
-        const { data: teamRoles } = await sbAdmin
+    // Determine if this is a Customer -> Support call
+    const isCustomerCallingSupport = Boolean(
+      (reqRow && payload.caller_id === reqRow.user_id) ||
+      payload.is_support_call
+    );
+
+    if (isCustomerCallingSupport) {
+      let targetFound = false;
+      const assignedId = reqRow?.assigned_team_id || receiverId;
+
+      if (assignedId && assignedId !== payload.caller_id) {
+        // Step 2.2: Check whether the assigned Team member has a usable device token
+        const { data: assignedTokens } = await sbAdmin
+          .from("device_tokens")
+          .select("fcm_token")
+          .eq("user_id", assignedId)
+          .limit(1);
+
+        if (assignedTokens && assignedTokens.length > 0) {
+          receiverId = assignedId;
+          targetUserIds = [assignedId];
+          targetFound = true;
+          console.info(
+            `[CALL][FCM] Targeted assigned team member: ${assignedId.substring(0, 8)}...`
+          );
+        } else {
+          console.info(
+            `[CALL][FCM] Assigned team member has no usable token. Falling back to active support pool.`
+          );
+        }
+      }
+
+      // Step 2.4: Fall back to active Team/Admin support recipients if assigned member is offline/tokenless or request is unassigned
+      if (!targetFound) {
+        const { data: activeTeamRows } = await sbAdmin
+          .from("team_members")
+          .select("id")
+          .eq("is_active", true);
+        const activeTeamIds = (activeTeamRows || []).map((t: any) => t.id);
+
+        const { data: teamRoleRows } = await sbAdmin
           .from("user_roles")
           .select("user_id")
           .in("role", ["team", "admin"]);
-        if (teamRoles && teamRoles.length > 0) {
-          for (const r of teamRoles as Array<{ user_id: string }>) {
-            if (r.user_id && !targetUserIds.includes(r.user_id)) {
-              targetUserIds.push(r.user_id);
-            }
-          }
-          receiverId = targetUserIds[0];
+        const roleUserIds = (teamRoleRows || []).map((r: any) => r.user_id);
+
+        const eligibleUserIds = Array.from(
+          new Set([...activeTeamIds, ...roleUserIds])
+        ).filter((id) => id && id !== payload.caller_id);
+
+        // Fetch tokens for eligible users ordered by most recent activity
+        const { data: poolTokens } = await sbAdmin
+          .from("device_tokens")
+          .select("user_id, last_seen_at")
+          .in("user_id", eligibleUserIds)
+          .order("last_seen_at", { ascending: false })
+          .limit(10);
+
+        if (poolTokens && poolTokens.length > 0) {
+          const activeUserIds = Array.from(new Set(poolTokens.map((t: any) => t.user_id)));
+          targetUserIds = activeUserIds;
+          receiverId = activeUserIds[0]; // Primary recipient is the most recently active on-duty team member
+          console.info(
+            `[CALL][FCM] Resolved active support pool: ${activeUserIds.length} members with active tokens.`
+          );
+        } else if (eligibleUserIds.length > 0) {
+          targetUserIds = eligibleUserIds.slice(0, 5);
+          receiverId = eligibleUserIds[0];
+          console.info(
+            `[CALL][FCM] Fallback to eligible team members: ${targetUserIds.length} members.`
+          );
         }
       }
-    }
-
-    if (receiverId && !targetUserIds.includes(receiverId)) {
-      targetUserIds.push(receiverId);
+    } else {
+      // Non-support calls (e.g. Team -> Customer, Admin direct chat)
+      if (!receiverId && reqRow && payload.caller_id) {
+        receiverId = payload.caller_id === reqRow.user_id ? reqRow.assigned_team_id : reqRow.user_id;
+      }
+      if (receiverId) {
+        targetUserIds = [receiverId];
+      }
     }
 
     // Exclude caller_id so the caller never receives their own incoming call notification
     if (payload.caller_id) {
       targetUserIds = targetUserIds.filter((id) => id !== payload.caller_id);
     }
+    targetUserIds = Array.from(new Set(targetUserIds));
 
     if (targetUserIds.length === 0) {
       console.info("[CALL][FCM] No receiver found for call", payload.request_id);

@@ -39,6 +39,7 @@ export interface ResolvedCallRoom {
   canonicalRoomId: string;
   requestUuid: string;
   requestReference?: string;
+  requestUserId?: string;
   chatRoomId?: string;
   receiverId?: string;
   targetRoute?: string;
@@ -90,6 +91,7 @@ export async function resolveCanonicalCallRoom(
         canonicalRoomId: reqData.id,
         requestUuid: reqData.id,
         requestReference: reqData.reference ?? undefined,
+        requestUserId: reqData.user_id,
         receiverId,
         targetRoute,
         isDirectAdminChat,
@@ -555,6 +557,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
             body: {
               receiver_id: resolved.receiverId,
               notification_type: "call",
+              is_support_call: Boolean(user.id === resolved.requestUserId || !resolved.receiverId),
               title: `Incoming ${type === "video" ? "Video" : "Voice"} Call`,
               body: "Tap to answer the call",
               request_id: resolved.requestUuid,
