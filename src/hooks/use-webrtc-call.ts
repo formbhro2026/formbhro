@@ -26,7 +26,7 @@ interface ActiveCallDetails {
   callerId: string;
   receiverId?: string;
   connectedAt?: number;
-  status: "completed" | "missed" | "declined" | "cancelled";
+  status: "completed" | "missed" | "declined" | "cancelled" | "connecting";
   isCaller: boolean;
   logged: boolean;
 }
@@ -227,6 +227,29 @@ const requestMediaPermissions = async (
   }
 };
 
+function getRole(): "USER" | "TEAM" {
+  if (typeof window === "undefined") return "USER";
+  const path = window.location.pathname;
+  return path.startsWith("/team") || path.startsWith("/admin") ? "TEAM" : "USER";
+}
+
+function logWebRTC(
+  role: "USER" | "TEAM",
+  event: string,
+  callSessionId?: string,
+  chatRoomId?: string,
+  pc?: RTCPeerConnection | null,
+  extra?: string,
+) {
+  const sig = pc?.signalingState || "none";
+  const ice = pc?.iceConnectionState || "none";
+  const conn = pc?.connectionState || "none";
+  const gather = pc?.iceGatheringState || "none";
+  console.log(
+    `[WEBRTC][${role}] event=${event} callSessionId=${callSessionId || "none"} chatRoomId=${chatRoomId || "none"} signalingState=${sig} iceConnectionState=${ice} connectionState=${conn} iceGatheringState=${gather} timestamp=${Date.now()}${extra ? " " + extra : ""}`,
+  );
+}
+
 export function useWebRTCCall(chatRoomId: string | undefined) {
   const [session, setSession] = useState<CallSession>({
     isActive: false,
@@ -256,6 +279,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
   const noAnswerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const terminalSessionsRef = useRef<Set<string>>(new Set());
   const callDetailsRef = useRef<ActiveCallDetails | null>(null);
+  const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
 
   // Sync current user ID eagerly & via auth change
   useEffect(() => {
@@ -313,7 +337,8 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
     if (!details || details.logged) return;
     details.logged = true;
 
-    let finalStatus: "completed" | "missed" | "declined" | "cancelled" = details.status;
+    let finalStatus: "completed" | "missed" | "declined" | "cancelled" =
+      details.status === "connecting" ? "cancelled" : details.status;
     let durationSeconds = 0;
 
     if (details.connectedAt) {
@@ -344,6 +369,16 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
   const cleanup = useCallback(
     (errorMessage?: string) => {
       const currentSid = callDetailsRef.current?.callSessionId;
+      const role = getRole();
+      logWebRTC(
+        role,
+        "CLEANUP",
+        currentSid,
+        canonicalRoomIdRef.current || chatRoomId,
+        pcRef.current,
+        `reason=${errorMessage || "user_hangup"}`,
+      );
+
       if (currentSid) {
         terminalSessionsRef.current.add(currentSid);
         console.log(
@@ -353,6 +388,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
 
       finalizeCallLog(errorMessage);
       stopIncomingCallRingtone();
+      pendingCandidatesRef.current = [];
 
       if (offerIntervalRef.current) {
         clearInterval(offerIntervalRef.current);
@@ -385,15 +421,24 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         facingMode: "user",
       });
     },
-    [finalizeCallLog],
+    [finalizeCallLog, chatRoomId],
   );
 
   const createPeerConnection = useCallback(() => {
     const pc = new RTCPeerConnection(ICE_SERVERS);
+    const role = getRole();
 
     pc.onicecandidate = (event) => {
       const activeRoom = canonicalRoomIdRef.current || chatRoomId;
       if (event.candidate && activeRoom && myIdRef.current) {
+        logWebRTC(
+          role,
+          "ICE_CANDIDATE_SENT",
+          callDetailsRef.current?.callSessionId,
+          activeRoom,
+          pc,
+          `candidate=${event.candidate.candidate.substring(0, 30)}...`,
+        );
         void sendSignal(activeRoom, {
           type: "candidate",
           from: myIdRef.current,
@@ -404,6 +449,25 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
     };
 
     pc.ontrack = (event) => {
+      const activeRoom = canonicalRoomIdRef.current || chatRoomId;
+      logWebRTC(
+        role,
+        "REMOTE_TRACK_RECEIVED",
+        callDetailsRef.current?.callSessionId,
+        activeRoom,
+        pc,
+        `kind=${event.track?.kind} enabled=${event.track?.enabled} readyState=${event.track?.readyState}`,
+      );
+      if (event.track?.kind === "audio") {
+        logWebRTC(
+          role,
+          "AUDIO_TRACK_RECEIVED",
+          callDetailsRef.current?.callSessionId,
+          activeRoom,
+          pc,
+          `enabled=${event.track.enabled} readyState=${event.track.readyState}`,
+        );
+      }
       if (event.streams && event.streams[0]) {
         setSession((prev) => ({ ...prev, remoteStream: event.streams[0] }));
       } else {
@@ -415,9 +479,30 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
       }
     };
 
+    pc.onconnectionstatechange = () => {
+      const activeRoom = canonicalRoomIdRef.current || chatRoomId;
+      logWebRTC(
+        role,
+        "CONNECTION_STATE_CHANGED",
+        callDetailsRef.current?.callSessionId,
+        activeRoom,
+        pc,
+        `connectionState=${pc.connectionState}`,
+      );
+    };
+
     pc.oniceconnectionstatechange = () => {
+      const activeRoom = canonicalRoomIdRef.current || chatRoomId;
+      logWebRTC(
+        role,
+        "ICE_CONNECTION_STATE_CHANGED",
+        callDetailsRef.current?.callSessionId,
+        activeRoom,
+        pc,
+        `iceConnectionState=${pc.iceConnectionState}`,
+      );
       if (pc.iceConnectionState === "disconnected" || pc.iceConnectionState === "failed") {
-        cleanup();
+        cleanup("peer_connection_failed");
       }
     };
 
@@ -514,6 +599,8 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         await pc.setLocalDescription(offer);
 
         lastOfferRef.current = { offer, type, sessionId: callSessionId };
+        logWebRTC("USER", "OUTGOING_CALL_STARTED", callSessionId, canonicalRoom, pc);
+        logWebRTC("USER", "OFFER_CREATED", callSessionId, canonicalRoom, pc);
 
         console.log(
           `[CALL][TRACE][OFFER] Sending offer: callSessionId=${callSessionId} requestId=${resolved.requestUuid} canonicalRoomId=${canonicalRoom} userId=${user.id} timestamp=${Date.now()} source=startCall`,
@@ -524,6 +611,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
           target: "all",
           data: { offer, type, sessionId: callSessionId, requestId: resolved.requestUuid },
         });
+        logWebRTC("USER", "OFFER_SENT", callSessionId, canonicalRoom, pc);
 
         // Broadcast offer every 2.5 seconds until answered or terminal
         offerIntervalRef.current = setInterval(() => {
@@ -579,33 +667,21 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
           })
           .catch((e) => console.warn("[CALL][FCM] Call push network error:", e));
 
-        // Auto hangup after 30 seconds if not accepted (safe lifecycle cancellation)
+        // 45-second timeout for missed call
         noAnswerTimeoutRef.current = setTimeout(() => {
-          if (terminalSessionsRef.current.has(callSessionId)) return;
-          setSession((currentSession) => {
-            if (
-              currentSession.isActive &&
-              currentSession.isOutgoing &&
-              !currentSession.isAccepted
-            ) {
-              console.log(
-                `[CALL][TRACE][HANGUP] Auto-hangup (no answer timeout): callSessionId=${callSessionId} timestamp=${Date.now()}`,
-              );
-              hangup("No answer from the other side.");
-              return currentSession;
-            }
-            return currentSession;
-          });
-        }, 30000);
+          if (!session.isAccepted) {
+            console.log(
+              `[CALL][TRACE][TIMEOUT] No answer after 45s: callSessionId=${callSessionId}`,
+            );
+            cleanup("No answer");
+          }
+        }, 45000);
       } catch (err) {
         console.error("WebRTC startCall error:", err);
-        setSession((prev) => ({
-          ...prev,
-          error: "Could not start call: " + (err as Error).message,
-        }));
+        cleanup("Could not start call: " + (err as Error).message);
       }
     },
-    [chatRoomId, cleanup, createPeerConnection],
+    [chatRoomId, cleanup, createPeerConnection, session.isAccepted],
   );
 
   const acceptCall = useCallback(
@@ -643,6 +719,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         console.log(
           `[CALL][TRACE][ACCEPT] Accepting call: callSessionId=${sid} canonicalRoomId=${activeRoomId} callType=${effectiveCallType} userId=${user?.id} timestamp=${Date.now()}`,
         );
+        logWebRTC("TEAM", "ACCEPT_CALL_ENTER", sid, activeRoomId, pcRef.current);
 
         const sessionType: "audio" | "video" = effectiveCallType === "audio" ? "audio" : "video";
 
@@ -658,7 +735,16 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
 
         let stream: MediaStream;
         try {
+          logWebRTC("TEAM", "MEDIA_PERMISSION_START", sid, activeRoomId, pcRef.current);
           stream = await requestMediaPermissions(effectiveCallType);
+          logWebRTC(
+            "TEAM",
+            "MEDIA_PERMISSION_SUCCESS",
+            sid,
+            activeRoomId,
+            pcRef.current,
+            `audioTracks=${stream.getAudioTracks().length}`,
+          );
         } catch (mediaErr: any) {
           console.error("Media permissions error:", mediaErr);
           const errName = mediaErr?.name || "";
@@ -682,6 +768,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         }
 
         localStreamRef.current = stream;
+        logWebRTC("TEAM", "LOCAL_STREAM_CREATED", sid, activeRoomId, pcRef.current);
 
         let pc = pcRef.current;
         if (!pc) {
@@ -698,20 +785,20 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
             requestId: resolved.requestUuid || activeRoomId,
             callType: sessionType,
             callerId: resolved.receiverId || "",
-            status: "completed",
-            connectedAt: Date.now(),
+            status: "connecting",
+            connectedAt: 0,
             isCaller: false,
             logged: false,
           };
         } else {
-          callDetailsRef.current.status = "completed";
-          callDetailsRef.current.connectedAt = Date.now();
+          callDetailsRef.current.status = "connecting";
         }
 
         // Check if remote offer was already received
         if (pc.remoteDescription) {
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
+          logWebRTC("TEAM", "ANSWER_CREATED", sid, activeRoomId, pc);
 
           setSession((prev) => ({
             ...prev,
@@ -732,6 +819,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
               target: "all",
               data: { ...answer, sessionId: sid },
             });
+            logWebRTC("TEAM", "ANSWER_SENT", sid, activeRoomId, pc);
           }
         } else {
           // Request offer from caller if remote description not yet set, keeping session active
@@ -754,6 +842,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
               target: "all",
               data: { sessionId: sid },
             });
+            logWebRTC("TEAM", "REQUEST_OFFER_SENT", sid, activeRoomId, pc);
           }
         }
       } catch (err) {
@@ -860,19 +949,26 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
               return;
             }
 
-            // Drop offer if we are already connected to an ongoing call
-            if (
+            // Only drop if another peer connection is actively connected to a different session
+            const isDifferentSession =
               callDetailsRef.current &&
+              callDetailsRef.current.callSessionId &&
+              sid &&
               callDetailsRef.current.callSessionId !== sid &&
-              callDetailsRef.current.status === "completed"
-            ) {
-              console.log(`[CALL][TRACE][OFFER] Dropping offer: another call is currently active`);
+              !callDetailsRef.current.callSessionId.startsWith(sid) &&
+              !sid.startsWith(callDetailsRef.current.callSessionId);
+
+            if (isDifferentSession && pcRef.current?.connectionState === "connected") {
+              logWebRTC("TEAM", "OFFER_DROPPED_ANOTHER_CALL_CONNECTED", sid, activeSignalingRoom, pcRef.current);
               return;
             }
 
-            console.log(
-              `[CALL][TRACE][OFFER] Processing incoming offer: callSessionId=${sid} from=${signal.from} timestamp=${Date.now()}`,
-            );
+            if (callDetailsRef.current) {
+              callDetailsRef.current.callSessionId = sid;
+              callDetailsRef.current.callerId = signal.from;
+            }
+
+            logWebRTC("TEAM", "OFFER_RECEIVED", sid, activeSignalingRoom, pcRef.current);
 
             if (!callDetailsRef.current || callDetailsRef.current.logged) {
               callDetailsRef.current = {
@@ -893,6 +989,20 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
               pcRef.current = pc;
             }
             await pc.setRemoteDescription(new RTCSessionDescription(signal.data.offer));
+            logWebRTC("TEAM", "REMOTE_DESCRIPTION_SET", sid, activeSignalingRoom, pc);
+
+            // Flush pending ICE candidates that arrived before remoteDescription
+            while (pendingCandidatesRef.current.length > 0) {
+              const cand = pendingCandidatesRef.current.shift();
+              if (cand && pcRef.current) {
+                try {
+                  await pcRef.current.addIceCandidate(new RTCIceCandidate(cand));
+                  logWebRTC("TEAM", "QUEUED_ICE_CANDIDATE_APPLIED", sid, activeSignalingRoom, pcRef.current);
+                } catch (e) {
+                  console.error("Error applying queued ice candidate:", e);
+                }
+              }
+            }
 
             // If user already clicked accept, answer immediately
             if (localStreamRef.current && myIdRef.current) {
@@ -902,6 +1012,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
               }
               const answer = await pc.createAnswer();
               await pc.setLocalDescription(answer);
+              logWebRTC("TEAM", "ANSWER_CREATED", sid, activeSignalingRoom, pc);
 
               console.log(
                 `[CALL][TRACE][ANSWER] Sending immediate answer: callSessionId=${sid} canonicalRoomId=${activeSignalingRoom} timestamp=${Date.now()}`,
@@ -912,6 +1023,8 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
                 target: "all",
                 data: { ...answer, sessionId: sid },
               });
+              logWebRTC("TEAM", "ANSWER_SENT", sid, activeSignalingRoom, pc);
+
               setSession((prev) => ({
                 ...prev,
                 isActive: true,
@@ -932,9 +1045,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
             break;
           }
           case "request_offer":
-            console.log(
-              `[CALL][TRACE][REQUEST_OFFER] Received request_offer on: ${activeSignalingRoom} session=${sid}`,
-            );
+            logWebRTC("USER", "REQUEST_OFFER_RECEIVED", sid, activeSignalingRoom, pcRef.current);
             // Only retransmit if this outgoing call is active and NOT terminal
             if (lastOfferRef.current && myIdRef.current) {
               const offerSid = lastOfferRef.current.sessionId;
@@ -953,12 +1064,11 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
                 target: "all",
                 data: lastOfferRef.current,
               });
+              logWebRTC("USER", "OFFER_SENT", offerSid, activeSignalingRoom, pcRef.current, "source=request_offer");
             }
             break;
           case "answer":
-            console.log(
-              `[CALL][TRACE][ANSWER] Received answer on: ${activeSignalingRoom} session=${sid}`,
-            );
+            logWebRTC("USER", "ANSWER_RECEIVED", sid, activeSignalingRoom, pcRef.current);
             if (offerIntervalRef.current) {
               clearInterval(offerIntervalRef.current);
               offerIntervalRef.current = null;
@@ -973,18 +1083,49 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
             }
             if (pcRef.current) {
               await pcRef.current.setRemoteDescription(new RTCSessionDescription(signal.data));
+              logWebRTC("USER", "REMOTE_DESCRIPTION_SET", sid, activeSignalingRoom, pcRef.current);
+
+              // Flush pending ICE candidates that arrived before remoteDescription
+              while (pendingCandidatesRef.current.length > 0) {
+                const cand = pendingCandidatesRef.current.shift();
+                if (cand && pcRef.current) {
+                  try {
+                    await pcRef.current.addIceCandidate(new RTCIceCandidate(cand));
+                    logWebRTC("USER", "QUEUED_ICE_CANDIDATE_APPLIED", sid, activeSignalingRoom, pcRef.current);
+                  } catch (e) {
+                    console.error("Error applying queued ice candidate:", e);
+                  }
+                }
+              }
+
               setSession((prev) => ({ ...prev, isAccepted: true, isOutgoing: false }));
             }
             break;
-          case "candidate":
-            if (pcRef.current) {
-              try {
-                await pcRef.current.addIceCandidate(new RTCIceCandidate(signal.data));
-              } catch (e) {
-                console.error("Error adding ice candidate", e);
+          case "candidate": {
+            const role = getRole();
+            const pc = pcRef.current;
+            if (pc) {
+              logWebRTC(
+                role,
+                "ICE_CANDIDATE_RECEIVED",
+                sid,
+                activeSignalingRoom,
+                pc,
+                `candidate=${signal.data?.candidate?.substring(0, 30)}...`,
+              );
+              if (pc.remoteDescription) {
+                try {
+                  await pc.addIceCandidate(new RTCIceCandidate(signal.data));
+                } catch (e) {
+                  console.error("Error adding ice candidate", e);
+                }
+              } else {
+                console.log(`[WEBRTC][${role}] Queuing candidate until remoteDescription is set: session=${sid}`);
+                pendingCandidatesRef.current.push(signal.data);
               }
             }
             break;
+          }
           case "hangup":
             console.log(
               `[CALL][TRACE][HANGUP] Received remote hangup on: ${activeSignalingRoom} session=${sid}`,

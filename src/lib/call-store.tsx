@@ -65,6 +65,7 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
     requestId: string;
     callType: "audio" | "video" | "screen";
     title?: string;
+    callSessionId?: string;
   } | null>(null);
 
   // Sync if activeRequest changes and no active call is ongoing
@@ -120,6 +121,7 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
               requestId: notif.request_id,
               callType,
               title: notif.title,
+              callSessionId: sid,
             });
             setCallRoomId(notif.request_id);
             startIncomingCallRingtone();
@@ -261,6 +263,21 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
         }
       : call.session;
 
+  const handleAcceptFromOverlay = useCallback(() => {
+    const target = incomingAlert?.requestId || callRoomId;
+    const callType = incomingAlert?.callType || "audio";
+    const sid = incomingAlert?.callSessionId;
+    console.log(
+      "[CALL][BRIDGE] handleAcceptFromOverlay: target=",
+      target,
+      "callType=",
+      callType,
+      "sid=",
+      sid,
+    );
+    void handleAcceptCall(target, callType, sid);
+  }, [incomingAlert, callRoomId, handleAcceptCall]);
+
   return (
     <CallContext.Provider
       value={{
@@ -277,7 +294,7 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
       {(activeSession.isActive || Boolean(activeSession.error)) && (
         <CallOverlay
           session={activeSession}
-          onAccept={handleAcceptCall}
+          onAccept={handleAcceptFromOverlay}
           onHangup={handleHangup}
           onSwitchCamera={call.switchCamera}
         />

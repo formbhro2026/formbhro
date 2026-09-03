@@ -7,6 +7,7 @@ import {
   Maximize2,
   Minimize2,
   SwitchCamera,
+  AlertCircle,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { type CallSession } from "@/hooks/use-webrtc-call";
@@ -27,6 +28,7 @@ export function CallOverlay({
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isMaximized, setIsMaximized] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
 
   useEffect(() => {
     if (localVideoRef.current && session.localStream) {
@@ -44,7 +46,21 @@ export function CallOverlay({
   useEffect(() => {
     if (audioRef.current && session.remoteStream && session.callType === "audio") {
       audioRef.current.srcObject = session.remoteStream;
-      audioRef.current.play().catch((err) => console.error("Audio autoplay failed:", err));
+      audioRef.current
+        .play()
+        .then(() => {
+          console.log(
+            "[WEBRTC][AUDIO] Audio playback started successfully. tracks:",
+            session.remoteStream?.getAudioTracks().length,
+          );
+        })
+        .catch((err) => {
+          console.error(
+            "[WEBRTC][AUDIO] Audio autoplay failed:",
+            err?.name || err,
+            err?.message || "",
+          );
+        });
     }
   }, [session.remoteStream, session.callType]);
 
@@ -60,41 +76,37 @@ export function CallOverlay({
     }
   }, [session.isActive, session.error]);
 
-  if (!session.isActive && !session.error) return null;
-
-  const isIncomingAlert = session.isIncoming && !session.isAccepted;
   const isStaff =
     typeof window !== "undefined" &&
     (window.location.pathname.startsWith("/team") || window.location.pathname.startsWith("/admin"));
 
+  if (!session.isActive && !session.error) return null;
+
   return (
     <div
+      id="call-overlay"
       className={cn(
-        "fixed z-[100] flex flex-col items-center justify-center bg-black/95 transition-all duration-300 backdrop-blur-xl",
-        isMaximized || isIncomingAlert
-          ? "inset-0 p-4"
-          : "bottom-20 right-4 w-72 h-48 max-w-[calc(100vw-2rem)] rounded-2xl overflow-hidden shadow-2xl border border-white/10 sm:w-80 sm:h-52 lg:w-96 lg:h-64",
+        "fixed z-50 transition-all duration-300 shadow-2xl overflow-hidden flex flex-col bg-surface-1 border border-border/80 backdrop-blur-xl",
+        isMinimized
+          ? "bottom-4 right-4 w-72 h-44 rounded-2xl"
+          : isMaximized
+            ? "inset-0 w-full h-full rounded-none"
+            : "bottom-6 right-6 w-96 h-[520px] rounded-3xl",
       )}
     >
-      {/* Remote Video (Full Size) */}
-      <div className="relative w-full h-full bg-surface-3 rounded-2xl overflow-hidden flex items-center justify-center">
-        {!session.isActive && session.error ? (
-          <div className="flex flex-col items-center gap-4 text-center p-6">
-            <div className="h-16 w-16 rounded-full bg-danger/20 flex items-center justify-center">
-              <PhoneOff className="h-8 w-8 text-danger" />
-            </div>
-            <div>
-              <p className="text-white font-bold text-lg mb-2">Call Failed</p>
-              <p className="text-sm text-danger-light bg-danger/10 px-4 py-2 rounded-lg border border-danger/20">
-                {session.error}
-              </p>
-            </div>
+      <audio ref={audioRef} autoPlay playsInline style={{ display: "none" }} />
+      {/* Visual media stream container */}
+      <div className="relative flex-1 bg-surface-base flex items-center justify-center overflow-hidden">
+        {session.error ? (
+          <div className="flex flex-col items-center gap-3 text-center p-6 bg-red-950/40 w-full h-full justify-center">
+            <AlertCircle className="h-12 w-12 text-destructive animate-bounce" />
+            <p className="text-white font-semibold text-sm max-w-xs">{session.error}</p>
             <button
               id="call-overlay-error-close"
-              onClick={onHangup}
-              className="mt-4 px-6 py-2 rounded-full bg-surface-4 text-white hover:bg-surface-5 transition-colors cursor-pointer"
+              onClick={() => onHangup()}
+              className="mt-2 text-xs text-text-muted hover:text-white underline cursor-pointer"
             >
-              Close
+              Dismiss
             </button>
           </div>
         ) : session.remoteStream ? (
@@ -107,7 +119,6 @@ export function CallOverlay({
                 <p className="text-white font-bold text-lg">In Call</p>
                 <p className="text-sm text-text-muted mt-1">Audio Connected</p>
               </div>
-              <audio ref={audioRef} autoPlay />
             </div>
           ) : (
             <video
