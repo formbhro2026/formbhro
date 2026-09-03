@@ -24,7 +24,11 @@ import { startIncomingCallRingtone, stopIncomingCallRingtone } from "@/lib/audio
 interface GlobalCallContextType {
   session: CallSession;
   startCall: (type?: "audio" | "video" | "screen", targetRoomId?: string) => Promise<void>;
-  acceptCall: () => Promise<void>;
+  acceptCall: (
+    targetRoomId?: string,
+    callType?: "audio" | "video" | "screen",
+    sessionSid?: string,
+  ) => Promise<void>;
   hangup: (errorMessage?: string) => Promise<void>;
   switchCamera?: () => Promise<void>;
   activeRoomId: string | undefined;
@@ -171,16 +175,21 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
   );
 
   const handleAcceptCall = useCallback(
-    async (targetRoomId?: string) => {
+    async (
+      targetRoomId?: string,
+      callType?: "audio" | "video" | "screen",
+      sessionSid?: string,
+    ) => {
       stopIncomingCallRingtone();
+      const effectiveType = callType || incomingAlert?.callType || "audio";
       setIncomingAlert(null);
       const target = targetRoomId || callRoomId;
       if (target && target !== callRoomId) {
         setCallRoomId(target);
       }
-      await call.acceptCall(target);
+      await call.acceptCall(target, effectiveType, sessionSid);
     },
-    [call, callRoomId],
+    [call, callRoomId, incomingAlert?.callType],
   );
 
   // Native Android incoming call answer bridge:
@@ -200,7 +209,8 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
         if (sid) handledCallSessionsRef.current.add(sid);
         console.log("[CALL][BRIDGE] Consuming pending call answer from native intent:", pending);
         const target = pending.requestId || pending.chatRoomId;
-        void handleAcceptCall(target);
+        const callType = pending.callType === "video" ? "video" : "audio";
+        void handleAcceptCall(target, callType, sid);
       }
     };
 
@@ -217,7 +227,8 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
       if (sid) handledCallSessionsRef.current.add(sid);
       console.log("[CALL][BRIDGE] Received formbhro:call_answered event:", detail);
       const target = detail.requestId || detail.chatRoomId;
-      void handleAcceptCall(target);
+      const callType = detail.callType === "video" ? "video" : "audio";
+      void handleAcceptCall(target, callType, sid);
     };
 
     window.addEventListener("formbhro:call_answered", onCallAnswered);

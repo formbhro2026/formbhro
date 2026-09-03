@@ -609,10 +609,20 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
   );
 
   const acceptCall = useCallback(
-    async (targetRoomId?: string) => {
+    async (
+      targetRoomId?: string,
+      explicitCallType?: "audio" | "video" | "screen",
+      explicitSessionId?: string,
+    ) => {
       stopIncomingCallRingtone();
       const rawId = targetRoomId || canonicalRoomIdRef.current || chatRoomId;
       if (!rawId) return;
+
+      const effectiveCallType: "audio" | "video" | "screen" =
+        explicitCallType ||
+        session.callType ||
+        callDetailsRef.current?.callType ||
+        "audio";
 
       try {
         const {
@@ -625,31 +635,49 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         canonicalRoomIdRef.current = activeRoomId;
         setCanonicalRoomId(activeRoomId);
 
-        const sid = callDetailsRef.current?.callSessionId || "call_" + activeRoomId;
+        const sid =
+          explicitSessionId ||
+          callDetailsRef.current?.callSessionId ||
+          "call_" + activeRoomId;
+
         console.log(
-          `[CALL][TRACE][ACCEPT] Accepting call: callSessionId=${sid} canonicalRoomId=${activeRoomId} userId=${user?.id} timestamp=${Date.now()}`,
+          `[CALL][TRACE][ACCEPT] Accepting call: callSessionId=${sid} canonicalRoomId=${activeRoomId} callType=${effectiveCallType} userId=${user?.id} timestamp=${Date.now()}`,
         );
+
+        const sessionType: "audio" | "video" = effectiveCallType === "audio" ? "audio" : "video";
+
+        // Mark session as active immediately so UI overlay remains mounted
+        setSession((prev) => ({
+          ...prev,
+          isActive: true,
+          isIncoming: false,
+          isAccepted: true,
+          callType: sessionType,
+          error: null,
+        }));
 
         let stream: MediaStream;
         try {
-          stream = await requestMediaPermissions(session.callType || "video");
+          stream = await requestMediaPermissions(effectiveCallType);
         } catch (mediaErr: any) {
           console.error("Media permissions error:", mediaErr);
           const errName = mediaErr?.name || "";
           let errorMessage = isCapacitor()
-            ? "Microphone and camera permissions are required. Please enable them in app settings."
-            : "Microphone and camera access is required for calls.";
+            ? (effectiveCallType === "audio"
+                ? "Microphone permission is required. Please enable it in app settings."
+                : "Microphone and camera permissions are required. Please enable them in app settings.")
+            : "Microphone access is required for calls.";
 
           if (errName === "NotAllowedError" || errName === "PermissionDeniedError") {
             errorMessage =
-              "Permission denied. Please allow microphone and camera access in your browser or device settings.";
+              "Permission denied. Please allow microphone access in your browser or device settings.";
           } else if (errName === "NotFoundError" || errName === "DevicesNotFoundError") {
-            errorMessage = "No microphone or camera was detected on this device.";
+            errorMessage = "No microphone was detected on this device.";
           } else if (errName === "NotReadableError" || errName === "TrackStartError") {
-            errorMessage = "Microphone/Camera is currently in use by another app.";
+            errorMessage = "Microphone is currently in use by another app.";
           }
 
-          setSession((prev) => ({ ...prev, error: errorMessage }));
+          setSession((prev) => ({ ...prev, isActive: false, error: errorMessage }));
           return;
         }
 
@@ -663,7 +691,19 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
 
         stream.getTracks().forEach((track) => pc?.addTrack(track, stream));
 
-        if (callDetailsRef.current) {
+        if (!callDetailsRef.current) {
+          callDetailsRef.current = {
+            callSessionId: sid,
+            chatRoomId: activeRoomId,
+            requestId: resolved.requestUuid || activeRoomId,
+            callType: sessionType,
+            callerId: resolved.receiverId || "",
+            status: "completed",
+            connectedAt: Date.now(),
+            isCaller: false,
+            logged: false,
+          };
+        } else {
           callDetailsRef.current.status = "completed";
           callDetailsRef.current.connectedAt = Date.now();
         }
@@ -678,6 +718,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
             isActive: true,
             isAccepted: true,
             isIncoming: false,
+            callType: sessionType,
             localStream: stream,
           }));
 
@@ -693,11 +734,13 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
             });
           }
         } else {
-          // Request offer from caller if remote description not yet set
+          // Request offer from caller if remote description not yet set, keeping session active
           setSession((prev) => ({
             ...prev,
+            isActive: true,
             isAccepted: true,
             isIncoming: false,
+            callType: sessionType,
             localStream: stream,
           }));
 
@@ -717,6 +760,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         console.error("WebRTC acceptCall error:", err);
         setSession((prev) => ({
           ...prev,
+          isActive: false,
           error: "Could not accept call: " + (err as Error).message,
         }));
       }

@@ -124,11 +124,13 @@ export function CallOverlay({
             </div>
             <div>
               <p className="text-white font-bold text-xl">
-                {session.isIncoming
-                  ? "Incoming Call..."
-                  : isStaff
-                    ? "Calling Client..."
-                    : "Calling Support..."}
+                {session.isAccepted
+                  ? "Connecting Call..."
+                  : session.isIncoming
+                    ? "Incoming Call..."
+                    : isStaff
+                      ? "Calling Client..."
+                      : "Calling Support..."}
               </p>
               <p className="text-xs text-brand font-semibold mt-1.5 uppercase tracking-widest">
                 {session.isScreenSharing
