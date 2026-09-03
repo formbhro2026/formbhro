@@ -44,6 +44,8 @@ export interface CallLogData {
 export type ChatMessage = {
   id: string;
   requestId: string;
+  requestUuid?: string;
+  chatRoomId?: string;
   senderId?: string;
   author: "user" | "support";
   authorName: string;

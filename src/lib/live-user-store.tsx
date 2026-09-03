@@ -26,7 +26,7 @@ import { useSession } from "@/lib/session";
 import { toast } from "sonner";
 import { playMessageNotificationSound } from "@/lib/audio-notifications";
 import { showSystemNotification } from "@/lib/fcm";
-import { isChatActive, getActiveChat, onActiveChatChange, shouldDeliverNotification } from "@/lib/active-chat-tracker";
+import { isChatActive, getActiveChat, onActiveChatChange, shouldDeliverNotification, getNotificationDedupKey } from "@/lib/active-chat-tracker";
 import { supabase } from "@/integrations/supabase/client";
 
 const STATUS_MAP: Record<DbRequestStatus, RequestStatus> = {
@@ -158,6 +158,8 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
     (row: MessageRow & { attachment?: DocumentRow | null }, reference: string): ChatMessage => ({
       id: row.id,
       requestId: reference,
+      requestUuid: row.request_id,
+      chatRoomId: row.chat_room_id,
       senderId: row.sender_id ?? undefined,
       author: row.sender_role === "user" ? "user" : "support",
       authorName:
@@ -551,13 +553,25 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       const matchedUuid = Object.entries(referenceById.current).find(
         ([, r]) => r.toLowerCase() === cleanId,
       )?.[0]?.toLowerCase();
+      const room = rooms.current[ref] || rooms.current[cleanId];
+      const roomId = room?.chatRoomId?.toLowerCase();
+      const roomReqId = room?.requestId?.toLowerCase();
+
       // On-demand message loading when messages are accessed for a specific chat
       if (!loadedRoomsRef.current.has(cleanId) && !loadedRoomsRef.current.has(ref)) {
         void loadChat(ref || cleanId);
       }
       return messages.filter((m) => {
         const req = m.requestId?.toLowerCase();
-        return req === cleanId || req === ref || (matchedUuid && req === matchedUuid);
+        const reqUuid = m.requestUuid?.toLowerCase();
+        const msgRoomId = m.chatRoomId?.toLowerCase();
+        return (
+          req === cleanId ||
+          req === ref ||
+          (matchedUuid && req === matchedUuid) ||
+          (reqUuid && (reqUuid === cleanId || reqUuid === ref || reqUuid === roomReqId)) ||
+          (msgRoomId && (msgRoomId === cleanId || msgRoomId === roomId))
+        );
       });
     },
     [messages, loadChat],
@@ -828,7 +842,13 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
           requestId: row.request_id,
           chatRoomId: row.chat_room_id,
         });
-        const notifKey = row.id || `${row.request_id || ""}:${row.chat_room_id || ""}:${row.title}:${row.body}`;
+        const notifKey = getNotificationDedupKey({
+          type: "message",
+          requestId: row.request_id,
+          chatRoomId: row.chat_room_id,
+          title: row.title,
+          body: row.body,
+        });
         if (!isChatOpen && shouldDeliverNotification(notifKey)) {
           playMessageNotificationSound();
           showSystemNotification(row.title || "New message", row.body || "You have a new message", {

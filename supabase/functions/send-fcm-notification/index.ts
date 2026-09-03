@@ -561,12 +561,22 @@ Deno.serve(async (req) => {
     return new Response("Firebase auth error", { status: 500, headers: corsHeaders });
   }
 
+  // Deduplicate tokens by fcm_token value to prevent double delivery to the same device
+  const seenTokens = new Set<string>();
+  const uniqueTokens: DeviceToken[] = [];
+  for (const t of (tokens as DeviceToken[])) {
+    if (t?.fcm_token && !seenTokens.has(t.fcm_token)) {
+      seenTokens.add(t.fcm_token);
+      uniqueTokens.push(t);
+    }
+  }
+
   // Dispatch high-priority FCM notification to all registered devices
   const title = notification.title;
   const body = notification.body ?? "";
 
   const results = await Promise.allSettled(
-    (tokens as DeviceToken[]).map((t) =>
+    uniqueTokens.map((t) =>
       sendFCMMessage(accessToken, projectId, t.fcm_token, title, body, data).then((result) => ({
         token: t.fcm_token,
         ...result,

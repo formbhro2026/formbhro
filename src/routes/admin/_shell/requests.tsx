@@ -205,6 +205,29 @@ function AdminRequests() {
                         </select>
                       </Field>
 
+                      <Field label="Priority">
+                        <select
+                          className={cn(
+                            inputClass,
+                            "mt-1 border-border-strong bg-surface-3 h-10 text-xs font-medium capitalize",
+                          )}
+                          value={detail?.priority ?? "medium"}
+                          disabled={busy}
+                          onChange={(e) =>
+                            void act(() =>
+                              requestsApi.updateRequestPriority(
+                                detail!.id,
+                                e.target.value as any,
+                              ),
+                            )
+                          }
+                        >
+                          <option value="low">Low</option>
+                          <option value="medium">Medium</option>
+                          <option value="high">High</option>
+                        </select>
+                      </Field>
+
                       <Field label="Assigned Team Member">
                         <div className="relative mt-1">
                           <select

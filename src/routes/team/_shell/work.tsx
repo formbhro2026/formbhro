@@ -35,6 +35,7 @@ import { TeamStatusBadge, PriorityBadge } from "@/components/team/TeamStatusBadg
 import { Button } from "@/components/admin/AdminUI";
 import { StatusSelect } from "@/components/team/StatusSelect";
 import { CategorySelect } from "@/components/team/CategorySelect";
+import { PrioritySelect } from "@/components/team/PrioritySelect";
 import { TeamDocumentCard } from "@/components/team/TeamDocumentCard";
 import { TeamDocumentPreview } from "@/components/team/TeamDocumentPreview";
 import { CallEventBubble } from "@/components/chat/CallEventBubble";
@@ -1844,7 +1845,7 @@ function RequestPanel({
   onStatus: (s: TeamRequest["status"]) => void;
   onSend: (requestId: string, text: string) => void;
 }) {
-  const { documentsFor, deleteDocument } = useTeamStore();
+  const { documentsFor, deleteDocument, updatePriority } = useTeamStore();
   const docs = documentsFor(r.id);
 
   const rows = [
@@ -1869,7 +1870,12 @@ function RequestPanel({
               {row.label === "Current Status" ? (
                 <TeamStatusBadge status={r.status} />
               ) : row.label === "Priority" ? (
-                <PriorityBadge priority={r.priority} />
+                <PrioritySelect
+                  requestId={r.id}
+                  priority={r.priority}
+                  onChange={(p) => void updatePriority(r.id, p)}
+                  className="w-36"
+                />
               ) : row.label === "Category" ? (
                 <CategorySelect requestId={r.id} category={r.category} className="w-40" />
               ) : (

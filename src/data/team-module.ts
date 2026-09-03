@@ -55,6 +55,8 @@ export type TeamMessageVersion = { text: string; at: string };
 export type TeamMessage = {
   id: string;
   requestId: string;
+  requestUuid?: string;
+  chatRoomId?: string;
   senderId?: string;
   author: "user" | "team";
   authorName: string;

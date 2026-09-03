@@ -16,18 +16,11 @@ export function subscribeToRoom(
     onTyping?: (payload: { userId: string; name: string; typing: boolean }) => void;
   },
 ) {
+  const channelId = `room-${chatRoomId}-${Math.random().toString(36).slice(2, 7)}`;
   const topic = `room:${chatRoomId}`;
 
-  // Clean up any existing channel with the same topic before creating/subscribing anew
-  const existing = supabase.getChannels().find(
-    (c) => c.topic === `realtime:${topic}` || c.topic === topic,
-  );
-  if (existing) {
-    void supabase.removeChannel(existing);
-  }
-
   const channel: RealtimeChannel = supabase
-    .channel(topic)
+    .channel(channelId)
     .on(
       "postgres_changes",
       {

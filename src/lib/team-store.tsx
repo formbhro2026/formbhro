@@ -19,12 +19,13 @@ import {
   type TeamDelivery,
   type TeamReaction,
   type TeamReadReceipt,
+  type Priority,
 } from "@/data/team-module";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { playMessageNotificationSound } from "@/lib/audio-notifications";
 import { showSystemNotification } from "@/lib/fcm";
-import { isChatActive, shouldDeliverNotification, getActiveChat, onActiveChatChange } from "@/lib/active-chat-tracker";
+import { isChatActive, getActiveChat, onActiveChatChange, shouldDeliverNotification, getNotificationDedupKey } from "@/lib/active-chat-tracker";
 import { signInWithPassword, getMyRole, getMyProfile, signOut as apiSignOut } from "@/lib/api/auth";
 import { markMessagesSeen } from "./api/messages";
 import { assignRequest, updateRequestStatus, getTeamAnalytics } from "./api/requests";
@@ -131,6 +132,7 @@ type TeamStore = {
   ) => void;
   deleteDocument: (documentId: string, storagePath?: string) => Promise<void>;
   setStatus: (requestId: string, status: TeamStatus) => void;
+  updatePriority: (requestId: string, priority: Priority) => Promise<void>;
   /** Marks every incoming user message on this request as read. */
   markRead: (requestId: string) => void;
   /** Toggles an emoji reaction by the signed-in member on one message. */
@@ -701,11 +703,16 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
 
       return visibleMessages.filter((m) => {
         const req = m.requestId?.toLowerCase();
+        const reqUuid = m.requestUuid?.toLowerCase();
+        const msgRoomId = m.chatRoomId?.toLowerCase();
+        const roomId = room?.chatRoomId?.toLowerCase();
         return (
           req === cleanId ||
           req === ref ||
           (matchedUuid && req === matchedUuid) ||
-          (roomReqId && req === roomReqId)
+          (roomReqId && req === roomReqId) ||
+          (reqUuid && (reqUuid === cleanId || reqUuid === ref || reqUuid === roomReqId)) ||
+          (msgRoomId && (msgRoomId === cleanId || (roomId && msgRoomId === roomId)))
         );
       });
     },
@@ -1136,6 +1143,21 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     [touch, fetchAnalytics],
   );
 
+  const updatePriority = useCallback(
+    async (requestId: string, priority: Priority) => {
+      // Optimistic update
+      touch(requestId, { priority }, `Priority set to ${priority}`);
+      try {
+        await requestsApi.updateRequestPriority(requestId, priority);
+        toast.success(`Priority set to ${priority}`);
+      } catch (err: any) {
+        console.error("Failed to update priority:", err);
+        toast.error(err?.message || "Failed to update priority");
+      }
+    },
+    [touch],
+  );
+
   const isUserTyping = useCallback((requestId: string) => Boolean(typingIn[requestId]), [typingIn]);
 
   const notifyTyping = useCallback((requestId: string) => {
@@ -1460,7 +1482,13 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           requestId: row.request_id,
           chatRoomId: row.chat_room_id,
         });
-        const notifKey = row.id || `${row.request_id || ""}:${row.chat_room_id || ""}:${row.title}:${row.body}`;
+        const notifKey = getNotificationDedupKey({
+          type: "message",
+          requestId: row.request_id,
+          chatRoomId: row.chat_room_id,
+          title: row.title,
+          body: row.body,
+        });
         if (!isChatOpen && shouldDeliverNotification(notifKey)) {
           playMessageNotificationSound();
           showSystemNotification(row.title || "New message", row.body || "New message received", {
@@ -1570,6 +1598,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       attachDocument,
       deleteDocument,
       setStatus,
+      updatePriority,
       markRead,
       markMessageRead,
       toggleReaction,
@@ -1622,6 +1651,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       attachDocument,
       deleteDocument,
       setStatus,
+      updatePriority,
       markRead,
       markMessageRead,
       toggleReaction,

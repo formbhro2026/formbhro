@@ -24,7 +24,7 @@ import {
   isCapacitor,
   showSystemNotification,
 } from "../lib/fcm";
-import { isChatActive, shouldDeliverNotification } from "../lib/active-chat-tracker";
+import { isChatActive, shouldDeliverNotification, getNotificationDedupKey } from "../lib/active-chat-tracker";
 import {
   playMessageNotificationSound,
   startIncomingCallRingtone,
@@ -306,7 +306,15 @@ function RootComponent() {
         return;
       }
 
-      const notifKey = data?.messageId || data?.id || `${data?.requestId || ""}:${data?.chatRoomId || ""}:${title}:${body}`;
+      const notifKey = getNotificationDedupKey({
+        type: data?.type || "message",
+        messageId: data?.messageId || data?.id,
+        requestId: data?.requestId,
+        chatRoomId: data?.chatRoomId,
+        callSessionId: data?.callSessionId,
+        title,
+        body,
+      });
       if (!shouldDeliverNotification(notifKey)) {
         return;
       }

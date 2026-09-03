@@ -101,6 +101,8 @@ export function mapTeamMessage(
   return {
     id: row.id,
     requestId: reference,
+    requestUuid: row.request_id,
+    chatRoomId: row.chat_room_id,
     senderId: row.sender_id ?? undefined,
     author: mine ? "team" : "user",
     authorName: mine ? memberName : "User",

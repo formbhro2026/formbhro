@@ -23,6 +23,30 @@ const knownMappings = new Map<string, Set<string>>();
 const recentNotifKeys = new Map<string, number>();
 
 /**
+ * Returns a consistent deduplication key for notifications across FCM and Realtime events.
+ */
+export function getNotificationDedupKey(item: {
+  type?: string | null;
+  messageId?: string | null;
+  requestId?: string | null;
+  chatRoomId?: string | null;
+  callSessionId?: string | null;
+  title?: string | null;
+  body?: string | null;
+}): string {
+  if (item.callSessionId) {
+    return `call:${item.callSessionId.trim().toLowerCase()}`;
+  }
+  if (item.messageId) {
+    return `msg:${item.messageId.trim().toLowerCase()}`;
+  }
+  const cleanTitle = (item.title || "").trim().toLowerCase();
+  const cleanBody = (item.body || "").trim().toLowerCase();
+  const target = (item.requestId || item.chatRoomId || "").trim().toLowerCase();
+  return `${item.type || "notif"}:${target}:${cleanTitle}:${cleanBody}`;
+}
+
+/**
  * Checks if a notification with this key was already delivered recently.
  * Prevents double chime/toast/alert from concurrent DB realtime and FCM foreground push.
  */

@@ -433,10 +433,21 @@ export async function deEscalateRequest(requestId: string): Promise<void> {
 
 /** Updates the tags on a request (Team/Admin chat tagging) */
 export async function updateRequestTags(requestId: string, tags: string[]): Promise<void> {
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId);
+  let resolvedUuid = requestId;
+  if (!isUuid) {
+    const { data: row } = await supabase
+      .from("requests")
+      .select("id")
+      .eq("reference", requestId)
+      .maybeSingle();
+    if (row?.id) resolvedUuid = row.id;
+  }
+
   // 1. Try invoking the secure RPC
   try {
     const { error: rpcErr } = await (supabase as any).rpc("update_request_tags", {
-      p_request_id: requestId,
+      p_request_id: resolvedUuid,
       p_tags: tags,
     });
     if (!rpcErr) return;
@@ -444,10 +455,31 @@ export async function updateRequestTags(requestId: string, tags: string[]): Prom
     console.warn("[Requests] update_request_tags RPC error, falling back to direct update:", err);
   }
 
-  // 2. Fallback to direct update
-  const { error } = await (supabase as any)
-    .from("requests")
-    .update({ tags })
-    .eq("id", requestId);
+  // 2. Fallback to direct update using resolved UUID or reference
+  const { error } = isUuid || resolvedUuid !== requestId
+    ? await (supabase as any).from("requests").update({ tags }).eq("id", resolvedUuid)
+    : await (supabase as any).from("requests").update({ tags }).eq("reference", requestId);
+  if (error) throw new ApiError(error.message, error.code);
+}
+
+/** Updates the priority on a request (low, medium, high) */
+export async function updateRequestPriority(
+  requestId: string,
+  priority: DbRequestPriority,
+): Promise<void> {
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId);
+  let resolvedUuid = requestId;
+  if (!isUuid) {
+    const { data: row } = await supabase
+      .from("requests")
+      .select("id")
+      .eq("reference", requestId)
+      .maybeSingle();
+    if (row?.id) resolvedUuid = row.id;
+  }
+
+  const { error } = isUuid || resolvedUuid !== requestId
+    ? await supabase.from("requests").update({ priority }).eq("id", resolvedUuid)
+    : await supabase.from("requests").update({ priority }).eq("reference", requestId);
   if (error) throw new ApiError(error.message, error.code);
 }
