@@ -216,7 +216,7 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       "completed",
       "announcement",
     ] as const;
-    const type = (allowed as readonly string[]).includes(row.type as any)
+    const type = (allowed as readonly string[]).includes(row.type)
       ? (row.type as AppNotification["type"])
       : "message";
     return {
