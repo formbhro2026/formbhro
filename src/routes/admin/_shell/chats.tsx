@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { canShareScreen, cn } from "@/lib/utils";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -61,6 +61,7 @@ const STATUSES: DbRequestStatus[] = [
 
 function AdminChats() {
   const searchParams = Route.useSearch();
+  const navigate = useNavigate();
   const initialRequest = searchParams.request;
   const initialTeamMember = searchParams.teamMember;
   const initialType = searchParams.type || (initialTeamMember ? "team" : "monitor");
@@ -86,6 +87,15 @@ function AdminChats() {
   const [quickReplies, setQuickReplies] = useState<any[]>([]);
   const [showQuickReplies, setShowQuickReplies] = useState(false);
 
+  // Sync search parameters bidirectionally (handles history back/forward)
+  useEffect(() => {
+    setActiveId(searchParams.request);
+    setSelectedTeamMemberId(searchParams.teamMember);
+    if (searchParams.type) {
+      setChatType(searchParams.type);
+    }
+  }, [searchParams.request, searchParams.teamMember, searchParams.type]);
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setCurrentAdminId(data.user?.id ?? null));
     void notificationsApi.listQuickReplies().then(setQuickReplies).catch(() => {});
@@ -110,11 +120,15 @@ function AdminChats() {
   }, [requestsPage, fetchedActive]);
 
   const active =
-    (chatType === "monitor"
-      ? customerRequests.find((r) => r.id === activeId)
-      : requestsPage.find((r) => r.id === activeId)) ??
-    (fetchedActive?.id === activeId ? fetchedActive : null) ??
-    (chatType === "monitor" ? customerRequests[0] ?? null : null);
+    (activeId
+      ? (chatType === "monitor"
+          ? customerRequests.find((r) => r.id === activeId)
+          : requestsPage.find((r) => r.id === activeId)) ??
+        (fetchedActive?.id === activeId ? fetchedActive : null)
+      : null) ??
+    (typeof window !== "undefined" && window.innerWidth >= 1280 && chatType === "monitor"
+      ? customerRequests[0] ?? null
+      : null);
 
   const { session, startCall, acceptCall, hangup, setActiveRoomId } = useGlobalCall();
   const pageSize = 50;
@@ -177,9 +191,24 @@ function AdminChats() {
     }
   }, [activeId, requestsPage]);
 
+  // When request/user is selected in Monitor mode
+  const handleSelectRequest = (id: string) => {
+    setActiveId(id);
+    void navigate({
+      to: "/admin/chats",
+      search: (prev) => ({ ...prev, request: id, type: "monitor", teamMember: undefined }),
+      replace: false,
+    });
+  };
+
   // When team member is selected in Team Chat mode
   const handleSelectTeamMember = async (tmId: string, name?: string) => {
     setSelectedTeamMemberId(tmId);
+    void navigate({
+      to: "/admin/chats",
+      search: (prev) => ({ ...prev, teamMember: tmId, type: "team", request: undefined }),
+      replace: false,
+    });
     setBusy(true);
     try {
       const { request: req, room: r } = await getOrCreateAdminTeamChat(tmId, name);
@@ -193,18 +222,28 @@ function AdminChats() {
     }
   };
 
+  const handleBackToList = () => {
+    setActiveId(undefined);
+    setSelectedTeamMemberId(undefined);
+    setFetchedActive(null);
+    setRoom(null);
+    void navigate({
+      to: "/admin/chats",
+      search: (prev) => ({
+        ...prev,
+        request: undefined,
+        teamMember: undefined,
+      }),
+      replace: false,
+    });
+  };
+
   useEffect(() => {
-    if (chatType === "team") {
-      const targetId = selectedTeamMemberId || team[0]?.id;
-      if (targetId && targetId !== selectedTeamMemberId) {
-        const targetProfile = profiles.find((p) => p.id === targetId);
-        void handleSelectTeamMember(targetId, targetProfile?.full_name);
-      } else if (selectedTeamMemberId && !room) {
-        const targetProfile = profiles.find((p) => p.id === selectedTeamMemberId);
-        void handleSelectTeamMember(selectedTeamMemberId, targetProfile?.full_name);
-      }
+    if (chatType === "team" && selectedTeamMemberId && !room) {
+      const targetProfile = profiles.find((p) => p.id === selectedTeamMemberId);
+      void handleSelectTeamMember(selectedTeamMemberId, targetProfile?.full_name);
     }
-  }, [chatType, selectedTeamMemberId, team]);
+  }, [chatType, selectedTeamMemberId, profiles, room]);
 
   // Load chat room for monitor mode (create if missing so admin can always view & chat)
   useEffect(() => {
@@ -272,7 +311,9 @@ function AdminChats() {
   const currentTeamMemberProfile = selectedTeamMemberId
     ? profiles.find((p) => p.id === selectedTeamMemberId)
     : null;
-  const isMobileDetailOpen = Boolean(active || (chatType === "team" && selectedTeamMemberId));
+  const isMobileDetailOpen = Boolean(
+    chatType === "monitor" ? Boolean(activeId) : Boolean(selectedTeamMemberId),
+  );
 
   return (
     <div className="fixed inset-0 lg:left-60 xl:left-64 top-[calc(3.5rem+env(safe-area-inset-top))] z-10 bg-bg overflow-hidden">
@@ -285,7 +326,12 @@ function AdminChats() {
               <button
                 onClick={() => {
                   setChatType("monitor");
-                  setActiveId(requestsPage[0]?.id);
+                  setSelectedTeamMemberId(undefined);
+                  void navigate({
+                    to: "/admin/chats",
+                    search: (prev) => ({ ...prev, type: "monitor", teamMember: undefined }),
+                    replace: true,
+                  });
                 }}
                 className={`px-2 py-1 text-[10px] font-bold rounded-md transition-all ${
                   chatType === "monitor"
@@ -298,10 +344,12 @@ function AdminChats() {
               <button
                 onClick={() => {
                   setChatType("team");
-                  if (team[0]) {
-                    const prof = profiles.find((p) => p.id === team[0].id);
-                    void handleSelectTeamMember(team[0].id, prof?.full_name);
-                  }
+                  setActiveId(undefined);
+                  void navigate({
+                    to: "/admin/chats",
+                    search: (prev) => ({ ...prev, type: "team", request: undefined }),
+                    replace: true,
+                  });
                 }}
                 className={`px-2 py-1 text-[10px] font-bold rounded-md transition-all ${
                   chatType === "team"
@@ -330,7 +378,7 @@ function AdminChats() {
                   <li key={r.id}>
                     <button
                       type="button"
-                      onClick={() => setActiveId(r.id)}
+                      onClick={() => handleSelectRequest(r.id)}
                       className={`w-full rounded-xl border px-3 py-3 text-left transition-all ${
                         active?.id === r.id
                           ? "border-brand bg-brand/10 shadow-sm shadow-brand/10"
@@ -451,10 +499,7 @@ function AdminChats() {
               <div className="flex items-center gap-2 min-w-0">
                 <button
                   type="button"
-                  onClick={() => {
-                    setActiveId(undefined);
-                    setSelectedTeamMemberId(undefined);
-                  }}
+                  onClick={handleBackToList}
                   className="xl:hidden inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-brand hover:bg-white/5"
                 >
                   <ArrowLeft className="h-3.5 w-3.5" /> Back
