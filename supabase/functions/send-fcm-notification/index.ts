@@ -307,15 +307,13 @@ Deno.serve(async (req) => {
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
         payload.request_id,
       );
-      const { data } = await sbAdmin
+      const query = sbAdmin
         .from("requests")
-        .select("id, user_id, assigned_team_id, reference, category")
-        .or(
-          isUuid
-            ? `id.eq.${payload.request_id}`
-            : `reference.eq.${payload.request_id},id.eq.${payload.request_id}`,
-        )
-        .maybeSingle();
+        .select("id, user_id, assigned_team_id, reference, category");
+
+      const { data } = isUuid
+        ? await query.eq("id", payload.request_id).maybeSingle()
+        : await query.eq("reference", payload.request_id).maybeSingle();
       reqRow = data;
     }
 

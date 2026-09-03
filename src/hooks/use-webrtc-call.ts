@@ -62,11 +62,13 @@ export async function resolveCanonicalCallRoom(
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawId);
 
   try {
-    const { data: reqData } = await supabase
+    const query = supabase
       .from("requests")
-      .select("id, user_id, assigned_team_id, reference, category")
-      .or(isUuid ? `id.eq.${rawId}` : `reference.eq.${rawId},id.eq.${rawId}`)
-      .maybeSingle();
+      .select("id, user_id, assigned_team_id, reference, category");
+
+    const { data: reqData } = isUuid
+      ? await query.eq("id", rawId).maybeSingle()
+      : await query.eq("reference", rawId).maybeSingle();
 
     if (reqData) {
       const isDirectAdminChat = Boolean(
