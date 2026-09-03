@@ -119,6 +119,10 @@ export type TeamRequest = {
   isEscalated: boolean;
   /** Custom/predefined labels or tags for WhatsApp Business style chat tagging */
   tags?: string[];
+  /** Database UUID primary key from requests.id */
+  requestUuid?: string;
+  /** Chat room UUID primary key from chat_rooms.id */
+  chatRoomId?: string | null;
   /** Exact ISO completion timestamp from database completed_at */
   completedAt?: string | null;
   /** Exact ISO creation timestamp from database created_at */

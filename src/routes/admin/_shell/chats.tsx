@@ -116,8 +116,14 @@ function AdminChats() {
     (fetchedActive?.id === activeId ? fetchedActive : null) ??
     (chatType === "monitor" ? customerRequests[0] ?? null : null);
 
-  const { session, startCall, acceptCall, hangup } = useGlobalCall();
+  const { session, startCall, acceptCall, hangup, setActiveRoomId } = useGlobalCall();
   const pageSize = 50;
+
+  useEffect(() => {
+    if (active?.id) {
+      setActiveRoomId(active.id);
+    }
+  }, [active?.id, setActiveRoomId]);
 
   // Debounce search
   useEffect(() => {
@@ -485,14 +491,14 @@ function AdminChats() {
                   />
                   <div className="flex items-center gap-1.5">
                     <button
-                      onClick={() => startCall("audio")}
+                      onClick={() => startCall("audio", active.id)}
                       className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border-subtle bg-surface-2 text-text-muted hover:border-brand/40 hover:text-brand transition-colors"
                       title="Start Audio Call"
                     >
                       <Phone className="h-3.5 w-3.5" />
                     </button>
                     <button
-                      onClick={() => startCall("video")}
+                      onClick={() => startCall("video", active.id)}
                       className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border-subtle bg-surface-2 text-text-muted hover:border-brand/40 hover:text-brand transition-colors"
                       title="Start Video Call"
                     >
@@ -500,7 +506,7 @@ function AdminChats() {
                     </button>
                     {canShareScreen() && (
                       <button
-                        onClick={() => startCall("screen")}
+                        onClick={() => startCall("screen", active.id)}
                         className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border-subtle bg-surface-2 text-text-muted hover:border-brand/40 hover:text-brand transition-colors"
                         title="Share Screen"
                       >
@@ -525,7 +531,7 @@ function AdminChats() {
                             callLog={callLog}
                             time={formatDate(m.created_at)}
                             currentUserId={currentAdminId ?? undefined}
-                            onCallBack={(type) => startCall(type)}
+                            onCallBack={(type) => startCall(type, active.id)}
                           />
                         );
                       }

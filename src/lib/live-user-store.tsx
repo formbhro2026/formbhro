@@ -26,7 +26,7 @@ import { useSession } from "@/lib/session";
 import { toast } from "sonner";
 import { playMessageNotificationSound } from "@/lib/audio-notifications";
 import { showSystemNotification } from "@/lib/fcm";
-import { isChatActive, getActiveChat, onActiveChatChange } from "@/lib/active-chat-tracker";
+import { isChatActive, getActiveChat, onActiveChatChange, shouldDeliverNotification } from "@/lib/active-chat-tracker";
 import { supabase } from "@/integrations/supabase/client";
 
 const STATUS_MAP: Record<DbRequestStatus, RequestStatus> = {
@@ -426,6 +426,7 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
 
   // Track active chat room for exclusive on-demand WebSocket subscription
   useEffect(() => {
+    let alive = true;
     const resolveActive = () => {
       const cur = getActiveChat();
       if (!cur.chatRoomId && !cur.requestId) {
@@ -434,17 +435,38 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       }
       const ref =
         cur.requestRef || referenceById.current[cur.requestId || ""] || cur.requestId || "";
-      const room = rooms.current[ref];
+      const room = rooms.current[ref] || (cur.requestId ? rooms.current[cur.requestId] : undefined);
       const roomId = cur.chatRoomId || room?.chatRoomId;
       if (roomId) {
         setActiveChatRoom({ chatRoomId: roomId, reference: ref });
+      } else if (cur.requestId || cur.requestRef) {
+        void requestsApi
+          .getOrCreateChatRoom(cur.requestId || cur.requestRef || "")
+          .then((fresh) => {
+            if (!alive) return;
+            if (fresh?.id) {
+              const actualRef = ref || cur.requestRef || cur.requestId || "";
+              const title = rooms.current[actualRef]?.title || "Support Chat";
+              rooms.current[actualRef] = { requestId: fresh.request_id, chatRoomId: fresh.id, title };
+              rooms.current[fresh.request_id] = { requestId: fresh.request_id, chatRoomId: fresh.id, title };
+              if (fresh.request_id) referenceById.current[fresh.request_id] = actualRef;
+              setActiveChatRoom({ chatRoomId: fresh.id, reference: actualRef });
+            }
+          })
+          .catch(() => {
+            if (alive) setActiveChatRoom(null);
+          });
       } else {
         setActiveChatRoom(null);
       }
     };
 
     resolveActive();
-    return onActiveChatChange(resolveActive);
+    const unsub = onActiveChatChange(resolveActive);
+    return () => {
+      alive = false;
+      unsub();
+    };
   }, []);
 
   // Exclusively subscribe to the active chat room in Realtime (1 socket instead of 20)
@@ -526,13 +548,17 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       if (!id) return [];
       const cleanId = id.trim().toLowerCase();
       const ref = (referenceById.current[id] || id).trim().toLowerCase();
+      const matchedUuid = Object.entries(referenceById.current).find(
+        ([, r]) => r.toLowerCase() === cleanId,
+      )?.[0]?.toLowerCase();
       // On-demand message loading when messages are accessed for a specific chat
       if (!loadedRoomsRef.current.has(cleanId) && !loadedRoomsRef.current.has(ref)) {
-        void loadChat(ref);
+        void loadChat(ref || cleanId);
       }
-      return messages.filter(
-        (m) => m.requestId?.toLowerCase() === cleanId || m.requestId?.toLowerCase() === ref,
-      );
+      return messages.filter((m) => {
+        const req = m.requestId?.toLowerCase();
+        return req === cleanId || req === ref || (matchedUuid && req === matchedUuid);
+      });
     },
     [messages, loadChat],
   );
@@ -802,7 +828,8 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
           requestId: row.request_id,
           chatRoomId: row.chat_room_id,
         });
-        if (!isChatOpen) {
+        const notifKey = row.id || `${row.request_id || ""}:${row.chat_room_id || ""}:${row.title}:${row.body}`;
+        if (!isChatOpen && shouldDeliverNotification(notifKey)) {
           playMessageNotificationSound();
           showSystemNotification(row.title || "New message", row.body || "You have a new message", {
             data: {

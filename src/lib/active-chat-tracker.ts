@@ -19,6 +19,54 @@ let currentActiveChat: ActiveChatState = {
   chatRoomId: null,
 };
 
+const knownMappings = new Map<string, Set<string>>();
+const recentNotifKeys = new Map<string, number>();
+
+/**
+ * Checks if a notification with this key was already delivered recently.
+ * Prevents double chime/toast/alert from concurrent DB realtime and FCM foreground push.
+ */
+export function shouldDeliverNotification(key?: string | null): boolean {
+  if (!key) return true;
+  const cleanKey = String(key).trim().toLowerCase();
+  const now = Date.now();
+  const prev = recentNotifKeys.get(cleanKey);
+  if (prev && now - prev < 5000) {
+    return false;
+  }
+  recentNotifKeys.set(cleanKey, now);
+  if (recentNotifKeys.size > 200) {
+    for (const [k, time] of recentNotifKeys.entries()) {
+      if (now - time > 10000) recentNotifKeys.delete(k);
+    }
+  }
+  return true;
+}
+
+/**
+ * Registers an association between aliases (e.g. UUID, reference code, chatRoomId)
+ */
+export function registerChatMapping(...aliases: (string | null | undefined)[]): void {
+  const valid = aliases
+    .filter((a): a is string => Boolean(a && typeof a === "string" && a.trim().length > 0))
+    .map((a) => a.trim().toLowerCase());
+  
+  if (valid.length < 2) return;
+
+  const combinedSet = new Set<string>();
+  for (const alias of valid) {
+    combinedSet.add(alias);
+    const existing = knownMappings.get(alias);
+    if (existing) {
+      existing.forEach((item) => combinedSet.add(item));
+    }
+  }
+
+  for (const item of combinedSet) {
+    knownMappings.set(item, combinedSet);
+  }
+}
+
 const listeners = new Set<() => void>();
 
 /**
@@ -34,6 +82,7 @@ export function setActiveChat(state: Partial<ActiveChatState> | null): void {
       requestRef: state.requestRef ? String(state.requestRef).trim().toLowerCase() : null,
       chatRoomId: state.chatRoomId ? String(state.chatRoomId).trim().toLowerCase() : null,
     };
+    registerChatMapping(state.requestId, state.requestRef, state.chatRoomId);
   }
   listeners.forEach((fn) => fn());
 }
@@ -71,22 +120,31 @@ export function isChatActive(target: {
   const activeReqRef = currentActiveChat.requestRef;
   const activeRoomId = currentActiveChat.chatRoomId;
 
-  // 1. Direct state matching
-  if (target.requestId) {
-    const tReq = String(target.requestId).trim().toLowerCase();
-    if (activeReqId && tReq === activeReqId) return true;
-    if (activeReqRef && tReq === activeReqRef) return true;
+  // If no chat is currently marked active, check URL as fallback
+  const activeKeys = [activeReqId, activeReqRef, activeRoomId].filter((k): k is string => Boolean(k));
+  
+  // Expand active keys with known mappings
+  const allActiveAliases = new Set<string>(activeKeys);
+  for (const k of activeKeys) {
+    const mapped = knownMappings.get(k);
+    if (mapped) mapped.forEach((m) => allActiveAliases.add(m));
   }
 
-  if (target.requestRef) {
-    const tRef = String(target.requestRef).trim().toLowerCase();
-    if (activeReqRef && tRef === activeReqRef) return true;
-    if (activeReqId && tRef === activeReqId) return true;
-  }
+  const targetKeys = [
+    target.requestId ? String(target.requestId).trim().toLowerCase() : null,
+    target.requestRef ? String(target.requestRef).trim().toLowerCase() : null,
+    target.chatRoomId ? String(target.chatRoomId).trim().toLowerCase() : null,
+  ].filter((k): k is string => Boolean(k));
 
-  if (target.chatRoomId && activeRoomId) {
-    const tRoom = String(target.chatRoomId).trim().toLowerCase();
-    if (tRoom === activeRoomId) return true;
+  // Direct set intersection check
+  for (const t of targetKeys) {
+    if (allActiveAliases.has(t)) return true;
+    const targetMapped = knownMappings.get(t);
+    if (targetMapped) {
+      for (const tm of targetMapped) {
+        if (allActiveAliases.has(tm)) return true;
+      }
+    }
   }
 
   // 2. URL path check fallback
@@ -96,20 +154,28 @@ export function isChatActive(target: {
   // User chat URL: /app/chats/<id>
   if (pathname.includes("/app/chats/")) {
     const parts = pathname.split("/app/chats/");
-    const currentParam = parts[1]?.split("/")[0]?.split("?")[0];
+    const currentParam = parts[1]?.split("/")[0]?.split("?")[0]?.trim()?.toLowerCase();
     if (currentParam) {
-      if (target.requestId && currentParam === String(target.requestId).trim().toLowerCase()) return true;
-      if (target.requestRef && currentParam === String(target.requestRef).trim().toLowerCase()) return true;
+      if (allActiveAliases.has(currentParam)) return true;
+      for (const t of targetKeys) {
+        if (t === currentParam) return true;
+        const targetMapped = knownMappings.get(t);
+        if (targetMapped && targetMapped.has(currentParam)) return true;
+      }
     }
   }
 
   // Team work URL: /team/work?id=<id> or ?r=<ref>
   if (pathname.includes("/team/work")) {
     const urlParams = new URLSearchParams(search);
-    const idParam = urlParams.get("id")?.toLowerCase() || urlParams.get("r")?.toLowerCase();
+    const idParam = (urlParams.get("id") || urlParams.get("r"))?.trim()?.toLowerCase();
     if (idParam) {
-      if (target.requestId && idParam === String(target.requestId).trim().toLowerCase()) return true;
-      if (target.requestRef && idParam === String(target.requestRef).trim().toLowerCase()) return true;
+      if (allActiveAliases.has(idParam)) return true;
+      for (const t of targetKeys) {
+        if (t === idParam) return true;
+        const targetMapped = knownMappings.get(t);
+        if (targetMapped && targetMapped.has(idParam)) return true;
+      }
     }
   }
 

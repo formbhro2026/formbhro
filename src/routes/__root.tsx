@@ -24,7 +24,7 @@ import {
   isCapacitor,
   showSystemNotification,
 } from "../lib/fcm";
-import { isChatActive } from "../lib/active-chat-tracker";
+import { isChatActive, shouldDeliverNotification } from "../lib/active-chat-tracker";
 import {
   playMessageNotificationSound,
   startIncomingCallRingtone,
@@ -303,6 +303,11 @@ function RootComponent() {
         route: data?.route,
       });
       if (isCurrentChatActive) {
+        return;
+      }
+
+      const notifKey = data?.messageId || data?.id || `${data?.requestId || ""}:${data?.chatRoomId || ""}:${title}:${body}`;
+      if (!shouldDeliverNotification(notifKey)) {
         return;
       }
 

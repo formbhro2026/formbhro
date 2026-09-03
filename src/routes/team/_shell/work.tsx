@@ -218,9 +218,9 @@ function WorkArea() {
   useEffect(() => {
     if (selected) {
       setActiveChat({
-        requestId: (selected as any).dbUuid || selected.id,
+        requestId: selected.requestUuid || selected.id,
         requestRef: selected.id,
-        chatRoomId: (selected as any).chatRoomId || null,
+        chatRoomId: selected.chatRoomId || null,
       });
     } else {
       setActiveChat(null);
@@ -751,7 +751,14 @@ function Conversation({
   onPreview: (id: string) => void;
   docCount: number;
 }) {
-  const { session, startCall, acceptCall, hangup, switchCamera } = useGlobalCall();
+  const { session, startCall, acceptCall, hangup, switchCamera, setActiveRoomId } = useGlobalCall();
+
+  useEffect(() => {
+    if (r?.requestUuid || r?.id) {
+      setActiveRoomId(r.requestUuid || r.id);
+    }
+  }, [r?.requestUuid, r?.id, setActiveRoomId]);
+
   const {
     getDocument,
     documentsFor,
@@ -1000,7 +1007,7 @@ function Conversation({
           {/* Call button — always visible */}
           <button
             type="button"
-            onClick={() => startCall("audio")}
+            onClick={() => startCall("audio", r.requestUuid || r.id)}
             className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 hover:text-brand transition-colors"
             title="Start Audio Call"
           >
@@ -1008,7 +1015,7 @@ function Conversation({
           </button>
           <button
             type="button"
-            onClick={() => startCall("video")}
+            onClick={() => startCall("video", r.requestUuid || r.id)}
             className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 hover:text-brand transition-colors"
             title="Start Video Call"
           >
@@ -1017,7 +1024,7 @@ function Conversation({
           {canShareScreen() && (
             <button
               type="button"
-              onClick={() => startCall("screen")}
+              onClick={() => startCall("screen", r.requestUuid || r.id)}
               className="hidden sm:inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 hover:text-brand transition-colors"
               title="Share Screen"
             >
@@ -1327,7 +1334,7 @@ function Conversation({
                     callLog={m.callLog as any}
                     time={m.time}
                     currentUserId={member?.id}
-                    onCallBack={(type) => startCall(type)}
+                    onCallBack={(type) => startCall(type, r.requestUuid || r.id)}
                   />
                 </li>
               );

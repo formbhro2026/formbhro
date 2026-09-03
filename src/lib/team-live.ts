@@ -63,9 +63,12 @@ export function mapTeamRequest(
   row: RequestRow,
   _assigneeId: string,
   userName: string,
+  chatRoomId?: string | null,
 ): TeamRequest {
   return {
     id: row.reference || row.id,
+    requestUuid: row.id,
+    chatRoomId: chatRoomId ?? null,
     title: row.title,
     category: row.category ?? "Government Form",
     userName,
@@ -214,7 +217,9 @@ export async function loadTeamSnapshot(
   const allReqs = [...(allRequests ?? []), ...rows];
   for (const r of allReqs) {
     const reference = r.reference || r.id;
-    rooms[reference] = { requestId: r.id, chatRoomId: roomByRequestId[r.id] ?? null };
+    const roomInfo = { requestId: r.id, chatRoomId: roomByRequestId[r.id] ?? null };
+    rooms[reference] = roomInfo;
+    rooms[r.id] = roomInfo;
   }
 
   const tBatchStart = Date.now();
@@ -222,7 +227,7 @@ export async function loadTeamSnapshot(
 
   // 1. Map requests synchronously
   for (const row of rows) {
-    requests.push(mapTeamRequest(row, memberId, names[row.user_id] ?? "User"));
+    requests.push(mapTeamRequest(row, memberId, names[row.user_id] ?? "User", roomByRequestId[row.id] ?? null));
   }
 
   const chatRoomIds = rows

@@ -24,7 +24,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { playMessageNotificationSound } from "@/lib/audio-notifications";
 import { showSystemNotification } from "@/lib/fcm";
-import { isChatActive } from "@/lib/active-chat-tracker";
+import { isChatActive, shouldDeliverNotification } from "@/lib/active-chat-tracker";
 import { signInWithPassword, getMyRole, getMyProfile, signOut as apiSignOut } from "@/lib/api/auth";
 import { markMessagesSeen } from "./api/messages";
 import { assignRequest, updateRequestStatus, getTeamAnalytics } from "./api/requests";
@@ -226,14 +226,16 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const sendMessageApi = useCallback(async (msgId: string, requestId: string, text: string) => {
-    let room = rooms.current[requestId];
+    let room = rooms.current[requestId] || (refByRequestId.current[requestId] ? rooms.current[refByRequestId.current[requestId]] : undefined);
 
     // If no chatRoomId in our local state, try to create/fetch the room on-the-fly.
     if (!room?.chatRoomId) {
       try {
         const freshRoom = await requestsApi.getOrCreateChatRoom(requestId);
-        // Cache it so subsequent sends don't need to re-fetch
-        rooms.current[requestId] = { requestId, chatRoomId: freshRoom.id };
+        const actualReqUuid = freshRoom.request_id || requestId;
+        // Cache it by both reference and UUID so subsequent sends don't need to re-fetch
+        rooms.current[requestId] = { requestId: actualReqUuid, chatRoomId: freshRoom.id };
+        rooms.current[actualReqUuid] = { requestId: actualReqUuid, chatRoomId: freshRoom.id };
         room = rooms.current[requestId];
       } catch {
         setMessages((prev) =>
@@ -1359,7 +1361,8 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           requestId: row.request_id,
           chatRoomId: row.chat_room_id,
         });
-        if (!isChatOpen) {
+        const notifKey = row.id || `${row.request_id || ""}:${row.chat_room_id || ""}:${row.title}:${row.body}`;
+        if (!isChatOpen && shouldDeliverNotification(notifKey)) {
           playMessageNotificationSound();
           showSystemNotification(row.title || "New message", row.body || "New message received", {
             data: {

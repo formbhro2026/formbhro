@@ -107,10 +107,26 @@ export async function getRequest(requestId: string): Promise<RequestRow | null> 
 }
 
 export async function getChatRoom(requestId: string): Promise<ChatRoomRow | null> {
+  if (!requestId) return null;
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId);
+  let requestUuid = requestId;
+  if (!isUuid) {
+    const { data: req } = await supabase
+      .from("requests")
+      .select("id")
+      .eq("reference", requestId)
+      .maybeSingle();
+    if (req?.id) {
+      requestUuid = req.id;
+    } else {
+      return null;
+    }
+  }
+
   const { data, error } = await supabase
     .from("chat_rooms")
     .select("*")
-    .eq("request_id", requestId)
+    .eq("request_id", requestUuid)
     .maybeSingle();
   if (error) throw new ApiError(error.message, error.code);
   return data;
@@ -121,17 +137,31 @@ export async function getChatRoom(requestId: string): Promise<ChatRoomRow | null
  * This handles requests that were created before the auto-create trigger was in place.
  */
 export async function getOrCreateChatRoom(requestId: string): Promise<ChatRoomRow> {
-  const existing = await getChatRoom(requestId);
+  if (!requestId) throw new ApiError("Invalid request ID", "INVALID_REQUEST_ID");
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId);
+  let requestUuid = requestId;
+  if (!isUuid) {
+    const { data: req } = await supabase
+      .from("requests")
+      .select("id")
+      .eq("reference", requestId)
+      .maybeSingle();
+    if (req?.id) {
+      requestUuid = req.id;
+    }
+  }
+
+  const existing = await getChatRoom(requestUuid);
   if (existing) return existing;
 
   // Chat room missing — call the secure DB function to create it
-  const { data: roomId, error } = await supabase.rpc("ensure_chat_room_exists", {
-    p_request_id: requestId,
+  const { error } = await supabase.rpc("ensure_chat_room_exists", {
+    p_request_id: requestUuid,
   });
   if (error) throw new ApiError(error.message, error.code);
 
   // Fetch the created room
-  const created = await getChatRoom(requestId);
+  const created = await getChatRoom(requestUuid);
   if (!created) throw new ApiError("Failed to create chat room", "ROOM_CREATE_FAILED");
   return created;
 }
