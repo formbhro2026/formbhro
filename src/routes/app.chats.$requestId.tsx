@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { MessageSquareText, Loader2, Search, X, Zap, CornerDownLeft } from "lucide-react";
+import { MessageSquareText, Loader2, Search, X, Zap, CornerDownLeft, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UserHeader } from "@/components/layout/UserHeader";
 import { ChatHeader } from "@/components/chat/ChatHeader";
@@ -13,6 +13,7 @@ import { DocumentPreview } from "@/components/documents/DocumentPreview";
 import { EmptyState } from "@/components/common/EmptyState";
 import { useUserStore } from "@/lib/user-store";
 import { useVisualViewport } from "@/lib/use-visual-viewport";
+import { useChatScroll } from "@/lib/use-chat-scroll";
 import { useGlobalCall } from "@/lib/call-store";
 import { setActiveChat } from "@/lib/active-chat-tracker";
 import { listQuickReplies } from "@/lib/api/notifications";
@@ -63,7 +64,6 @@ function ChatScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [quickReplies, setQuickReplies] = useState<QuickReplyRow[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const endRef = useRef<HTMLDivElement>(null);
   const { height: viewportHeight, keyboardOpen } = useVisualViewport();
   const openSheet = useCallback((tab: "details" | "documents") => setSheetTab(tab), []);
 
@@ -72,6 +72,17 @@ function ChatScreen() {
   const requestDocs = documentsFor(requestId);
   const preview = documents.find((d: any) => d.id === previewId) ?? null;
   const { startCall, setActiveRoomId } = useGlobalCall();
+
+  const {
+    containerRef: scrollContainerRef,
+    handleScroll,
+    scrollToBottom,
+    isAtBottom,
+    hasNewUnseen,
+  } = useChatScroll<HTMLDivElement>({
+    items: messages,
+    chatId: request?.id || requestId,
+  });
 
   useEffect(() => {
     void listQuickReplies().then(setQuickReplies).catch(() => {});
@@ -119,10 +130,6 @@ function ChatScreen() {
   useEffect(() => {
     markRead(requestId);
   }, [requestId, markRead]);
-
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ block: "end" });
-  }, [messages.length]);
 
   if (!request) {
     if (loading) {
@@ -262,7 +269,7 @@ function ChatScreen() {
                           sendMessage(requestId, qr.body);
                           setSearchQuery("");
                           setSearchOpen(false);
-                          endRef.current?.scrollIntoView({ behavior: "smooth" });
+                          scrollToBottom("smooth");
                         }}
                         className="w-full text-left rounded-lg p-2.5 hover:bg-surface-3 transition-colors group flex items-start justify-between gap-2"
                       >
@@ -286,6 +293,8 @@ function ChatScreen() {
           )}
 
           <div
+            ref={scrollContainerRef}
+            onScroll={handleScroll}
             className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-chat-bg px-3 py-4 pb-4 sm:px-4 relative"
             style={{
               backgroundImage:
@@ -310,7 +319,21 @@ function ChatScreen() {
                 onCallBack={(type) => startCall(type)}
               />
             ))}
-            <div ref={endRef} />
+
+            {!isAtBottom && (
+              <button
+                type="button"
+                onClick={() => scrollToBottom("smooth")}
+                className="sticky bottom-2 ml-auto mr-0 z-20 flex items-center gap-1.5 rounded-full bg-surface-2/95 px-3 py-1.5 text-[11px] font-semibold text-white shadow-xl backdrop-blur-md border border-border-subtle hover:bg-surface-3 transition-all animate-in fade-in slide-in-from-bottom-2"
+                aria-label="Scroll to latest messages"
+              >
+                {hasNewUnseen && (
+                  <span className="h-2 w-2 rounded-full bg-brand animate-pulse" />
+                )}
+                <span>{hasNewUnseen ? "New message" : "Latest"}</span>
+                <ChevronDown className="h-3.5 w-3.5 text-text-muted" />
+              </button>
+            )}
           </div>
           <div
             className={cn(
@@ -320,7 +343,10 @@ function ChatScreen() {
           >
             <MessageComposer
               requestLabel={request.id}
-              onSend={(text) => sendMessage(requestId, text)}
+              onSend={(text) => {
+                sendMessage(requestId, text);
+                scrollToBottom("smooth");
+              }}
               onUpload={(name, kind, size, preview, file) =>
                 attachFile(requestId, name, kind, size, preview, file)
               }

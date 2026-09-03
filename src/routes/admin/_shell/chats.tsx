@@ -3,6 +3,7 @@ import { canShareScreen, cn } from "@/lib/utils";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
+  ChevronDown,
   Monitor,
   Paperclip,
   Phone,
@@ -18,6 +19,7 @@ import { useAdmin } from "@/lib/admin-store";
 import { Button, Panel, Pill, SearchBox, formatDate, inputClass } from "@/components/admin/AdminUI";
 import * as messagesApi from "@/lib/api/messages";
 import { subscribeToRoom } from "@/lib/api/realtime";
+import { useChatScroll } from "@/lib/use-chat-scroll";
 import { openDocument } from "@/lib/doc-access";
 import * as requestsApi from "@/lib/api/requests";
 import * as notificationsApi from "@/lib/api/notifications";
@@ -268,15 +270,29 @@ function AdminChats() {
     });
 
     const unsubscribe = subscribeToRoom(room.id, {
-      onMessage: () => {
-        void messagesApi.listMessages(room.id, { limit: 100 }).then((rows) => {
-          if (alive) setMessages(rows);
+      onMessage: (msgRow) => {
+        const fullMsg: messagesApi.MessageWithDoc = {
+          ...msgRow,
+          attachment: (msgRow as any).attachment ?? null,
+        };
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === msgRow.id)) return prev;
+          return [...prev, fullMsg];
         });
+        if (msgRow.attachment_id) {
+          void messagesApi.listMessages(room.id, { limit: 100 }).then((rows) => {
+            if (alive) setMessages(rows);
+          });
+        }
       },
-      onMessageUpdate: () => {
-        void messagesApi.listMessages(room.id, { limit: 100 }).then((rows) => {
-          if (alive) setMessages(rows);
-        });
+      onMessageUpdate: (msgRow) => {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === msgRow.id
+              ? { ...m, ...msgRow, attachment: (msgRow as any).attachment ?? m.attachment }
+              : m,
+          ),
+        );
       },
     });
 
@@ -286,9 +302,16 @@ function AdminChats() {
     };
   }, [room]);
 
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ block: "end" });
-  }, [messages]);
+  const {
+    containerRef: scrollContainerRef,
+    handleScroll,
+    scrollToBottom,
+    isAtBottom,
+    hasNewUnseen,
+  } = useChatScroll<HTMLDivElement>({
+    items: messages,
+    chatId: room?.id,
+  });
 
   const send = async () => {
     if (!draft.trim() || !room || !active) return;
@@ -301,6 +324,7 @@ function AdminChats() {
         senderRole: "admin",
       });
       setDraft("");
+      scrollToBottom("smooth");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to send message");
     } finally {
@@ -566,7 +590,11 @@ function AdminChats() {
             {active ? (
               <div className="flex flex-1 gap-4 overflow-hidden">
                 <div className="flex-1 flex flex-col min-w-0">
-                  <div className="flex-1 space-y-4 overflow-y-auto pr-2 py-2">
+                  <div
+                    ref={scrollContainerRef}
+                    onScroll={handleScroll}
+                    className="flex-1 space-y-4 overflow-y-auto pr-2 py-2 relative"
+                  >
                     {messages.map((m) => {
                       const callLog = (m.reactions as any)?.call_log;
                       if (callLog) {
@@ -656,7 +684,21 @@ function AdminChats() {
                         </p>
                       </div>
                     )}
-                    <div ref={endRef} />
+
+                    {!isAtBottom && (
+                      <button
+                        type="button"
+                        onClick={() => scrollToBottom("smooth")}
+                        className="sticky bottom-2 ml-auto mr-0 z-20 flex items-center gap-1.5 rounded-full bg-surface-2/95 px-3 py-1.5 text-[11px] font-semibold text-white shadow-xl backdrop-blur-md border border-border-subtle hover:bg-surface-3 transition-all animate-in fade-in slide-in-from-bottom-2"
+                        aria-label="Scroll to latest messages"
+                      >
+                        {hasNewUnseen && (
+                          <span className="h-2 w-2 rounded-full bg-brand animate-pulse" />
+                        )}
+                        <span>{hasNewUnseen ? "New message" : "Latest"}</span>
+                        <ChevronDown className="h-3.5 w-3.5 text-text-muted" />
+                      </button>
+                    )}
                   </div>
 
                   <div className="mt-auto border-t border-border-subtle pt-4 bg-surface-1/50 -mx-4 px-4 pb-2 relative">

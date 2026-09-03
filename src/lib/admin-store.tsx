@@ -277,7 +277,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         if (lastFetchParams.current.page === 1) {
           void fetchRequestsPage(1, lastFetchParams.current.filters);
         }
-      }, 400);
+      }, 100);
     };
 
     const channel = supabase.channel("admin-live");
@@ -289,8 +289,32 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         const p = payload as any;
         if (p.eventType === "UPDATE") {
           setRequestsPage((prev) => prev.map((r) => (r.id === p.new.id ? { ...r, ...p.new } : r)));
+        } else if (p.eventType === "INSERT") {
+          setRequestsPage((prev) => (prev.some((r) => r.id === p.new.id) ? prev : [p.new, ...prev]));
+          setRequestsTotal((t) => t + 1);
+          schedulePage();
         } else {
           schedulePage();
+        }
+      },
+    );
+
+    channel.on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "messages" },
+      (payload) => {
+        const msg = payload.new as any;
+        if (msg.request_id) {
+          setRequestsPage((prev) => {
+            const index = prev.findIndex((r) => r.id === msg.request_id);
+            if (index === -1) return prev;
+            const updated = {
+              ...prev[index],
+              last_message: msg.body || "Attachment",
+              last_activity_at: msg.created_at,
+            };
+            return [updated, ...prev.filter((_, i) => i !== index)];
+          });
         }
       },
     );

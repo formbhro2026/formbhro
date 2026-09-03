@@ -49,6 +49,7 @@ import { TransferButton, EscalateButton } from "@/components/team/TransferModal"
 import { ChatTagButton, ChatTagBadges } from "@/components/team/ChatTagModal";
 
 import { useVisualViewport } from "@/lib/use-visual-viewport";
+import { useChatScroll } from "@/lib/use-chat-scroll";
 import { useDialogA11y } from "@/lib/use-dialog-a11y";
 import { formatBytes, kindFromFile } from "@/lib/team-files";
 import type { TeamRequest } from "@/data/team-module";
@@ -1010,10 +1011,17 @@ function Conversation({
     setQuery("");
   }, []);
 
-  useEffect(() => {
-    if (searchOpen || reactionFilter) return;
-    endRef.current?.scrollIntoView({ block: "end" });
-  }, [messages.length, typing, searchOpen, reactionFilter]);
+  const {
+    containerRef: scrollContainerRef,
+    handleScroll,
+    scrollToBottom,
+    isAtBottom,
+    hasNewUnseen,
+  } = useChatScroll<HTMLDivElement>({
+    items: shownMessages,
+    chatId: r.id,
+    typing,
+  });
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1021,6 +1029,7 @@ function Conversation({
     if (!value) return;
     onSend(value);
     setText("");
+    scrollToBottom("smooth");
   };
 
   return (
@@ -1402,7 +1411,11 @@ function Conversation({
         </section>
       )}
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="min-h-0 flex-1 overflow-y-auto px-3 py-4 relative"
+      >
         <ul className="mx-auto flex max-w-2xl flex-col gap-3">
           {shownMessages.map((m) => {
             if (m.callLog) {
@@ -1648,9 +1661,10 @@ function Conversation({
             );
           })}
         </ul>
+
         {typing && (
           <div
-            className="mx-auto mt-3 flex max-w-2xl items-center gap-2"
+            className="mx-auto mt-2 flex max-w-2xl items-center gap-2"
             role="status"
             aria-live="polite"
           >
@@ -1670,7 +1684,21 @@ function Conversation({
             </span>
           </div>
         )}
-        <div ref={endRef} />
+
+        {!isAtBottom && (
+          <button
+            type="button"
+            onClick={() => scrollToBottom("smooth")}
+            className="sticky bottom-2 ml-auto mr-0 z-20 flex items-center gap-1.5 rounded-full bg-surface-2/95 px-3 py-1.5 text-[11px] font-semibold text-white shadow-xl backdrop-blur-md border border-border-subtle hover:bg-surface-3 transition-all animate-in fade-in slide-in-from-bottom-2"
+            aria-label="Scroll to latest messages"
+          >
+            {hasNewUnseen && (
+              <span className="h-2 w-2 rounded-full bg-brand animate-pulse" />
+            )}
+            <span>{hasNewUnseen ? "New message" : "Latest"}</span>
+            <ChevronDown className="h-3.5 w-3.5 text-text-muted" />
+          </button>
+        )}
       </div>
 
       <form

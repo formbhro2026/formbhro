@@ -8,10 +8,12 @@ import type { MessageRow, RequestRow, ChatRoomRow } from "@/lib/api/types";
 import { setActiveChat } from "@/lib/active-chat-tracker";
 import { useGlobalCall } from "@/lib/call-store";
 import { useVisualViewport } from "@/lib/use-visual-viewport";
+import { useChatScroll } from "@/lib/use-chat-scroll";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
   ArrowLeft,
+  ChevronDown,
   Send,
   Paperclip,
   Phone,
@@ -73,8 +75,18 @@ function TeamAdminChatPage() {
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  const endRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const {
+    containerRef: scrollContainerRef,
+    handleScroll,
+    scrollToBottom,
+    isAtBottom,
+    hasNewUnseen,
+  } = useChatScroll<HTMLDivElement>({
+    items: messages,
+    chatId: room?.id,
+  });
 
   // 1. WebRTC Call integration for Admin direct communication
   const { session, startCall, acceptCall, hangup, switchCamera } = useGlobalCall();
@@ -195,11 +207,6 @@ function TeamAdminChatPage() {
     };
   }, [room?.id, member?.name]);
 
-  // 4. Auto scroll to bottom
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length]);
-
   // 5. Send Message
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -218,6 +225,7 @@ function TeamAdminChatPage() {
 
     setMessages((prev) => [...prev, optimisticMsg]);
     setText("");
+    scrollToBottom("smooth");
     setSending(true);
 
     try {
@@ -379,7 +387,11 @@ function TeamAdminChatPage() {
       </header>
 
       {/* ===== CHAT MESSAGES AREA ===== */}
-      <main className="flex-1 overflow-y-auto px-4 py-4">
+      <main
+        ref={scrollContainerRef as any}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto px-4 py-4 relative"
+      >
         {loading ? (
           <div className="flex h-full flex-col items-center justify-center gap-3">
             <Loader2 className="h-6 w-6 animate-spin text-brand" />
@@ -442,7 +454,21 @@ function TeamAdminChatPage() {
                 </div>
               );
             })}
-            <div ref={endRef} />
+
+            {!isAtBottom && (
+              <button
+                type="button"
+                onClick={() => scrollToBottom("smooth")}
+                className="sticky bottom-2 ml-auto mr-0 z-20 flex items-center gap-1.5 rounded-full bg-surface-2/95 px-3 py-1.5 text-[11px] font-semibold text-white shadow-xl backdrop-blur-md border border-border-subtle hover:bg-surface-3 transition-all animate-in fade-in slide-in-from-bottom-2"
+                aria-label="Scroll to latest messages"
+              >
+                {hasNewUnseen && (
+                  <span className="h-2 w-2 rounded-full bg-brand animate-pulse" />
+                )}
+                <span>{hasNewUnseen ? "New message" : "Latest"}</span>
+                <ChevronDown className="h-3.5 w-3.5 text-text-muted" />
+              </button>
+            )}
           </div>
         )}
       </main>

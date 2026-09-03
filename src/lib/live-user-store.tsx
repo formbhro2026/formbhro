@@ -398,17 +398,14 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      if (room?.chatRoomId && !loadedRoomsRef.current.has(room.chatRoomId)) {
-        loadedRoomsRef.current.add(room.chatRoomId);
-        loadedRoomsRef.current.add(matchedRef.toLowerCase());
-        loadedRoomsRef.current.add(room.requestId.toLowerCase());
+      if (room?.chatRoomId) {
         const msgs = await messagesApi.listMessages(room.chatRoomId, { limit: 50 });
         setMessages((prev) => {
           const existingIds = new Set(prev.map((m) => m.id));
           const newMsgs = msgs
             .filter((m) => !existingIds.has(m.id))
             .map((m) => mapMessage(m, matchedRef));
-          return [...prev, ...newMsgs];
+          return newMsgs.length ? [...prev, ...newMsgs] : prev;
         });
       }
     },
@@ -487,6 +484,18 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
         setMessages((prev) =>
           prev.some((m) => m.id === row.id) ? prev : [...prev, mapMessage(row, reference)],
         );
+        // Synchronize request state immediately
+        setRequests((prev) =>
+          prev.map((r) =>
+            r.id === reference || (row.request_id && r.id === row.request_id)
+              ? {
+                  ...r,
+                  lastMessage: row.body || "Attachment",
+                  lastUpdate: time(row.created_at),
+                }
+              : r,
+          ),
+        );
       },
       onMessageUpdate: (row) => {
         setMessages((prev) => prev.map((m) => (m.id === row.id ? mapMessage(row, reference) : m)));
@@ -511,15 +520,36 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
     });
   }, [user, activeChatRoom, mapMessage, mapDocument, loadChat]);
 
-  // Request status / progress changes pushed from the team panel.
+  // Request status / progress changes pushed from the team panel or new request creation
   useEffect(() => {
     if (!user) return;
     return realtimeApi.subscribeToRequests((row) => {
+      const ref = row.reference || row.id;
+      if (row.id) {
+        referenceById.current[row.id] = ref;
+        // Asynchronously populate chat room mapping for newly created requests
+        if (!rooms.current[ref]?.chatRoomId || !rooms.current[row.id]?.chatRoomId) {
+          void requestsApi
+            .getOrCreateChatRoom(row.id)
+            .then((rm) => {
+              if (rm?.id) {
+                rooms.current[ref] = { requestId: row.id, chatRoomId: rm.id, title: row.title };
+                rooms.current[row.id] = { requestId: row.id, chatRoomId: rm.id, title: row.title };
+              }
+            })
+            .catch(() => undefined);
+        }
+      }
+
       setRequests((prev) => {
         const mapped = mapRequest(row);
-        const exists = prev.some((r) => r.id === mapped.id);
+        const exists = prev.some((r) => r.id === mapped.id || (row.id && r.id === row.id));
         return exists
-          ? prev.map((r) => (r.id === mapped.id ? { ...mapped, notes: r.notes } : r))
+          ? prev.map((r) =>
+              r.id === mapped.id || (row.id && r.id === row.id)
+                ? { ...mapped, notes: r.notes, unread: r.unread }
+                : r,
+            )
           : [mapped, ...prev];
       });
     });
@@ -842,6 +872,49 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
           requestId: row.request_id,
           chatRoomId: row.chat_room_id,
         });
+
+        // 1. Immediately update the request list (preview, timestamp, unread)
+        if (row.request_id) {
+          const reqId = row.request_id;
+          const ref = referenceById.current[reqId] || reqId;
+          const cleanRef = ref.trim().toLowerCase();
+          const cleanReqId = reqId.trim().toLowerCase();
+
+          setRequests((prev) => {
+            const index = prev.findIndex(
+              (r) =>
+                r.id.toLowerCase() === cleanRef ||
+                r.id.toLowerCase() === cleanReqId ||
+                r.reference?.toLowerCase() === cleanRef ||
+                r.reference?.toLowerCase() === cleanReqId,
+            );
+            if (index === -1) return prev;
+            const updated: SupportRequest = {
+              ...prev[index],
+              lastMessage: row.body || "Attachment",
+              lastUpdate: time(row.created_at),
+              unread: isChatOpen ? 0 : (prev[index].unread || 0) + 1,
+            };
+            return [updated, ...prev.filter((_, i) => i !== index)];
+          });
+
+          // 2. Pre-cache the new message in memory for instant open
+          if (row.chat_room_id) {
+            void messagesApi
+              .listMessages(row.chat_room_id, { limit: 10 })
+              .then((fetched) => {
+                setMessages((prev) => {
+                  const existingIds = new Set(prev.map((m) => m.id));
+                  const newMsgs = fetched
+                    .filter((m) => !existingIds.has(m.id))
+                    .map((m) => mapMessage(m, ref));
+                  return newMsgs.length ? [...prev, ...newMsgs] : prev;
+                });
+              })
+              .catch(() => undefined);
+          }
+        }
+
         const notifKey = getNotificationDedupKey({
           type: "message",
           requestId: row.request_id,

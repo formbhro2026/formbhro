@@ -1311,6 +1311,25 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
             if (prev.some((m) => m.id === row.id)) return prev;
             return [...prev, mapTeamMessage(row, reference, member.name)];
           });
+
+          // Synchronize requests list in real time
+          setRequests((prev) => {
+            const index = prev.findIndex(
+              (r) => r.id === reference || (row.request_id && r.id === row.request_id),
+            );
+            if (index === -1) return prev;
+            const isChatOpen =
+              window.location.pathname.includes("/team/work") &&
+              new URLSearchParams(window.location.search).get("id") === reference;
+            const updated = {
+              ...prev[index],
+              lastMessage: row.body || "Attachment",
+              lastUpdate: nowTime(),
+              unread: isUserMsg && !isChatOpen ? (prev[index].unread || 0) + 1 : prev[index].unread,
+            };
+            return [updated, ...prev.filter((_, i) => i !== index)];
+          });
+
           // Push a bell notification for every new user message so the team
           // member is alerted even when viewing another tab.
           if (isUserMsg) {
@@ -1382,6 +1401,24 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      const ref = row.reference || row.id;
+      if (row.id) {
+        refByRequestId.current[row.id] = ref;
+        // Asynchronously register new chat room and bump version to attach realtime listener
+        if (!rooms.current[ref]?.chatRoomId || !rooms.current[row.id]?.chatRoomId) {
+          void requestsApi
+            .getOrCreateChatRoom(row.id)
+            .then((rm) => {
+              if (rm?.id) {
+                rooms.current[ref] = { requestId: row.id, chatRoomId: rm.id };
+                rooms.current[row.id] = { requestId: row.id, chatRoomId: rm.id };
+                setRoomsVersion((v) => v + 1);
+              }
+            })
+            .catch(() => undefined);
+        }
+      }
+
       setRequests((prev) => {
         // If it's assigned to someone else (not null and not this member), remove it from the pool.
         if (row.assigned_team_id !== null && row.assigned_team_id !== member.id) {
@@ -1393,10 +1430,12 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           member.id,
           prev.find((r) => r.id === (row.reference || row.id))?.userName ?? "User",
         );
-        const exists = prev.some((r) => r.id === mapped.id);
+        const exists = prev.some((r) => r.id === mapped.id || (row.id && r.id === row.id));
         const next = exists
           ? prev.map((r) =>
-              r.id === mapped.id ? { ...mapped, unread: r.unread, timeline: r.timeline } : r,
+              r.id === mapped.id || (row.id && r.id === row.id)
+                ? { ...mapped, unread: r.unread, timeline: r.timeline }
+                : r,
             )
           : [{ ...mapped }, ...prev];
         return next.length > 500 ? next.slice(0, 500) : next;
@@ -1430,6 +1469,17 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       const roomId = cur.chatRoomId || room?.chatRoomId;
 
       if (roomId) {
+        void messagesApi.listMessages(roomId, { limit: 50 }).then((msgs) => {
+          if (!alive) return;
+          setMessages((prev) => {
+            const existingIds = new Set(prev.map((m) => m.id));
+            const newMsgs = msgs
+              .filter((m) => !existingIds.has(m.id))
+              .map((m) => mapTeamMessage(m, ref || target, memberRef.current?.name ?? member.name));
+            return newMsgs.length ? [...prev, ...newMsgs] : prev;
+          });
+        });
+
         unsubActive = subscribeToRoom(roomId, {
           onMessage: (row) => {
             setMessages((prev) => {
