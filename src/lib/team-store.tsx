@@ -447,7 +447,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       if (typeof Notification !== "undefined" && Notification.permission === "default") {
         void Notification.requestPermission();
       }
-      
+
       const handleVisibilityChange = () => {
         if (document.visibilityState === "visible") {
           // Silent refresh on app resume to keep existing UI displayed without full-screen loading flash
@@ -476,11 +476,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         const [role, profile, { data: teamRow }] = await Promise.all([
           getMyRole(),
           getMyProfile(),
-          supabase
-            .from("team_members")
-            .select("*")
-            .eq("id", user!.id)
-            .maybeSingle(),
+          supabase.from("team_members").select("*").eq("id", user!.id).maybeSingle(),
         ]);
 
         if (role !== "team" && role !== "admin") {
@@ -580,7 +576,6 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     liveRef.current = false;
     rooms.current = {};
     setRequests([]);
-    setPool([]);
     setMessages([]);
     setDocuments([]);
     setNotifications([]);
@@ -659,9 +654,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       member
         ? requests.filter(
             (r) =>
-              !r.assigneeId &&
-              !["completed", "cancelled"].includes(r.status) &&
-              isUserRequest(r),
+              !r.assigneeId && !["completed", "cancelled"].includes(r.status) && isUserRequest(r),
           )
         : [],
     [requests, member, isUserRequest],
@@ -714,7 +707,12 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           setRequests((prev) =>
             prev.map((r) =>
               r.id === requestId
-                ? { ...r, assigneeId: member.id, status: "pending", lastUpdated: `Today • ${nowTime()}` }
+                ? {
+                    ...r,
+                    assigneeId: member.id,
+                    status: "pending",
+                    lastUpdated: `Today • ${nowTime()}`,
+                  }
                 : r,
             ),
           );
@@ -746,7 +744,12 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         setRequests((prev) =>
           prev.map((r) =>
             r.id === requestId
-              ? { ...r, assigneeId: member.id, status: "pending", lastUpdated: `Today • ${nowTime()}` }
+              ? {
+                  ...r,
+                  assigneeId: member.id,
+                  status: "pending",
+                  lastUpdated: `Today • ${nowTime()}`,
+                }
               : r,
           ),
         );
@@ -852,7 +855,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       // Ensure room messages are loaded & subscribed in realtime
       if (room.id) {
         try {
-          const { messages: fetchedMsgs } = await messagesApi.listRoomMessages(room.id);
+          const fetchedMsgs = await messagesApi.listMessages(room.id);
           if (fetchedMsgs && fetchedMsgs.length > 0) {
             setMessages((prev) => {
               const existingIds = new Set(prev.map((m) => m.id));
@@ -1047,8 +1050,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         } catch (err) {
           console.error("Failed to update request status:", err);
           toast.error(
-            "Status save failed: " +
-              (err instanceof Error ? err.message : "Please try again."),
+            "Status save failed: " + (err instanceof Error ? err.message : "Please try again."),
           );
           // Revert optimistic local update on failure
           touch(requestId, { status: status === "completed" ? "pending" : status }, undefined);
@@ -1248,7 +1250,9 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           // Push a bell notification for every new user message so the team
           // member is alerted even when viewing another tab.
           if (isUserMsg) {
-            const isChatOpen = window.location.pathname.includes("/team/work") && new URLSearchParams(window.location.search).get("id") === reference;
+            const isChatOpen =
+              window.location.pathname.includes("/team/work") &&
+              new URLSearchParams(window.location.search).get("id") === reference;
             if (!isChatOpen) {
               const preview = row.body?.slice(0, 80) || "Attachment";
               setNotifications((prev) => [
@@ -1263,10 +1267,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
                 ...prev.filter((n) => n.id !== `msg-notif-${row.id}`),
               ]);
               // Browser push notification (if permission granted)
-              if (
-                typeof Notification !== "undefined" &&
-                Notification.permission === "granted"
-              ) {
+              if (typeof Notification !== "undefined" && Notification.permission === "granted") {
                 new Notification("New message", {
                   body: preview,
                   tag: `msg-${reference}`,
@@ -1357,7 +1358,6 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         const isChatOpen = isChatActive({
           requestId: row.request_id,
           chatRoomId: row.chat_room_id,
-          route: row.route,
         });
         if (!isChatOpen) {
           playMessageNotificationSound();
@@ -1429,9 +1429,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
   const updateTags = useCallback((requestId: string, tags: string[]) => {
     setRequests((prev) =>
       prev.map((r) =>
-        r.id === requestId || r.id.toLowerCase() === requestId.toLowerCase()
-          ? { ...r, tags }
-          : r,
+        r.id === requestId || r.id.toLowerCase() === requestId.toLowerCase() ? { ...r, tags } : r,
       ),
     );
   }, []);

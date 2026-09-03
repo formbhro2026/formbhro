@@ -18,7 +18,7 @@ import {
 import type { Tables } from "@/integrations/supabase/types";
 
 export type ProfileRow = Tables<"profiles">;
-export type RequestRow = Tables<"requests">;
+export type RequestRow = Tables<"requests"> & { tags?: string[] | null };
 export type DocumentRow = Tables<"documents">;
 export type MessageRow = Tables<"messages">;
 export type NotificationRow = Tables<"notifications">;
@@ -212,7 +212,9 @@ export function AdminProvider({ children }: { children: ReactNode }) {
           getAdminAnalytics(),
           fetchRequestsPage(lastFetchParams.current.page, lastFetchParams.current.filters),
         ]);
-        console.log(`[PERF][HYDRATION] T6: Admin parallel queries resolved in ${Date.now() - t0}ms`);
+        console.log(
+          `[PERF][HYDRATION] T6: Admin parallel queries resolved in ${Date.now() - t0}ms`,
+        );
         setData((prev) => {
           // merge dynamically loaded profiles with the team profiles from loadAll
           const profileMap = new Map(prev.profiles.map((p) => [p.id, p]));
@@ -253,6 +255,18 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void check();
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        setAuthed(false);
+        setData(EMPTY);
+        setStats(null);
+        setRequestsPage([]);
+        setRequestsTotal(0);
+      } else {
+        void check();
+      }
+    });
+    return () => sub.subscription.unsubscribe();
   }, [check]);
 
   useEffect(() => {

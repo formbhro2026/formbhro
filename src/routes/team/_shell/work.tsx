@@ -189,7 +189,9 @@ function WorkArea() {
       if (tagFilter && (!r.tags || !r.tags.includes(tagFilter))) return false;
       if (rid && !r.id.toLowerCase().includes(rid)) return false;
       if (!q) return true;
-      return `${r.userName} ${r.id} ${r.category} ${r.title} ${(r.tags ?? []).join(" ")}`.toLowerCase().includes(q);
+      return `${r.userName} ${r.id} ${r.category} ${r.title} ${(r.tags ?? []).join(" ")}`
+        .toLowerCase()
+        .includes(q);
     });
     out = out
       .slice()
@@ -203,13 +205,14 @@ function WorkArea() {
 
   const listUnread = useMemo(() => list.reduce((sum, r) => sum + r.unread, 0), [list]);
 
-  const selected = search.r
+  const searchR = search.r;
+  const selected = searchR
     ? (requests.find(
         (r) =>
-          r.id === search.r ||
-          r.id.toLowerCase() === search.r.toLowerCase() ||
+          r.id === searchR ||
+          r.id.toLowerCase() === searchR.toLowerCase() ||
           r.id.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() ===
-            search.r.replace(/[^a-zA-Z0-9]/g, "").toLowerCase(),
+            searchR.replace(/[^a-zA-Z0-9]/g, "").toLowerCase(),
       ) ?? null)
     : null;
 
@@ -503,9 +506,7 @@ function ConversationCard({ request: r, active }: { request: TeamRequest; active
           <TeamStatusBadge status={r.status} />
           <PriorityBadge priority={r.priority} />
         </div>
-        {r.tags && r.tags.length > 0 && (
-          <ChatTagBadges tags={r.tags} className="mt-1.5" />
-        )}
+        {r.tags && r.tags.length > 0 && <ChatTagBadges tags={r.tags} className="mt-1.5" />}
         <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-text-muted">
           <span className="truncate">Assigned {r.assignedAt}</span>
           <span className="shrink-0">{r.lastUpdated}</span>
@@ -755,6 +756,7 @@ function Conversation({
   const {
     getDocument,
     documentsFor,
+    deleteDocument,
     isUserTyping,
     notifyTyping,
     markMessageRead,
@@ -1138,7 +1140,11 @@ function Conversation({
             </div>
             {!query.startsWith("/") && (
               <>
-                <span className="shrink-0 text-[10px] text-text-muted" role="status" aria-live="polite">
+                <span
+                  className="shrink-0 text-[10px] text-text-muted"
+                  role="status"
+                  aria-live="polite"
+                >
                   {query.trim()
                     ? matches.length
                       ? `${matchIndex + 1} of ${matches.length}`
@@ -1499,9 +1505,7 @@ function Conversation({
                         <span className="font-semibold text-text-muted">
                           Current · {m.editedAt ?? m.time}
                         </span>
-                        <span className="whitespace-pre-wrap break-words text-text">
-                          {m.text}
-                        </span>
+                        <span className="whitespace-pre-wrap break-words text-text">{m.text}</span>
                       </li>
                     </ol>
                   ) : null}
@@ -1712,7 +1716,7 @@ function RequestPanel({
   onStatus: (s: TeamRequest["status"]) => void;
   onSend: (requestId: string, text: string) => void;
 }) {
-  const { documentsFor } = useTeamStore();
+  const { documentsFor, deleteDocument } = useTeamStore();
   const docs = documentsFor(r.id);
 
   const rows = [

@@ -264,10 +264,13 @@ Deno.serve(async (req) => {
     // CALL NOTIFICATION: Enforce single authority and idempotency by callSessionId
     const callSessionId = payload.call_session_id || (payload as any).callSessionId;
     if (!callSessionId) {
-      return new Response(JSON.stringify({ error: "call_session_id is required for call notifications" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "call_session_id is required for call notifications" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     // 1. Idempotency check: Check if a notification for this callSessionId already exists
@@ -279,11 +282,21 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (existingNotif) {
-      console.info(`[CALL][FCM] Idempotency: Call session ${callSessionId} already notified. Skipping duplicate.`);
-      return new Response(JSON.stringify({ sent: 0, failed: 0, duplicate: true, message: "Call session already notified" }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      console.info(
+        `[CALL][FCM] Idempotency: Call session ${callSessionId} already notified. Skipping duplicate.`,
+      );
+      return new Response(
+        JSON.stringify({
+          sent: 0,
+          failed: 0,
+          duplicate: true,
+          message: "Call session already notified",
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     // 2. Resolve receiver if not explicitly provided
@@ -291,11 +304,17 @@ Deno.serve(async (req) => {
     let reqRow: any = null;
 
     if (payload.request_id) {
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(payload.request_id);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        payload.request_id,
+      );
       const { data } = await sbAdmin
         .from("requests")
         .select("id, user_id, assigned_team_id, reference, category")
-        .or(isUuid ? `id.eq.${payload.request_id}` : `reference.eq.${payload.request_id},id.eq.${payload.request_id}`)
+        .or(
+          isUuid
+            ? `id.eq.${payload.request_id}`
+            : `reference.eq.${payload.request_id},id.eq.${payload.request_id}`,
+        )
         .maybeSingle();
       reqRow = data;
     }
@@ -304,7 +323,10 @@ Deno.serve(async (req) => {
       receiverId = payload.caller_id === reqRow.user_id ? reqRow.assigned_team_id : reqRow.user_id;
       if (!receiverId && payload.caller_id === reqRow.user_id) {
         // Unassigned or Admin Direct Chat fallback
-        const { data: adminProfiles } = await sbAdmin.from("profiles").select("id").eq("role", "admin");
+        const { data: adminProfiles } = await sbAdmin
+          .from("profiles")
+          .select("id")
+          .eq("role", "admin");
         if (adminProfiles && adminProfiles.length > 0) {
           targetUserIds = adminProfiles.map((p) => p.id);
           receiverId = targetUserIds[0];
@@ -314,6 +336,11 @@ Deno.serve(async (req) => {
 
     if (receiverId) {
       targetUserIds.push(receiverId);
+    }
+
+    // Exclude caller_id so the caller never receives their own incoming call notification
+    if (payload.caller_id) {
+      targetUserIds = targetUserIds.filter((id) => id !== payload.caller_id);
     }
 
     if (targetUserIds.length === 0) {
@@ -327,14 +354,24 @@ Deno.serve(async (req) => {
     // Resolve chat room
     let chatRoomId = payload.chat_room_id;
     if (!chatRoomId && reqRow?.id) {
-      const { data: roomRow } = await sbAdmin.from("chat_rooms").select("id").eq("request_id", reqRow.id).maybeSingle();
+      const { data: roomRow } = await sbAdmin
+        .from("chat_rooms")
+        .select("id")
+        .eq("request_id", reqRow.id)
+        .maybeSingle();
       chatRoomId = roomRow?.id ?? null;
     }
 
     const notifId = crypto.randomUUID();
-    const callTypeLabel = (payload.call_type || payload.title || "Voice").toLowerCase().includes("video") ? "Video" : "Voice";
+    const callTypeLabel = (payload.call_type || payload.title || "Voice")
+      .toLowerCase()
+      .includes("video")
+      ? "Video"
+      : "Voice";
     const refOrId = reqRow?.reference || reqRow?.id || payload.request_id;
-    const targetRoute = payload.route || (receiverId === reqRow?.user_id ? `/app/chats/${refOrId}` : `/team/work?r=${refOrId}`);
+    const targetRoute =
+      payload.route ||
+      (receiverId === reqRow?.user_id ? `/app/chats/${refOrId}` : `/team/work?r=${refOrId}`);
     const receiverRole = receiverId === reqRow?.user_id ? "user" : "team";
 
     notification = {
@@ -362,8 +399,13 @@ Deno.serve(async (req) => {
         call_session_id: callSessionId,
       });
       if (insertErr) {
-        if (insertErr.code === "23505" || insertErr.message?.includes("notifications_call_session_unique_idx")) {
-          console.info(`[CALL][FCM] Concurrent duplicate call session ${callSessionId} prevented by DB index.`);
+        if (
+          insertErr.code === "23505" ||
+          insertErr.message?.includes("notifications_call_session_unique_idx")
+        ) {
+          console.info(
+            `[CALL][FCM] Concurrent duplicate call session ${callSessionId} prevented by DB index.`,
+          );
           return new Response(JSON.stringify({ sent: 0, failed: 0, duplicate: true }), {
             status: 200,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -371,7 +413,9 @@ Deno.serve(async (req) => {
         }
         console.warn("[CALL][FCM] Error inserting call notification row:", insertErr);
       } else {
-        console.info(`[CALL][FCM] Created authoritative notification row for session ${callSessionId}`);
+        console.info(
+          `[CALL][FCM] Created authoritative notification row for session ${callSessionId}`,
+        );
       }
     } catch (dbErr) {
       console.warn("[CALL][FCM] Database insert exception:", dbErr);
@@ -467,28 +511,32 @@ Deno.serve(async (req) => {
     ),
   );
 
-  const sent = results.filter(
-    (r) => r.status === "fulfilled" && r.value.sent,
-  ).length;
+  const sent = results.filter((r) => r.status === "fulfilled" && r.value.sent).length;
   const failed = results.length - sent;
 
   // Clean up invalid/unregistered tokens so they don't keep accumulating
   const invalidTokens = results
     .filter((r) => r.status === "fulfilled" && r.value.invalidToken)
-    .map((r) => (r as PromiseFulfilledResult<{ token: string; sent: boolean; invalidToken: boolean }>).value.token);
+    .map(
+      (r) =>
+        (r as PromiseFulfilledResult<{ token: string; sent: boolean; invalidToken: boolean }>).value
+          .token,
+    );
 
   if (invalidTokens.length > 0) {
     console.info(`[FCM] Removing ${invalidTokens.length} invalid token(s) from database`);
-    await sbAdmin
-      .from("device_tokens")
-      .delete()
-      .in("fcm_token", invalidTokens);
+    await sbAdmin.from("device_tokens").delete().in("fcm_token", invalidTokens);
   }
 
-  console.info(`[FCM] Sent ${sent}/${results.length} notifications, ${failed} failed, ${invalidTokens.length} invalid tokens removed`);
+  console.info(
+    `[FCM] Sent ${sent}/${results.length} notifications, ${failed} failed, ${invalidTokens.length} invalid tokens removed`,
+  );
 
-  return new Response(JSON.stringify({ sent, failed, total: results.length, invalidRemoved: invalidTokens.length }), {
-    status: 200,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+  return new Response(
+    JSON.stringify({ sent, failed, total: results.length, invalidRemoved: invalidTokens.length }),
+    {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    },
+  );
 });

@@ -112,7 +112,10 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
   /** Set of room IDs that have already loaded their messages */
   const loadedRoomsRef = useRef<Set<string>>(new Set());
   /** The single chat room currently active/focused on screen */
-  const [activeChatRoom, setActiveChatRoom] = useState<{ chatRoomId: string; reference: string } | null>(null);
+  const [activeChatRoom, setActiveChatRoom] = useState<{
+    chatRoomId: string;
+    reference: string;
+  } | null>(null);
 
   const profile = useMemo<Profile>(() => {
     const name = dbProfile?.full_name ?? user?.user_metadata?.full_name ?? user?.email ?? "You";
@@ -167,18 +170,23 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       text: row.body ?? undefined,
       isSystem: row.is_system,
       callLog: (row.reactions as any)?.call_log ?? undefined,
-      documentId: row.attachment_id ?? undefined,
-      read: Boolean(row.seen),
-      delivery: row.seen ? "read" : "delivered",
-      attachment: row.attachment
+      state: row.seen ? "read" : "delivered",
+      file: row.attachment
         ? {
             id: row.attachment.id,
             name: row.attachment.file_name,
             kind: fileKind(row.attachment.kind),
             size: sizeLabel(row.attachment.size_bytes),
-            url: row.attachment.storage_path ?? undefined,
+            storagePath: row.attachment.storage_path ?? undefined,
           }
-        : undefined,
+        : row.attachment_id
+          ? {
+              id: row.attachment_id,
+              name: "Document",
+              kind: "doc",
+              size: "",
+            }
+          : undefined,
     }),
     [],
   );
@@ -189,7 +197,7 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       name: row.file_name,
       kind: fileKind(row.kind),
       size: sizeLabel(row.size_bytes),
-      uploadedAt: day(row.created_at),
+      date: day(row.created_at),
       uploadedBy: row.uploader_role === "user" ? "You" : "Support Team",
       requestId: reference,
       requestTitle,
@@ -199,8 +207,16 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
   );
 
   const mapNotification = useCallback((row: NotificationRow): AppNotification => {
-    const allowed = ["assigned", "message", "document", "status", "admin"] as const;
-    const type = (allowed as readonly string[]).includes(row.type)
+    const isAnnouncement = row.type === "announcement" || row.type === "admin";
+    const allowed = [
+      "assigned",
+      "message",
+      "document",
+      "status",
+      "completed",
+      "announcement",
+    ] as const;
+    const type = (allowed as readonly string[]).includes(row.type as any)
       ? (row.type as AppNotification["type"])
       : "message";
     return {
@@ -210,8 +226,26 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       time: time(row.created_at),
       read: Boolean(row.is_read),
       requestId: row.request_id ? referenceById.current[row.request_id] : undefined,
+      to: isAnnouncement ? "news" : "chat",
     };
   }, []);
+
+  const prevUserIdRef = useRef<string | null>(user?.id ?? null);
+  useEffect(() => {
+    if (prevUserIdRef.current !== (user?.id ?? null)) {
+      prevUserIdRef.current = user?.id ?? null;
+      setRequests(getInitialRequests());
+      setMessages([]);
+      setDocuments([]);
+      setNotifications([]);
+      setNews([]);
+      rooms.current = {};
+      referenceById.current = {};
+      loadedRoomsRef.current.clear();
+      teamNames.current = {};
+      setActiveChatRoom(null);
+    }
+  }, [user?.id]);
 
   const isInitialHydrate = useRef(true);
 
@@ -220,7 +254,11 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       if (!user) return;
       const t0 = Date.now();
       console.log(`[PERF][STORE] T5: User store hydration started for user=${user.id}`);
-      if (showLoading && isInitialHydrate.current && !sessionStorage.getItem(`formbhro:user_requests:${user.id}`)) {
+      if (
+        showLoading &&
+        isInitialHydrate.current &&
+        !sessionStorage.getItem(`formbhro:user_requests:${user.id}`)
+      ) {
         setLoading(true);
       }
       try {
@@ -231,7 +269,9 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
           documentsApi.listDocuments({ limit: 100 }),
         ]);
 
-        console.log(`[PERF][HYDRATION] T6: User store primary queries resolved in ${Date.now() - t0}ms`);
+        console.log(
+          `[PERF][HYDRATION] T6: User store primary queries resolved in ${Date.now() - t0}ms`,
+        );
 
         referenceById.current = Object.fromEntries(rows.map((r) => [r.id, r.reference || r.id]));
         const mappedRequests = rows.map(mapRequest);
@@ -271,10 +311,7 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
         // 1. Batch-fetch chat_rooms for ALL rows in a single query (1 call instead of 20)
         const rowIds = rows.map((r) => r.id);
         const { data: allRooms } = rowIds.length
-          ? await supabase
-              .from("chat_rooms")
-              .select("id, request_id, title")
-              .in("request_id", rowIds)
+          ? await supabase.from("chat_rooms").select("id, request_id").in("request_id", rowIds)
           : { data: [] };
 
         const roomByRequestId = new Map((allRooms ?? []).map((rm) => [rm.request_id, rm]));
@@ -351,7 +388,7 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
           room = {
             requestId: rawRoom.request_id,
             chatRoomId: rawRoom.id,
-            title: rawRoom.title || "Support Chat",
+            title: room?.title || "Support Chat",
           };
           rooms.current[matchedRef] = room;
           referenceById.current[rawRoom.request_id] = matchedRef;
@@ -365,7 +402,9 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
         const msgs = await messagesApi.listMessages(room.chatRoomId, { limit: 50 });
         setMessages((prev) => {
           const existingIds = new Set(prev.map((m) => m.id));
-          const newMsgs = msgs.filter((m) => !existingIds.has(m.id)).map((m) => mapMessage(m, matchedRef));
+          const newMsgs = msgs
+            .filter((m) => !existingIds.has(m.id))
+            .map((m) => mapMessage(m, matchedRef));
           return [...prev, ...newMsgs];
         });
       }
@@ -392,7 +431,8 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
         setActiveChatRoom(null);
         return;
       }
-      const ref = cur.requestRef || referenceById.current[cur.requestId || ""] || cur.requestId || "";
+      const ref =
+        cur.requestRef || referenceById.current[cur.requestId || ""] || cur.requestId || "";
       const room = rooms.current[ref];
       const roomId = cur.chatRoomId || room?.chatRoomId;
       if (roomId) {
@@ -410,7 +450,9 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user || !activeChatRoom?.chatRoomId) return;
     const { chatRoomId, reference } = activeChatRoom;
-    console.log(`[PERF][REALTIME] Subscribing on-demand to active room=${chatRoomId} (${reference})`);
+    console.log(
+      `[PERF][REALTIME] Subscribing on-demand to active room=${chatRoomId} (${reference})`,
+    );
 
     // Ensure messages are loaded for the active chat
     void loadChat(reference);
@@ -422,9 +464,7 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
         );
       },
       onMessageUpdate: (row) => {
-        setMessages((prev) =>
-          prev.map((m) => (m.id === row.id ? mapMessage(row, reference) : m)),
-        );
+        setMessages((prev) => prev.map((m) => (m.id === row.id ? mapMessage(row, reference) : m)));
       },
       onDocument: (row) => {
         setDocuments((prev) =>
@@ -490,9 +530,7 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
         void loadChat(ref);
       }
       return messages.filter(
-        (m) =>
-          m.requestId?.toLowerCase() === cleanId ||
-          m.requestId?.toLowerCase() === ref,
+        (m) => m.requestId?.toLowerCase() === cleanId || m.requestId?.toLowerCase() === ref,
       );
     },
     [messages, loadChat],
@@ -504,9 +542,7 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       const cleanId = id.trim().toLowerCase();
       const ref = (referenceById.current[id] || id).trim().toLowerCase();
       return documents.filter(
-        (d) =>
-          d.requestId?.toLowerCase() === cleanId ||
-          d.requestId?.toLowerCase() === ref,
+        (d) => d.requestId?.toLowerCase() === cleanId || d.requestId?.toLowerCase() === ref,
       );
     },
     [documents],
@@ -669,9 +705,7 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       // list fetch (which filters by request_id). Without this, personal
       // documents (request_id = null, chat_room_id = null) are completely
       // invisible to the support team.
-      const activeRef = Object.values(rooms.current).find(
-        (r) => r.chatRoomId !== null,
-      );
+      const activeRef = Object.values(rooms.current).find((r) => r.chatRoomId !== null);
       const requestId = activeRef?.requestId ?? undefined;
       const chatRoomId = activeRef?.chatRoomId ?? undefined;
 
@@ -684,16 +718,15 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       });
 
       // Derive the UI reference for display
-      const reference =
-        requestId
-          ? Object.entries(rooms.current).find(([, r]) => r.requestId === requestId)?.[0] ?? ""
-          : "";
-      const title = requestId ? (rooms.current[reference]?.title ?? "My Request") : "Personal Document";
+      const reference = requestId
+        ? (Object.entries(rooms.current).find(([, r]) => r.requestId === requestId)?.[0] ?? "")
+        : "";
+      const title = requestId
+        ? (rooms.current[reference]?.title ?? "My Request")
+        : "Personal Document";
 
       setDocuments((prev) =>
-        prev.some((d) => d.id === doc.id)
-          ? prev
-          : [mapDocument(doc, reference, title), ...prev],
+        prev.some((d) => d.id === doc.id) ? prev : [mapDocument(doc, reference, title), ...prev],
       );
     },
     [mapDocument],
@@ -767,7 +800,6 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
         const isChatOpen = isChatActive({
           requestId: row.request_id,
           chatRoomId: row.chat_room_id,
-          route: row.route,
         });
         if (!isChatOpen) {
           playMessageNotificationSound();

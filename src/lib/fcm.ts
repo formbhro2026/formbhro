@@ -335,6 +335,9 @@ type NavigateCallback = (path: string) => void;
 
 let foregroundListenerCleanup: (() => void) | null = null;
 let tapListenerCleanup: (() => void) | null = null;
+let tokenRefreshListenerCleanup: (() => void) | null = null;
+let fcmInitializedUserId: string | null = null;
+let fcmInitializingPromise: Promise<boolean> | null = null;
 
 /**
  * Registers a listener for foreground notifications (app is open).
@@ -342,6 +345,9 @@ let tapListenerCleanup: (() => void) | null = null;
 export async function onForegroundNotification(
   onNotification: (title: string, body: string, data?: Record<string, string>) => void,
 ): Promise<() => void> {
+  foregroundListenerCleanup?.();
+  foregroundListenerCleanup = null;
+
   const result = await getMessagingPlugin();
   if (!result) return () => {};
 
@@ -355,7 +361,12 @@ export async function onForegroundNotification(
       },
     );
 
-    const cleanup = () => handle.remove();
+    const cleanup = () => {
+      handle.remove();
+      if (foregroundListenerCleanup === cleanup) {
+        foregroundListenerCleanup = null;
+      }
+    };
     foregroundListenerCleanup = cleanup;
     return cleanup;
   } catch (e) {
@@ -369,6 +380,9 @@ export async function onForegroundNotification(
  * Navigates to the relevant route based on notification data.
  */
 export async function onNotificationTap(navigate: NavigateCallback): Promise<() => void> {
+  tapListenerCleanup?.();
+  tapListenerCleanup = null;
+
   const result = await getMessagingPlugin();
   if (!result) return () => {};
 
@@ -392,7 +406,12 @@ export async function onNotificationTap(navigate: NavigateCallback): Promise<() 
       },
     );
 
-    const cleanup = () => handle.remove();
+    const cleanup = () => {
+      handle.remove();
+      if (tapListenerCleanup === cleanup) {
+        tapListenerCleanup = null;
+      }
+    };
     tapListenerCleanup = cleanup;
     return cleanup;
   } catch (e) {
@@ -408,8 +427,12 @@ export async function onNotificationTap(navigate: NavigateCallback): Promise<() 
 export function cleanupFCMListeners(): void {
   foregroundListenerCleanup?.();
   tapListenerCleanup?.();
+  tokenRefreshListenerCleanup?.();
   foregroundListenerCleanup = null;
   tapListenerCleanup = null;
+  tokenRefreshListenerCleanup = null;
+  fcmInitializedUserId = null;
+  fcmInitializingPromise = null;
 }
 
 // ---------------------------------------------------------------------------
@@ -427,39 +450,66 @@ export async function initializeFCM(userId: string): Promise<boolean> {
     return false;
   }
 
-  // 1. Setup Android Notification Channels with High Importance
-  await setupAndroidNotificationChannels();
-
-  // 2. Request permission
-  const granted = await requestNotificationPermission();
-  if (!granted) {
-    console.info("[FCM] Notification permission not granted.");
-    return false;
+  if (fcmInitializedUserId === userId) {
+    return true;
   }
 
-  // 3. Retrieve and save token
-  const token = await getFCMToken();
-  if (!token) {
-    console.error("[FCM] Could not retrieve FCM token.");
-    return false;
+  if (fcmInitializingPromise) {
+    return fcmInitializingPromise;
   }
 
-  await saveFCMToken(userId, token);
+  fcmInitializingPromise = (async () => {
+    try {
+      // 1. Setup Android Notification Channels with High Importance
+      await setupAndroidNotificationChannels();
 
-  // 4. Listen for token refresh events and persist automatically
-  try {
-    const result = await getMessagingPlugin();
-    if (result && (result.plugin as any).addListener) {
-      await (result.plugin as any).addListener("tokenReceived", async (event: { token: string }) => {
-        if (event?.token) {
-          console.log("[CALL][FCM] Refreshed token received:", event.token.substring(0, 10) + "...");
-          await saveFCMToken(userId, event.token);
+      // 2. Request permission
+      const granted = await requestNotificationPermission();
+      if (!granted) {
+        console.info("[FCM] Notification permission not granted.");
+        return false;
+      }
+
+      // 3. Retrieve and save token
+      const token = await getFCMToken();
+      if (!token) {
+        console.error("[FCM] Could not retrieve FCM token.");
+        return false;
+      }
+
+      await saveFCMToken(userId, token);
+
+      // 4. Listen for token refresh events and persist automatically
+      try {
+        const result = await getMessagingPlugin();
+        if (result && (result.plugin as any).addListener) {
+          tokenRefreshListenerCleanup?.();
+          tokenRefreshListenerCleanup = null;
+
+          const handle = await (result.plugin as any).addListener(
+            "tokenReceived",
+            async (event: { token: string }) => {
+              if (event?.token) {
+                console.log(
+                  "[CALL][FCM] Refreshed token received:",
+                  event.token.substring(0, 10) + "...",
+                );
+                await saveFCMToken(userId, event.token);
+              }
+            },
+          );
+          tokenRefreshListenerCleanup = () => handle?.remove?.();
         }
-      });
-    }
-  } catch (err) {
-    console.warn("[FCM] Could not register tokenReceived listener:", err);
-  }
+      } catch (err) {
+        console.warn("[FCM] Could not register tokenReceived listener:", err);
+      }
 
-  return true;
+      fcmInitializedUserId = userId;
+      return true;
+    } finally {
+      fcmInitializingPromise = null;
+    }
+  })();
+
+  return fcmInitializingPromise;
 }

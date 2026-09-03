@@ -20,7 +20,11 @@ function getPolicyCache(userId: string): CachedPolicyAck | null {
     const raw = sessionStorage.getItem(`formbhro:policy_ack:${userId}`);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as CachedPolicyAck;
-    if (parsed && typeof parsed.ackedAt === "number" && Date.now() - parsed.ackedAt < POLICY_CACHE_TTL_MS) {
+    if (
+      parsed &&
+      typeof parsed.ackedAt === "number" &&
+      Date.now() - parsed.ackedAt < POLICY_CACHE_TTL_MS
+    ) {
       return parsed;
     }
   } catch {}
@@ -133,6 +137,20 @@ export function PolicyInterceptor({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <Loader2 className="h-6 w-6 animate-spin text-text-muted" />
+      </div>
+    );
+  }
+
+  if (error && (!cachedAck || !cachedAck.allAcknowledged)) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center p-4 bg-background">
+        <div className="w-full max-w-md rounded-xl border border-red-500/20 bg-card p-6 text-center shadow-lg">
+          <h2 className="text-lg font-bold text-text-primary mb-2">Policy Verification Required</h2>
+          <p className="text-sm text-text-secondary mb-4">{error}</p>
+          <Button onClick={() => window.location.reload()} className="w-full">
+            Refresh & Retry
+          </Button>
+        </div>
       </div>
     );
   }

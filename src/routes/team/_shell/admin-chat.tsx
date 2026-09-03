@@ -45,7 +45,7 @@ interface LocalMessage {
   id: string;
   senderRole: "team" | "admin";
   senderName: string;
-  body: string;
+  body: string | null;
   createdAt: string;
   delivery: "sending" | "delivered" | "failed";
   attachmentUrl?: string;
@@ -175,7 +175,8 @@ function TeamAdminChatPage() {
             {
               id: incoming.id,
               senderRole: incoming.sender_role === "admin" ? "admin" : "team",
-              senderName: incoming.sender_role === "admin" ? "Admin Support" : member?.name || "You",
+              senderName:
+                incoming.sender_role === "admin" ? "Admin Support" : member?.name || "You",
               body: incoming.body,
               createdAt: incoming.created_at,
               delivery: "delivered",
@@ -242,9 +243,7 @@ function TeamAdminChatPage() {
       );
     } catch (err) {
       console.error("[TeamAdminChat] Failed to send message:", err);
-      setMessages((prev) =>
-        prev.map((m) => (m.id === tempId ? { ...m, delivery: "failed" } : m)),
-      );
+      setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, delivery: "failed" } : m)));
       toast.error("Failed to send message to Admin.");
     } finally {
       setSending(false);
@@ -358,7 +357,9 @@ function TeamAdminChatPage() {
               </span>
             </div>
             <p className="truncate text-[11px] text-text-muted">
-              {request ? `${request.reference || "ADM-TM"} • Direct Channel` : "Connecting to admin…"}
+              {request
+                ? `${request.reference || "ADM-TM"} • Direct Channel`
+                : "Connecting to admin…"}
             </p>
           </div>
         </div>
@@ -411,7 +412,10 @@ function TeamAdminChatPage() {
               return (
                 <div
                   key={m.id}
-                  className={cn("flex flex-col max-w-[82%]", isMine ? "self-end items-end" : "self-start items-start")}
+                  className={cn(
+                    "flex flex-col max-w-[82%]",
+                    isMine ? "self-end items-end" : "self-start items-start",
+                  )}
                 >
                   <span className="mb-1 px-1 text-[10px] font-medium text-text-muted">
                     {m.senderName}
@@ -433,7 +437,9 @@ function TeamAdminChatPage() {
                     {isMine && (
                       <span>
                         {m.delivery === "sending" && <Clock className="h-3 w-3 animate-spin" />}
-                        {m.delivery === "delivered" && <CheckCheck className="h-3.5 w-3.5 text-brand" />}
+                        {m.delivery === "delivered" && (
+                          <CheckCheck className="h-3.5 w-3.5 text-brand" />
+                        )}
                         {m.delivery === "failed" && (
                           <span className="flex items-center gap-0.5 text-rose-500 font-semibold">
                             <AlertCircle className="h-3 w-3" /> Failed
@@ -490,11 +496,7 @@ function TeamAdminChatPage() {
             aria-label="Send message"
             className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand text-white transition-opacity hover:opacity-90 disabled:opacity-40"
           >
-            {sending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
+            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </button>
         </form>
       </footer>

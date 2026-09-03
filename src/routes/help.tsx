@@ -1,5 +1,14 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { MessageSquare, Mail, Phone, ShieldCheck, ArrowLeft, Headphones, HelpCircle, ExternalLink } from "lucide-react";
+import {
+  MessageSquare,
+  Mail,
+  Phone,
+  ShieldCheck,
+  ArrowLeft,
+  Headphones,
+  HelpCircle,
+  ExternalLink,
+} from "lucide-react";
 import { CONTACT } from "@/data/landing";
 
 export const Route = createFileRoute("/help")({
@@ -9,7 +18,8 @@ export const Route = createFileRoute("/help")({
       { title: "Help & Support — Formbhro" },
       {
         name: "description",
-        content: "Get help with your applications, contact Formbhro support or start a direct chat with our team.",
+        content:
+          "Get help with your applications, contact Formbhro support or start a direct chat with our team.",
       },
     ],
   }),
@@ -20,7 +30,7 @@ function HelpSupport() {
 
   const handleDirectChat = () => {
     // Open chat or auth
-    void navigate({ to: "/auth", search: { redirect: "/app" } });
+    void navigate({ to: "/auth", search: { redirect_to: "/app" } });
   };
 
   return (
@@ -41,7 +51,8 @@ function HelpSupport() {
             Help &amp; Support
           </h1>
           <p className="mt-2 text-base text-text-secondary">
-            Need assistance with your form or application? We're here to help you every step of the way.
+            Need assistance with your form or application? We're here to help you every step of the
+            way.
           </p>
         </header>
 
@@ -54,7 +65,8 @@ function HelpSupport() {
               </div>
               <h3 className="text-lg font-bold text-white">Direct Chat with Admin</h3>
               <p className="mt-1 text-xs text-text-secondary leading-relaxed">
-                Connect directly with the admin support team for instant assistance and personalized form filling guidance.
+                Connect directly with the admin support team for instant assistance and personalized
+                form filling guidance.
               </p>
             </div>
             <button
@@ -118,16 +130,23 @@ function HelpSupport() {
 
           <div className="space-y-3">
             <div className="bg-surface-1 p-5 rounded-2xl border border-border-subtle">
-              <h3 className="font-semibold text-white mb-1.5 text-sm">How do I create a new request?</h3>
+              <h3 className="font-semibold text-white mb-1.5 text-sm">
+                How do I create a new request?
+              </h3>
               <p className="text-xs leading-relaxed text-text-secondary">
-                Simply sign in and click the "Fill Now" or "New Request" button on your dashboard. Choose your form category and our dedicated team member will connect with you in live chat.
+                Simply sign in and click the "Fill Now" or "New Request" button on your dashboard.
+                Choose your form category and our dedicated team member will connect with you in
+                live chat.
               </p>
             </div>
 
             <div className="bg-surface-1 p-5 rounded-2xl border border-border-subtle">
-              <h3 className="font-semibold text-white mb-1.5 text-sm">Are my uploaded documents safe?</h3>
+              <h3 className="font-semibold text-white mb-1.5 text-sm">
+                Are my uploaded documents safe?
+              </h3>
               <p className="text-xs leading-relaxed text-text-secondary">
-                Yes, absolutely! All documents are stored in encrypted private storage buckets. Only you and your authorized assigned team member can securely access them.
+                Yes, absolutely! All documents are stored in encrypted private storage buckets. Only
+                you and your authorized assigned team member can securely access them.
               </p>
             </div>
 
@@ -136,7 +155,8 @@ function HelpSupport() {
                 How long does it take to complete an application?
               </h3>
               <p className="text-xs leading-relaxed text-text-secondary">
-                Most standard requests are processed within a few hours. You can track real-time progress and receive instant updates in your chat room.
+                Most standard requests are processed within a few hours. You can track real-time
+                progress and receive instant updates in your chat room.
               </p>
             </div>
           </div>

@@ -51,12 +51,16 @@ export default defineConfig({
           globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
           runtimeCaching: [
             {
-              urlPattern: ({ url }) => url.origin === self.location.origin,
+              urlPattern: ({ url }) =>
+                url.origin === self.location.origin &&
+                !url.pathname.startsWith("/api") &&
+                !url.pathname.startsWith("/auth"),
               handler: "NetworkFirst",
               options: {
-                cacheName: "api-cache",
+                cacheName: "pages-cache",
+                networkTimeoutSeconds: 3,
                 expiration: {
-                  maxEntries: 100,
+                  maxEntries: 50,
                   maxAgeSeconds: 60 * 60 * 24, // 1 day
                 },
               },

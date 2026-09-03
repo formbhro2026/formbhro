@@ -12,6 +12,7 @@ import {
   useEffect,
   useState,
   useCallback,
+  useRef,
   type ReactNode,
 } from "react";
 import { useWebRTCCall, type CallSession } from "@/hooks/use-webrtc-call";
@@ -45,6 +46,9 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
     });
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  // Track handled call sessions to prevent duplicate alerts and re-dials
+  const handledCallSessionsRef = useRef<Set<string>>(new Set());
 
   const userStore = useContext(UserStoreContext);
   const activeRequest = userStore?.activeRequest;
@@ -176,8 +180,6 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
   // Native Android incoming call answer bridge:
   // When IncomingCallActivity launches/resumes MainActivity with autoAnswer=true,
   // MainActivity triggers 'formbhro:call_answered' and sets window.__FORMBHARO_PENDING_CALL_ANSWER__.
-  const handledCallSessionsRef = useRef<Set<string>>(new Set());
-
   useEffect(() => {
     const consumePending = () => {
       if (typeof window === "undefined") return;

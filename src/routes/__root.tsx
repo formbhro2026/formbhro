@@ -25,7 +25,10 @@ import {
   showSystemNotification,
 } from "../lib/fcm";
 import { isChatActive } from "../lib/active-chat-tracker";
-import { playMessageNotificationSound, startIncomingCallRingtone } from "../lib/audio-notifications";
+import {
+  playMessageNotificationSound,
+  startIncomingCallRingtone,
+} from "../lib/audio-notifications";
 import { getInitialTheme, applyTheme } from "../lib/theme-manager";
 
 function NotFoundComponent() {
@@ -51,18 +54,18 @@ function NotFoundComponent() {
 }
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  if (process.env.NODE_ENV !== "production") {
-    console.error("[TanStack Router Root Boundary Caught Error]:", {
-      name: error?.name,
-      message: error?.message,
-      stack: error?.stack,
-    });
-  } else {
-    console.error("[Root Error]:", error?.message || "Unknown error");
-  }
+  console.error("[TanStack Router Root Boundary Caught Error]:", {
+    name: error?.name,
+    message: error?.message,
+    stack: error?.stack,
+    route: typeof window !== "undefined" ? window.location.pathname : undefined,
+  });
   const router = useRouter();
   useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
+    reportLovableError(error, {
+      boundary: "tanstack_root_error_component",
+      url: typeof window !== "undefined" ? window.location.href : undefined,
+    });
   }, [error]);
 
   return (
@@ -100,7 +103,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" },
+      {
+        name: "viewport",
+        content: "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover",
+      },
       { title: "Formbhro — Real-Time Form Assistance" },
       {
         name: "description",
@@ -286,21 +292,21 @@ function RootComponent() {
     // Register FCM foreground notification handler → plays chime, triggers OS notification & shows rich top toast
     void onForegroundNotification((title, body, data) => {
       if (data?.type === "call") {
-        // Play the ringtone for incoming call notifications when app is in foreground
-        startIncomingCallRingtone();
-      } else {
-        // Suppress sound, system notification, and toast if the user is already viewing the target chat
-        const isCurrentChatActive = isChatActive({
-          requestId: data?.requestId,
-          chatRoomId: data?.chatRoomId,
-          route: data?.route,
-        });
-        if (isCurrentChatActive) {
-          return;
-        }
-
-        playMessageNotificationSound();
+        // Suppress generic toast/chime/notification: GlobalCallProvider has exclusive authority for incoming calls
+        return;
       }
+
+      // Suppress sound, system notification, and toast if the user is already viewing the target chat
+      const isCurrentChatActive = isChatActive({
+        requestId: data?.requestId,
+        chatRoomId: data?.chatRoomId,
+        route: data?.route,
+      });
+      if (isCurrentChatActive) {
+        return;
+      }
+
+      playMessageNotificationSound();
 
       // Display system notification if permission granted
       showSystemNotification(title, body, {

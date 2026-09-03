@@ -9,7 +9,7 @@ export function Panel({
   children,
   className,
 }: {
-  title?: string;
+  title?: ReactNode;
   action?: ReactNode;
   children: ReactNode;
   className?: string;
@@ -20,7 +20,12 @@ export function Panel({
     >
       {(title || action) && (
         <header className="mb-4 flex items-center justify-between gap-3">
-          {title && <h2 className="text-sm font-semibold text-text">{title}</h2>}
+          {title &&
+            (typeof title === "string" ? (
+              <h2 className="text-sm font-semibold text-text">{title}</h2>
+            ) : (
+              title
+            ))}
           {action}
         </header>
       )}

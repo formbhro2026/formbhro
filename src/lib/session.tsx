@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -26,7 +27,11 @@ const SessionContext = createContext<SessionValue | null>(null);
 
 const CACHE_KEY = "formbhro:auth_session_cache";
 
-function getCachedSession(): { profile: Profile | null; role: AppRole | null; userId: string } | null {
+function getCachedSession(): {
+  profile: Profile | null;
+  role: AppRole | null;
+  userId: string;
+} | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = sessionStorage.getItem(CACHE_KEY) || localStorage.getItem(CACHE_KEY);
@@ -36,7 +41,9 @@ function getCachedSession(): { profile: Profile | null; role: AppRole | null; us
   }
 }
 
-function setCachedSession(data: { profile: Profile | null; role: AppRole | null; userId: string } | null) {
+function setCachedSession(
+  data: { profile: Profile | null; role: AppRole | null; userId: string } | null,
+) {
   if (typeof window === "undefined") return;
   try {
     if (!data) {
@@ -69,6 +76,8 @@ function SessionProviderInner({ children }: { children: ReactNode }) {
 
   // In-flight deduplication ref to prevent duplicate profiles + user_roles queries
   const inFlightLoadRef = useRef<{ userId: string; promise: Promise<void> } | null>(null);
+  const lastHandledUserIdRef = useRef<string | null>(null);
+  const fcmInitializedUserIdRef = useRef<string | null>(null);
 
   const load = useCallback(async (nextUser: User | null) => {
     setUser(nextUser);
@@ -77,6 +86,8 @@ function SessionProviderInner({ children }: { children: ReactNode }) {
       setRole(null);
       setCachedSession(null);
       inFlightLoadRef.current = null;
+      lastHandledUserIdRef.current = null;
+      fcmInitializedUserIdRef.current = null;
       return;
     }
 
@@ -111,7 +122,11 @@ function SessionProviderInner({ children }: { children: ReactNode }) {
       setProfile(nextProfile);
       const roles = (rolesResult?.data ?? []).map((r) => r.role);
       if (rolesResult?.error) console.error("[Session] roles error:", rolesResult.error);
-      const nextRole: AppRole = roles.includes("admin") ? "admin" : roles.includes("team") ? "team" : "user";
+      const nextRole: AppRole = roles.includes("admin")
+        ? "admin"
+        : roles.includes("team")
+          ? "team"
+          : "user";
       setRole(nextRole);
 
       console.log(`[PERF][ROLE] T4: Resolved role=${nextRole} in ${Date.now() - t0}ms`);
@@ -121,6 +136,8 @@ function SessionProviderInner({ children }: { children: ReactNode }) {
         role: nextRole,
         userId: nextUser.id,
       });
+
+      lastHandledUserIdRef.current = nextUser.id;
 
       // BAN ENFORCEMENT: Immediately log out users whose profile is suspended
       if (profileResult?.data && profileResult.data.is_active === false) {
@@ -159,6 +176,7 @@ function SessionProviderInner({ children }: { children: ReactNode }) {
         if (active) {
           if (session?.user) {
             setUser(session.user);
+            lastHandledUserIdRef.current = session.user.id;
             // Strict account isolation: Only hydrate cache if it matches the current user
             const cached = getCachedSession();
             if (cached && cached.userId === session.user.id) {
@@ -168,13 +186,19 @@ function SessionProviderInner({ children }: { children: ReactNode }) {
               // Unblock UI immediately with validated cached data
               setLoading(false);
               setInitialized(true);
-              void initializeFCM(session.user.id);
+              if (fcmInitializedUserIdRef.current !== session.user.id) {
+                fcmInitializedUserIdRef.current = session.user.id;
+                void initializeFCM(session.user.id);
+              }
               // Background sync fresh data
               void load(session.user);
               return;
             } else {
               setCachedSession(null);
-              void initializeFCM(session.user.id);
+              if (fcmInitializedUserIdRef.current !== session.user.id) {
+                fcmInitializedUserIdRef.current = session.user.id;
+                void initializeFCM(session.user.id);
+              }
               await load(session.user);
             }
           } else {
@@ -193,13 +217,33 @@ function SessionProviderInner({ children }: { children: ReactNode }) {
     };
     init();
 
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!active) return;
 
-      await load(session?.user ?? null);
+      // Skip INITIAL_SESSION as init() is already running the startup hydration
+      if (event === "INITIAL_SESSION") {
+        return;
+      }
 
-      // Initialize FCM token registration and notification channels
-      if (session?.user) {
+      if (event === "SIGNED_OUT" || !session?.user) {
+        lastHandledUserIdRef.current = null;
+        fcmInitializedUserIdRef.current = null;
+        await load(null);
+        return;
+      }
+
+      // If user is updated, or signed in as a new user, hydrate fresh profile & role
+      if (
+        event === "SIGNED_IN" ||
+        event === "USER_UPDATED" ||
+        session.user.id !== lastHandledUserIdRef.current
+      ) {
+        await load(session.user);
+      }
+
+      // Initialize FCM token registration and notification channels idempotently
+      if (session.user && fcmInitializedUserIdRef.current !== session.user.id) {
+        fcmInitializedUserIdRef.current = session.user.id;
         void initializeFCM(session.user.id);
       }
     });
@@ -221,6 +265,9 @@ function SessionProviderInner({ children }: { children: ReactNode }) {
       await deleteFCMToken();
     }
     await supabase.auth.signOut();
+    inFlightLoadRef.current = null;
+    lastHandledUserIdRef.current = null;
+    fcmInitializedUserIdRef.current = null;
     setUser(null);
     setProfile(null);
     setRole(null);
