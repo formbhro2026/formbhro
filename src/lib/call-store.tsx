@@ -130,9 +130,15 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
   }, [userId]);
 
   // When WebRTC call ends or becomes inactive, ensure incomingAlert is cleared immediately
+  const prevWasActiveRef = useRef(false);
   useEffect(() => {
-    if (!call.session.isActive && !call.session.isIncoming && incomingAlert) {
-      console.log("[GlobalCall] Auto-clearing incoming alert because WebRTC session is inactive");
+    const wasActive = prevWasActiveRef.current;
+    const isNowActive = call.session.isActive || call.session.isIncoming;
+    prevWasActiveRef.current = isNowActive;
+
+    // Only clear incoming alert if the WebRTC session was previously active/incoming and has now ended
+    if (wasActive && !isNowActive && incomingAlert) {
+      console.log("[GlobalCall] Auto-clearing incoming alert because WebRTC session ended");
       stopIncomingCallRingtone();
       setIncomingAlert(null);
     }

@@ -85,37 +85,48 @@ function playRingtoneCycle(): void {
   const ctx = getAudioContext();
   if (!ctx) return;
 
-  const notes = [
-    { freq: 440.0, time: 0, dur: 0.18 }, // A4
-    { freq: 554.37, time: 0.2, dur: 0.18 }, // C#5
-    { freq: 659.25, time: 0.4, dur: 0.25 }, // E5
-    { freq: 880.0, time: 0.7, dur: 0.45 }, // A5
-    { freq: 659.25, time: 1.25, dur: 0.2 }, // E5
-    { freq: 880.0, time: 1.5, dur: 0.5 }, // A5
-  ];
+  const playNotes = (audioCtx: AudioContext) => {
+    const notes = [
+      { freq: 440.0, time: 0, dur: 0.18 }, // A4
+      { freq: 554.37, time: 0.2, dur: 0.18 }, // C#5
+      { freq: 659.25, time: 0.4, dur: 0.25 }, // E5
+      { freq: 880.0, time: 0.7, dur: 0.45 }, // A5
+      { freq: 659.25, time: 1.25, dur: 0.2 }, // E5
+      { freq: 880.0, time: 1.5, dur: 0.5 }, // A5
+    ];
 
-  const startTime = ctx.currentTime + 0.05;
+    const startTime = audioCtx.currentTime + 0.05;
 
-  notes.forEach((n) => {
-    try {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(n.freq, startTime + n.time);
+    notes.forEach((n) => {
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(n.freq, startTime + n.time);
 
-      gain.gain.setValueAtTime(0, startTime + n.time);
-      gain.gain.linearRampToValueAtTime(0.3, startTime + n.time + 0.03);
-      gain.gain.exponentialRampToValueAtTime(0.001, startTime + n.time + n.dur);
+        gain.gain.setValueAtTime(0, startTime + n.time);
+        gain.gain.linearRampToValueAtTime(0.3, startTime + n.time + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + n.time + n.dur);
 
-      osc.connect(gain);
-      gain.connect(ctx.destination);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
 
-      osc.start(startTime + n.time);
-      osc.stop(startTime + n.time + n.dur);
-    } catch {
-      // Ignore oscillator errors if context state changes
-    }
-  });
+        osc.start(startTime + n.time);
+        osc.stop(startTime + n.time + n.dur);
+      } catch {
+        // Ignore oscillator errors if context state changes
+      }
+    });
+  };
+
+  if (ctx.state === "suspended") {
+    void ctx
+      .resume()
+      .then(() => playNotes(ctx))
+      .catch(() => {});
+  } else {
+    playNotes(ctx);
+  }
 }
 
 /**

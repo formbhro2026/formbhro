@@ -11,6 +11,7 @@ import android.media.AudioAttributes;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
+import android.os.PowerManager;
 import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
@@ -202,9 +203,34 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
             .addAction(0, "Decline", declinePendingIntent)
             .addAction(0, "Answer", answerPendingIntent);
 
+        // Acquire WakeLock to turn screen on and prevent CPU sleep during call alert
+        try {
+            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            if (pm != null) {
+                PowerManager.WakeLock wakeLock = pm.newWakeLock(
+                    PowerManager.PARTIAL_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP,
+                    "formbhro:incoming_call_wake"
+                );
+                wakeLock.acquire(15000);
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "[CALL][NATIVE] WakeLock warning: " + t.getMessage());
+        }
+
+        // Start native ringtone and vibration immediately for full call alert experience
+        IncomingCallActivity.startRingtoneAndVibration(this);
+
         if (manager != null) {
             manager.notify(notificationId, builder.build());
             Log.i(TAG, "[CALL][NATIVE] Notification posted: id=" + notificationId);
+
+            // Auto-cancel and stop ringtone after 45 seconds if missed/unanswered
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                IncomingCallActivity.stopRingtone();
+                if (manager != null) {
+                    manager.cancel(notificationId);
+                }
+            }, 45000);
         }
     }
 }

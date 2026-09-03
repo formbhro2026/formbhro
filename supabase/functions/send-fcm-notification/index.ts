@@ -322,19 +322,23 @@ Deno.serve(async (req) => {
     if (!receiverId && reqRow && payload.caller_id) {
       receiverId = payload.caller_id === reqRow.user_id ? reqRow.assigned_team_id : reqRow.user_id;
       if (!receiverId && payload.caller_id === reqRow.user_id) {
-        // Unassigned or Admin Direct Chat fallback
-        const { data: adminProfiles } = await sbAdmin
-          .from("profiles")
-          .select("id")
-          .eq("role", "admin");
-        if (adminProfiles && adminProfiles.length > 0) {
-          targetUserIds = adminProfiles.map((p) => p.id);
+        // Unassigned or Pool fallback: Notify all active team members and admins
+        const { data: teamRoles } = await sbAdmin
+          .from("user_roles")
+          .select("user_id")
+          .in("role", ["team", "admin"]);
+        if (teamRoles && teamRoles.length > 0) {
+          for (const r of teamRoles as Array<{ user_id: string }>) {
+            if (r.user_id && !targetUserIds.includes(r.user_id)) {
+              targetUserIds.push(r.user_id);
+            }
+          }
           receiverId = targetUserIds[0];
         }
       }
     }
 
-    if (receiverId) {
+    if (receiverId && !targetUserIds.includes(receiverId)) {
       targetUserIds.push(receiverId);
     }
 
