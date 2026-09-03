@@ -95,6 +95,20 @@ function NewsUpdates() {
                     aria-hidden
                     className="pointer-events-none absolute -right-14 -top-16 h-44 w-44 rounded-full bg-[radial-gradient(circle,rgba(255,122,0,0.14),transparent_65%)]"
                   />
+                  {featured.image_url && (
+                    <div className="mb-4 overflow-hidden rounded-xl border border-white/10 max-h-64 bg-surface-2">
+                      <img
+                        src={featured.image_url}
+                        alt={featured.title}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                        onError={(e) => {
+                          // Gracefully hide broken remote image
+                          (e.target as HTMLElement).style.display = "none";
+                        }}
+                      />
+                    </div>
+                  )}
                   <div className="flex items-center justify-between gap-2">
                     <span className="inline-flex rounded-full border border-brand/40 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-brand-light">
                       {featured.category}
@@ -133,7 +147,20 @@ function NewsUpdates() {
               <ul className="space-y-3">
                 {rest.map((n) => (
                   <li key={n.id}>
-                    <article className="rounded-2xl border border-border-subtle bg-surface-1 p-4 transition-colors duration-200 hover:border-border-strong">
+                    <article className="overflow-hidden rounded-2xl border border-border-subtle bg-surface-1 p-4 transition-colors duration-200 hover:border-border-strong">
+                      {n.image_url && (
+                        <div className="mb-3 overflow-hidden rounded-xl border border-white/5 max-h-48 bg-surface-2">
+                          <img
+                            src={n.image_url}
+                            alt={n.title}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = "none";
+                            }}
+                          />
+                        </div>
+                      )}
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <span className="rounded-full border border-border-strong px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-text-secondary">

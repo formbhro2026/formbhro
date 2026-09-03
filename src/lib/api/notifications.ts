@@ -59,6 +59,7 @@ export async function createNews(input: {
   description: string;
   category?: string;
   featured?: boolean;
+  published?: boolean;
   image_url?: string;
 }) {
   const { data, error } = await supabase.from("news").insert(input).select().single();

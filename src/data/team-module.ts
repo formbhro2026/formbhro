@@ -119,6 +119,10 @@ export type TeamRequest = {
   isEscalated: boolean;
   /** Custom/predefined labels or tags for WhatsApp Business style chat tagging */
   tags?: string[];
+  /** Exact ISO completion timestamp from database completed_at */
+  completedAt?: string | null;
+  /** Exact ISO creation timestamp from database created_at */
+  createdAt?: string;
 };
 
 export type TeamNotification = {

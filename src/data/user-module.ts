@@ -116,6 +116,7 @@ export type NewsItem = {
   date: string;
   category: string;
   featured?: boolean;
+  image_url?: string | null;
 };
 
 export const USER_PROFILE = {

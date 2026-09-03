@@ -9,10 +9,13 @@ import {
   RotateCcw,
   Send,
   X,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AttachmentMenu, type PickKind } from "@/components/chat/AttachmentMenu";
 import { buildFilePreview, type FilePreview } from "@/lib/file-preview";
+import { listQuickReplies } from "@/lib/api/notifications";
+import type { QuickReplyRow } from "@/lib/api/types";
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
@@ -66,12 +69,19 @@ export function MessageComposer({
   const [menuOpen, setMenuOpen] = useState(false);
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [dragging, setDragging] = useState(false);
+  const [quickReplies, setQuickReplies] = useState<QuickReplyRow[]>([]);
+  const [showQuickReplies, setShowQuickReplies] = useState(false);
+  const quickRepliesRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const attachButtonRef = useRef<HTMLButtonElement>(null);
   const timersRef = useRef<Record<string, number>>({});
   const objectUrlsRef = useRef<string[]>([]);
+
+  useEffect(() => {
+    void listQuickReplies().then(setQuickReplies).catch(() => {});
+  }, []);
 
   useEffect(
     () => () => {
@@ -345,6 +355,62 @@ export function MessageComposer({
             }}
           />
         )}
+
+        {/* Quick Replies Popup on '/' shortcut */}
+        {(showQuickReplies || text.startsWith("/")) && quickReplies.length > 0 && (
+          <div
+            ref={quickRepliesRef}
+            className="absolute bottom-full left-0 mb-2 w-[min(20rem,calc(100vw-3rem))] max-h-64 overflow-y-auto rounded-2xl border border-border-subtle bg-surface-1 p-2 shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-2 duration-150"
+          >
+            <div className="mb-2 px-2 pb-2 pt-1 text-[11px] font-semibold text-text-muted border-b border-border-subtle flex items-center justify-between">
+              <span className="flex items-center gap-1.5 font-bold text-white">
+                <Zap className="h-3.5 w-3.5 text-brand" /> Quick Replies
+              </span>
+              <span className="text-[10px] text-brand-light font-mono">
+                Type to filter
+              </span>
+            </div>
+            {(() => {
+              const query = text.startsWith("/") ? text.slice(1).trim().toLowerCase() : "";
+              const filtered = query
+                ? quickReplies.filter(
+                    (qr) =>
+                      qr.title.toLowerCase().includes(query) ||
+                      qr.body.toLowerCase().includes(query),
+                  )
+                : quickReplies;
+
+              if (filtered.length === 0) {
+                return (
+                  <div className="p-3 text-center text-xs text-text-muted">
+                    No quick replies match "{query}"
+                  </div>
+                );
+              }
+
+              return filtered.map((qr) => (
+                <button
+                  key={qr.id}
+                  type="button"
+                  className="w-full text-left rounded-xl px-3 py-2 text-sm text-text hover:bg-surface-2 transition-colors mb-1 group"
+                  onClick={() => {
+                    setText(qr.body);
+                    setShowQuickReplies(false);
+                    inputRef.current?.focus();
+                  }}
+                >
+                  <div className="font-semibold truncate text-xs text-white group-hover:text-brand transition-colors">
+                    {qr.title}
+                  </div>
+                  <div className="text-[11px] text-text-muted truncate mt-0.5 leading-tight">
+                    {qr.body}
+                  </div>
+                </button>
+              ));
+            })()}
+          </div>
+        )}
+
         <button
           ref={attachButtonRef}
           type="button"
@@ -366,9 +432,31 @@ export function MessageComposer({
             onTyping?.();
           }}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) submit(e);
+            if (e.key === "Escape") {
+              setShowQuickReplies(false);
+            }
+            if (e.key === "Enter" && !e.shiftKey) {
+              const query = text.startsWith("/") ? text.slice(1).trim().toLowerCase() : "";
+              if (text.startsWith("/")) {
+                const filtered = query
+                  ? quickReplies.filter(
+                      (qr) =>
+                        qr.title.toLowerCase().includes(query) ||
+                        qr.body.toLowerCase().includes(query),
+                    )
+                  : quickReplies;
+                if (filtered.length > 0) {
+                  e.preventDefault();
+                  setText(filtered[0].body);
+                  setShowQuickReplies(false);
+                  return;
+                }
+              }
+              e.preventDefault();
+              submit(e);
+            }
           }}
-          placeholder="Type a message…"
+          placeholder="Type a message (or '/' for quick replies)…"
           aria-label="Message"
           className="min-h-11 max-h-32 min-w-0 flex-1 resize-none rounded-2xl border-none bg-surface-3 px-4 py-2.5 text-[15px] text-white placeholder:text-text-muted focus:ring-0 outline-none transition-shadow"
         />

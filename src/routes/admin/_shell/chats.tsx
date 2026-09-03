@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   MessageSquare,
   Sparkles,
+  Zap,
 } from "lucide-react";
 import { useAdmin } from "@/lib/admin-store";
 import { Button, Panel, Pill, SearchBox, formatDate, inputClass } from "@/components/admin/AdminUI";
@@ -19,6 +20,7 @@ import * as messagesApi from "@/lib/api/messages";
 import { subscribeToRoom } from "@/lib/api/realtime";
 import { openDocument } from "@/lib/doc-access";
 import * as requestsApi from "@/lib/api/requests";
+import * as notificationsApi from "@/lib/api/notifications";
 import { getOrCreateAdminTeamChat } from "@/lib/api/admin-team-chat";
 import { STATUS_LABEL, type DbRequestStatus } from "@/lib/api/types";
 import { useGlobalCall } from "@/lib/call-store";
@@ -81,14 +83,38 @@ function AdminChats() {
   const [fetchedActive, setFetchedActive] = useState<any>(null);
 
   const [currentAdminId, setCurrentAdminId] = useState<string | null>(null);
+  const [quickReplies, setQuickReplies] = useState<any[]>([]);
+  const [showQuickReplies, setShowQuickReplies] = useState(false);
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setCurrentAdminId(data.user?.id ?? null));
+    void notificationsApi.listQuickReplies().then(setQuickReplies).catch(() => {});
   }, []);
 
+  const customerRequests = useMemo(() => {
+    let list = requestsPage.filter(
+      (r) =>
+        r.category !== "Team Direct Report" &&
+        !r.reference?.startsWith("ADM-TM") &&
+        !r.id.startsWith("ADM-TM"),
+    );
+    if (
+      fetchedActive &&
+      fetchedActive.category !== "Team Direct Report" &&
+      !fetchedActive.reference?.startsWith("ADM-TM") &&
+      !list.some((r) => r.id === fetchedActive.id)
+    ) {
+      list = [fetchedActive, ...list];
+    }
+    return list;
+  }, [requestsPage, fetchedActive]);
+
   const active =
-    requestsPage.find((r) => r.id === activeId) ??
+    (chatType === "monitor"
+      ? customerRequests.find((r) => r.id === activeId)
+      : requestsPage.find((r) => r.id === activeId)) ??
     (fetchedActive?.id === activeId ? fetchedActive : null) ??
-    (chatType === "monitor" ? requestsPage[0] ?? null : null);
+    (chatType === "monitor" ? customerRequests[0] ?? null : null);
 
   const { session, startCall, acceptCall, hangup } = useGlobalCall();
   const pageSize = 50;
@@ -114,7 +140,7 @@ function AdminChats() {
     }
   }, [page, debouncedQ, fetchRequestsPage, chatType]);
 
-  const threads = requestsPage;
+  const threads = customerRequests;
   const totalPages = Math.max(1, Math.ceil(requestsTotal / pageSize));
 
   // Filtered team members for Team Chat
@@ -174,14 +200,14 @@ function AdminChats() {
     }
   }, [chatType, selectedTeamMemberId, team]);
 
-  // Load chat room for monitor mode
+  // Load chat room for monitor mode (create if missing so admin can always view & chat)
   useEffect(() => {
     if (chatType === "monitor") {
       if (!active) {
         setRoom(null);
         return;
       }
-      void requestsApi.getChatRoom(active.id).then(setRoom).catch(console.error);
+      void requestsApi.getOrCreateChatRoom(active.id).then(setRoom).catch(console.error);
     }
   }, [active?.id, chatType]);
 
@@ -330,6 +356,9 @@ function AdminChats() {
                           {STATUS_LABEL[r.status]}
                         </Pill>
                       </div>
+                      <div className="mt-1 text-[10px] text-text-muted truncate">
+                        Agent: <span className="text-text-secondary">{profileOf(r.assigned_team_id)?.full_name ?? "Unassigned"}</span>
+                      </div>
                     </button>
                   </li>
                 ))}
@@ -424,15 +453,22 @@ function AdminChats() {
                 >
                   <ArrowLeft className="h-3.5 w-3.5" /> Back
                 </button>
-                <span className="truncate text-xs font-bold text-white">
-                  {chatType === "team"
-                    ? currentTeamMemberProfile
-                      ? `Direct Chat with ${currentTeamMemberProfile.full_name}`
-                      : "Direct Team Chat"
-                    : active
-                      ? `${active.reference} — ${active.title}`
-                      : "Select a conversation"}
-                </span>
+                <div className="flex flex-col min-w-0">
+                  <span className="truncate text-xs font-bold text-white">
+                    {chatType === "team"
+                      ? currentTeamMemberProfile
+                        ? `Direct Chat with ${currentTeamMemberProfile.full_name}`
+                        : "Direct Team Chat"
+                      : active
+                        ? `${active.reference} — ${active.title}`
+                        : "Select a conversation"}
+                  </span>
+                  {chatType === "monitor" && active && (
+                    <span className="text-[10px] text-text-muted truncate">
+                      User: <strong className="text-text-secondary">{profileOf(active.user_id)?.full_name ?? "User"}</strong> • Assigned: <strong className="text-brand-light">{profileOf(active.assigned_team_id)?.full_name ?? "Unassigned"}</strong>
+                    </span>
+                  )}
+                </div>
               </div>
             }
             className="flex-1 flex flex-col overflow-hidden"
@@ -495,6 +531,12 @@ function AdminChats() {
                       }
 
                       const mine = currentAdminId && m.sender_id ? m.sender_id === currentAdminId : m.sender_role === "admin";
+                      const senderDisplayName = m.sender_role === "admin"
+                        ? "Admin (You)"
+                        : m.sender_role === "user"
+                          ? `${profileOf(active.user_id)?.full_name ?? "User"} (User)`
+                          : `${profileOf(m.sender_id || active.assigned_team_id)?.full_name ?? "Support Agent"} (Team)`;
+
                       return (
                         <div
                           key={m.id}
@@ -512,7 +554,7 @@ function AdminChats() {
                             {!m.is_system && (
                               <div className="flex items-center justify-between gap-4 mb-1 border-b border-white/5 pb-1">
                                 <span className="text-[9px] font-black uppercase tracking-widest text-brand">
-                                  {m.sender_role}
+                                  {senderDisplayName}
                                 </span>
                                 <span className="text-[8px] text-text-muted">
                                   {formatDate(m.created_at)}
@@ -566,22 +608,106 @@ function AdminChats() {
                     <div ref={endRef} />
                   </div>
 
-                  <div className="mt-auto border-t border-border-subtle pt-4 bg-surface-1/50 -mx-4 px-4 pb-2">
+                  <div className="mt-auto border-t border-border-subtle pt-4 bg-surface-1/50 -mx-4 px-4 pb-2 relative">
+                    {/* Quick Replies Popup on '/' shortcut */}
+                    {(showQuickReplies || draft.startsWith("/")) && quickReplies.length > 0 && (
+                      <div className="absolute bottom-full left-4 mb-2 w-[min(20rem,calc(100vw-3rem))] max-h-64 overflow-y-auto rounded-2xl border border-border-subtle bg-surface-1 p-2 shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                        <div className="mb-2 px-2 pb-2 pt-1 text-[11px] font-semibold text-text-muted border-b border-border-subtle flex items-center justify-between">
+                          <span className="flex items-center gap-1.5 font-bold text-white">
+                            <Zap className="h-3.5 w-3.5 text-brand" /> Quick Replies
+                          </span>
+                          <span className="text-[10px] text-brand-light font-mono">
+                            Type to filter
+                          </span>
+                        </div>
+                        {(() => {
+                          const query = draft.startsWith("/") ? draft.slice(1).trim().toLowerCase() : "";
+                          const filtered = query
+                            ? quickReplies.filter(
+                                (qr) =>
+                                  qr.title.toLowerCase().includes(query) ||
+                                  qr.body.toLowerCase().includes(query),
+                              )
+                            : quickReplies;
+
+                          if (filtered.length === 0) {
+                            return (
+                              <div className="p-3 text-center text-xs text-text-muted">
+                                No quick replies match "{query}"
+                              </div>
+                            );
+                          }
+
+                          return filtered.map((qr) => (
+                            <button
+                              key={qr.id}
+                              type="button"
+                              className="w-full text-left rounded-xl px-3 py-2 text-sm text-text hover:bg-surface-2 transition-colors mb-1 group"
+                              onClick={() => {
+                                setDraft(qr.body);
+                                setShowQuickReplies(false);
+                              }}
+                            >
+                              <div className="font-semibold truncate text-xs text-white group-hover:text-brand transition-colors">
+                                {qr.title}
+                              </div>
+                              <div className="text-[11px] text-text-muted truncate mt-0.5 leading-tight">
+                                {qr.body}
+                              </div>
+                            </button>
+                          ));
+                        })()}
+                      </div>
+                    )}
+
                     <div className="flex items-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowQuickReplies((prev) => !prev)}
+                        aria-label="Insert quick reply"
+                        className={cn(
+                          "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text transition-colors",
+                          showQuickReplies || draft.startsWith("/")
+                            ? "bg-surface-3 text-brand"
+                            : "hover:bg-surface-3",
+                        )}
+                      >
+                        <Zap className="h-4 w-4" aria-hidden="true" />
+                      </button>
+
                       <textarea
                         rows={1}
                         value={draft}
                         onChange={(e) => setDraft(e.target.value)}
                         onKeyDown={(e) => {
+                          if (e.key === "Escape") {
+                            setShowQuickReplies(false);
+                          }
                           if (e.key === "Enter" && !e.shiftKey) {
+                            const query = draft.startsWith("/") ? draft.slice(1).trim().toLowerCase() : "";
+                            if (draft.startsWith("/")) {
+                              const filtered = query
+                                ? quickReplies.filter(
+                                    (qr) =>
+                                      qr.title.toLowerCase().includes(query) ||
+                                      qr.body.toLowerCase().includes(query),
+                                  )
+                                : quickReplies;
+                              if (filtered.length > 0) {
+                                e.preventDefault();
+                                setDraft(filtered[0].body);
+                                setShowQuickReplies(false);
+                                return;
+                              }
+                            }
                             e.preventDefault();
                             void send();
                           }
                         }}
                         placeholder={
                           chatType === "team"
-                            ? `Message ${currentTeamMemberProfile?.full_name || "Team Member"} directly...`
-                            : "Type a message as admin..."
+                            ? `Message ${currentTeamMemberProfile?.full_name || "Team Member"} directly (or '/' for quick replies)...`
+                            : "Type a message as admin (or '/' for quick replies)..."
                         }
                         className={`${inputClass} min-h-10 max-h-32 resize-none py-2.5 flex-1`}
                       />

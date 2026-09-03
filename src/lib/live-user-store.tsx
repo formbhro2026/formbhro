@@ -300,6 +300,7 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
             date: day(n.published_at),
             category: n.category,
             featured: n.featured,
+            image_url: n.image_url,
           })),
         );
 

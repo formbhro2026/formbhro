@@ -1633,31 +1633,63 @@ function Conversation({
               aria-label="Insert quick reply"
               className={cn(
                 "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text transition-colors",
-                showQuickReplies ? "bg-surface-3 text-brand" : "hover:bg-surface-3",
+                showQuickReplies || text.startsWith("/")
+                  ? "bg-surface-3 text-brand"
+                  : "hover:bg-surface-3",
               )}
             >
               <Zap className="h-4 w-4" aria-hidden="true" />
             </button>
-            {showQuickReplies && quickReplies.length > 0 && (
-              <div className="absolute bottom-full left-0 mb-2 w-[min(16rem,calc(100vw-3rem))] max-h-64 overflow-y-auto rounded-xl border border-border-subtle bg-surface-1 p-2 shadow-xl z-50">
-                <div className="mb-2 px-2 pb-2 pt-1 text-[11px] font-semibold text-text-muted border-b border-border-subtle">
-                  Quick Replies
+            {(showQuickReplies || text.startsWith("/")) && quickReplies.length > 0 && (
+              <div className="absolute bottom-full left-0 mb-2 w-[min(18rem,calc(100vw-3rem))] max-h-64 overflow-y-auto rounded-xl border border-border-subtle bg-surface-1 p-2 shadow-2xl z-50">
+                <div className="mb-2 px-2 pb-2 pt-1 text-[11px] font-semibold text-text-muted border-b border-border-subtle flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Zap className="h-3 w-3 text-brand" /> Quick Replies
+                  </span>
+                  {text.startsWith("/") && (
+                    <span className="text-[10px] text-brand-light font-mono">
+                      Type to filter
+                    </span>
+                  )}
                 </div>
-                {quickReplies.map((qr) => (
-                  <button
-                    key={qr.id}
-                    type="button"
-                    className="w-full text-left rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-2 transition-colors mb-1"
-                    onClick={() => {
-                      setText((prev) => (prev ? prev + "\n\n" + qr.body : qr.body));
-                      setShowQuickReplies(false);
-                      document.getElementById("team-composer")?.focus();
-                    }}
-                  >
-                    <div className="font-medium truncate">{qr.title}</div>
-                    <div className="text-[11px] text-text-muted truncate mt-0.5">{qr.body}</div>
-                  </button>
-                ))}
+                {(() => {
+                  const query = text.startsWith("/") ? text.slice(1).trim().toLowerCase() : "";
+                  const filtered = query
+                    ? quickReplies.filter(
+                        (qr) =>
+                          qr.title.toLowerCase().includes(query) ||
+                          qr.body.toLowerCase().includes(query),
+                      )
+                    : quickReplies;
+
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="p-3 text-center text-xs text-text-muted">
+                        No quick replies match "{query}"
+                      </div>
+                    );
+                  }
+
+                  return filtered.map((qr) => (
+                    <button
+                      key={qr.id}
+                      type="button"
+                      className="w-full text-left rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-2 transition-colors mb-1 group"
+                      onClick={() => {
+                        setText(qr.body);
+                        setShowQuickReplies(false);
+                        document.getElementById("team-composer")?.focus();
+                      }}
+                    >
+                      <div className="font-medium truncate text-xs text-white group-hover:text-brand transition-colors">
+                        {qr.title}
+                      </div>
+                      <div className="text-[11px] text-text-muted truncate mt-0.5 leading-tight">
+                        {qr.body}
+                      </div>
+                    </button>
+                  ));
+                })()}
               </div>
             )}
           </div>
@@ -1677,12 +1709,31 @@ function Conversation({
               }
             }}
             onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                setShowQuickReplies(false);
+              }
               if (e.key === "Enter" && !e.shiftKey) {
+                const query = text.startsWith("/") ? text.slice(1).trim().toLowerCase() : "";
+                if (text.startsWith("/")) {
+                  const filtered = query
+                    ? quickReplies.filter(
+                        (qr) =>
+                          qr.title.toLowerCase().includes(query) ||
+                          qr.body.toLowerCase().includes(query),
+                      )
+                    : quickReplies;
+                  if (filtered.length > 0) {
+                    e.preventDefault();
+                    setText(filtered[0].body);
+                    setShowQuickReplies(false);
+                    return;
+                  }
+                }
                 e.preventDefault();
                 submit(e);
               }
             }}
-            placeholder="Write a reply…"
+            placeholder="Write a reply (or type '/' for quick replies)…"
             className="max-h-32 min-h-11 w-full resize-none rounded-xl border border-border-subtle bg-surface-2 px-3 py-3 text-[11px] text-text placeholder:text-text-muted focus:border-brand/50 outline-none"
           />
           <button

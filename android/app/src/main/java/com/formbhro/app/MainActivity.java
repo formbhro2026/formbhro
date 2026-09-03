@@ -13,6 +13,22 @@ import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
     private String pendingCallAnswerJs = null;
+    private String pendingCallAnswerJson = null;
+
+    public class FormbharoNativeBridge {
+        @android.webkit.JavascriptInterface
+        public String getPendingCallAnswer() {
+            android.util.Log.i("MainActivity", "[CALL][BRIDGE] Native bridge getPendingCallAnswer: " + pendingCallAnswerJson);
+            return pendingCallAnswerJson != null ? pendingCallAnswerJson : "";
+        }
+
+        @android.webkit.JavascriptInterface
+        public void clearPendingCallAnswer() {
+            android.util.Log.i("MainActivity", "[CALL][BRIDGE] Native bridge clearPendingCallAnswer");
+            pendingCallAnswerJson = null;
+            pendingCallAnswerJs = null;
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -21,6 +37,10 @@ public class MainActivity extends BridgeActivity {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true);
             setTurnScreenOn(true);
+        }
+
+        if (this.bridge != null && this.bridge.getWebView() != null) {
+            this.bridge.getWebView().addJavascriptInterface(new FormbharoNativeBridge(), "FormbharoNativeBridge");
         }
         
         handleCallIntent(getIntent());
@@ -126,6 +146,16 @@ public class MainActivity extends BridgeActivity {
             android.util.Log.i("MainActivity", "[CALL][BRIDGE] Handling call answer intent: session=" + callSessionId + " req=" + requestId + " route=" + route);
             android.util.Log.i("CALL_FORENSIC", "[CALL FORENSIC] role=TEAM event=INCOMING_CALL_BRIDGE callSessionId=" + callSessionId + " requestId=" + requestId + " timestamp=" + System.currentTimeMillis());
 
+            pendingCallAnswerJson = String.format(
+                "{\"callSessionId\":\"%s\",\"requestId\":\"%s\",\"chatRoomId\":\"%s\",\"callType\":\"%s\",\"route\":\"%s\",\"autoAnswer\":true,\"timestamp\":%d}",
+                escapeJs(callSessionId),
+                escapeJs(requestId),
+                escapeJs(chatRoomId),
+                escapeJs(callType),
+                escapeJs(route),
+                System.currentTimeMillis()
+            );
+
             final String js = String.format(
                 "window.__FORMBHARO_PENDING_CALL_ANSWER__ = {" +
                 "  callSessionId: '%s'," +
@@ -153,7 +183,7 @@ public class MainActivity extends BridgeActivity {
 
     private void deliverJsToWebView(final String js) {
         pendingCallAnswerJs = js;
-        long[] delays = new long[]{0, 300, 700, 1400, 2400, 4000, 6000};
+        long[] delays = new long[]{0, 300, 700, 1400, 2400, 4000, 6000, 8000};
         for (long delay : delays) {
             new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
                 if (pendingCallAnswerJs != null && MainActivity.this.bridge != null && MainActivity.this.bridge.getWebView() != null) {
@@ -175,22 +205,11 @@ public class MainActivity extends BridgeActivity {
         if (this.bridge != null && this.bridge.getWebView() != null) {
             WebView webView = this.bridge.getWebView();
             webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
+            webView.addJavascriptInterface(new FormbharoNativeBridge(), "FormbharoNativeBridge");
             
-            // If there was a pending call answer JS waiting for WebView initialization, run it now
             if (pendingCallAnswerJs != null) {
                 webView.evaluateJavascript(pendingCallAnswerJs, null);
-                pendingCallAnswerJs = null;
             }
-
-            // Ensure WebRTC getUserMedia permissions are granted in WebView
-            webView.setWebChromeClient(new WebChromeClient() {
-                @Override
-                public void onPermissionRequest(final PermissionRequest request) {
-                    runOnUiThread(() -> {
-                        request.grant(request.getResources());
-                    });
-                }
-            });
         }
     }
 }
