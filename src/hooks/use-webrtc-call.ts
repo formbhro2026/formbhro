@@ -250,6 +250,8 @@ function logWebRTC(
   );
 }
 
+let globalStartCallCounter = 0;
+
 export function useWebRTCCall(chatRoomId: string | undefined) {
   const [session, setSession] = useState<CallSession>({
     isActive: false,
@@ -514,6 +516,11 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
       const rawId = targetRoomId || chatRoomId;
       if (!rawId) return;
 
+      const invocationId = ++globalStartCallCounter;
+      console.log(
+        `[CALL FORENSIC] role=USER event=START_CALL_ENTER invocation=${invocationId} timestamp=${Date.now()} requestId=${rawId} chatRoomId=${chatRoomId || "none"}`,
+      );
+
       try {
         cleanup();
         const {
@@ -566,7 +573,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         // Generate callSessionId EXACTLY ONCE
         const callSessionId = "call_" + canonicalRoom + "_" + Date.now();
         console.log(
-          `[CALL][TRACE][START] callSessionId=${callSessionId} requestId=${resolved.requestUuid} canonicalRoomId=${canonicalRoom} userId=${user.id} timestamp=${Date.now()} source=startCall`,
+          `[CALL FORENSIC] role=USER event=START_CALL_GENERATED_SESSION invocation=${invocationId} timestamp=${Date.now()} callSessionId=${callSessionId} chatRoomId=${canonicalRoom}`,
         );
 
         callDetailsRef.current = {
@@ -601,6 +608,9 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         lastOfferRef.current = { offer, type, sessionId: callSessionId };
         logWebRTC("USER", "OUTGOING_CALL_STARTED", callSessionId, canonicalRoom, pc);
         logWebRTC("USER", "OFFER_CREATED", callSessionId, canonicalRoom, pc);
+        console.log(
+          `[CALL FORENSIC] role=USER event=OFFER_CREATED invocation=${invocationId} timestamp=${Date.now()} callSessionId=${callSessionId}`,
+        );
 
         console.log(
           `[CALL][TRACE][OFFER] Sending offer: callSessionId=${callSessionId} requestId=${resolved.requestUuid} canonicalRoomId=${canonicalRoom} userId=${user.id} timestamp=${Date.now()} source=startCall`,
@@ -612,6 +622,9 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
           data: { offer, type, sessionId: callSessionId, requestId: resolved.requestUuid },
         });
         logWebRTC("USER", "OFFER_SENT", callSessionId, canonicalRoom, pc);
+        console.log(
+          `[CALL FORENSIC] role=USER event=OFFER_SENT invocation=${invocationId} timestamp=${Date.now()} callSessionId=${callSessionId}`,
+        );
 
         // Broadcast offer every 2.5 seconds until answered or terminal
         offerIntervalRef.current = setInterval(() => {
@@ -639,7 +652,10 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         const callerName =
           (user as any).user_metadata?.full_name || user.email?.split("@")[0] || "Formbhro Support";
         console.log(
-          `[CALL][TRACE][NOTIFICATION] Invoking send-fcm-notification: callSessionId=${callSessionId} receiver=${resolved.receiverId} req=${resolved.requestUuid} timestamp=${Date.now()}`,
+          `[CALL FORENSIC] role=USER event=FCM_DISPATCH_REQUESTED invocation=${invocationId} timestamp=${Date.now()} callSessionId=${callSessionId}`,
+        );
+        console.log(
+          `[CALL FORENSIC] role=USER event=FCM_DISPATCH_ENTER invocation=${invocationId} request_id=${resolved.requestUuid} callSessionId=${callSessionId} receiver_id=${resolved.receiverId} requestUserId=${resolved.requestUserId} is_support_call=${Boolean(user.id === resolved.requestUserId || !resolved.receiverId)} timestamp=${Date.now()}`,
         );
 
         void supabase.functions
@@ -662,7 +678,9 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
             if (error) {
               console.warn("[CALL][FCM] send-fcm-notification error:", error);
             } else {
-              console.log("[CALL][FCM] send-fcm-notification dispatched successfully:", data);
+              console.log(
+                `[CALL FORENSIC] role=USER event=FCM_DISPATCH_SUCCESS invocation=${invocationId} callSessionId=${callSessionId} sent=${data?.sent ?? 1} failed=${data?.failed ?? 0} timestamp=${Date.now()}`,
+              );
             }
           })
           .catch((e) => console.warn("[CALL][FCM] Call push network error:", e));
@@ -1033,12 +1051,10 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
                 callType: signal.data.type || "video",
               }));
             } else {
-              startIncomingCallRingtone();
+              // Remote offer received before answer. Remote description is set.
+              // Note: Call invitation UI is driven by FCM / incomingAlert, not WebRTC signaling.
               setSession((prev) => ({
                 ...prev,
-                isActive: true,
-                isIncoming: true,
-                isScreenSharing: signal.data.type === "screen",
                 callType: signal.data.type || (signal.data.isScreenShare ? "screen" : "video"),
               }));
             }

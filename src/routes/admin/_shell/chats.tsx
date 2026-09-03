@@ -21,8 +21,7 @@ import { openDocument } from "@/lib/doc-access";
 import * as requestsApi from "@/lib/api/requests";
 import { getOrCreateAdminTeamChat } from "@/lib/api/admin-team-chat";
 import { STATUS_LABEL, type DbRequestStatus } from "@/lib/api/types";
-import { useWebRTCCall } from "@/hooks/use-webrtc-call";
-import { CallOverlay } from "@/components/chat/CallOverlay";
+import { useGlobalCall } from "@/lib/call-store";
 import { CallEventBubble } from "@/components/chat/CallEventBubble";
 import { MessageAttachment } from "@/components/team/MessageAttachment";
 import { ChatTagButton, ChatTagBadges } from "@/components/team/ChatTagModal";
@@ -91,7 +90,7 @@ function AdminChats() {
     (fetchedActive?.id === activeId ? fetchedActive : null) ??
     (chatType === "monitor" ? requestsPage[0] ?? null : null);
 
-  const { session, startCall, acceptCall, hangup } = useWebRTCCall(active?.reference || active?.id);
+  const { session, startCall, acceptCall, hangup } = useGlobalCall();
   const pageSize = 50;
 
   // Debounce search
@@ -711,7 +710,6 @@ function AdminChats() {
           </Panel>
         </div>
       </div>
-      <CallOverlay session={session} onAccept={acceptCall} onHangup={hangup} />
     </div>
   );
 }

@@ -118,6 +118,7 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
 
         Log.i(TAG, "[CALL][NATIVE] Processing call: session=" + callSessionId + " req=" + requestId +
                    " caller=" + callerName + " callerId=" + callerId + " type=" + callType + " route=" + route);
+        Log.i("CALL_FORENSIC", "[CALL FORENSIC] role=TEAM event=FCM_RECEIVED messageId=" + remoteMessage.getMessageId() + " callSessionId=" + callSessionId + " requestId=" + requestId + " callType=" + callType + " timestamp=" + System.currentTimeMillis());
 
         NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager != null) {

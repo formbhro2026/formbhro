@@ -79,6 +79,7 @@ public class IncomingCallActivity extends Activity {
 
         Log.i(TAG, "[CALL][ACTIVITY] onCreate: session=" + callSessionId + " req=" + requestId +
                    " caller=" + callerName + " callerId=" + callerId + " type=" + callType + " route=" + route);
+        Log.i("CALL_FORENSIC", "[CALL FORENSIC] role=TEAM event=INCOMING_CALL_ACTIVITY_LAUNCH callSessionId=" + callSessionId + " requestId=" + requestId + " notificationId=" + notificationId + " timestamp=" + System.currentTimeMillis());
 
         // Start ringing and vibration
         startRingtoneAndVibration(this);
@@ -208,6 +209,7 @@ public class IncomingCallActivity extends Activity {
 
     private void onAnswerCall() {
         Log.i(TAG, "[CALL][ACTIVITY] onAnswerCall clicked for session=" + callSessionId);
+        Log.i("CALL_FORENSIC", "[CALL FORENSIC] role=TEAM event=INCOMING_CALL_ANSWER_CLICKED callSessionId=" + callSessionId + " requestId=" + requestId + " timestamp=" + System.currentTimeMillis());
         stopRingtone();
         dismissNotification();
 

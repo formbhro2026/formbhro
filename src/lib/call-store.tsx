@@ -117,6 +117,9 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
               ? "video"
               : "audio";
 
+            console.log(
+              `[CALL FORENSIC] role=TEAM event=INCOMING_ALERT_SET callSessionId=${sid} requestId=${notif.request_id} source=supabase_notifications timestamp=${Date.now()}`,
+            );
             setIncomingAlert({
               requestId: notif.request_id,
               callType,
@@ -184,6 +187,11 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
     ) => {
       stopIncomingCallRingtone();
       const effectiveType = callType || incomingAlert?.callType || "audio";
+      if (incomingAlert) {
+        console.log(
+          `[CALL FORENSIC] role=TEAM event=INCOMING_ALERT_CLEARED callSessionId=${incomingAlert.callSessionId || sessionSid || "none"} timestamp=${Date.now()}`,
+        );
+      }
       setIncomingAlert(null);
       const target = targetRoomId || callRoomId;
       if (target && target !== callRoomId) {
@@ -191,7 +199,7 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
       }
       await call.acceptCall(target, effectiveType, sessionSid);
     },
-    [call, callRoomId, incomingAlert?.callType],
+    [call, callRoomId, incomingAlert],
   );
 
   // Native Android incoming call answer bridge:
@@ -212,6 +220,9 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
         console.log("[CALL][BRIDGE] Consuming pending call answer from native intent:", pending);
         const target = pending.requestId || pending.chatRoomId;
         const callType = pending.callType === "video" ? "video" : "audio";
+        console.log(
+          `[CALL FORENSIC] role=TEAM event=REACT_INCOMING_CALL_EVENT callSessionId=${sid} requestId=${target} timestamp=${Date.now()}`,
+        );
         void handleAcceptCall(target, callType, sid);
       }
     };
@@ -230,6 +241,9 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
       console.log("[CALL][BRIDGE] Received formbhro:call_answered event:", detail);
       const target = detail.requestId || detail.chatRoomId;
       const callType = detail.callType === "video" ? "video" : "audio";
+      console.log(
+        `[CALL FORENSIC] role=TEAM event=REACT_INCOMING_CALL_EVENT callSessionId=${sid} requestId=${target} timestamp=${Date.now()}`,
+      );
       void handleAcceptCall(target, callType, sid);
     };
 

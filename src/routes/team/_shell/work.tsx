@@ -52,8 +52,7 @@ import { useDialogA11y } from "@/lib/use-dialog-a11y";
 import { formatBytes, kindFromFile } from "@/lib/team-files";
 import type { TeamRequest } from "@/data/team-module";
 import { cn } from "@/lib/utils";
-import { useWebRTCCall } from "@/hooks/use-webrtc-call";
-import { CallOverlay } from "@/components/chat/CallOverlay";
+import { useGlobalCall } from "@/lib/call-store";
 import { listQuickReplies } from "@/lib/api/notifications";
 import type { QuickReplyRow } from "@/lib/api/types";
 import { Zap } from "lucide-react";
@@ -752,7 +751,7 @@ function Conversation({
   onPreview: (id: string) => void;
   docCount: number;
 }) {
-  const { session, startCall, acceptCall, hangup, switchCamera } = useWebRTCCall(r.id);
+  const { session, startCall, acceptCall, hangup, switchCamera } = useGlobalCall();
   const {
     getDocument,
     documentsFor,
@@ -1695,12 +1694,6 @@ function Conversation({
           </button>
         </div>
       </form>
-      <CallOverlay
-        session={session}
-        onAccept={acceptCall}
-        onHangup={hangup}
-        onSwitchCamera={switchCamera}
-      />
     </>
   );
 }

@@ -6,8 +6,7 @@ import { listMessages, sendMessage } from "@/lib/api/messages";
 import { subscribeToRoom } from "@/lib/api/realtime";
 import type { MessageRow, RequestRow, ChatRoomRow } from "@/lib/api/types";
 import { setActiveChat } from "@/lib/active-chat-tracker";
-import { useWebRTCCall } from "@/hooks/use-webrtc-call";
-import { CallOverlay } from "@/components/chat/CallOverlay";
+import { useGlobalCall } from "@/lib/call-store";
 import { useVisualViewport } from "@/lib/use-visual-viewport";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -78,7 +77,7 @@ function TeamAdminChatPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 1. WebRTC Call integration for Admin direct communication
-  const { session, startCall, acceptCall, hangup, switchCamera } = useWebRTCCall(request?.id);
+  const { session, startCall, acceptCall, hangup, switchCamera } = useGlobalCall();
 
   // 2. Initialize the Admin direct chat channel
   useEffect(() => {
@@ -315,14 +314,6 @@ function TeamAdminChatPage() {
         maxHeight: viewportHeight ? `${viewportHeight}px` : "100vh",
       }}
     >
-      {/* WebRTC Audio/Video Call Overlay */}
-      <CallOverlay
-        session={session}
-        onAccept={acceptCall}
-        onHangup={hangup}
-        onSwitchCamera={switchCamera}
-      />
-
       {/* ===== HEADER ===== */}
       <header className="relative z-30 flex shrink-0 items-center justify-between border-b border-border-subtle bg-surface-1 px-4 py-2.5 pt-[calc(0.625rem+env(safe-area-inset-top))] lg:pt-2.5">
         <div className="flex items-center gap-3 min-w-0">

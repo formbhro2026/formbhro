@@ -124,6 +124,7 @@ public class MainActivity extends BridgeActivity {
             setIntent(new Intent());
 
             android.util.Log.i("MainActivity", "[CALL][BRIDGE] Handling call answer intent: session=" + callSessionId + " req=" + requestId + " route=" + route);
+            android.util.Log.i("CALL_FORENSIC", "[CALL FORENSIC] role=TEAM event=INCOMING_CALL_BRIDGE callSessionId=" + callSessionId + " requestId=" + requestId + " timestamp=" + System.currentTimeMillis());
 
             final String js = String.format(
                 "window.__FORMBHARO_PENDING_CALL_ANSWER__ = {" +
