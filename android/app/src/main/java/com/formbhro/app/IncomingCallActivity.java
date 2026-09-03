@@ -30,6 +30,9 @@ public class IncomingCallActivity extends Activity {
     private static Ringtone sRingtone = null;
     private static Vibrator sVibrator = null;
 
+    private final android.os.Handler autoTimeoutHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable autoTimeoutRunnable = () -> onDeclineCall();
+
     private String callSessionId;
     private String requestId;
     private String chatRoomId;
@@ -41,6 +44,9 @@ public class IncomingCallActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Auto-dismiss call screen after 45 seconds if unanswered
+        autoTimeoutHandler.postDelayed(autoTimeoutRunnable, 45000);
 
         // Turn on screen & show over lock screen
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
@@ -295,6 +301,7 @@ public class IncomingCallActivity extends Activity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        autoTimeoutHandler.removeCallbacks(autoTimeoutRunnable);
         stopRingtone();
     }
 }
