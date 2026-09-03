@@ -208,16 +208,33 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const consumePending = () => {
       if (typeof window === "undefined") return;
-      const pending = (window as any).__FORMBHARO_PENDING_CALL_ANSWER__;
+
+      let pending = (window as any).__FORMBHARO_PENDING_CALL_ANSWER__;
+
+      if (!pending && (window as any).FormbharoNativeBridge?.getPendingCallAnswer) {
+        try {
+          const raw = (window as any).FormbharoNativeBridge.getPendingCallAnswer();
+          if (raw && raw.trim().length > 0) {
+            pending = JSON.parse(raw);
+          }
+        } catch (e) {
+          console.warn("[CALL][BRIDGE] Error reading FormbharoNativeBridge:", e);
+        }
+      }
+
       if (pending && pending.autoAnswer) {
         delete (window as any).__FORMBHARO_PENDING_CALL_ANSWER__;
+        try {
+          (window as any).FormbharoNativeBridge?.clearPendingCallAnswer?.();
+        } catch {}
+
         const sid = pending.callSessionId;
         if (sid && handledCallSessionsRef.current.has(sid)) {
           console.log("[CALL][BRIDGE] Skipping already handled call session:", sid);
           return;
         }
         if (sid) handledCallSessionsRef.current.add(sid);
-        console.log("[CALL][BRIDGE] Consuming pending call answer from native intent:", pending);
+        console.log("[CALL][BRIDGE] Consuming pending call answer from native intent/bridge:", pending);
         const target = pending.requestId || pending.chatRoomId;
         const callType = pending.callType === "video" ? "video" : "audio";
         console.log(
