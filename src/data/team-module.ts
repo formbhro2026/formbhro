@@ -39,6 +39,7 @@ export type TeamDocument = {
   html?: string;
   /** Private storage object path; reads go through short-lived signed URLs. */
   storagePath?: string;
+  userId?: string;
 };
 
 export type TeamDelivery = "sending" | "sent" | "delivered" | "read" | "retrying" | "failed";
@@ -107,6 +108,7 @@ export type TeamRequest = {
   category: string;
   userName: string;
   userInitials: string;
+  userId?: string;
   status: TeamStatus;
   priority: Priority;
   createdOn: string;

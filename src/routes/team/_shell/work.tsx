@@ -529,7 +529,13 @@ function matchesDateFilter(r: TeamRequest, range: string, custom: string) {
           onSend={sendMessage}
         />
       )}
-      {preview && <TeamDocumentPreview document={preview} onClose={() => setPreviewId(null)} />}
+      {preview && (
+        <TeamDocumentPreview
+          document={preview}
+          onClose={() => setPreviewId(null)}
+          onDelete={() => void deleteDocument(preview.id, preview.storagePath)}
+        />
+      )}
     </>
   );
 }
@@ -1873,8 +1879,12 @@ function RequestPanel({
   onStatus: (s: TeamRequest["status"]) => void;
   onSend: (requestId: string, text: string) => void;
 }) {
-  const { documentsFor, deleteDocument, updatePriority } = useTeamStore();
-  const docs = documentsFor(r.id);
+  const { documentsFor, documentsForUser, deleteDocument, updatePriority } = useTeamStore();
+  const reqDocs = documentsFor(r.id);
+  const allUserDocs = documentsForUser(r.userId, r.id);
+  const [docTab, setDocTab] = useState<"this_request" | "all_user">("this_request");
+
+  const displayedDocs = docTab === "this_request" ? reqDocs : allUserDocs;
 
   const rows = [
     { label: "User Name", value: r.userName },
@@ -1883,7 +1893,10 @@ function RequestPanel({
     { label: "Current Status", value: null as string | null },
     { label: "Priority", value: null as string | null },
     { label: "Category", value: r.category },
-    { label: "Documents Uploaded", value: String(docs.length) },
+    {
+      label: "Documents",
+      value: `${reqDocs.length} this request • ${allUserDocs.length} in user vault`,
+    },
     { label: "Last Updated", value: r.lastUpdated },
   ];
 
@@ -1926,18 +1939,68 @@ function RequestPanel({
         )}
       </div>
 
-      <h3 className="mt-6 text-sm font-semibold text-text">Documents</h3>
-      {docs.length === 0 ? (
-        <p className="mt-2 text-[11px] text-text-muted">No documents uploaded.</p>
+      <div className="mt-6 flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-text">Documents</h3>
+        <div className="inline-flex rounded-lg border border-border-subtle bg-surface-2 p-0.5 text-[10px]">
+          <button
+            type="button"
+            onClick={() => setDocTab("this_request")}
+            className={cn(
+              "rounded-md px-2 py-1 font-medium transition-colors",
+              docTab === "this_request"
+                ? "bg-brand text-white shadow-xs"
+                : "text-text-muted hover:text-text",
+            )}
+          >
+            Request ({reqDocs.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setDocTab("all_user")}
+            className={cn(
+              "rounded-md px-2 py-1 font-medium transition-colors",
+              docTab === "all_user"
+                ? "bg-brand text-white shadow-xs"
+                : "text-text-muted hover:text-text",
+            )}
+            title="All documents uploaded by this user across requests and profile vault"
+          >
+            User Vault ({allUserDocs.length})
+          </button>
+        </div>
+      </div>
+
+      {docTab === "all_user" && (
+        <p className="mt-2 rounded-lg border border-border-subtle bg-surface-2/60 p-2 text-[10px] text-text-muted">
+          💡 All documents uploaded by {r.userName}. You can preview, delete, or send them to chat without asking user to re-upload.
+        </p>
+      )}
+
+      {displayedDocs.length === 0 ? (
+        <p className="mt-2 text-[11px] text-text-muted">
+          {docTab === "this_request"
+            ? "No documents uploaded for this request."
+            : "No documents found in user vault."}
+        </p>
       ) : (
         <div className="mt-3 space-y-3">
-          {docs.map((d) => (
+          {displayedDocs.map((d) => (
             <TeamDocumentCard
               key={d.id}
               document={d}
-              requestTitle={r.title}
+              requestTitle={
+                d.requestId === r.id
+                  ? r.title
+                  : d.requestId
+                    ? `Req #${d.requestId}`
+                    : "User Profile / Vault"
+              }
               onPreview={() => onPreview(d.id)}
               onDelete={() => void deleteDocument(d.id, d.storagePath)}
+              onShare={() => {
+                onSend(r.id, `📄 Referencing your uploaded document: "${d.name}" (${d.size})`);
+              }}
+              shareLabel="Send in Chat"
             />
           ))}
         </div>

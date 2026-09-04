@@ -129,7 +129,13 @@ function TeamDocuments() {
         )}
       </main>
 
-      {preview && <TeamDocumentPreview document={preview} onClose={() => setPreviewId(null)} />}
+      {preview && (
+        <TeamDocumentPreview
+          document={preview}
+          onClose={() => setPreviewId(null)}
+          onDelete={() => void deleteDocument(preview.id, preview.storagePath)}
+        />
+      )}
     </>
   );
 }

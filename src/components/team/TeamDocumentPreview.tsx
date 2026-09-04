@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Download, ExternalLink, Maximize2, Minimize2, X, ZoomIn, ZoomOut } from "lucide-react";
+import { Download, ExternalLink, Maximize2, Minimize2, Trash2, X, ZoomIn, ZoomOut } from "lucide-react";
 import type { TeamDocument } from "@/data/team-module";
 import { downloadDocument, openDocumentInNewTab } from "@/lib/team-files";
 import { useTeamDocumentUrl } from "@/lib/use-team-document-url";
@@ -11,9 +11,11 @@ import { cn } from "@/lib/utils";
 export function TeamDocumentPreview({
   document: doc,
   onClose,
+  onDelete,
 }: {
   document: TeamDocument;
   onClose: () => void;
+  onDelete?: () => void;
 }) {
   const panelRef = useDialogA11y<HTMLDivElement>(onClose);
   const [zoom, setZoom] = useState(1);
@@ -135,6 +137,21 @@ export function TeamDocumentPreview({
             )}
             {expanded ? "Compact view" : "Resize view"}
           </button>
+          {onDelete && (
+            <button
+              type="button"
+              onClick={() => {
+                if (confirm(`Are you sure you want to delete "${doc.name}"?`)) {
+                  onDelete();
+                  onClose();
+                }
+              }}
+              aria-label={`Delete ${doc.name}`}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/10 px-3 text-[11px] font-semibold text-red-400 hover:bg-red-500/20 hover:text-red-300"
+            >
+              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" /> Delete
+            </button>
+          )}
           <div className="ml-auto flex gap-2">
             <button
               type="button"

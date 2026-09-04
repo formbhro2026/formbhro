@@ -1,4 +1,4 @@
-import { Download, Eye, File, FileCode2, FileImage, FileText, Trash2 } from "lucide-react";
+import { Download, Eye, File, FileCode2, FileImage, FileText, Trash2, Send } from "lucide-react";
 import type { TeamDocument } from "@/data/team-module";
 import { downloadDocument } from "@/lib/team-files";
 import { useTeamDocumentUrl } from "@/lib/use-team-document-url";
@@ -10,11 +10,15 @@ export function TeamDocumentCard({
   requestTitle,
   onPreview,
   onDelete,
+  onShare,
+  shareLabel = "Send in Chat",
 }: {
   document: TeamDocument;
   requestTitle?: string;
   onPreview: () => void;
   onDelete?: () => void;
+  onShare?: () => void;
+  shareLabel?: string;
 }) {
   const Icon = DOC_ICONS[doc.kind] ?? File;
   const thumbUrl = useTeamDocumentUrl(doc.kind === "image" ? doc : null);
@@ -63,6 +67,16 @@ export function TeamDocumentCard({
         >
           <Download className="h-3.5 w-3.5" aria-hidden="true" /> Download
         </button>
+        {onShare && (
+          <button
+            type="button"
+            onClick={onShare}
+            aria-label={`${shareLabel} ${doc.name}`}
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-brand/30 bg-brand/10 px-3 py-1.5 text-[11px] font-semibold text-brand transition-colors duration-200 hover:bg-brand/20"
+          >
+            <Send className="h-3.5 w-3.5" aria-hidden="true" /> {shareLabel}
+          </button>
+        )}
         {onDelete && (
           <button
             type="button"

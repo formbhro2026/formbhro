@@ -73,6 +73,7 @@ export function mapTeamRequest(
     category: row.category ?? "Government Form",
     userName,
     userInitials: initialsOf(userName),
+    userId: row.user_id,
     status: DB_TO_TEAM_STATUS[row.status] ?? "pending",
     priority: (row.priority ?? "medium") as Priority,
     createdOn: dayLabel(row.created_at),
@@ -127,6 +128,7 @@ export function mapTeamDocument(row: DocumentRow, reference: string): TeamDocume
     uploadedBy: row.uploader_role === "user" ? "User" : "You",
     requestId: reference,
     storagePath: row.storage_path ?? undefined,
+    userId: row.uploaded_by,
   };
 }
 
@@ -238,6 +240,29 @@ export async function loadTeamSnapshot(
     .map((r) => roomByRequestId[r.id])
     .filter((id): id is string => Boolean(id));
 
+  const docsPromise = (rowIds.length || userIds.length)
+    ? (rowIds.length && userIds.length)
+      ? supabase
+          .from("documents")
+          .select("*")
+          .or(`request_id.in.(${rowIds.join(",")}),uploaded_by.in.(${userIds.join(",")})`)
+          .order("created_at", { ascending: false })
+          .limit(400)
+      : rowIds.length
+        ? supabase
+            .from("documents")
+            .select("*")
+            .in("request_id", rowIds)
+            .order("created_at", { ascending: false })
+            .limit(400)
+        : supabase
+            .from("documents")
+            .select("*")
+            .in("uploaded_by", userIds)
+            .order("created_at", { ascending: false })
+            .limit(400)
+    : Promise.resolve({ data: [] });
+
   // 2. Fetch messages, documents, and notifications in a single parallel batch
   const [messagesResult, docsResult, notes] = await Promise.all([
     chatRoomIds.length
@@ -248,14 +273,7 @@ export async function loadTeamSnapshot(
           .order("created_at", { ascending: true })
           .limit(300)
       : Promise.resolve({ data: [] }),
-    rowIds.length
-      ? supabase
-          .from("documents")
-          .select("*")
-          .in("request_id", rowIds)
-          .order("created_at", { ascending: false })
-          .limit(200)
-      : Promise.resolve({ data: [] }),
+    docsPromise,
     notificationsApi.listNotifications(30),
   ]);
 
@@ -277,7 +295,7 @@ export async function loadTeamSnapshot(
 
   for (const d of (docsResult as any).data ?? []) {
     const req = map.get(d.request_id);
-    const reference = req ? (req.reference || req.id) : (d.request_id || "");
+    const reference = req ? (req.reference || req.id) : (d.request_id || "Vault Document");
     documents.push(mapTeamDocument(d, reference));
   }
   return {

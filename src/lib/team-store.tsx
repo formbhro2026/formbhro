@@ -114,6 +114,7 @@ type TeamStore = {
   getRequest: (id: string) => TeamRequest | undefined;
   messagesFor: (id: string) => TeamMessage[];
   documentsFor: (id: string) => TeamDocument[];
+  documentsForUser: (userId?: string, reqId?: string) => TeamDocument[];
   getDocument: (id: string) => TeamDocument | undefined;
   sendMessage: (requestId: string, text: string) => void;
   /** True while the user on the other side of this request is composing. */
@@ -755,6 +756,28 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     },
     [visibleDocuments],
   );
+
+  const documentsForUser = useCallback(
+    (userId?: string, reqId?: string) => {
+      const thisReqDocs = reqId ? documentsFor(reqId) : [];
+      if (!userId) return thisReqDocs;
+      const cleanUid = userId.trim().toLowerCase();
+      const userDocs = visibleDocuments.filter(
+        (d) => d.userId && d.userId.trim().toLowerCase() === cleanUid,
+      );
+      const seen = new Set<string>();
+      const combined: TeamDocument[] = [];
+      for (const d of [...thisReqDocs, ...userDocs]) {
+        if (!seen.has(d.id)) {
+          seen.add(d.id);
+          combined.push(d);
+        }
+      }
+      return combined;
+    },
+    [documentsFor, visibleDocuments],
+  );
+
   const getDocument = useCallback(
     (id: string) => visibleDocuments.find((d) => d.id === id),
     [visibleDocuments],
@@ -1713,6 +1736,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       getRequest,
       messagesFor,
       documentsFor,
+      documentsForUser,
       getDocument,
       sendMessage,
       isUserTyping,
@@ -1766,6 +1790,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       getRequest,
       messagesFor,
       documentsFor,
+      documentsForUser,
       getDocument,
       sendMessage,
       isUserTyping,
