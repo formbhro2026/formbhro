@@ -11,7 +11,7 @@ import {
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { AppRole, Profile } from "@/lib/api/types";
-import { initializeFCM, deleteFCMToken, isCapacitor } from "@/lib/fcm";
+import { initializeFCM, deleteFCMToken, resetFCMInitialization, isCapacitor } from "@/lib/fcm";
 
 type SessionValue = {
   loading: boolean;
@@ -88,6 +88,7 @@ function SessionProviderInner({ children }: { children: ReactNode }) {
       inFlightLoadRef.current = null;
       lastHandledUserIdRef.current = null;
       fcmInitializedUserIdRef.current = null;
+      resetFCMInitialization();
       return;
     }
 
@@ -268,6 +269,7 @@ function SessionProviderInner({ children }: { children: ReactNode }) {
     inFlightLoadRef.current = null;
     lastHandledUserIdRef.current = null;
     fcmInitializedUserIdRef.current = null;
+    resetFCMInitialization();
     setUser(null);
     setProfile(null);
     setRole(null);

@@ -355,9 +355,12 @@ export async function onForegroundNotification(
     const handle = await result.plugin.addListener(
       "notificationReceived",
       (payload: FCMNotificationPayload | FCMActionPayload) => {
-        const n = (payload as FCMNotificationPayload).notification ?? undefined;
-        const data = (payload as FCMNotificationPayload).data;
-        onNotification(n?.title ?? "Formbhro", n?.body ?? "", data);
+        const notifPayload = payload as FCMNotificationPayload;
+        const n = notifPayload.notification;
+        const data = notifPayload.data;
+        const title = n?.title || data?.title || "Formbhro";
+        const body = n?.body || data?.body || "";
+        onNotification(title, body, data);
       },
     );
 
@@ -390,7 +393,9 @@ export async function onNotificationTap(navigate: NavigateCallback): Promise<() 
     const handle = await result.plugin.addListener(
       "notificationActionPerformed",
       (payload: FCMNotificationPayload | FCMActionPayload) => {
-        const data = (payload as FCMActionPayload).notification?.data;
+        const actionPayload = payload as FCMActionPayload;
+        const notifPayload = payload as FCMNotificationPayload;
+        const data = actionPayload.notification?.data ?? notifPayload.data;
         if (!data) return;
 
         const route = data.route;
@@ -431,6 +436,13 @@ export function cleanupFCMListeners(): void {
   foregroundListenerCleanup = null;
   tapListenerCleanup = null;
   tokenRefreshListenerCleanup = null;
+}
+
+/**
+ * Resets FCM initialization state (called on sign out).
+ */
+export function resetFCMInitialization(): void {
+  cleanupFCMListeners();
   fcmInitializedUserId = null;
   fcmInitializingPromise = null;
 }

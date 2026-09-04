@@ -120,12 +120,29 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
                 manager.createNotificationChannel(msgChannel);
                 Log.i(TAG, "[MESSAGE][NATIVE] Created channel: " + CHANNEL_ID_MESSAGES);
             }
+
+            if (manager.getNotificationChannel(CHANNEL_ID_DEFAULT) == null) {
+                NotificationChannel defChannel = new NotificationChannel(
+                    CHANNEL_ID_DEFAULT,
+                    "General Notifications",
+                    NotificationManager.IMPORTANCE_HIGH
+                );
+                defChannel.setDescription("General system and request updates");
+                defChannel.enableVibration(true);
+                defChannel.enableLights(true);
+                defChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+                manager.createNotificationChannel(defChannel);
+                Log.i(TAG, "[MESSAGE][NATIVE] Created channel: " + CHANNEL_ID_DEFAULT);
+            }
         }
     }
 
     private void handleIncomingMessagePush(Map<String, String> data, RemoteMessage remoteMessage) {
+        // Primary foreground check: static flag set by MainActivity.onResume/onPause
         boolean isForeground = MainActivity.isAppInForeground;
         if (!isForeground) {
+            // Secondary check via ActivityManager in case the static flag is stale
+            // (e.g. service running in same process but activity lifecycle events delayed)
             try {
                 ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
                 if (am != null) {
@@ -134,7 +151,7 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
                         for (ActivityManager.RunningAppProcessInfo proc : procs) {
                             if (proc.processName.equals(getPackageName()) &&
                                 proc.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
-                                isForeground = MainActivity.isAppInForeground;
+                                isForeground = true; // BUG FIX: was re-reading same static variable
                                 break;
                             }
                         }
@@ -148,10 +165,23 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
             return;
         }
 
+        // BUG 1 FIX: Double-notification guard.
+        // With a notification+data FCM payload, when app is BACKGROUND:
+        //   - FCM system automatically shows the notification from the `notification` block
+        //   - onMessageReceived() is also called (on some Android versions + SDK combos)
+        // If we also post a manual notification here, the user sees TWO notifications.
+        // Guard: if the FCM message already has a notification block, the system handles display.
+        // We only post manually for pure data-only messages (getNotification() == null).
+        if (remoteMessage.getNotification() != null) {
+            Log.i(TAG, "[MESSAGE][NATIVE] FCM notification block present — system handles display. Skipping manual post to avoid duplicate.");
+            return;
+        }
+
         NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager != null) {
             ensureChannels(manager);
         }
+
 
         String title = data.get("title");
         String body = data.get("body");
@@ -248,8 +278,10 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
 
         // Fix 3: Suppress native incoming call activity and ringtone if app is already active in foreground.
         // React CallOverlay presents the incoming call and Web Audio plays the ringtone in the active WebView.
+        // Primary foreground check
         boolean isForeground = MainActivity.isAppInForeground;
         if (!isForeground) {
+            // Secondary check via ActivityManager
             try {
                 ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
                 if (am != null) {
@@ -258,7 +290,7 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
                         for (ActivityManager.RunningAppProcessInfo proc : procs) {
                             if (proc.processName.equals(getPackageName()) &&
                                 proc.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
-                                isForeground = MainActivity.isAppInForeground;
+                                isForeground = true; // BUG FIX: was re-reading same static variable
                                 break;
                             }
                         }
