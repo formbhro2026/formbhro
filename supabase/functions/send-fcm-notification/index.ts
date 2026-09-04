@@ -261,19 +261,6 @@ Deno.serve(async (req) => {
     // Database Webhook format
     notification = payload.record;
 
-    // Call notifications are delivered directly with VoIP / caller metadata.
-    // The database row was inserted purely for in-app realtime listening in call-store.
-    // Skip FCM push from webhook to prevent duplicate call notifications.
-    if (notification.type === "call") {
-      console.info(
-        `[CALL][FCM] Skipping database webhook push for call notification ${notification.id} (handled by authoritative direct call push).`,
-      );
-      return new Response(
-        JSON.stringify({ sent: 0, failed: 0, skipped: true, message: "Call notification webhook skipped" }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
     // Deduplication check: Protect against webhook retries delivering the exact same notification record
     if (notification.id) {
       const now = Date.now();
@@ -295,6 +282,23 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Call notification deduplication by callSessionId across webhook & direct invocation paths
+    const webhookCallSessionId = (notification as any).call_session_id;
+    if (notification.type === "call" && webhookCallSessionId) {
+      const now = Date.now();
+      const lastCallSent = recentMessageDeliveries.get(webhookCallSessionId);
+      if (lastCallSent && now - lastCallSent < 300000) {
+        console.info(
+          `[CALL][FCM] Idempotency: Call session ${webhookCallSessionId} already notified. Skipping duplicate.`,
+        );
+        return new Response(
+          JSON.stringify({ sent: 0, failed: 0, duplicate: true, message: "Call session already notified" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      recentMessageDeliveries.set(webhookCallSessionId, now);
+    }
+
     if (notification.receiver_id) {
       targetUserIds.push(notification.receiver_id);
     }
@@ -310,6 +314,28 @@ Deno.serve(async (req) => {
         },
       );
     }
+
+    // In-memory idempotency check: prevents race condition between direct invocation and database webhook
+    const now = Date.now();
+    const lastDirectCallSent = recentMessageDeliveries.get(callSessionId);
+    if (lastDirectCallSent && now - lastDirectCallSent < 300000) {
+      console.info(
+        `[CALL][FCM] Idempotency: Call session ${callSessionId} already notified. Skipping duplicate.`,
+      );
+      return new Response(
+        JSON.stringify({
+          sent: 0,
+          failed: 0,
+          duplicate: true,
+          message: "Call session already notified",
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+    recentMessageDeliveries.set(callSessionId, now);
 
     // 1. Idempotency check: Check if a notification for this callSessionId already exists
     const { data: existingNotif } = await sbAdmin
@@ -577,14 +603,22 @@ Deno.serve(async (req) => {
   };
   if (notification.request_id) data.requestId = notification.request_id;
   if (notification.chat_room_id) data.chatRoomId = notification.chat_room_id;
-  if (payload.call_session_id || (payload as any).callSessionId) {
-    data.callSessionId = payload.call_session_id || (payload as any).callSessionId;
+  const effectiveCallSessionId =
+    payload.call_session_id ||
+    (payload as any).callSessionId ||
+    (notification as any).call_session_id;
+  if (effectiveCallSessionId) {
+    data.callSessionId = effectiveCallSessionId;
   }
   if (payload.call_type || (payload as any).callType) {
     data.callType = payload.call_type || (payload as any).callType;
+  } else if (notification.type === "call") {
+    data.callType = (notification.title || "").toLowerCase().includes("video") ? "video" : "voice";
   }
   if (payload.caller_name || (payload as any).callerName) {
     data.callerName = payload.caller_name || (payload as any).callerName;
+  } else if (notification.type === "call") {
+    data.callerName = notification.title || "Incoming Call";
   }
   if (payload.caller_id || (payload as any).callerId) {
     data.callerId = payload.caller_id || (payload as any).callerId;

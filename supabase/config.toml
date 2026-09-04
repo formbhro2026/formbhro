@@ -1,5 +1,8 @@
 project_id = "ogjhvmucklbxcewpkiai"
 
+[functions.send-fcm-notification]
+verify_jwt = false
+
 [auth]
 # Additional redirect URLs allowed for OAuth callbacks.
 # com.formbhro.app://oauth-callback is the Android deep-link scheme used
