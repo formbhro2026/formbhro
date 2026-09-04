@@ -158,6 +158,22 @@ async function sendFCMMessage(
       },
       android: {
         priority: "HIGH",
+        // ttl: message 4 weeks tak valid rahega (app killed hone par bhi deliver hoga)
+        ttl: "2419200s",
+        // directBootOk: device lock screen pe bhi deliver hoga
+        direct_boot_ok: true,
+        notification: {
+          channel_id: channelId,
+          title,
+          body,
+          sound: "default",
+          default_sound: true,
+          default_vibrate_timings: true,
+          default_light_settings: true,
+          notification_priority: isCall ? "PRIORITY_MAX" : "PRIORITY_HIGH",
+          visibility: "PUBLIC",
+          tag: data.notificationId || undefined,
+        },
       },
       apns: {
         headers: {

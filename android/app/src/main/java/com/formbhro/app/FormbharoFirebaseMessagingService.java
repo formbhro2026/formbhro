@@ -45,29 +45,38 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
         super.onMessageReceived(remoteMessage);
         Log.i(TAG, "[CALL][FCM] onMessageReceived triggered, id=" + remoteMessage.getMessageId());
 
-        // Forward to Capacitor plugin so foreground listeners receive event
+        // Forward to Capacitor plugin so foreground listeners receive event.
+        // NOTE: This may fail if the app is killed (no active activity). Always continue
+        // regardless so the native notification is posted in background/killed state.
         try {
             FirebaseMessagingPlugin.onMessageReceived(remoteMessage);
         } catch (Throwable t) {
-            Log.w(TAG, "[CALL][FCM] Plugin onMessageReceived forwarding warning: " + t.getMessage());
+            Log.w(TAG, "[CALL][FCM] Plugin onMessageReceived forwarding warning (app may be killed): " + t.getMessage());
         }
 
         Map<String, String> data = remoteMessage.getData();
-        if (data == null || data.isEmpty()) {
-            Log.w(TAG, "[CALL][FCM] Empty data payload");
-            return;
-        }
 
-        String type = data.get("type");
-        if (type == null) {
-            type = data.get("notification_type");
+        // When FCM delivers a notification+data message (our new payload format), the system
+        // automatically shows the notification when the app is killed. However, when the app
+        // is in the background (but not killed), onMessageReceived IS called and we must
+        // post the native notification ourselves. When app is foreground, we suppress it and
+        // let the React layer handle it.
+        String type = null;
+        if (data != null && !data.isEmpty()) {
+            type = data.get("type");
+            if (type == null) {
+                type = data.get("notification_type");
+            }
         }
         Log.i(TAG, "[CALL][FCM] onMessageReceived type=" + type);
 
         if ("call".equalsIgnoreCase(type)) {
             handleIncomingCallPush(data, remoteMessage);
         } else {
-            handleIncomingMessagePush(data, remoteMessage);
+            // For message/default notifications: post native notification when app is NOT foreground.
+            // When app is killed, the FCM notification block in the payload already shows the OS
+            // notification — we guard against duplicate posting via the isForeground check inside.
+            handleIncomingMessagePush(data != null ? data : new java.util.HashMap<>(), remoteMessage);
         }
     }
 
