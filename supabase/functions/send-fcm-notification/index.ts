@@ -158,29 +158,7 @@ async function sendFCMMessage(
       },
       android: {
         priority: "HIGH",
-        ...(isCall
-          ? {}
-          : {
-              notification: {
-                channel_id: channelId,
-                icon: "ic_stat_notification",
-                color: "#FF8A1F",
-                sound: "default",
-                default_sound: true,
-                default_vibrate_timings: true,
-                notification_priority: "PRIORITY_MAX",
-                visibility: "PUBLIC",
-              },
-            }),
       },
-      ...(!isCall
-        ? {
-            notification: {
-              title,
-              body,
-            },
-          }
-        : {}),
       apns: {
         headers: {
           "apns-priority": "10",
