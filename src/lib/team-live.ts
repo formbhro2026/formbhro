@@ -127,6 +127,7 @@ export function mapTeamDocument(row: DocumentRow, reference: string): TeamDocume
     uploadedAt: stamp(row.created_at),
     uploadedBy: row.uploader_role === "user" ? "User" : "You",
     requestId: reference,
+    requestUuid: row.request_id ?? null,
     storagePath: row.storage_path ?? undefined,
     userId: row.uploaded_by,
   };
@@ -240,27 +241,46 @@ export async function loadTeamSnapshot(
     .map((r) => roomByRequestId[r.id])
     .filter((id): id is string => Boolean(id));
 
-  const docsPromise = (rowIds.length || userIds.length)
-    ? (rowIds.length && userIds.length)
-      ? supabase
-          .from("documents")
-          .select("*")
-          .or(`request_id.in.(${rowIds.join(",")}),uploaded_by.in.(${userIds.join(",")})`)
-          .order("created_at", { ascending: false })
-          .limit(400)
-      : rowIds.length
-        ? supabase
-            .from("documents")
-            .select("*")
-            .in("request_id", rowIds)
-            .order("created_at", { ascending: false })
-            .limit(400)
-        : supabase
-            .from("documents")
-            .select("*")
-            .in("uploaded_by", userIds)
-            .order("created_at", { ascending: false })
-            .limit(400)
+  const docQueries: Promise<any>[] = [];
+  if (rowIds.length) {
+    docQueries.push(
+      supabase
+        .from("documents")
+        .select("*")
+        .in("request_id", rowIds)
+        .order("created_at", { ascending: false })
+        .limit(300),
+    );
+  }
+  if (userIds.length) {
+    docQueries.push(
+      supabase
+        .from("documents")
+        .select("*")
+        .in("uploaded_by", userIds)
+        .order("created_at", { ascending: false })
+        .limit(300),
+    );
+  }
+
+  const docsPromise = docQueries.length
+    ? Promise.all(docQueries).then((results) => {
+        const seen = new Set<string>();
+        const combined: DocumentRow[] = [];
+        for (const res of results) {
+          if (res.error) console.error("[loadTeamSnapshot] docs fetch error:", res.error);
+          for (const d of res.data ?? []) {
+            if (!seen.has(d.id)) {
+              seen.add(d.id);
+              combined.push(d);
+            }
+          }
+        }
+        return { data: combined };
+      }).catch((err) => {
+        console.error("[loadTeamSnapshot] docs fetch failed:", err);
+        return { data: [] };
+      })
     : Promise.resolve({ data: [] });
 
   // 2. Fetch messages, documents, and notifications in a single parallel batch
@@ -279,12 +299,16 @@ export async function loadTeamSnapshot(
 
   console.log(`[PERF][HYDRATION] T6: loadTeamSnapshot batched data resolved in ${Date.now() - tBatchStart}ms`);
 
-  // Build chatRoomId -> reference map for quick mapping
+  // Build chatRoomId -> reference map and request_id -> reference map
   const chatRoomToRef: Record<string, string> = {};
+  const reqIdToRef: Record<string, string> = {};
   for (const r of allReqs) {
+    const ref = r.reference || r.id;
+    reqIdToRef[r.id] = ref;
+    if (r.reference) reqIdToRef[r.reference] = ref;
     const chatRoomId = roomByRequestId[r.id];
     if (chatRoomId) {
-      chatRoomToRef[chatRoomId] = r.reference || r.id;
+      chatRoomToRef[chatRoomId] = ref;
     }
   }
 
@@ -294,8 +318,7 @@ export async function loadTeamSnapshot(
   }
 
   for (const d of (docsResult as any).data ?? []) {
-    const req = map.get(d.request_id);
-    const reference = req ? (req.reference || req.id) : (d.request_id || "Vault Document");
+    const reference = d.request_id ? (reqIdToRef[d.request_id] || d.request_id) : "Vault Document";
     documents.push(mapTeamDocument(d, reference));
   }
   return {

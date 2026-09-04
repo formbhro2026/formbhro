@@ -29,6 +29,7 @@ import {
   Video,
   Monitor,
   FileText,
+  Loader2,
 } from "lucide-react";
 import { TeamHeader } from "@/components/team/TeamHeader";
 import { TeamStatusBadge, PriorityBadge } from "@/components/team/TeamStatusBadge";
@@ -1879,12 +1880,26 @@ function RequestPanel({
   onStatus: (s: TeamRequest["status"]) => void;
   onSend: (requestId: string, text: string) => void;
 }) {
-  const { documentsFor, documentsForUser, deleteDocument, updatePriority } = useTeamStore();
-  const reqDocs = documentsFor(r.id);
-  const allUserDocs = documentsForUser(r.userId, r.id);
+  const { documentsFor, documentsForUser, loadDocumentsForRequest, deleteDocument, updatePriority } = useTeamStore();
+  const [loadingDocs, setLoadingDocs] = useState(false);
   const [docTab, setDocTab] = useState<"this_request" | "all_user">("this_request");
 
+  const reqDocs = documentsFor(r.id);
+  const allUserDocs = documentsForUser(r.userId, r.id);
   const displayedDocs = docTab === "this_request" ? reqDocs : allUserDocs;
+
+  const handleRefreshDocs = useCallback(async () => {
+    setLoadingDocs(true);
+    try {
+      await loadDocumentsForRequest(r.requestUuid || r.id, r.userId);
+    } finally {
+      setLoadingDocs(false);
+    }
+  }, [r.id, r.requestUuid, r.userId, loadDocumentsForRequest]);
+
+  useEffect(() => {
+    void handleRefreshDocs();
+  }, [handleRefreshDocs]);
 
   const rows = [
     { label: "User Name", value: r.userName },
@@ -1940,7 +1955,19 @@ function RequestPanel({
       </div>
 
       <div className="mt-6 flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-text">Documents</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-text">Documents</h3>
+          <button
+            type="button"
+            onClick={handleRefreshDocs}
+            disabled={loadingDocs}
+            title="Refresh documents"
+            className="rounded-md p-1 text-text-muted hover:bg-surface-2 hover:text-text transition-colors disabled:opacity-50"
+            aria-label="Refresh documents"
+          >
+            <RefreshCw className={cn("h-3 w-3", loadingDocs && "animate-spin text-brand")} />
+          </button>
+        </div>
         <div className="inline-flex rounded-lg border border-border-subtle bg-surface-2 p-0.5 text-[10px]">
           <button
             type="button"
@@ -1976,12 +2003,26 @@ function RequestPanel({
         </p>
       )}
 
-      {displayedDocs.length === 0 ? (
-        <p className="mt-2 text-[11px] text-text-muted">
-          {docTab === "this_request"
-            ? "No documents uploaded for this request."
-            : "No documents found in user vault."}
-        </p>
+      {loadingDocs && displayedDocs.length === 0 ? (
+        <div className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-border-subtle bg-surface-2/40 py-6 text-xs text-text-muted">
+          <Loader2 className="h-4 w-4 animate-spin text-brand" />
+          <span>Loading user documents...</span>
+        </div>
+      ) : displayedDocs.length === 0 ? (
+        <div className="mt-3 rounded-xl border border-border-subtle bg-surface-2/40 p-4 text-center">
+          <p className="text-[11px] text-text-muted">
+            {docTab === "this_request"
+              ? "No documents uploaded for this request."
+              : "No documents found in user vault."}
+          </p>
+          <button
+            type="button"
+            onClick={handleRefreshDocs}
+            className="mt-2 inline-flex items-center gap-1 text-[10px] font-semibold text-brand hover:underline"
+          >
+            <RefreshCw className="h-2.5 w-2.5" /> Check again
+          </button>
+        </div>
       ) : (
         <div className="mt-3 space-y-3">
           {displayedDocs.map((d) => (

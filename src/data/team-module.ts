@@ -35,6 +35,7 @@ export type TeamDocument = {
   uploadedAt: string;
   uploadedBy: string;
   requestId: string;
+  requestUuid?: string | null;
   previewUrl?: string;
   html?: string;
   /** Private storage object path; reads go through short-lived signed URLs. */

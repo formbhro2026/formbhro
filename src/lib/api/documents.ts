@@ -102,21 +102,86 @@ export async function getSignedUrl(storagePath: string, expiresInSeconds = 300, 
   return data.signedUrl;
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+export function isUuid(val?: string | null): val is string {
+  return typeof val === "string" && UUID_REGEX.test(val.trim());
+}
+
 export async function listDocuments(opts?: {
   requestId?: string;
   userId?: string;
   limit?: number;
 }): Promise<DocumentRow[]> {
-  let query = supabase.from("documents").select("*").order("created_at", { ascending: false });
-  if (opts?.requestId && opts?.userId) {
-    query = query.or(`request_id.eq.${opts.requestId},uploaded_by.eq.${opts.userId}`);
-  } else if (opts?.requestId) {
-    query = query.eq("request_id", opts.requestId);
-  } else if (opts?.userId) {
-    query = query.eq("uploaded_by", opts.userId);
+  let resolvedRequestId = opts?.requestId?.trim();
+  let resolvedUserId = opts?.userId?.trim();
+
+  // If requestId is provided but not a UUID (e.g. reference 'FRM-2663A63'), resolve it
+  if (resolvedRequestId && !isUuid(resolvedRequestId)) {
+    try {
+      const { data: req } = await supabase
+        .from("requests")
+        .select("id, user_id")
+        .eq("reference", resolvedRequestId)
+        .maybeSingle();
+      if (req) {
+        resolvedRequestId = req.id;
+        if (!resolvedUserId && req.user_id) {
+          resolvedUserId = req.user_id;
+        }
+      } else {
+        // Not a UUID and not found by reference; reset so we don't query a Postgres UUID column with invalid text
+        resolvedRequestId = undefined;
+      }
+    } catch {
+      resolvedRequestId = undefined;
+    }
   }
+
+  // If both requestId and userId are available, query separately in parallel and merge
+  // to prevent PostgREST .or() comma-parsing bugs and ensure maximum reliability.
+  if (resolvedRequestId && resolvedUserId) {
+    try {
+      const [reqRes, userRes] = await Promise.all([
+        supabase
+          .from("documents")
+          .select("*")
+          .eq("request_id", resolvedRequestId)
+          .order("created_at", { ascending: false })
+          .limit(opts?.limit ?? 100),
+        supabase
+          .from("documents")
+          .select("*")
+          .eq("uploaded_by", resolvedUserId)
+          .order("created_at", { ascending: false })
+          .limit(opts?.limit ?? 100),
+      ]);
+      const seen = new Set<string>();
+      const combined: DocumentRow[] = [];
+      for (const d of [...(reqRes.data ?? []), ...(userRes.data ?? [])]) {
+        if (!seen.has(d.id)) {
+          seen.add(d.id);
+          combined.push(d);
+        }
+      }
+      return combined;
+    } catch (err) {
+      console.error("[listDocuments] error fetching combined documents:", err);
+      return [];
+    }
+  }
+
+  let query = supabase.from("documents").select("*").order("created_at", { ascending: false });
+  if (resolvedRequestId && isUuid(resolvedRequestId)) {
+    query = query.eq("request_id", resolvedRequestId);
+  } else if (resolvedUserId) {
+    query = query.eq("uploaded_by", resolvedUserId);
+  }
+
   const { data, error } = await query.limit(opts?.limit ?? 100);
-  if (error) throw new ApiError(error.message, error.code);
+  if (error) {
+    console.error("[listDocuments] query error:", error);
+    throw new ApiError(error.message, error.code);
+  }
   return data ?? [];
 }
 
@@ -128,24 +193,23 @@ export async function documentsCount(): Promise<number> {
   return count ?? 0;
 }
 
-export async function deleteDocument(id: string, storagePath: string) {
+export async function deleteDocument(id: string, storagePath?: string) {
   const { data: userData } = await supabase.auth.getUser();
   const uid = userData.user?.id;
   if (!uid) throw new ApiError("Session expired. Please sign in again.", "unauthenticated");
 
   // Delete DB row first. If this fails due to RLS or not found, it prevents orphaned DB entries.
   const { error: dbError } = await supabase.from("documents").delete().eq("id", id);
-  // Note: RLS handles the uploaded_by = auth.uid() OR is_admin check.
+  // Note: RLS handles the uploaded_by = auth.uid() OR team/admin check.
 
   if (dbError) throw new ApiError("Failed to remove document record", dbError.code);
 
-  // Remove from storage bucket
-  const { error: storageError } = await supabase.storage.from(BUCKET).remove([storagePath]);
-
-  // If storage delete fails, we just log it. The DB row is gone so it won't appear in the app.
-  // This satisfies the "prefer orphaned storage over orphaned DB row" safety principle.
-  if (storageError) {
-    console.warn("Storage deletion failed after DB row was deleted:", storageError);
+  // Remove from storage bucket if path is available
+  if (storagePath) {
+    const { error: storageError } = await supabase.storage.from(BUCKET).remove([storagePath]);
+    if (storageError) {
+      console.warn("Storage deletion failed after DB row was deleted:", storageError);
+    }
   }
 }
 

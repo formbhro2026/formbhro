@@ -115,6 +115,7 @@ type TeamStore = {
   messagesFor: (id: string) => TeamMessage[];
   documentsFor: (id: string) => TeamDocument[];
   documentsForUser: (userId?: string, reqId?: string) => TeamDocument[];
+  loadDocumentsForRequest: (requestId: string, userId?: string) => Promise<TeamDocument[]>;
   getDocument: (id: string) => TeamDocument | undefined;
   sendMessage: (requestId: string, text: string) => void;
   /** True while the user on the other side of this request is composing. */
@@ -440,6 +441,41 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         return next.length > 500 ? next.slice(0, 500) : next;
       });
 
+      // Load documents for newly fetched requests
+      const newRowIds = rows.map((r) => r.id);
+      if (newRowIds.length || userIds.length) {
+        void Promise.all([
+          newRowIds.length
+            ? supabase.from("documents").select("*").in("request_id", newRowIds).limit(100)
+            : Promise.resolve({ data: [] }),
+          userIds.length
+            ? supabase.from("documents").select("*").in("uploaded_by", userIds).limit(100)
+            : Promise.resolve({ data: [] }),
+        ]).then(([reqDocsRes, userDocsRes]) => {
+          const newDocRows: DocumentRow[] = [];
+          const seen = new Set<string>();
+          for (const d of [...(reqDocsRes.data ?? []), ...(userDocsRes.data ?? [])]) {
+            if (!seen.has(d.id)) {
+              seen.add(d.id);
+              newDocRows.push(d);
+            }
+          }
+          if (newDocRows.length) {
+            setDocuments((prev) => {
+              const prevIds = new Set(prev.map((d) => d.id));
+              const mapped = newDocRows
+                .filter((d) => !prevIds.has(d.id))
+                .map((d) => {
+                  const reqRow = rows.find((r) => r.id === d.request_id);
+                  const ref = reqRow ? (reqRow.reference || reqRow.id) : (d.request_id || "Vault Document");
+                  return mapTeamDocument(d, ref);
+                });
+              return mapped.length ? [...prev, ...mapped] : prev;
+            });
+          }
+        }).catch(() => {});
+      }
+
       setRequestsHasMore(count > nextPage * limit);
       setRequestsPage(nextPage);
     } catch (err) {
@@ -746,11 +782,18 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
 
       return visibleDocuments.filter((d) => {
         const req = d.requestId?.trim().toLowerCase();
+        const reqUuid = d.requestUuid?.trim().toLowerCase();
         return (
           req === cleanId ||
           req === ref ||
           (matchedUuid && req === matchedUuid) ||
-          (roomReqId && req === roomReqId)
+          (roomReqId && req === roomReqId) ||
+          (reqUuid && (
+            reqUuid === cleanId ||
+            reqUuid === ref ||
+            (matchedUuid && reqUuid === matchedUuid) ||
+            (roomReqId && reqUuid === roomReqId)
+          ))
         );
       });
     },
@@ -760,11 +803,12 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
   const documentsForUser = useCallback(
     (userId?: string, reqId?: string) => {
       const thisReqDocs = reqId ? documentsFor(reqId) : [];
-      if (!userId) return thisReqDocs;
-      const cleanUid = userId.trim().toLowerCase();
-      const userDocs = visibleDocuments.filter(
-        (d) => d.userId && d.userId.trim().toLowerCase() === cleanUid,
-      );
+      const cleanUid = userId?.trim().toLowerCase();
+      const userDocs = cleanUid
+        ? visibleDocuments.filter(
+            (d) => d.userId && d.userId.trim().toLowerCase() === cleanUid,
+          )
+        : [];
       const seen = new Set<string>();
       const combined: TeamDocument[] = [];
       for (const d of [...thisReqDocs, ...userDocs]) {
@@ -776,6 +820,47 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       return combined;
     },
     [documentsFor, visibleDocuments],
+  );
+
+  const loadDocumentsForRequest = useCallback(
+    async (requestId: string, userId?: string) => {
+      if (!requestId) return [];
+      try {
+        const cleanId = requestId.trim();
+        const room = rooms.current[cleanId];
+        const dbReqId = room?.requestId || cleanId;
+        const ref = refByRequestId.current[dbReqId] || refByRequestId.current[cleanId] || cleanId;
+
+        const docs = await documentsApi.listDocuments({
+          requestId: dbReqId,
+          userId: userId || undefined,
+          limit: 100,
+        });
+
+        const mapped = docs.map((d) => {
+          const docRef =
+            d.request_id === dbReqId
+              ? ref
+              : d.request_id
+                ? (refByRequestId.current[d.request_id] || d.request_id)
+                : "Vault Document";
+          return mapTeamDocument(d, docRef);
+        });
+
+        if (mapped.length) {
+          setDocuments((prev) => {
+            const existingIds = new Set(prev.map((d) => d.id));
+            const fresh = mapped.filter((d) => !existingIds.has(d.id));
+            return fresh.length ? [...prev, ...fresh] : prev;
+          });
+        }
+        return mapped;
+      } catch (err) {
+        console.error("[loadDocumentsForRequest] Error loading documents:", err);
+        return [];
+      }
+    },
+    [],
   );
 
   const getDocument = useCallback(
@@ -1121,9 +1206,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
 
   const deleteDocument = useCallback(async (documentId: string, storagePath?: string) => {
     try {
-      if (storagePath) {
-        await documentsApi.deleteDocument(documentId, storagePath);
-      }
+      await documentsApi.deleteDocument(documentId, storagePath);
       setDocuments((prev) => prev.filter((d) => d.id !== documentId));
       setMessages((prev) =>
         prev.map((m) => (m.documentId === documentId ? { ...m, documentId: undefined } : m)),
@@ -1550,29 +1633,14 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           }
         });
 
-        // FIX 2: Fetch historical request documents when opening request
+        // FIX 2: Fetch historical request documents and user vault documents when opening request
         const actualRequestId =
           room?.requestId ||
           (cur.requestId && cur.requestId.length === 36 ? cur.requestId : undefined) ||
           Object.entries(refByRequestId.current).find(([, r]) => r === target)?.[0];
+        const reqObj = requests.find((r) => r.id === target || r.requestUuid === actualRequestId);
         if (actualRequestId) {
-          void documentsApi
-            .listDocuments({ requestId: actualRequestId, limit: 100 })
-            .then((reqDocs) => {
-              if (!alive) return;
-              if (reqDocs.length) {
-                setDocuments((prev) => {
-                  const existingDocIds = new Set(prev.map((d) => d.id));
-                  const newDocs = reqDocs
-                    .filter((d) => !existingDocIds.has(d.id))
-                    .map((d) => mapTeamDocument(d, ref || target));
-                  return newDocs.length ? [...prev, ...newDocs] : prev;
-                });
-              }
-            })
-            .catch((err) => {
-              console.error("Failed to load request documents on chat open:", err);
-            });
+          void loadDocumentsForRequest(actualRequestId, reqObj?.userId);
         }
 
         unsubActive = subscribeToRoom(roomId, {
@@ -1737,6 +1805,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       messagesFor,
       documentsFor,
       documentsForUser,
+      loadDocumentsForRequest,
       getDocument,
       sendMessage,
       isUserTyping,
@@ -1791,6 +1860,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       messagesFor,
       documentsFor,
       documentsForUser,
+      loadDocumentsForRequest,
       getDocument,
       sendMessage,
       isUserTyping,
