@@ -153,6 +153,23 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
     }
   }, [call.session.isActive, call.session.isIncoming, incomingAlert]);
 
+  // Listen for remote hangup signal dispatched by use-webrtc-call for instant alert teardown
+  useEffect(() => {
+    const onRemoteHangup = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!detail?.sessionId || incomingAlert?.callSessionId === detail.sessionId) {
+        console.log("[GlobalCall] Remote hangup received, clearing incoming alert and stopping ringtone");
+        stopIncomingCallRingtone();
+        setIncomingAlert(null);
+      }
+    };
+
+    window.addEventListener("formbhro:remote_hangup", onRemoteHangup);
+    return () => {
+      window.removeEventListener("formbhro:remote_hangup", onRemoteHangup);
+    };
+  }, [incomingAlert?.callSessionId]);
+
   // Auto-dismiss incoming alert after 30 seconds if not answered
   useEffect(() => {
     if (incomingAlert) {

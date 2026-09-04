@@ -16,6 +16,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Module-level deduplication cache for notifications (prevents duplicate delivery from webhook retries)
+const recentMessageDeliveries = new Map<string, number>();
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -257,6 +260,41 @@ Deno.serve(async (req) => {
   if (payload.record && typeof payload.record === "object") {
     // Database Webhook format
     notification = payload.record;
+
+    // Call notifications are delivered directly with VoIP / caller metadata.
+    // The database row was inserted purely for in-app realtime listening in call-store.
+    // Skip FCM push from webhook to prevent duplicate call notifications.
+    if (notification.type === "call") {
+      console.info(
+        `[CALL][FCM] Skipping database webhook push for call notification ${notification.id} (handled by authoritative direct call push).`,
+      );
+      return new Response(
+        JSON.stringify({ sent: 0, failed: 0, skipped: true, message: "Call notification webhook skipped" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // Deduplication check: Protect against webhook retries delivering the exact same notification record
+    if (notification.id) {
+      const now = Date.now();
+      const lastSent = recentMessageDeliveries.get(notification.id);
+      if (lastSent && now - lastSent < 300000) {
+        console.info(
+          `[FCM] Idempotency: Notification record ${notification.id} already delivered. Skipping duplicate delivery.`,
+        );
+        return new Response(
+          JSON.stringify({ sent: 0, failed: 0, duplicate: true, message: "Notification already delivered" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      recentMessageDeliveries.set(notification.id, now);
+      if (recentMessageDeliveries.size > 1000) {
+        for (const [k, ts] of recentMessageDeliveries.entries()) {
+          if (now - ts > 600000) recentMessageDeliveries.delete(k);
+        }
+      }
+    }
+
     if (notification.receiver_id) {
       targetUserIds.push(notification.receiver_id);
     }
@@ -335,22 +373,24 @@ Deno.serve(async (req) => {
           .eq("user_id", assignedId)
           .limit(1);
 
+        receiverId = assignedId;
+        targetUserIds = [assignedId];
+        targetFound = true;
+
         if (assignedTokens && assignedTokens.length > 0) {
-          receiverId = assignedId;
-          targetUserIds = [assignedId];
-          targetFound = true;
           console.info(
-            `[CALL][FCM] Targeted assigned team member: ${assignedId.substring(0, 8)}...`
+            `[CALL][FCM] Targeted assigned team member: ${assignedId.substring(0, 8)}...`,
           );
         } else {
           console.info(
-            `[CALL][FCM] Assigned team member has no usable token. Falling back to active support pool.`
+            `[CALL][FCM] Assigned team member ${assignedId} has no usable device tokens. Intended recipient is unavailable.`,
           );
+          // Do NOT fall back to active support pool for an explicitly assigned team member!
         }
       }
 
-      // Step 2.4: Fall back to active Team/Admin support recipients if assigned member is offline/tokenless or request is unassigned
-      if (!targetFound) {
+      // Step 2.4: ONLY fall back to active Team/Admin support pool if the request is genuinely UNASSIGNED
+      if (!targetFound && !reqRow?.assigned_team_id && !receiverId) {
         const { data: activeTeamRows } = await sbAdmin
           .from("team_members")
           .select("id")
@@ -364,7 +404,7 @@ Deno.serve(async (req) => {
         const roleUserIds = (teamRoleRows || []).map((r: any) => r.user_id);
 
         const eligibleUserIds = Array.from(
-          new Set([...activeTeamIds, ...roleUserIds])
+          new Set([...activeTeamIds, ...roleUserIds]),
         ).filter((id) => id && id !== payload.caller_id);
 
         // Fetch tokens for eligible users ordered by most recent activity
@@ -380,13 +420,13 @@ Deno.serve(async (req) => {
           targetUserIds = activeUserIds;
           receiverId = activeUserIds[0]; // Primary recipient is the most recently active on-duty team member
           console.info(
-            `[CALL][FCM] Resolved active support pool: ${activeUserIds.length} members with active tokens.`
+            `[CALL][FCM] Resolved active support pool: ${activeUserIds.length} members with active tokens.`,
           );
         } else if (eligibleUserIds.length > 0) {
           targetUserIds = eligibleUserIds.slice(0, 5);
           receiverId = eligibleUserIds[0];
           console.info(
-            `[CALL][FCM] Fallback to eligible team members: ${targetUserIds.length} members.`
+            `[CALL][FCM] Fallback to eligible team members: ${targetUserIds.length} members.`,
           );
         }
       }
@@ -485,8 +525,22 @@ Deno.serve(async (req) => {
     }
   } else if (payload.receiver_id && payload.title) {
     // Direct invocation format — normal message or non-call notification
+    const notifId = (payload as any).notification_id || crypto.randomUUID();
+    const now = Date.now();
+    const lastSent = recentMessageDeliveries.get(notifId);
+    if (lastSent && now - lastSent < 300000) {
+      console.info(
+        `[FCM] Idempotency: Direct notification ${notifId} already delivered. Skipping duplicate.`,
+      );
+      return new Response(
+        JSON.stringify({ sent: 0, failed: 0, duplicate: true, message: "Notification already delivered" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+    recentMessageDeliveries.set(notifId, now);
+
     notification = {
-      id: crypto.randomUUID(),
+      id: notifId,
       receiver_id: payload.receiver_id,
       title: payload.title,
       body: payload.body ?? null,
@@ -547,9 +601,13 @@ Deno.serve(async (req) => {
   if (notification.route) {
     data.route = notification.route;
   } else if (notification.request_id) {
-    data.route = `/app/chats/${notification.request_id}`;
+    if (notification.role === "team") {
+      data.route = `/team/work?id=${notification.request_id}`;
+    } else {
+      data.route = `/app/chats/${notification.request_id}`;
+    }
   } else {
-    data.route = "/app";
+    data.route = notification.role === "team" ? "/team/work" : "/app";
   }
 
   // Get Firebase access token

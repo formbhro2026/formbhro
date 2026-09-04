@@ -433,19 +433,26 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
     pc.onicecandidate = (event) => {
       const activeRoom = canonicalRoomIdRef.current || chatRoomId;
       if (event.candidate && activeRoom && myIdRef.current) {
+        const targetUserId = callDetailsRef.current?.isCaller
+          ? callDetailsRef.current?.receiverId
+          : callDetailsRef.current?.callerId;
         logWebRTC(
           role,
           "ICE_CANDIDATE_SENT",
           callDetailsRef.current?.callSessionId,
           activeRoom,
           pc,
-          `candidate=${event.candidate.candidate.substring(0, 30)}...`,
+          `candidate=${event.candidate.candidate.substring(0, 30)}... target=${targetUserId || "all"}`,
         );
         void sendSignal(activeRoom, {
           type: "candidate",
           from: myIdRef.current,
-          target: "all",
-          data: event.candidate,
+          target: targetUserId || "all",
+          data: {
+            ...event.candidate.toJSON(),
+            sessionId: callDetailsRef.current?.callSessionId,
+            targetUserId,
+          },
         });
       }
     };
@@ -612,18 +619,25 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
           `[CALL FORENSIC] role=USER event=OFFER_CREATED invocation=${invocationId} timestamp=${Date.now()} callSessionId=${callSessionId}`,
         );
 
+        const targetUserId = resolved.receiverId;
         console.log(
-          `[CALL][TRACE][OFFER] Sending offer: callSessionId=${callSessionId} requestId=${resolved.requestUuid} canonicalRoomId=${canonicalRoom} userId=${user.id} timestamp=${Date.now()} source=startCall`,
+          `[CALL][TRACE][OFFER] Sending offer: callSessionId=${callSessionId} requestId=${resolved.requestUuid} canonicalRoomId=${canonicalRoom} userId=${user.id} target=${targetUserId || "all"} timestamp=${Date.now()} source=startCall`,
         );
         await sendSignal(canonicalRoom, {
           type: "offer",
           from: user.id,
-          target: "all",
-          data: { offer, type, sessionId: callSessionId, requestId: resolved.requestUuid },
+          target: targetUserId || "all",
+          data: {
+            offer,
+            type,
+            sessionId: callSessionId,
+            requestId: resolved.requestUuid,
+            targetUserId,
+          },
         });
-        logWebRTC("USER", "OFFER_SENT", callSessionId, canonicalRoom, pc);
+        logWebRTC("USER", "OFFER_SENT", callSessionId, canonicalRoom, pc, `target=${targetUserId || "all"}`);
         console.log(
-          `[CALL FORENSIC] role=USER event=OFFER_SENT invocation=${invocationId} timestamp=${Date.now()} callSessionId=${callSessionId}`,
+          `[CALL FORENSIC] role=USER event=OFFER_SENT invocation=${invocationId} timestamp=${Date.now()} callSessionId=${callSessionId} target=${targetUserId || "all"}`,
         );
 
         // Broadcast offer every 2.5 seconds until answered or terminal
@@ -636,14 +650,18 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
             return;
           }
           if (pcRef.current && lastOfferRef.current && myIdRef.current) {
+            const retryTarget = callDetailsRef.current?.receiverId || targetUserId;
             console.log(
-              `[CALL][TRACE][OFFER] (Retry broadcast) callSessionId=${callSessionId} canonicalRoomId=${canonicalRoom} timestamp=${Date.now()} source=offerInterval`,
+              `[CALL][TRACE][OFFER] (Retry broadcast) callSessionId=${callSessionId} canonicalRoomId=${canonicalRoom} target=${retryTarget || "all"} timestamp=${Date.now()} source=offerInterval`,
             );
             void sendSignal(canonicalRoom, {
               type: "offer",
               from: myIdRef.current,
-              target: "all",
-              data: lastOfferRef.current,
+              target: retryTarget || "all",
+              data: {
+                ...lastOfferRef.current,
+                targetUserId: retryTarget,
+              },
             });
           }
         }, 2500);
@@ -832,16 +850,17 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
             localStream: stream,
           }));
 
+          const targetUserId = callDetailsRef.current?.callerId || resolved.receiverId;
           console.log(
-            `[CALL][TRACE][ANSWER] Sending answer: callSessionId=${sid} canonicalRoomId=${activeRoomId} timestamp=${Date.now()}`,
+            `[CALL][TRACE][ANSWER] Sending answer: callSessionId=${sid} canonicalRoomId=${activeRoomId} target=${targetUserId || "all"} timestamp=${Date.now()}`,
           );
           await sendSignal(activeRoomId, {
             type: "answer",
             from: sender,
-            target: "all",
-            data: { ...answer, sessionId: sid },
+            target: targetUserId || "all",
+            data: { ...answer, sessionId: sid, targetUserId },
           });
-          logWebRTC("TEAM", "ANSWER_SENT", sid, activeRoomId, pc);
+          logWebRTC("TEAM", "ANSWER_SENT", sid, activeRoomId, pc, `target=${targetUserId || "all"}`);
         } else {
           // Request offer from caller if remote description not yet set, keeping session active
           setSession((prev) => ({
@@ -853,16 +872,17 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
             localStream: stream,
           }));
 
+          const targetUserId = callDetailsRef.current?.callerId || resolved.receiverId;
           console.log(
-            `[CALL][TRACE][REQUEST_OFFER] Requesting offer: callSessionId=${sid} canonicalRoomId=${activeRoomId} timestamp=${Date.now()}`,
+            `[CALL][TRACE][REQUEST_OFFER] Requesting offer: callSessionId=${sid} canonicalRoomId=${activeRoomId} target=${targetUserId || "all"} timestamp=${Date.now()}`,
           );
           await sendSignal(activeRoomId, {
             type: "request_offer",
             from: sender,
-            target: "all",
-            data: { sessionId: sid },
+            target: targetUserId || "all",
+            data: { sessionId: sid, targetUserId },
           });
-          logWebRTC("TEAM", "REQUEST_OFFER_SENT", sid, activeRoomId, pc);
+          logWebRTC("TEAM", "REQUEST_OFFER_SENT", sid, activeRoomId, pc, `target=${targetUserId || "all"}`);
         }
       } catch (err) {
         console.error("WebRTC acceptCall error:", err);
@@ -897,14 +917,17 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
       }
       const activeRoom = canonicalRoomIdRef.current || chatRoomId;
       if (activeRoom && myIdRef.current) {
+        const targetUserId = callDetailsRef.current?.isCaller
+          ? callDetailsRef.current?.receiverId
+          : callDetailsRef.current?.callerId;
         console.log(
-          `[CALL][TRACE][HANGUP] Sending hangup signal: callSessionId=${currentSid} canonicalRoomId=${activeRoom} timestamp=${Date.now()}`,
+          `[CALL][TRACE][HANGUP] Sending hangup signal: callSessionId=${currentSid} canonicalRoomId=${activeRoom} target=${targetUserId || "all"} timestamp=${Date.now()}`,
         );
         await sendSignal(activeRoom, {
           type: "hangup",
           from: myIdRef.current,
-          target: "all",
-          data: { sessionId: currentSid },
+          target: targetUserId || "all",
+          data: { sessionId: currentSid, targetUserId },
         });
       }
       cleanup(typeof errorMessage === "string" ? errorMessage : undefined);
@@ -936,6 +959,21 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         if (currentUserId && !myIdRef.current) myIdRef.current = currentUserId;
 
         if (signal.from && currentUserId && signal.from === currentUserId) {
+          return;
+        }
+
+        // Strict recipient targeting:
+        // Drop any signal explicitly targeted to another user
+        const intendedTarget = signal.target || signal.data?.targetUserId;
+        if (
+          intendedTarget &&
+          intendedTarget !== "all" &&
+          currentUserId &&
+          intendedTarget !== currentUserId
+        ) {
+          console.log(
+            `[CALL][TRACE][DROP_UNINTENDED] Dropping signal not addressed to current user. intendedTarget=${intendedTarget} currentUserId=${currentUserId} type=${signal.type}`,
+          );
           return;
         }
 
@@ -1033,16 +1071,17 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
               await pc.setLocalDescription(answer);
               logWebRTC("TEAM", "ANSWER_CREATED", sid, activeSignalingRoom, pc);
 
+              const targetUserId = signal.from || callDetailsRef.current?.callerId;
               console.log(
-                `[CALL][TRACE][ANSWER] Sending immediate answer: callSessionId=${sid} canonicalRoomId=${activeSignalingRoom} timestamp=${Date.now()}`,
+                `[CALL][TRACE][ANSWER] Sending immediate answer: callSessionId=${sid} canonicalRoomId=${activeSignalingRoom} target=${targetUserId || "all"} timestamp=${Date.now()}`,
               );
               await sendSignal(activeSignalingRoom, {
                 type: "answer",
                 from: myIdRef.current,
-                target: "all",
-                data: { ...answer, sessionId: sid },
+                target: targetUserId || "all",
+                data: { ...answer, sessionId: sid, targetUserId },
               });
-              logWebRTC("TEAM", "ANSWER_SENT", sid, activeSignalingRoom, pc);
+              logWebRTC("TEAM", "ANSWER_SENT", sid, activeSignalingRoom, pc, `target=${targetUserId || "all"}`);
 
               setSession((prev) => ({
                 ...prev,
@@ -1053,9 +1092,10 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
               }));
             } else {
               // Remote offer received before answer. Remote description is set.
-              // Note: Call invitation UI is driven by FCM / incomingAlert, not WebRTC signaling.
+              // Mark isIncoming: true so incoming call overlay & activity tracking are active
               setSession((prev) => ({
                 ...prev,
+                isIncoming: true,
                 callType: signal.data.type || (signal.data.isScreenShare ? "screen" : "video"),
               }));
             }
@@ -1072,16 +1112,20 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
                 );
                 return;
               }
+              const targetUserId = signal.from || callDetailsRef.current?.receiverId;
               console.log(
-                `[CALL][TRACE][OFFER] (Retransmitting offer on request) session=${offerSid}`,
+                `[CALL][TRACE][OFFER] (Retransmitting offer on request) session=${offerSid} target=${targetUserId || "all"}`,
               );
               void sendSignal(activeSignalingRoom, {
                 type: "offer",
                 from: myIdRef.current,
-                target: "all",
-                data: lastOfferRef.current,
+                target: targetUserId || "all",
+                data: {
+                  ...lastOfferRef.current,
+                  targetUserId,
+                },
               });
-              logWebRTC("USER", "OFFER_SENT", offerSid, activeSignalingRoom, pcRef.current, "source=request_offer");
+              logWebRTC("USER", "OFFER_SENT", offerSid, activeSignalingRoom, pcRef.current, `source=request_offer target=${targetUserId || "all"}`);
             }
             break;
           case "answer":
@@ -1149,6 +1193,13 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
             );
             if (sid) {
               terminalSessionsRef.current.add(sid);
+            }
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(
+                new CustomEvent("formbhro:remote_hangup", {
+                  detail: { sessionId: sid, chatRoomId: activeSignalingRoom },
+                }),
+              );
             }
             cleanup();
             break;
