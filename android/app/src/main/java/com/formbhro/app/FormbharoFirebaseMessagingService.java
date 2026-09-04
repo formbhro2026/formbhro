@@ -66,6 +66,8 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
 
         if ("call".equalsIgnoreCase(type)) {
             handleIncomingCallPush(data, remoteMessage);
+        } else {
+            handleIncomingMessagePush(data, remoteMessage);
         }
     }
 
@@ -95,6 +97,119 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
                 manager.createNotificationChannel(callChannel);
                 Log.i(TAG, "[CALL][NATIVE] Created channel: " + CHANNEL_ID_CALLS);
             }
+
+            if (manager.getNotificationChannel(CHANNEL_ID_MESSAGES) == null) {
+                NotificationChannel msgChannel = new NotificationChannel(
+                    CHANNEL_ID_MESSAGES,
+                    "Messages & Updates",
+                    NotificationManager.IMPORTANCE_HIGH
+                );
+                msgChannel.setDescription("New message alerts from experts and team members");
+                msgChannel.enableVibration(true);
+                msgChannel.enableLights(true);
+                msgChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+                manager.createNotificationChannel(msgChannel);
+                Log.i(TAG, "[MESSAGE][NATIVE] Created channel: " + CHANNEL_ID_MESSAGES);
+            }
+        }
+    }
+
+    private void handleIncomingMessagePush(Map<String, String> data, RemoteMessage remoteMessage) {
+        boolean isForeground = MainActivity.isAppInForeground;
+        if (!isForeground) {
+            try {
+                ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+                if (am != null) {
+                    List<ActivityManager.RunningAppProcessInfo> procs = am.getRunningAppProcesses();
+                    if (procs != null) {
+                        for (ActivityManager.RunningAppProcessInfo proc : procs) {
+                            if (proc.processName.equals(getPackageName()) &&
+                                proc.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
+                                isForeground = MainActivity.isAppInForeground;
+                                break;
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        if (isForeground) {
+            Log.i(TAG, "[MESSAGE][NATIVE] App is in FOREGROUND. Suppressing native system message notification.");
+            return;
+        }
+
+        NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (manager != null) {
+            ensureChannels(manager);
+        }
+
+        String title = data.get("title");
+        String body = data.get("body");
+        if (title == null || title.trim().isEmpty()) {
+            RemoteMessage.Notification notif = remoteMessage.getNotification();
+            if (notif != null && notif.getTitle() != null) {
+                title = notif.getTitle();
+            } else {
+                title = "Formbhro";
+            }
+        }
+        if (body == null || body.trim().isEmpty()) {
+            RemoteMessage.Notification notif = remoteMessage.getNotification();
+            if (notif != null && notif.getBody() != null) {
+                body = notif.getBody();
+            } else {
+                body = "New message received";
+            }
+        }
+
+        String requestId = data.get("requestId");
+        String chatRoomId = data.get("chatRoomId");
+        String route = data.get("route");
+
+        int notificationId = (int) (System.currentTimeMillis() & 0xfffffff);
+
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        if (route != null && !route.isEmpty()) {
+            intent.putExtra("route", route);
+        }
+        if (requestId != null && !requestId.isEmpty()) {
+            intent.putExtra("requestId", requestId);
+        }
+        if (chatRoomId != null && !chatRoomId.isEmpty()) {
+            intent.putExtra("chatRoomId", chatRoomId);
+        }
+
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            flags |= PendingIntent.FLAG_IMMUTABLE;
+        }
+
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+            this,
+            notificationId,
+            intent,
+            flags
+        );
+
+        Uri defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID_MESSAGES)
+            .setSmallIcon(R.drawable.ic_stat_notification)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setAutoCancel(true)
+            .setColor(Color.parseColor("#FF8A1F"))
+            .setSound(defaultSoundUri)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setContentIntent(pendingIntent);
+
+        if (manager != null) {
+            manager.notify(notificationId, builder.build());
+            Log.i(TAG, "[MESSAGE][NATIVE] Message notification posted: id=" + notificationId);
         }
     }
 
