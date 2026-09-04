@@ -362,35 +362,21 @@ Deno.serve(async (req) => {
     );
 
     if (isCustomerCallingSupport) {
-      let targetFound = false;
       const assignedId = reqRow?.assigned_team_id || receiverId;
 
       if (assignedId && assignedId !== payload.caller_id) {
-        // Step 2.2: Check whether the assigned Team member has a usable device token
-        const { data: assignedTokens } = await sbAdmin
-          .from("device_tokens")
-          .select("fcm_token")
-          .eq("user_id", assignedId)
-          .limit(1);
-
+        // Strict 1-to-1 routing: assigned team member or explicit receiverId exists.
+        // The ONLY permitted recipient is this assignedId.
+        // Even if the assigned member has zero device tokens, offline, or web-only,
+        // targetUserIds remains locked to [assignedId]. NEVER fall back to support pool.
         receiverId = assignedId;
         targetUserIds = [assignedId];
-        targetFound = true;
-
-        if (assignedTokens && assignedTokens.length > 0) {
-          console.info(
-            `[CALL][FCM] Targeted assigned team member: ${assignedId.substring(0, 8)}...`,
-          );
-        } else {
-          console.info(
-            `[CALL][FCM] Assigned team member ${assignedId} has no usable device tokens. Intended recipient is unavailable.`,
-          );
-          // Do NOT fall back to active support pool for an explicitly assigned team member!
-        }
-      }
-
-      // Step 2.4: ONLY fall back to active Team/Admin support pool if the request is genuinely UNASSIGNED
-      if (!targetFound && !reqRow?.assigned_team_id && !receiverId) {
+        console.info(
+          `[CALL][FCM] Targeted assigned team member: ${assignedId.substring(0, 8)}... (strict 1-to-1 routing, pool fallback forbidden)`,
+        );
+      } else if (!reqRow?.assigned_team_id && !payload.receiver_id && !receiverId) {
+        // Support pool fallback executes ONLY when the request is genuinely unassigned:
+        // requests.assigned_team_id IS NULL AND there is no explicit receiverId
         const { data: activeTeamRows } = await sbAdmin
           .from("team_members")
           .select("id")
@@ -418,17 +404,23 @@ Deno.serve(async (req) => {
         if (poolTokens && poolTokens.length > 0) {
           const activeUserIds = Array.from(new Set(poolTokens.map((t: any) => t.user_id)));
           targetUserIds = activeUserIds;
-          receiverId = activeUserIds[0]; // Primary recipient is the most recently active on-duty team member
+          receiverId = activeUserIds[0];
           console.info(
-            `[CALL][FCM] Resolved active support pool: ${activeUserIds.length} members with active tokens.`,
+            `[CALL][FCM] Resolved unassigned call support pool: ${activeUserIds.length} members with active tokens.`,
           );
         } else if (eligibleUserIds.length > 0) {
           targetUserIds = eligibleUserIds.slice(0, 5);
           receiverId = eligibleUserIds[0];
           console.info(
-            `[CALL][FCM] Fallback to eligible team members: ${targetUserIds.length} members.`,
+            `[CALL][FCM] Fallback to unassigned eligible team members: ${targetUserIds.length} members.`,
           );
         }
+      } else {
+        // Assigned member is caller or invalid target -> do NOT fall back to pool
+        console.warn(
+          `[CALL][FCM] Cannot route call to assigned member: assignedId=${assignedId} caller=${payload.caller_id}`,
+        );
+        targetUserIds = [];
       }
     } else {
       // Non-support calls (e.g. Team -> Customer, Admin direct chat)

@@ -12,6 +12,7 @@ import android.content.Intent;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
+    public static volatile boolean isAppInForeground = false;
     private String pendingCallAnswerJs = null;
     private String pendingCallAnswerJson = null;
 
@@ -202,6 +203,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onResume() {
         super.onResume();
+        isAppInForeground = true;
         if (this.bridge != null && this.bridge.getWebView() != null) {
             WebView webView = this.bridge.getWebView();
             webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
@@ -211,5 +213,17 @@ public class MainActivity extends BridgeActivity {
                 webView.evaluateJavascript(pendingCallAnswerJs, null);
             }
         }
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        isAppInForeground = false;
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        isAppInForeground = false;
     }
 }

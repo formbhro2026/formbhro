@@ -18,6 +18,8 @@ import androidx.core.app.NotificationCompat;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 import io.capawesome.capacitorjs.plugins.firebase.messaging.FirebaseMessagingPlugin;
+import android.app.ActivityManager;
+import java.util.List;
 import java.util.Map;
 
 public class FormbharoFirebaseMessagingService extends FirebaseMessagingService {
@@ -119,6 +121,33 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
         Log.i(TAG, "[CALL][NATIVE] Processing call: session=" + callSessionId + " req=" + requestId +
                    " caller=" + callerName + " callerId=" + callerId + " type=" + callType + " route=" + route);
         Log.i("CALL_FORENSIC", "[CALL FORENSIC] role=TEAM event=FCM_RECEIVED messageId=" + remoteMessage.getMessageId() + " callSessionId=" + callSessionId + " requestId=" + requestId + " callType=" + callType + " timestamp=" + System.currentTimeMillis());
+
+        // Fix 3: Suppress native incoming call activity and ringtone if app is already active in foreground.
+        // React CallOverlay presents the incoming call and Web Audio plays the ringtone in the active WebView.
+        boolean isForeground = MainActivity.isAppInForeground;
+        if (!isForeground) {
+            try {
+                ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+                if (am != null) {
+                    List<ActivityManager.RunningAppProcessInfo> procs = am.getRunningAppProcesses();
+                    if (procs != null) {
+                        for (ActivityManager.RunningAppProcessInfo proc : procs) {
+                            if (proc.processName.equals(getPackageName()) &&
+                                proc.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
+                                isForeground = MainActivity.isAppInForeground;
+                                break;
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        if (isForeground) {
+            Log.i(TAG, "[CALL][NATIVE] App is in FOREGROUND. React CallOverlay handles presentation. Suppressing native IncomingCallActivity & ringtone.");
+            Log.i("CALL_FORENSIC", "[CALL FORENSIC] role=TEAM event=FCM_FOREGROUND_SUPPRESSED callSessionId=" + callSessionId + " requestId=" + requestId + " timestamp=" + System.currentTimeMillis());
+            return;
+        }
 
         NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager != null) {

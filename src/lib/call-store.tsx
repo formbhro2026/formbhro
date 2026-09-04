@@ -51,9 +51,6 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  // Track handled call sessions to prevent duplicate alerts and re-dials
-  const handledCallSessionsRef = useRef<Set<string>>(new Set());
-
   const userStore = useContext(UserStoreContext);
   const activeRequest = userStore?.activeRequest;
 
@@ -74,6 +71,39 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
       setCallRoomId(activeRequest.id);
     }
   }, [activeRequest?.id, callRoomId, incomingAlert]);
+
+  // Session-level deduplication for incoming call presentation (Fix 1)
+  // Tracks callSessionId -> timestamp to prevent duplicate alerts from Realtime notifications and WebRTC offers
+  const lastHandledCallSessionIdRef = useRef<Map<string, number>>(new Map());
+  // Track answered call sessions separately so bridge answers aren't blocked by incoming alert dedup
+  const answeredCallSessionsRef = useRef<Set<string>>(new Set());
+
+  const isCallSessionAlreadyHandled = useCallback(
+    (sid?: string): boolean => {
+      if (!sid) return false;
+      // If currently displaying an incoming alert for this exact session, it is already handled
+      if (incomingAlert?.callSessionId === sid) return true;
+      // If handled within the last 10 seconds, suppress duplicate presentation
+      const lastHandledAt = lastHandledCallSessionIdRef.current.get(sid);
+      if (lastHandledAt && Date.now() - lastHandledAt < 10000) {
+        return true;
+      }
+      return false;
+    },
+    [incomingAlert?.callSessionId],
+  );
+
+  const markCallSessionHandled = useCallback((sid?: string) => {
+    if (!sid) return;
+    lastHandledCallSessionIdRef.current.set(sid, Date.now());
+    // Prune entries older than 30s to prevent unbounded memory growth
+    const now = Date.now();
+    for (const [key, timestamp] of lastHandledCallSessionIdRef.current.entries()) {
+      if (now - timestamp > 30000) {
+        lastHandledCallSessionIdRef.current.delete(key);
+      }
+    }
+  }, []);
 
   const call = useWebRTCCall(callRoomId);
 
@@ -101,11 +131,13 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
 
           if (notif.type === "call" && notif.request_id) {
             const sid = (notif as any).call_session_id;
-            if (sid && handledCallSessionsRef.current.has(sid)) {
-              console.log("[GlobalCall] Skipping already handled or terminal call session:", sid);
+            if (sid && isCallSessionAlreadyHandled(sid)) {
+              console.log("[GlobalCall] Skipping already handled call session from notification:", sid);
               return;
             }
-            if (sid) handledCallSessionsRef.current.add(sid);
+            if (sid) {
+              markCallSessionHandled(sid);
+            }
 
             console.log(
               "[GlobalCall] Incoming call notification received for request:",
@@ -136,7 +168,52 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [userId]);
+  }, [userId, isCallSessionAlreadyHandled, markCallSessionHandled]);
+
+  // Listen for remote offer signal from WebRTC (Fix 2: prevent duplicate presentation if already handled)
+  useEffect(() => {
+    const onRemoteOffer = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      const sid = detail?.callSessionId || detail?.sessionId;
+      if (!sid) return;
+
+      if (isCallSessionAlreadyHandled(sid)) {
+        console.log("[GlobalCall] Skipping duplicate incoming offer for session:", sid);
+        return;
+      }
+
+      // If already active in call (and not in incoming state), do not show incoming alert
+      if (call.session.isActive && !call.session.isIncoming) {
+        return;
+      }
+
+      markCallSessionHandled(sid);
+
+      console.log("[GlobalCall] Incoming offer received from WebRTC for session:", sid);
+      const callType: "audio" | "video" = detail.callType === "video" ? "video" : "audio";
+      setIncomingAlert({
+        requestId: detail.requestId || callRoomId || "",
+        callType,
+        title: detail.callerName || (callType === "video" ? "Incoming Video Call" : "Incoming Voice Call"),
+        callSessionId: sid,
+      });
+      if (detail.requestId && detail.requestId !== callRoomId) {
+        setCallRoomId(detail.requestId);
+      }
+      startIncomingCallRingtone();
+    };
+
+    window.addEventListener("formbhro:remote_offer", onRemoteOffer);
+    return () => {
+      window.removeEventListener("formbhro:remote_offer", onRemoteOffer);
+    };
+  }, [
+    call.session.isActive,
+    call.session.isIncoming,
+    callRoomId,
+    isCallSessionAlreadyHandled,
+    markCallSessionHandled,
+  ]);
 
   // When WebRTC call ends or becomes inactive, ensure incomingAlert is cleared immediately
   const prevWasActiveRef = useRef(false);
@@ -153,14 +230,34 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
     }
   }, [call.session.isActive, call.session.isIncoming, incomingAlert]);
 
-  // Listen for remote hangup signal dispatched by use-webrtc-call for instant alert teardown
+  // Listen for remote hangup signal dispatched by use-webrtc-call for session-safe alert teardown (Fix 4)
   useEffect(() => {
     const onRemoteHangup = (e: Event) => {
       const detail = (e as CustomEvent).detail;
-      if (!detail?.sessionId || incomingAlert?.callSessionId === detail.sessionId) {
-        console.log("[GlobalCall] Remote hangup received, clearing incoming alert and stopping ringtone");
+      const remoteSessionId = detail?.sessionId || detail?.callSessionId;
+
+      // Only dismiss the incoming alert/ringtone when session matches (or neither has session ID)
+      const matchesSession =
+        (incomingAlert?.callSessionId && remoteSessionId && incomingAlert.callSessionId === remoteSessionId) ||
+        (!incomingAlert?.callSessionId && !remoteSessionId);
+
+      if (matchesSession) {
+        console.log(
+          "[GlobalCall] Remote hangup received for matching session, clearing alert and stopping ringtone:",
+          remoteSessionId,
+        );
         stopIncomingCallRingtone();
         setIncomingAlert(null);
+        if (remoteSessionId) {
+          lastHandledCallSessionIdRef.current.delete(remoteSessionId);
+        }
+      } else {
+        console.log(
+          "[GlobalCall] Ignoring remote hangup for non-matching session. Current:",
+          incomingAlert?.callSessionId,
+          "Received:",
+          remoteSessionId,
+        );
       }
     };
 
@@ -246,11 +343,11 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
         } catch {}
 
         const sid = pending.callSessionId;
-        if (sid && handledCallSessionsRef.current.has(sid)) {
-          console.log("[CALL][BRIDGE] Skipping already handled call session:", sid);
+        if (sid && answeredCallSessionsRef.current.has(sid)) {
+          console.log("[CALL][BRIDGE] Skipping already answered call session:", sid);
           return;
         }
-        if (sid) handledCallSessionsRef.current.add(sid);
+        if (sid) answeredCallSessionsRef.current.add(sid);
         console.log("[CALL][BRIDGE] Consuming pending call answer from native intent/bridge:", pending);
         const target = pending.requestId || pending.chatRoomId;
         const callType = pending.callType === "video" ? "video" : "audio";
@@ -269,11 +366,11 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
       const customEvent = e as CustomEvent;
       const detail = customEvent.detail || {};
       const sid = detail.callSessionId;
-      if (sid && handledCallSessionsRef.current.has(sid)) {
+      if (sid && answeredCallSessionsRef.current.has(sid)) {
         console.log("[CALL][BRIDGE] Skipping duplicate formbhro:call_answered for session:", sid);
         return;
       }
-      if (sid) handledCallSessionsRef.current.add(sid);
+      if (sid) answeredCallSessionsRef.current.add(sid);
       console.log("[CALL][BRIDGE] Received formbhro:call_answered event:", detail);
       const target = detail.requestId || detail.chatRoomId;
       const callType = detail.callType === "video" ? "video" : "audio";
@@ -294,10 +391,14 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
   const handleHangup = useCallback(
     async (errorMessage?: string) => {
       stopIncomingCallRingtone();
+      const currentSid = incomingAlert?.callSessionId;
       setIncomingAlert(null);
+      if (currentSid) {
+        lastHandledCallSessionIdRef.current.delete(currentSid);
+      }
       await call.hangup(errorMessage);
     },
-    [call],
+    [call, incomingAlert?.callSessionId],
   );
 
   // Active session combines WebRTC state and global incoming call alert
