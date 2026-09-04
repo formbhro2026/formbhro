@@ -322,11 +322,14 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
         for (const row of rows) {
           const reference = row.reference || row.id;
           const rm = roomByRequestId.get(row.id);
-          nextRooms[reference] = {
+          const roomData = {
             requestId: row.id,
             chatRoomId: rm?.id ?? null,
             title: row.title,
           };
+          // FIX 5: Index by both human reference and database UUID
+          nextRooms[reference] = roomData;
+          nextRooms[row.id] = roomData;
           referenceById.current[row.id] = reference;
         }
         rooms.current = nextRooms;
@@ -340,6 +343,20 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
             const msgs = await messagesApi.listMessages(activeRoom.id, { limit: 50 });
             const ref = activeRow.reference || activeRow.id;
             setMessages(msgs.map((m) => mapMessage(m, ref)));
+
+            // Ingest message attachments into global documents state
+            const attachedDocs = msgs
+              .map((m) => m.attachment)
+              .filter((att): att is NonNullable<typeof att> => Boolean(att));
+            if (attachedDocs.length) {
+              setDocuments((prev) => {
+                const existingDocIds = new Set(prev.map((d) => d.id));
+                const newDocs = attachedDocs
+                  .filter((att) => !existingDocIds.has(att.id))
+                  .map((att) => mapDocument(att, ref, activeRow.title || "Document"));
+                return newDocs.length ? [...prev, ...newDocs] : prev;
+              });
+            }
           }
         }
 
@@ -407,9 +424,23 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
             .map((m) => mapMessage(m, matchedRef));
           return newMsgs.length ? [...prev, ...newMsgs] : prev;
         });
+
+        // FIX 4: Ingest attachments from messages into global documents state
+        const attachedDocs = msgs
+          .map((m) => m.attachment)
+          .filter((att): att is NonNullable<typeof att> => Boolean(att));
+        if (attachedDocs.length) {
+          setDocuments((prev) => {
+            const existingDocIds = new Set(prev.map((d) => d.id));
+            const newDocs = attachedDocs
+              .filter((att) => !existingDocIds.has(att.id))
+              .map((att) => mapDocument(att, matchedRef, room?.title || "Document"));
+            return newDocs.length ? [...prev, ...newDocs] : prev;
+          });
+        }
       }
     },
-    [mapMessage],
+    [mapMessage, mapDocument],
   );
 
   useEffect(() => {

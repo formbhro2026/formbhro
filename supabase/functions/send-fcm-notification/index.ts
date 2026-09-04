@@ -261,6 +261,19 @@ Deno.serve(async (req) => {
     // Database Webhook format
     notification = payload.record;
 
+    // Call notifications are exclusively managed by the direct invocation path.
+    // The webhook fires AFTER direct invocation has already sent the authoritative FCM push.
+    // Delivering FCM again here would cause the recipient to receive duplicate call rings.
+    if (notification.type === "call") {
+      console.info(
+        `[CALL][FCM] Webhook: Skipping call notification ${notification.id} — direct invocation path has authority.`,
+      );
+      return new Response(
+        JSON.stringify({ sent: 0, failed: 0, skipped: true, message: "Call FCM handled by direct invocation" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     // Deduplication check: Protect against webhook retries delivering the exact same notification record
     if (notification.id) {
       const now = Date.now();
@@ -280,23 +293,6 @@ Deno.serve(async (req) => {
           if (now - ts > 600000) recentMessageDeliveries.delete(k);
         }
       }
-    }
-
-    // Call notification deduplication by callSessionId across webhook & direct invocation paths
-    const webhookCallSessionId = (notification as any).call_session_id;
-    if (notification.type === "call" && webhookCallSessionId) {
-      const now = Date.now();
-      const lastCallSent = recentMessageDeliveries.get(webhookCallSessionId);
-      if (lastCallSent && now - lastCallSent < 300000) {
-        console.info(
-          `[CALL][FCM] Idempotency: Call session ${webhookCallSessionId} already notified. Skipping duplicate.`,
-        );
-        return new Response(
-          JSON.stringify({ sent: 0, failed: 0, duplicate: true, message: "Call session already notified" }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
-      recentMessageDeliveries.set(webhookCallSessionId, now);
     }
 
     if (notification.receiver_id) {

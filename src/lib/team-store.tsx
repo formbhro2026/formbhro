@@ -698,6 +698,20 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
               .map((m) => mapTeamMessage(m, ref || id, memberRef.current?.name ?? "Support"));
             return [...prev, ...newMsgs];
           });
+
+          // FIX 1: Extract attachments and merge into documents state
+          const attachedDocs = msgs
+            .map((m) => m.attachment)
+            .filter((att): att is NonNullable<typeof att> => Boolean(att));
+          if (attachedDocs.length) {
+            setDocuments((prev) => {
+              const existingDocIds = new Set(prev.map((d) => d.id));
+              const newDocs = attachedDocs
+                .filter((att) => !existingDocIds.has(att.id))
+                .map((att) => mapTeamDocument(att, ref || id));
+              return newDocs.length ? [...prev, ...newDocs] : prev;
+            });
+          }
         });
       }
 
@@ -719,7 +733,26 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     [visibleMessages],
   );
   const documentsFor = useCallback(
-    (id: string) => visibleDocuments.filter((d) => d.requestId === id),
+    (id: string) => {
+      if (!id) return [];
+      const cleanId = id.trim().toLowerCase();
+      const ref = (refByRequestId.current[id] || id).trim().toLowerCase();
+      const matchedUuid = Object.entries(refByRequestId.current).find(
+        ([, r]) => r.toLowerCase() === cleanId,
+      )?.[0]?.toLowerCase();
+      const room = rooms.current[id] || (ref ? rooms.current[ref] : undefined);
+      const roomReqId = room?.requestId?.toLowerCase();
+
+      return visibleDocuments.filter((d) => {
+        const req = d.requestId?.trim().toLowerCase();
+        return (
+          req === cleanId ||
+          req === ref ||
+          (matchedUuid && req === matchedUuid) ||
+          (roomReqId && req === roomReqId)
+        );
+      });
+    },
     [visibleDocuments],
   );
   const getDocument = useCallback(
@@ -1478,7 +1511,46 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
               .map((m) => mapTeamMessage(m, ref || target, memberRef.current?.name ?? member.name));
             return newMsgs.length ? [...prev, ...newMsgs] : prev;
           });
+
+          // FIX 1: Extract attachments and merge into documents state
+          const attachedDocs = msgs
+            .map((m) => m.attachment)
+            .filter((att): att is NonNullable<typeof att> => Boolean(att));
+          if (attachedDocs.length) {
+            setDocuments((prev) => {
+              const existingDocIds = new Set(prev.map((d) => d.id));
+              const newDocs = attachedDocs
+                .filter((att) => !existingDocIds.has(att.id))
+                .map((att) => mapTeamDocument(att, ref || target));
+              return newDocs.length ? [...prev, ...newDocs] : prev;
+            });
+          }
         });
+
+        // FIX 2: Fetch historical request documents when opening request
+        const actualRequestId =
+          room?.requestId ||
+          (cur.requestId && cur.requestId.length === 36 ? cur.requestId : undefined) ||
+          Object.entries(refByRequestId.current).find(([, r]) => r === target)?.[0];
+        if (actualRequestId) {
+          void documentsApi
+            .listDocuments({ requestId: actualRequestId, limit: 100 })
+            .then((reqDocs) => {
+              if (!alive) return;
+              if (reqDocs.length) {
+                setDocuments((prev) => {
+                  const existingDocIds = new Set(prev.map((d) => d.id));
+                  const newDocs = reqDocs
+                    .filter((d) => !existingDocIds.has(d.id))
+                    .map((d) => mapTeamDocument(d, ref || target));
+                  return newDocs.length ? [...prev, ...newDocs] : prev;
+                });
+              }
+            })
+            .catch((err) => {
+              console.error("Failed to load request documents on chat open:", err);
+            });
+        }
 
         unsubActive = subscribeToRoom(roomId, {
           onMessage: (row) => {

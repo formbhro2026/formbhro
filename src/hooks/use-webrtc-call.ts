@@ -720,7 +720,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         void supabase.functions
           .invoke("send-fcm-notification", {
             body: {
-              receiver_id: resolved.receiverId,
+              receiver_id: targetUserId,
               notification_type: "call",
               is_support_call: Boolean(user.id === resolved.requestUserId || !resolved.receiverId),
               title: `Incoming ${type === "video" ? "Video" : "Voice"} Call`,
