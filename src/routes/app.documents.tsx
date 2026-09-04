@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { useUserStore } from "@/lib/user-store";
 import { useAddDocument } from "@/components/layout/FillNowProvider";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/app/documents")({
   ssr: false,
@@ -43,7 +44,7 @@ const CATEGORIES = [
 import { PullToRefresh } from "@/components/common/PullToRefresh";
 
 function MyDocuments() {
-  const { documents, requests, attachFile, refresh, loading } = useUserStore();
+  const { documents, requests, attachFile, removeFile, refresh, loading } = useUserStore();
   const { openAddDocument } = useAddDocument();
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState<string | null>(null);
@@ -169,7 +170,19 @@ function MyDocuments() {
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {filtered.map((d) => (
-                  <DocumentCard key={d.id} document={d} onView={() => setPreviewId(d.id)} />
+                  <DocumentCard
+                    key={d.id}
+                    document={d}
+                    onView={() => setPreviewId(d.id)}
+                    onDelete={async () => {
+                      try {
+                        await removeFile(d.id, d.storagePath);
+                        toast.success(`"${d.name}" deleted successfully`);
+                      } catch (err) {
+                        toast.error("Failed to delete document");
+                      }
+                    }}
+                  />
                 ))}
               </div>
             )}

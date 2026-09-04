@@ -96,16 +96,27 @@ export function ChatHeader({
               className="relative inline-flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 2xl:hidden"
             >
               <FileText className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
+              {documentCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[9px] font-bold text-white shadow-sm">
+                  {documentCount}
+                </span>
+              )}
             </button>
           )}
           <button
             type="button"
             onClick={onOpenDetails}
-            aria-label="Request details"
+            aria-label="Documents and details"
+            title="Documents and Request Info"
             aria-haspopup="dialog"
-            className="inline-flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 2xl:hidden"
+            className="relative inline-flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 2xl:hidden"
           >
             <Info className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
+            {!onOpenDocuments && documentCount > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[9px] font-bold text-white shadow-sm">
+                {documentCount}
+              </span>
+            )}
           </button>
         </div>
       </div>

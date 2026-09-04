@@ -81,7 +81,7 @@ export const STATS = [
 ];
 
 export const CONTACT = {
-  phone: "+91 7657026275",
+  phone: "+91 9817359195",
   email: "formbhro@gmail.com",
   address: "Bhubaneswar, Odisha",
 };

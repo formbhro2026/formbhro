@@ -53,6 +53,7 @@ export function MessageComposer({
   onUpload,
   requestLabel,
   onTyping,
+  onOpenSavedDocs,
 }: {
   onSend: (text: string) => void;
   onUpload: (
@@ -64,6 +65,7 @@ export function MessageComposer({
   ) => void;
   requestLabel?: string;
   onTyping?: () => void;
+  onOpenSavedDocs?: () => void;
 }) {
   const [text, setText] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -349,6 +351,7 @@ export function MessageComposer({
         {menuOpen && (
           <AttachmentMenu
             onPick={pick}
+            onOpenSavedDocs={onOpenSavedDocs}
             onClose={() => {
               setMenuOpen(false);
               attachButtonRef.current?.focus();

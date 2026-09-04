@@ -148,3 +148,14 @@ export async function deleteDocument(id: string, storagePath: string) {
     console.warn("Storage deletion failed after DB row was deleted:", storageError);
   }
 }
+
+export async function linkDocumentToRequest(id: string, requestId: string) {
+  const { error } = await supabase
+    .from("documents")
+    .update({ request_id: requestId })
+    .eq("id", id);
+  if (error) {
+    console.warn("Failed to link document to request:", error);
+  }
+}
+

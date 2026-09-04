@@ -127,7 +127,7 @@ export const USER_PROFILE = {
   full_name: "Ananya Mishra",
   initials: "AM",
   email: "ananya.mishra@gmail.com",
-  phone: "+91 76570 26275",
+  phone: "+91 9817359195",
   createdAt: "12 January 2026",
   authProvider: "google" as "google" | "password",
   avatarUrl: undefined as string | undefined,

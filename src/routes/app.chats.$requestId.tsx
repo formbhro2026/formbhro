@@ -18,6 +18,7 @@ import { useGlobalCall } from "@/lib/call-store";
 import { setActiveChat } from "@/lib/active-chat-tracker";
 import { listQuickReplies } from "@/lib/api/notifications";
 import type { QuickReplyRow } from "@/lib/api/types";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/app/chats/$requestId")({
   ssr: false,
@@ -83,6 +84,66 @@ function ChatScreen() {
     items: messages,
     chatId: request?.id || requestId,
   });
+
+  const handleShareDocument = useCallback(
+    async (doc: any) => {
+      const room = store.rooms?.current?.[requestId];
+      if (!room?.chatRoomId) {
+        toast.error("Chat is connecting. Please try again in a moment.");
+        return;
+      }
+      try {
+        const { sendMessageWithRetry } = await import("@/lib/api/messages");
+        const { linkDocumentToRequest } = await import("@/lib/api/documents");
+        if (!doc.requestId || doc.requestId === "Personal Document") {
+          void linkDocumentToRequest(doc.id, room.requestId).catch(() => {});
+        }
+        await sendMessageWithRetry({
+          chatRoomId: room.chatRoomId,
+          requestId: room.requestId,
+          attachmentId: doc.id,
+          senderRole: "user",
+        });
+        toast.success(`Shared "${doc.name}" in chat`);
+        scrollToBottom("smooth");
+      } catch (err) {
+        console.error("Failed to share document:", err);
+        toast.error("Failed to send document in chat");
+      }
+    },
+    [requestId, store.rooms, scrollToBottom],
+  );
+
+  const handleDeleteDocument = useCallback(
+    async (id: string, storagePath?: string) => {
+      try {
+        await store.removeFile(id, storagePath);
+        toast.success("Document deleted successfully");
+      } catch (err) {
+        console.error("Failed to delete document:", err);
+        toast.error("Failed to delete document");
+      }
+    },
+    [store],
+  );
+
+  const handleUploadDocument = useCallback(
+    async (file: File, name: string) => {
+      if (store.uploadPersonalDocument) {
+        await store.uploadPersonalDocument(file, name);
+      } else {
+        await attachFile(
+          requestId,
+          name,
+          "doc",
+          `${Math.round(file.size / 1024)} KB`,
+          undefined,
+          file,
+        );
+      }
+    },
+    [store, attachFile, requestId],
+  );
 
   useEffect(() => {
     void listQuickReplies().then(setQuickReplies).catch(() => {});
@@ -185,9 +246,9 @@ function ChatScreen() {
         <section className="flex min-h-0 min-w-0 flex-col">
           <ChatHeader
             request={request}
-            onOpenDetails={() => openSheet("details")}
+            onOpenDetails={() => openSheet("documents")}
             onOpenDocuments={() => openSheet("documents")}
-            documentCount={requestDocs.length}
+            documentCount={documents.length}
             onStartCall={(type) => startCall(type, request.id)}
             onToggleSearch={() => {
               setSearchOpen((prev) => {
@@ -350,6 +411,7 @@ function ChatScreen() {
               onUpload={(name, kind, size, preview, file) =>
                 attachFile(requestId, name, kind, size, preview, file)
               }
+              onOpenSavedDocs={() => openSheet("documents")}
               onTyping={() => {
                 const room = store.rooms?.current?.[requestId];
                 if (room?.chatRoomId) {
@@ -371,8 +433,11 @@ function ChatScreen() {
           <RequestDetails
             request={request}
             documents={requestDocs}
+            allDocuments={documents}
             onAddNote={(note) => addNote(requestId, note)}
             onViewDocument={setPreviewId}
+            onDeleteDocument={handleDeleteDocument}
+            onShareDocument={handleShareDocument}
           />
         </aside>
       </div>
@@ -382,12 +447,16 @@ function ChatScreen() {
         <RequestDetailsSheet
           request={request}
           documents={requestDocs}
+          allDocuments={documents}
           initialTab={sheetTab}
           onAddNote={(note) => addNote(requestId, note)}
           onViewDocument={(id) => {
             setSheetTab(null);
             setPreviewId(id);
           }}
+          onDeleteDocument={handleDeleteDocument}
+          onShareDocument={handleShareDocument}
+          onUploadDocument={handleUploadDocument}
           onClose={() => setSheetTab(null)}
         />
       )}
