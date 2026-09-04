@@ -6,6 +6,8 @@
  * across Web, PWA, and Capacitor Android WebViews without depending on external asset downloads.
  */
 
+import { isCapacitor } from "./fcm";
+
 let audioCtx: AudioContext | null = null;
 let ringtoneIntervalId: ReturnType<typeof setInterval> | null = null;
 let vibrationIntervalId: ReturnType<typeof setInterval> | null = null;
@@ -134,6 +136,12 @@ function playRingtoneCycle(): void {
  */
 export function startIncomingCallRingtone(): void {
   stopIncomingCallRingtone();
+
+  // On native Capacitor app, native Android IncomingCallActivity / FCM manages the phone ringtone.
+  // Suppress Web Audio ringtone inside WebView to prevent double ringtone playback.
+  if (isCapacitor()) {
+    return;
+  }
 
   // Trigger first cycle immediately
   playRingtoneCycle();
