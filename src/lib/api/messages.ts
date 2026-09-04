@@ -55,6 +55,33 @@ export async function sendMessage(input: {
     throw new ApiError(error.message, error.code);
   }
 
+  // Dispatch high-priority FCM notification to guarantee instant delivery
+  const preview = input.body || "Sent an attachment";
+  void supabase
+    .from("requests")
+    .select("user_id, assigned_team_id")
+    .eq("id", input.requestId)
+    .maybeSingle()
+    .then(({ data: reqData }) => {
+      if (!reqData) return;
+      const receiverId = input.senderRole === "user" ? reqData.assigned_team_id : reqData.user_id;
+      if (!receiverId) return;
+
+      void supabase.functions
+        .invoke("send-fcm-notification", {
+          body: {
+            receiver_id: receiverId,
+            title: "New message",
+            body: preview,
+            notification_type: "message",
+            request_id: input.requestId,
+            chat_room_id: input.chatRoomId,
+            route: `/app/chats/${input.requestId}`,
+          },
+        })
+        .catch((e) => console.warn("[FCM] Direct push invocation error:", e));
+    });
+
   return data;
 }
 
