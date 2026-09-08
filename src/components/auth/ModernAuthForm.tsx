@@ -455,6 +455,10 @@ export function ModernAuthForm({
             Privacy Policy
           </Link>
           <span className="text-gray-100">|</span>
+          <Link to="/terms" className="hover:text-gray-900 transition-colors">
+            Terms of Use
+          </Link>
+          <span className="text-gray-100">|</span>
           <Link to="/help" className="hover:text-gray-900 transition-colors">
             Help
           </Link>

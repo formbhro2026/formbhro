@@ -10,44 +10,61 @@ import {
   ADMIN_GATE_EMAIL,
   ADMIN_GATE_PASSWORD,
   ADMIN_GATE_USERNAME,
+  LEGACY_ADMIN_GATE_EMAIL,
+  LEGACY_ADMIN_GATE_PASSWORD,
+  LEGACY_ADMIN_GATE_USERNAME,
   assertAdmin,
   assertTeamOrAdmin,
   assertPermission,
 } from "./admin-helpers.server";
 
 /**
- * Temporary super-admin gate. The client posts the fixed console credentials;
- * we then make sure a real Supabase auth account with the admin role exists so
- * every subsequent request is authorised by RLS, not by the UI.
- * Replace this with real Supabase admin accounts when auth is migrated.
+ * Super-admin gate. Accepts the primary credentials (RbRb@9973 / Rakesh+Rb@9973)
+ * OR the legacy credentials (admin / ADMIN@2026) for backwards compatibility.
+ * Provisions the Supabase auth user, user_roles, and profiles on first call.
  */
 export const ensureAdminAccount = createServerFn({ method: "POST" })
   .validator((input: unknown) =>
     z.object({ username: z.string().max(120), password: z.string().max(200) }).parse(input),
   )
   .handler(async ({ data }) => {
-    if (
-      data.username.trim().toLowerCase() !== ADMIN_GATE_USERNAME ||
-      data.password !== ADMIN_GATE_PASSWORD
-    ) {
+    const username = data.username.trim().toLowerCase();
+    const password = data.password;
+
+    // Check primary credentials
+    const isPrimary =
+      username === ADMIN_GATE_USERNAME.toLowerCase() && password === ADMIN_GATE_PASSWORD;
+    // Check legacy credentials
+    const isLegacy =
+      username === LEGACY_ADMIN_GATE_USERNAME.toLowerCase() &&
+      password === LEGACY_ADMIN_GATE_PASSWORD;
+
+    if (!isPrimary && !isLegacy) {
       return { ok: false as const };
     }
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server").catch((err) => {
-      console.error("Failed to load supabaseAdmin:", err);
-      throw new Error(
-        "Admin service is currently unavailable. Please check backend configuration.",
-      );
-    });
+
+    // Use primary credentials for the Supabase account regardless of which set was entered
+    const targetEmail = ADMIN_GATE_EMAIL;
+    const targetPassword = ADMIN_GATE_PASSWORD;
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server").catch(
+      (err) => {
+        console.error("Failed to load supabaseAdmin:", err);
+        throw new Error(
+          "Admin service is currently unavailable. Please check backend configuration.",
+        );
+      },
+    );
 
     const { data: list } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
     let userId = list?.users.find(
-      (u: { email?: string; id: string }) => u.email?.toLowerCase() === ADMIN_GATE_EMAIL,
+      (u: { email?: string; id: string }) => u.email?.toLowerCase() === targetEmail,
     )?.id;
 
     if (!userId) {
       const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
-        email: ADMIN_GATE_EMAIL,
-        password: ADMIN_GATE_PASSWORD,
+        email: targetEmail,
+        password: targetPassword,
         email_confirm: true,
         user_metadata: { full_name: "Super Admin", role: "admin" },
       });
@@ -55,7 +72,7 @@ export const ensureAdminAccount = createServerFn({ method: "POST" })
         throw new Error(error?.message ?? "Could not prepare the admin account");
       userId = created.user.id;
     } else {
-      await supabaseAdmin.auth.admin.updateUserById(userId, { password: ADMIN_GATE_PASSWORD });
+      await supabaseAdmin.auth.admin.updateUserById(userId, { password: targetPassword });
     }
 
     await supabaseAdmin
@@ -64,11 +81,53 @@ export const ensureAdminAccount = createServerFn({ method: "POST" })
     await supabaseAdmin
       .from("profiles")
       .upsert(
-        { id: userId, full_name: "Super Admin", email: ADMIN_GATE_EMAIL },
+        { id: userId, full_name: "Super Admin", email: targetEmail },
         { onConflict: "id" },
       );
 
-    return { ok: true as const, email: ADMIN_GATE_EMAIL, password: ADMIN_GATE_PASSWORD };
+    return { ok: true as const, email: targetEmail, password: targetPassword };
+  });
+
+/**
+ * Provisions the demo user account for platform testing.
+ * Email: demo@formbhro.com / Password: DemoUser@2026 / Role: user
+ */
+export const ensureDemoUserAccount = createServerFn({ method: "POST" })
+  .handler(async () => {
+    const DEMO_EMAIL = "demo@formbhro.com";
+    const DEMO_PASSWORD = "DemoUser@2026";
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server").catch(
+      (err) => {
+        console.error("Failed to load supabaseAdmin:", err);
+        throw new Error("Admin service unavailable.");
+      },
+    );
+
+    const { data: list } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
+    let userId = list?.users.find(
+      (u: { email?: string; id: string }) => u.email?.toLowerCase() === DEMO_EMAIL,
+    )?.id;
+
+    if (!userId) {
+      const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
+        email: DEMO_EMAIL,
+        password: DEMO_PASSWORD,
+        email_confirm: true,
+        user_metadata: { full_name: "Demo User", role: "user" },
+      });
+      if (error || !created.user)
+        throw new Error(error?.message ?? "Could not provision demo account");
+      userId = created.user.id;
+    } else {
+      await supabaseAdmin.auth.admin.updateUserById(userId, { password: DEMO_PASSWORD });
+    }
+
+    await supabaseAdmin
+      .from("profiles")
+      .upsert({ id: userId, full_name: "Demo User", email: DEMO_EMAIL }, { onConflict: "id" });
+
+    return { ok: true as const, email: DEMO_EMAIL, password: DEMO_PASSWORD };
   });
 
 /** Admin -> create Team Member. There is no public team signup anywhere. */

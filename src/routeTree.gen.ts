@@ -16,6 +16,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as HelpRouteImport } from './routes/help'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as TeamRouteImport } from './routes/team'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AdminShellRouteImport } from './routes/admin/_shell'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as AppIndexRouteImport } from './routes/app.index'
@@ -77,6 +78,11 @@ const PrivacyRoute = PrivacyRouteImport.update({
 const TeamRoute = TeamRouteImport.update({
   id: '/team',
   path: '/team',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminShellRoute = AdminShellRouteImport.update({
@@ -221,6 +227,7 @@ export interface FileRoutesByFullPath {
   '/help': typeof HelpRoute
   '/privacy': typeof PrivacyRoute
   '/team': typeof TeamRouteWithChildren
+  '/terms': typeof TermsRoute
   '/admin/login': typeof AdminLoginRoute
   '/app/documents': typeof AppDocumentsRoute
   '/app/news': typeof AppNewsRoute
@@ -254,6 +261,7 @@ export interface FileRoutesByTo {
   '/help': typeof HelpRoute
   '/privacy': typeof PrivacyRoute
   '/team': typeof TeamShellIndexRoute
+  '/terms': typeof TermsRoute
   '/admin/login': typeof AdminLoginRoute
   '/app/documents': typeof AppDocumentsRoute
   '/app/news': typeof AppNewsRoute
@@ -287,6 +295,7 @@ export interface FileRoutesById {
   '/help': typeof HelpRoute
   '/privacy': typeof PrivacyRoute
   '/team': typeof TeamRouteWithChildren
+  '/terms': typeof TermsRoute
   '/admin/_shell': typeof AdminShellRouteWithChildren
   '/admin/login': typeof AdminLoginRoute
   '/app/documents': typeof AppDocumentsRoute
@@ -325,6 +334,7 @@ export interface FileRouteTypes {
     | '/help'
     | '/privacy'
     | '/team'
+    | '/terms'
     | '/admin/login'
     | '/app/documents'
     | '/app/news'
@@ -358,6 +368,7 @@ export interface FileRouteTypes {
     | '/help'
     | '/privacy'
     | '/team'
+    | '/terms'
     | '/admin/login'
     | '/app/documents'
     | '/app/news'
@@ -390,6 +401,7 @@ export interface FileRouteTypes {
     | '/help'
     | '/privacy'
     | '/team'
+    | '/terms'
     | '/admin/_shell'
     | '/admin/login'
     | '/app/documents'
@@ -427,6 +439,7 @@ export interface RootRouteChildren {
   HelpRoute: typeof HelpRoute
   PrivacyRoute: typeof PrivacyRoute
   TeamRoute: typeof TeamRouteWithChildren
+  TermsRoute: typeof TermsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -478,6 +491,13 @@ declare module '@tanstack/react-router' {
       path: '/team'
       fullPath: '/team'
       preLoaderRoute: typeof TeamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/_shell': {
@@ -778,6 +798,7 @@ const rootRouteChildren: RootRouteChildren = {
   HelpRoute: HelpRoute,
   PrivacyRoute: PrivacyRoute,
   TeamRoute: TeamRouteWithChildren,
+  TermsRoute: TermsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

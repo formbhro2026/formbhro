@@ -244,22 +244,26 @@ export async function loadTeamSnapshot(
   const docQueries: Promise<any>[] = [];
   if (rowIds.length) {
     docQueries.push(
-      supabase
-        .from("documents")
-        .select("*")
-        .in("request_id", rowIds)
-        .order("created_at", { ascending: false })
-        .limit(300),
+      Promise.resolve(
+        supabase
+          .from("documents")
+          .select("*")
+          .in("request_id", rowIds)
+          .order("created_at", { ascending: false })
+          .limit(300),
+      ),
     );
   }
   if (userIds.length) {
     docQueries.push(
-      supabase
-        .from("documents")
-        .select("*")
-        .in("uploaded_by", userIds)
-        .order("created_at", { ascending: false })
-        .limit(300),
+      Promise.resolve(
+        supabase
+          .from("documents")
+          .select("*")
+          .in("uploaded_by", userIds)
+          .order("created_at", { ascending: false })
+          .limit(300),
+      ),
     );
   }
 

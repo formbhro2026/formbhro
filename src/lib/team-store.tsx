@@ -29,7 +29,7 @@ import { isChatActive, getActiveChat, onActiveChatChange, shouldDeliverNotificat
 import { signInWithPassword, getMyRole, getMyProfile, signOut as apiSignOut } from "@/lib/api/auth";
 import { markMessagesSeen } from "./api/messages";
 import { assignRequest, updateRequestStatus, getTeamAnalytics } from "./api/requests";
-import type { Database } from "@/integrations/supabase/types";
+import type { Database, Tables } from "@/integrations/supabase/types";
 import * as messagesApi from "@/lib/api/messages";
 import * as documentsApi from "@/lib/api/documents";
 import * as requestsApi from "@/lib/api/requests";
@@ -52,6 +52,8 @@ import {
   mapTeamRequest,
   type LiveTeamSnapshot,
 } from "@/lib/team-live";
+
+type DocumentRow = Tables<"documents">;
 
 const SESSION_KEY = "formbhro.team.session";
 const MAX_SEND_ATTEMPTS = 3;

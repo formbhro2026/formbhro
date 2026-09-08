@@ -4,7 +4,12 @@ import { CONTACT } from "@/data/landing";
 import { Link } from "@tanstack/react-router";
 
 const platform = ["How It Works", "Features", "For Businesses", "Pricing", "Contact"];
-const support = ["Help Center", "Privacy Policy", "Terms & Conditions", "Refund Policy"];
+const support: { label: string; href: string }[] = [
+  { label: "Help Center", href: "/help" },
+  { label: "Privacy Policy", href: "/privacy" },
+  { label: "Terms & Conditions", href: "/terms" },
+  { label: "Refund Policy", href: "/terms#refund" },
+];
 
 export function Footer() {
   return (
@@ -31,7 +36,7 @@ export function Footer() {
             </div>
           </div>
 
-          <FooterCol title="Platform" items={platform} />
+          <FooterCol title="Platform" items={platform.map((l) => ({ label: l, href: "#" }))} />
           <FooterCol title="Support" items={support} />
 
           <div>
@@ -59,6 +64,14 @@ export function Footer() {
             <Link to="/team/login" className="text-text-muted hover:text-brand transition-colors">
               Team Login
             </Link>
+            <span className="text-text-muted">|</span>
+            <Link to="/privacy" className="text-text-muted hover:text-brand transition-colors">
+              Privacy Policy
+            </Link>
+            <span className="text-text-muted">|</span>
+            <Link to="/terms" className="text-text-muted hover:text-brand transition-colors">
+              Terms of Use
+            </Link>
           </div>
           © 2026 Formbhro. All rights reserved.
         </div>
@@ -67,16 +80,16 @@ export function Footer() {
   );
 }
 
-function FooterCol({ title, items }: { title: string; items: string[] }) {
+function FooterCol({ title, items }: { title: string; items: { label: string; href: string }[] }) {
   return (
     <div>
       <h4 className="text-sm font-semibold text-text">{title}</h4>
       <ul className="mt-4 space-y-2.5 text-sm">
         {items.map((it) => (
-          <li key={it}>
-            <a href="#" className="text-text-secondary transition-colors hover:text-brand">
-              {it}
-            </a>
+          <li key={it.label}>
+            <Link to={it.href as "/"} className="text-text-secondary transition-colors hover:text-brand">
+              {it.label}
+            </Link>
           </li>
         ))}
       </ul>

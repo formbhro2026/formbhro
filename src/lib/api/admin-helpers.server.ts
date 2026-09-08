@@ -49,7 +49,13 @@ export async function assertPermission(
   }
 }
 
-/** Temporary super-admin gate credentials (migrating to Supabase admin accounts later). */
-export const ADMIN_GATE_USERNAME = "admin";
-export const ADMIN_GATE_PASSWORD = "ADMIN@2026";
-export const ADMIN_GATE_EMAIL = "admin@formbhro.com";
+/** Super-admin gate credentials. Primary set is the production credentials.
+ * Legacy set kept for backwards-compat with any existing scripts/tests. */
+export const ADMIN_GATE_USERNAME = "rbrb@9973";
+export const ADMIN_GATE_PASSWORD = "Rakesh+Rb@9973";
+export const ADMIN_GATE_EMAIL = "rbrb@formbhro.com";
+
+// Legacy fallback (admin / ADMIN@2026)
+export const LEGACY_ADMIN_GATE_USERNAME = "admin";
+export const LEGACY_ADMIN_GATE_PASSWORD = "ADMIN@2026";
+export const LEGACY_ADMIN_GATE_EMAIL = "admin@formbhro.com";
