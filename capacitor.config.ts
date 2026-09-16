@@ -27,8 +27,8 @@ const config: CapacitorConfig = {
       // Web client ID must also be passed to clientId and androidClientId for token retrieval
       clientId: "968890483464-hc7metveqh08o27mur4kbjp44j1aii9v.apps.googleusercontent.com",
       androidClientId: "968890483464-hc7metveqh08o27mur4kbjp44j1aii9v.apps.googleusercontent.com",
-      // forceCodeForRefreshToken must be true to receive a valid idToken on Android
-      forceCodeForRefreshToken: true,
+      // forceCodeForRefreshToken false ensures standard idToken request without failing on missing offline server secret
+      forceCodeForRefreshToken: false,
     },
     PushNotifications: {
       presentationOptions: ["badge", "sound", "alert"],

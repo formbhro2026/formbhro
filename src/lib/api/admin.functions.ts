@@ -746,3 +746,96 @@ export const getAdminUsers = createServerFn({ method: "POST" })
       total: rows?.[0]?.total_count ?? 0,
     };
   });
+
+/**
+ * Resolves indirect image hosting URLs (like ibb.co viewer pages) to direct image URLs.
+ */
+export const resolveImageUrl = createServerFn({ method: "POST" })
+  .validator((input: unknown) =>
+    z.object({ url: z.string().min(1).max(2000) }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const rawUrl = data.url.trim();
+
+    // 1. Check if it's an ImgBB viewer page (e.g. https://ibb.co/m5BvK5z8)
+    if (rawUrl.includes("ibb.co/") && !rawUrl.includes("i.ibb.co/")) {
+      try {
+        const timeoutSignal =
+          typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function"
+            ? AbortSignal.timeout(6000)
+            : undefined;
+
+        const response = await fetch(rawUrl, {
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            Accept: "text/html,application/xhtml+xml",
+          },
+          signal: timeoutSignal,
+        });
+        if (response.ok) {
+          const html = await response.text();
+          const match =
+            html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i) ||
+            html.match(/<meta\s+content=["']([^"']+)["']\s+property=["']og:image["']/i);
+          if (match && match[1]) {
+            return { url: match[1].replace(/&amp;/g, "&") };
+          }
+        }
+      } catch (err) {
+        console.warn("[resolveImageUrl] Error resolving ibb.co URL:", err);
+      }
+    }
+
+    return { url: rawUrl };
+  });
+
+/**
+ * Uploads a news banner image directly to Supabase storage with service_role privileges.
+ */
+export const uploadNewsBanner = createServerFn({ method: "POST" })
+  .validator((input: unknown) =>
+    z
+      .object({
+        fileName: z.string().max(255),
+        fileBase64: z.string(),
+        mimeType: z.string().default("image/jpeg"),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const cleanBase64 = data.fileBase64.replace(/^data:image\/[a-z0-9+-]+;base64,/, "");
+    const buffer = Buffer.from(cleanBase64, "base64");
+
+    const ext = data.fileName.includes(".")
+      ? data.fileName.slice(data.fileName.lastIndexOf("."))
+      : ".jpg";
+    const nameWithoutExt = data.fileName.includes(".")
+      ? data.fileName.slice(0, data.fileName.lastIndexOf("."))
+      : data.fileName;
+    const safeName = nameWithoutExt.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 50);
+    const uniqueId =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : Math.random().toString(36).substring(2, 10);
+    const storagePath = `banners/${Date.now()}-${uniqueId}-${safeName}${ext}`;
+
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from("avatars")
+      .upload(storagePath, buffer, {
+        contentType: data.mimeType,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      throw new Error(`Upload failed: ${uploadError.message}`);
+    }
+
+    const { data: publicData } = supabaseAdmin.storage
+      .from("avatars")
+      .getPublicUrl(storagePath);
+
+    return { url: publicData.publicUrl };
+  });
+

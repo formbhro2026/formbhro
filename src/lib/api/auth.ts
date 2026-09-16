@@ -18,9 +18,7 @@ export async function signInWithGoogle(redirectPath: string = "/app") {
 
   const isAndroid = isCapacitorAndroid();
 
-  // 1. Native Capacitor Google Sign-In (ONLY on Android native container)
-  //    Do NOT fall through to browser OAuth on Capacitor — that causes the
-  //    phone's email picker + Chrome to open instead of a native dialog.
+  // 1. Native Capacitor Google Sign-In (on Android native container)
   if (isAndroid) {
     console.log("[Auth] Attempting Capacitor Native Auth flow");
     try {
@@ -28,8 +26,8 @@ export async function signInWithGoogle(redirectPath: string = "/app") {
       await GoogleAuth.initialize({
         clientId: GOOGLE_CLIENT_ID,
         scopes: ["profile", "email"],
-        // grantOfflineAccess must be true to receive an idToken on Android
-        grantOfflineAccess: true,
+        // grantOfflineAccess: false ensures we only request idToken and avoid ApiException: 10
+        grantOfflineAccess: false,
       });
       console.log("[Auth] Calling GoogleAuth.signIn()...");
       const googleUser = await GoogleAuth.signIn();
@@ -47,8 +45,7 @@ export async function signInWithGoogle(redirectPath: string = "/app") {
         if (error) throw error;
         return data;
       }
-      // No idToken received — this is an unrecoverable error on Android
-      throw new ApiError("Google sign-in failed: no ID token received. Please try again.");
+      console.warn("[Auth] No idToken received from native auth, falling back to Web OAuth");
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err);
       if (
@@ -59,31 +56,47 @@ export async function signInWithGoogle(redirectPath: string = "/app") {
         console.log("[Auth] User canceled Google Sign-In.");
         return null;
       }
-      console.warn("[Auth] Capacitor Native Google Auth failed:", err);
-      // Re-throw — do NOT open browser on Capacitor (it triggers phone email picker bug)
-      throw err instanceof ApiError ? err : new ApiError("Google sign-in failed: " + errMsg);
+      console.warn("[Auth] Capacitor Native Google Auth failed, falling back to OAuth:", err);
+      // Fall through to browser OAuth flow below instead of throwing unrecoverable error
     }
   }
 
-  // 2. Web-only OAuth flow (never called inside Capacitor container)
-  //    redirectUri always points to the /auth page on the current origin.
+  // 2. OAuth flow (used on Web and as resilient fallback on Capacitor Android)
   const origin =
     typeof window !== "undefined" && window.location.origin
       ? window.location.origin
       : "https://formbhro-oa2i.vercel.app";
-  const redirectUri = `${origin}/auth`;
 
-  // Standard Web OAuth flow: direct to Supabase
+  // For Capacitor Android fallback, route with source=app so external browser triggers deep link com.formbhro.app://oauth-callback
+  const redirectUri = isAndroid
+    ? `${origin}/auth?source=app`
+    : `${origin}/auth`;
+
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
       redirectTo: redirectUri,
+      skipBrowserRedirect: isAndroid,
       queryParams: {
         prompt: "select_account",
       },
     },
   });
   if (error) throw new ApiError(error.message);
+
+  // If running inside Capacitor, open the OAuth URL in In-App Browser (Custom Tabs)
+  if (isAndroid && data?.url) {
+    try {
+      const { Browser } = await import("@capacitor/browser");
+      await Browser.open({ url: data.url });
+    } catch (browserErr) {
+      console.warn("[Auth] Browser plugin open failed, falling back to window.location:", browserErr);
+      if (typeof window !== "undefined") {
+        window.location.href = data.url;
+      }
+    }
+  }
+
   return data;
 }
 

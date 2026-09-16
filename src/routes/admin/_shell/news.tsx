@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { Pin, Trash2, Image, AlertCircle, X, Check } from "lucide-react";
+import { useState, useRef } from "react";
+import { Pin, Trash2, Image, AlertCircle, X, Check, Upload, Loader2 } from "lucide-react";
 import { useAdmin } from "@/lib/admin-store";
 import { Button, Field, Panel, Pill, formatDate, inputClass } from "@/components/admin/AdminUI";
 import * as notificationsApi from "@/lib/api/notifications";
+import { supabase } from "@/integrations/supabase/client";
+import { resolveImageUrl, uploadNewsBanner } from "@/lib/api/admin.functions";
 
 export const Route = createFileRoute("/admin/_shell/news")({ component: AdminNews });
 
@@ -15,6 +17,15 @@ function isValidHttpUrl(string: string) {
   } catch (_) {
     return false;
   }
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 function AdminNews() {
@@ -31,6 +42,14 @@ function AdminNews() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ text: string; type: "ok" | "error" } | null>(null);
 
+  // Upload and resolver states
+  const [uploading, setUploading] = useState(false);
+  const [editUploading, setEditUploading] = useState(false);
+  const [resolvingUrl, setResolvingUrl] = useState(false);
+  const [editResolvingUrl, setEditResolvingUrl] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
+
   // Edit modal state
   const [editingItem, setEditingItem] = useState<{
     id: string;
@@ -44,12 +63,138 @@ function AdminNews() {
   const [editPreviewError, setEditPreviewError] = useState(false);
   const [editBusy, setEditBusy] = useState(false);
 
+  const handleFileUpload = async (file: File, isEdit: boolean = false) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      alert("Please select an image file (PNG, JPG, WebP, etc.).");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      alert("Image size should be less than 10MB.");
+      return;
+    }
+
+    if (isEdit) {
+      setEditUploading(true);
+      setEditPreviewError(false);
+    } else {
+      setUploading(true);
+      setPreviewError(false);
+    }
+
+    try {
+      let publicUrl = "";
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        const uid = userData.user?.id;
+        if (uid) {
+          const ext = file.name.includes(".") ? file.name.slice(file.name.lastIndexOf(".")) : ".jpg";
+          const nameWithoutExt = file.name.includes(".") ? file.name.slice(0, file.name.lastIndexOf(".")) : file.name;
+          const safeName = nameWithoutExt.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 50);
+          const storagePath = `${uid}/banner-${Date.now()}-${safeName}${ext}`;
+
+          const { error: uploadError } = await supabase.storage.from("avatars").upload(storagePath, file, {
+            contentType: file.type || "image/jpeg",
+            upsert: true,
+          });
+
+          if (!uploadError) {
+            const { data } = supabase.storage.from("avatars").getPublicUrl(storagePath);
+            if (data?.publicUrl) publicUrl = data.publicUrl;
+          }
+        }
+      } catch (clientErr) {
+        console.warn("[AdminNews] Direct storage upload failed, attempting server upload:", clientErr);
+      }
+
+      if (!publicUrl) {
+        const base64 = await fileToBase64(file);
+        const res = await uploadNewsBanner({
+          data: {
+            fileName: file.name,
+            fileBase64: base64,
+            mimeType: file.type || "image/jpeg",
+          },
+        });
+        publicUrl = res.url;
+      }
+
+      if (publicUrl) {
+        if (isEdit) {
+          setEditingItem((prev) => (prev ? { ...prev, image_url: publicUrl } : null));
+          setEditPreviewError(false);
+        } else {
+          setForm((prev) => ({ ...prev, image_url: publicUrl }));
+          setPreviewError(false);
+        }
+      }
+    } catch (err) {
+      console.error("[AdminNews] Banner upload failed:", err);
+      alert(err instanceof Error ? err.message : "Failed to upload banner image. Please try again.");
+    } finally {
+      if (isEdit) setEditUploading(false);
+      else setUploading(false);
+    }
+  };
+
+  const handleUrlChange = async (urlVal: string, isEdit: boolean = false) => {
+    let finalUrl = urlVal;
+
+    const gDriveMatch = finalUrl.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (gDriveMatch) {
+      finalUrl = `https://lh3.googleusercontent.com/d/${gDriveMatch[1]}`;
+    } else if (finalUrl.includes("dropbox.com")) {
+      finalUrl = finalUrl.replace(/[?&]dl=0/, "").replace(/[?&]raw=1/, "") + (finalUrl.includes("?") ? "&raw=1" : "?raw=1");
+    } else {
+      const imgurMatch = finalUrl.match(/imgur\.com\/(?:a\/|gallery\/)?([a-zA-Z0-9]+)$/);
+      if (imgurMatch) finalUrl = `https://i.imgur.com/${imgurMatch[1]}.jpg`;
+    }
+
+    if (isEdit) {
+      setEditingItem((prev) => (prev ? { ...prev, image_url: finalUrl } : null));
+      setEditPreviewError(false);
+    } else {
+      setForm((prev) => ({ ...prev, image_url: finalUrl }));
+      setPreviewError(false);
+    }
+
+    // Auto-resolve ImgBB viewer page link (e.g. ibb.co/m5BvK5z8) to direct image URL
+    if (finalUrl.includes("ibb.co/") && !finalUrl.includes("i.ibb.co/")) {
+      if (isEdit) setEditResolvingUrl(true);
+      else setResolvingUrl(true);
+      try {
+        const resolved = await resolveImageUrl({ data: { url: finalUrl } });
+        if (resolved?.url && resolved.url !== finalUrl) {
+          if (isEdit) {
+            setEditingItem((prev) => (prev ? { ...prev, image_url: resolved.url } : null));
+            setEditPreviewError(false);
+          } else {
+            setForm((prev) => ({ ...prev, image_url: resolved.url }));
+            setPreviewError(false);
+          }
+        }
+      } catch (e) {
+        console.warn("[AdminNews] Error resolving URL:", e);
+      } finally {
+        if (isEdit) setEditResolvingUrl(false);
+        else setResolvingUrl(false);
+      }
+    }
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setMsg(null);
 
-    const trimmedUrl = form.image_url.trim();
+    let trimmedUrl = form.image_url.trim();
+    if (trimmedUrl && trimmedUrl.includes("ibb.co/") && !trimmedUrl.includes("i.ibb.co/")) {
+      try {
+        const resolved = await resolveImageUrl({ data: { url: trimmedUrl } });
+        if (resolved?.url) trimmedUrl = resolved.url;
+      } catch (_) {}
+    }
+
     if (trimmedUrl && !isValidHttpUrl(trimmedUrl)) {
       setMsg({
         text: "Please enter a valid Image URL starting with http:// or https://",
@@ -99,7 +244,14 @@ function AdminNews() {
     if (!editingItem) return;
     setEditBusy(true);
 
-    const trimmedUrl = editingItem.image_url.trim();
+    let trimmedUrl = editingItem.image_url.trim();
+    if (trimmedUrl && trimmedUrl.includes("ibb.co/") && !trimmedUrl.includes("i.ibb.co/")) {
+      try {
+        const resolved = await resolveImageUrl({ data: { url: trimmedUrl } });
+        if (resolved?.url) trimmedUrl = resolved.url;
+      } catch (_) {}
+    }
+
     if (trimmedUrl && !isValidHttpUrl(trimmedUrl)) {
       alert("Please enter a valid Image URL starting with http:// or https://");
       setEditBusy(false);
@@ -175,36 +327,107 @@ function AdminNews() {
               placeholder="Service Announcement"
             />
           </Field>
-          <Field label="Banner Image URL">
-            <input
-              type="url"
-              placeholder="https://example.com/image.jpg"
-              className={inputClass}
-              value={form.image_url}
-              onChange={(e) => {
-                setForm({ ...form, image_url: e.target.value });
-                setPreviewError(false);
-              }}
-            />
+          <Field label="Banner Image">
+            <div className="space-y-2">
+              {/* File upload button row */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void handleFileUpload(file, false);
+                    e.target.value = "";
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={uploading || resolvingUrl || busy}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-2 rounded-xl bg-surface-2 hover:bg-surface-3 border border-border-subtle px-3 py-2 text-xs font-medium text-text-primary transition-colors disabled:opacity-50"
+                >
+                  {uploading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin text-brand" />
+                      <span>Uploading banner…</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4 text-brand" />
+                      <span>Upload Banner File</span>
+                    </>
+                  )}
+                </button>
+                <span className="text-[11px] text-text-muted">or paste link below</span>
+              </div>
+
+              {/* URL input */}
+              <div className="relative">
+                <input
+                  type="url"
+                  placeholder="https://example.com/banner.jpg (or ImgBB link)"
+                  className={`${inputClass} pr-8`}
+                  value={form.image_url}
+                  onChange={(e) => void handleUrlChange(e.target.value, false)}
+                />
+                {resolvingUrl && (
+                  <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+                    <Loader2 className="h-4 w-4 animate-spin text-brand" />
+                  </div>
+                )}
+                {form.image_url && !resolvingUrl && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForm((prev) => ({ ...prev, image_url: "" }));
+                      setPreviewError(false);
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-white p-1"
+                    title="Clear URL"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
           </Field>
 
           {/* Live Image Preview */}
           {form.image_url.trim() && (
-            <div className="rounded-xl border border-border-subtle bg-surface-2 p-2 overflow-hidden">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-text-muted mb-1.5 flex items-center gap-1.5">
-                <Image className="h-3.5 w-3.5 text-brand" /> Live Preview
+            <div className="rounded-xl border border-border-subtle bg-surface-2 p-2.5 overflow-hidden">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-text-muted flex items-center gap-1.5">
+                  <Image className="h-3.5 w-3.5 text-brand" /> Live Preview
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForm((prev) => ({ ...prev, image_url: "" }));
+                    setPreviewError(false);
+                  }}
+                  className="text-[10px] text-danger hover:underline flex items-center gap-1"
+                >
+                  <Trash2 className="h-3 w-3" /> Remove
+                </button>
               </div>
               {previewError ? (
-                <div className="flex items-center gap-2 rounded-lg bg-danger/10 border border-danger/20 p-2 text-[10px] text-danger">
-                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                  <span>Unable to load image from this URL. Please verify the link.</span>
+                <div className="rounded-lg bg-danger/10 border border-danger/20 p-2.5 text-[11px] text-danger space-y-1">
+                  <div className="flex items-center gap-2 font-medium">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                    <span>Unable to load image from this URL.</span>
+                  </div>
+                  <p className="text-[10px] text-text-muted">
+                    Tip: Use the <strong>Upload Banner File</strong> button above to upload directly from your device.
+                  </p>
                 </div>
               ) : (
-                <div className="relative rounded-lg overflow-hidden border border-border-subtle bg-black/40 max-h-36">
+                <div className="relative rounded-lg overflow-hidden border border-border-subtle bg-black/40 max-h-48">
                   <img
                     src={form.image_url.trim()}
                     alt="Preview"
-                    className="w-full h-36 object-cover"
+                    className="w-full h-44 object-cover"
                     onError={() => setPreviewError(true)}
                     onLoad={() => setPreviewError(false)}
                   />
@@ -358,32 +581,104 @@ function AdminNews() {
                   onChange={(e) => setEditingItem({ ...editingItem, category: e.target.value })}
                 />
               </Field>
-              <Field label="Banner Image URL">
-                <input
-                  type="url"
-                  placeholder="https://example.com/image.jpg"
-                  className={inputClass}
-                  value={editingItem.image_url}
-                  onChange={(e) => {
-                    setEditingItem({ ...editingItem, image_url: e.target.value });
-                    setEditPreviewError(false);
-                  }}
-                />
+              <Field label="Banner Image">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="file"
+                      ref={editFileInputRef}
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) void handleFileUpload(file, true);
+                        e.target.value = "";
+                      }}
+                    />
+                    <button
+                      type="button"
+                      disabled={editUploading || editResolvingUrl || editBusy}
+                      onClick={() => editFileInputRef.current?.click()}
+                      className="flex items-center gap-2 rounded-xl bg-surface-2 hover:bg-surface-3 border border-border-subtle px-3 py-2 text-xs font-medium text-text-primary transition-colors disabled:opacity-50"
+                    >
+                      {editUploading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin text-brand" />
+                          <span>Uploading…</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4 text-brand" />
+                          <span>Upload Banner File</span>
+                        </>
+                      )}
+                    </button>
+                    <span className="text-[11px] text-text-muted">or paste link below</span>
+                  </div>
+
+                  <div className="relative">
+                    <input
+                      type="url"
+                      placeholder="https://example.com/banner.jpg (or ImgBB link)"
+                      className={`${inputClass} pr-8`}
+                      value={editingItem.image_url}
+                      onChange={(e) => void handleUrlChange(e.target.value, true)}
+                    />
+                    {editResolvingUrl && (
+                      <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+                        <Loader2 className="h-4 w-4 animate-spin text-brand" />
+                      </div>
+                    )}
+                    {editingItem.image_url && !editResolvingUrl && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingItem((prev) => (prev ? { ...prev, image_url: "" } : null));
+                          setEditPreviewError(false);
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-white p-1"
+                        title="Clear URL"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
               </Field>
 
               {editingItem.image_url.trim() && (
-                <div className="rounded-xl border border-border-subtle bg-surface-2 p-2 overflow-hidden">
+                <div className="rounded-xl border border-border-subtle bg-surface-2 p-2.5 overflow-hidden">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-text-muted flex items-center gap-1.5">
+                      <Image className="h-3.5 w-3.5 text-brand" /> Live Preview
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingItem((prev) => (prev ? { ...prev, image_url: "" } : null));
+                        setEditPreviewError(false);
+                      }}
+                      className="text-[10px] text-danger hover:underline flex items-center gap-1"
+                    >
+                      <Trash2 className="h-3 w-3" /> Remove
+                    </button>
+                  </div>
                   {editPreviewError ? (
-                    <div className="flex items-center gap-2 rounded-lg bg-danger/10 border border-danger/20 p-2 text-[10px] text-danger">
-                      <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                      <span>Unable to load image from this URL.</span>
+                    <div className="rounded-lg bg-danger/10 border border-danger/20 p-2.5 text-[11px] text-danger space-y-1">
+                      <div className="flex items-center gap-2 font-medium">
+                        <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                        <span>Unable to load image from this URL.</span>
+                      </div>
+                      <p className="text-[10px] text-text-muted">
+                        Tip: Use the <strong>Upload Banner File</strong> button above to upload directly from your device.
+                      </p>
                     </div>
                   ) : (
-                    <div className="relative rounded-lg overflow-hidden border border-border-subtle bg-black/40 max-h-32">
+                    <div className="relative rounded-lg overflow-hidden border border-border-subtle bg-black/40 max-h-48">
                       <img
                         src={editingItem.image_url.trim()}
                         alt="Preview"
-                        className="w-full h-32 object-cover"
+                        className="w-full h-40 object-cover"
                         onError={() => setEditPreviewError(true)}
                         onLoad={() => setEditPreviewError(false)}
                       />
