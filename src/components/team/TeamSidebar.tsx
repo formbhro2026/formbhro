@@ -11,6 +11,7 @@ import {
   LifeBuoy,
   ArrowRight,
   MessageSquare,
+  Newspaper,
 } from "lucide-react";
 import logoAsset from "@/assets/logo.png.asset.json";
 import { cn } from "@/lib/utils";
@@ -22,6 +23,7 @@ export const TEAM_NAV = [
   { label: "Home", to: "/team", icon: Home, exact: true },
   { label: "Work Area", to: "/team/work", icon: Briefcase, exact: false },
   { label: "Admin Chat", to: "/team/admin-chat", icon: MessageSquare, exact: true },
+  { label: "Internal News", to: "/team/news", icon: Newspaper, exact: false },
   { label: "Documents", to: "/team/documents", icon: FileText, exact: false },
   { label: "Progress", to: "/team/progress", icon: BarChart3, exact: false },
   { label: "Notifications", to: "/team/notifications", icon: Bell, exact: false },
@@ -123,7 +125,7 @@ export function TeamSidebar() {
           <dl className="mt-2 space-y-1.5 text-[11px]">
             <SummaryRow label="Assigned Chats" value={requests.length} />
             <SummaryRow label="Pending" value={pending} tone="text-amber-300" />
-            <SummaryRow label="Waiting for User" value={waiting} />
+            <SummaryRow label="Waiting for Documents" value={waiting} />
             <SummaryRow label="Completed" value={completed} tone="text-emerald-400" />
             <SummaryRow label="Unread Messages" value={totalUnread} tone="text-brand-light" />
           </dl>

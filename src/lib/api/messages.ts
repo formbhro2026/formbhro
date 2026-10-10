@@ -182,3 +182,20 @@ export async function recordCallLog(input: {
   }
 }
 
+export async function deleteChatMessage(messageId: string): Promise<boolean> {
+  try {
+    const { data, error } = await (supabase as any).rpc("delete_chat_message", {
+      p_message_id: messageId,
+    });
+    if (!error) return true;
+  } catch (_) {}
+
+  // Direct client update fallback if RPC not yet deployed or in offline mode
+  const { error } = await supabase
+    .from("messages")
+    .update({ deleted: true, body: "[Message deleted]" })
+    .eq("id", messageId);
+  if (error) throw new ApiError(error.message, error.code);
+  return true;
+}
+

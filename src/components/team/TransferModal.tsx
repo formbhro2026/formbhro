@@ -137,6 +137,7 @@ export function TransferButton({ request }: { request: TeamRequest }) {
 export function EscalateButton({ request }: { request: TeamRequest }) {
   const [open, setOpen] = useState(false);
   const [escalating, setEscalating] = useState(false);
+  const [reason, setReason] = useState("");
   const [done, setDone] = useState(request.isEscalated);
   const [error, setError] = useState("");
   const { escalateChat } = useTeamStore();
@@ -150,7 +151,7 @@ export function EscalateButton({ request }: { request: TeamRequest }) {
     setEscalating(true);
     setError("");
     try {
-      await escalateChat(request.id);
+      await escalateChat(request.id, reason.trim() || "Escalated for Admin review");
       setDone(true);
       setOpen(false);
     } catch (err) {
@@ -194,10 +195,23 @@ export function EscalateButton({ request }: { request: TeamRequest }) {
                 </button>
               </div>
 
-              <p className="mb-4 text-sm text-text-muted">
+              <p className="mb-3 text-sm text-text-muted">
                 Flag <strong>{request.id.slice(0, 8)}</strong> for Admin attention. You will remain
-                assigned until an Admin takes over. This action is logged.
+                assigned until an Admin takes over. This escalation is recorded in the audit log.
               </p>
+
+              <div className="mb-4">
+                <label className="mb-1 block text-xs font-semibold text-text-muted">
+                  Escalation Reason / Notes
+                </label>
+                <textarea
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="e.g. Document verification required, payment issue, complex inquiry..."
+                  rows={3}
+                  className="w-full rounded-xl border border-border-subtle bg-surface-1 p-2.5 text-xs text-white placeholder:text-text-muted focus:border-amber-500/50 outline-none resize-none"
+                />
+              </div>
 
               {error && (
                 <div className="mb-4 rounded-lg bg-red-500/10 p-3 text-sm text-red-500 border border-red-500/20">

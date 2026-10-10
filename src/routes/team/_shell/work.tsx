@@ -30,7 +30,11 @@ import {
   Monitor,
   FileText,
   Loader2,
+  Download,
+  Trash2,
 } from "lucide-react";
+import { toast } from "sonner";
+import { downloadCsv } from "@/lib/csv-export";
 import { TeamHeader } from "@/components/team/TeamHeader";
 import { TeamStatusBadge, PriorityBadge } from "@/components/team/TeamStatusBadge";
 import { Button } from "@/components/admin/AdminUI";
@@ -82,7 +86,13 @@ export const Route = createFileRoute("/team/_shell/work")({
     r: str(search.r) || str(search.id),
     id: str(search.id),
     q: str(search.q),
-    f: search.f === "pending" || search.f === "completed" ? search.f : undefined,
+    f:
+      search.f === "pending" ||
+      search.f === "completed" ||
+      search.f === "waiting_documents" ||
+      search.f === "escalated"
+        ? (search.f as string)
+        : undefined,
     u: str(search.u),
     rid: str(search.rid),
     t: str(search.t),
@@ -138,7 +148,7 @@ function WorkArea() {
   const [claimingId, setClaimingId] = useState<string | null>(null);
 
   const query = search.q ?? "";
-  const state = (search.f as "pending" | "completed" | undefined) ?? "all";
+  const state = (search.f as "pending" | "completed" | "waiting_documents" | "escalated" | undefined) ?? "all";
   const priority = (search.p as Priority | undefined) ?? "all";
   const userFilter = search.u ?? "";
   const ridFilter = search.rid ?? "";
@@ -239,8 +249,10 @@ function matchesDateFilter(r: TeamRequest, range: string, custom: string) {
     const q = query.trim().toLowerCase();
     const rid = ridFilter.trim().toLowerCase();
     let out = userRequests.filter((r) => {
-      if (state === "pending" && r.status === "completed") return false;
+      if (state === "pending" && (r.status === "completed" || r.status === "waiting-user")) return false;
       if (state === "completed" && r.status !== "completed") return false;
+      if (state === "waiting_documents" && r.status !== "waiting-user") return false;
+      if (state === "escalated" && !r.isEscalated) return false;
       if (priority !== "all" && r.priority !== priority) return false;
       if (userFilter && r.userName !== userFilter) return false;
       if (typeFilter && r.category !== typeFilter) return false;
@@ -260,7 +272,40 @@ function matchesDateFilter(r: TeamRequest, range: string, custom: string) {
           : b.createdOn.localeCompare(a.createdOn),
       );
     return out;
-  }, [requests, query, state, priority, userFilter, typeFilter, tagFilter, ridFilter, sort, dateRange, customDate]);
+  }, [userRequests, query, state, priority, userFilter, typeFilter, tagFilter, ridFilter, sort, dateRange, customDate]);
+
+  const handleExportCsv = () => {
+    const headers = [
+      "Chat ID",
+      "User ID",
+      "User Name",
+      "Category",
+      "Title",
+      "Status",
+      "Priority",
+      "Escalated",
+      "Tags",
+      "Assigned At",
+      "Last Updated",
+      "Created On",
+    ];
+    const rows = list.map((r) => [
+      r.id,
+      r.userId || "",
+      r.userName,
+      r.category,
+      r.title,
+      r.status === "waiting-user" ? "Waiting for Documents" : r.status,
+      r.priority,
+      r.isEscalated ? "Yes" : "No",
+      (r.tags ?? []).join("; "),
+      r.assignedAt,
+      r.lastUpdated,
+      r.createdOn,
+    ]);
+    downloadCsv("team_chats_export", headers, rows);
+    toast.success(`Exported ${rows.length} conversations to CSV`);
+  };
 
   const listUnread = useMemo(() => list.reduce((sum, r) => sum + r.unread, 0), [list]);
 
@@ -419,6 +464,18 @@ function matchesDateFilter(r: TeamRequest, range: string, custom: string) {
               })
             }
           />
+
+          <div className="flex items-center justify-between border-b border-border-subtle bg-surface-2/40 px-3 py-1.5">
+            <span className="text-[10px] text-text-muted">{list.length} conversations shown</span>
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              className="inline-flex items-center gap-1 rounded-md border border-border-subtle bg-surface-2 px-2 py-1 text-[10px] font-semibold text-text-secondary hover:text-white hover:bg-surface-3 transition-colors"
+            >
+              <Download className="h-3 w-3" />
+              Export CSV
+            </button>
+          </div>
 
           {listUnread > 0 && (
             <div className="flex items-center justify-between gap-2 border-b border-border-subtle px-3 py-2">
@@ -837,6 +894,7 @@ function Conversation({
     getDocument,
     documentsFor,
     deleteDocument,
+    deleteMessage,
     isUserTyping,
     notifyTyping,
     markMessageRead,
@@ -1590,6 +1648,19 @@ function Conversation({
                           </button>
                         </>
                       )}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (window.confirm("Are you sure you want to delete this message?")) {
+                            await deleteMessage(m.id);
+                          }
+                        }}
+                        className="inline-flex min-h-7 items-center gap-1 rounded-full px-2 font-semibold hover:bg-red-500/20 text-red-200"
+                        aria-label="Delete this message"
+                      >
+                        <Trash2 className="h-3 w-3" aria-hidden="true" />
+                        Delete
+                      </button>
                     </div>
                   )}
 

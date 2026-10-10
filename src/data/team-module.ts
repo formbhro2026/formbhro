@@ -5,7 +5,7 @@ export const TEAM_STATUS_META: Record<
   { label: string; icon: string; tone: "amber" | "orange" | "green" | "neutral" }
 > = {
   pending: { label: "Pending", icon: "Clock", tone: "amber" },
-  "waiting-user": { label: "Waiting For User", icon: "Hourglass", tone: "neutral" },
+  "waiting-user": { label: "Waiting for Documents", icon: "Hourglass", tone: "neutral" },
   "under-review": { label: "Under Review", icon: "Search", tone: "orange" },
   completed: { label: "Completed", icon: "CircleCheck", tone: "green" },
 };

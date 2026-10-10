@@ -301,17 +301,28 @@ export const deleteTeamMember = createServerFn({ method: "POST" })
     await assertAdmin(context);
     if (data.id === context.userId) throw new Error("You cannot delete your own account");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // Unassign pending requests so pool can pick them up, preserving completed history
     await supabaseAdmin
       .from("requests")
       .update({ assigned_team_id: null })
-      .eq("assigned_team_id", data.id);
-    const { error } = await supabaseAdmin.auth.admin.deleteUser(data.id);
-    if (error) throw new Error(error.message);
+      .eq("assigned_team_id", data.id)
+      .neq("status", "completed");
+    
+    // Soft deactivate to preserve chat messages, audit logs, and foreign key integrity
+    await supabaseAdmin
+      .from("team_members")
+      .update({ is_active: false, availability_status: "offline" })
+      .eq("id", data.id);
+    await supabaseAdmin
+      .from("profiles")
+      .update({ is_active: false })
+      .eq("id", data.id);
+
     await supabaseAdmin.from("activity_logs").insert({
       actor_id: context.userId,
       actor_role: "admin",
-      action: "team_member_deleted",
-      label: "Team member removed",
+      action: "team_member_deactivated",
+      label: `Team member ${data.id} deactivated and unassigned`,
     });
     return { ok: true };
   });

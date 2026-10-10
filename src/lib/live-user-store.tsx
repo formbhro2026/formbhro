@@ -295,7 +295,7 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
 
         setNotifications(notes.map(mapNotification));
         setNews(
-          newsRows.map((n) => ({
+          newsRows.map((n: any) => ({
             id: n.id,
             title: n.title,
             description: n.description,
@@ -303,6 +303,18 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
             category: n.category,
             featured: n.featured,
             image_url: n.image_url,
+            organization: n.organization,
+            qualification: n.qualification,
+            min_age: n.min_age,
+            max_age: n.max_age,
+            vacancy_status: n.vacancy_status,
+            application_start_date: n.application_start_date,
+            application_last_date: n.application_last_date,
+            total_vacancies: n.total_vacancies,
+            location: n.location,
+            apply_url: n.apply_url,
+            notification_url: n.notification_url,
+            custom_fields: n.custom_fields,
           })),
         );
 

@@ -119,6 +119,18 @@ export type NewsItem = {
   category: string;
   featured?: boolean;
   image_url?: string | null;
+  organization?: string | null;
+  qualification?: string | null;
+  min_age?: number | null;
+  max_age?: number | null;
+  vacancy_status?: "live" | "upcoming" | "closed" | "expired" | null;
+  application_start_date?: string | null;
+  application_last_date?: string | null;
+  total_vacancies?: number | null;
+  location?: string | null;
+  apply_url?: string | null;
+  notification_url?: string | null;
+  custom_fields?: Record<string, any> | null;
 };
 
 export const USER_PROFILE = {

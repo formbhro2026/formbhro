@@ -40,6 +40,7 @@ import { Route as AppChatsRequestIdRouteImport } from './routes/app.chats.$reque
 import { Route as TeamShellIndexRouteImport } from './routes/team/_shell/index'
 import { Route as TeamShellAdminChatRouteImport } from './routes/team/_shell/admin-chat'
 import { Route as TeamShellDocumentsRouteImport } from './routes/team/_shell/documents'
+import { Route as TeamShellNewsRouteImport } from './routes/team/_shell/news'
 import { Route as TeamShellNotificationsRouteImport } from './routes/team/_shell/notifications'
 import { Route as TeamShellProfileRouteImport } from './routes/team/_shell/profile'
 import { Route as TeamShellProgressRouteImport } from './routes/team/_shell/progress'
@@ -198,6 +199,11 @@ const TeamShellDocumentsRoute = TeamShellDocumentsRouteImport.update({
   path: '/documents',
   getParentRoute: () => TeamShellRoute,
 } as any)
+const TeamShellNewsRoute = TeamShellNewsRouteImport.update({
+  id: '/news',
+  path: '/news',
+  getParentRoute: () => TeamShellRoute,
+} as any)
 const TeamShellNotificationsRoute = TeamShellNotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
@@ -246,6 +252,7 @@ export interface FileRoutesByFullPath {
   '/app/chats/$requestId': typeof AppChatsRequestIdRoute
   '/team/admin-chat': typeof TeamShellAdminChatRoute
   '/team/documents': typeof TeamShellDocumentsRoute
+  '/team/news': typeof TeamShellNewsRoute
   '/team/notifications': typeof TeamShellNotificationsRoute
   '/team/profile': typeof TeamShellProfileRoute
   '/team/progress': typeof TeamShellProgressRoute
@@ -280,6 +287,7 @@ export interface FileRoutesByTo {
   '/app/chats/$requestId': typeof AppChatsRequestIdRoute
   '/team/admin-chat': typeof TeamShellAdminChatRoute
   '/team/documents': typeof TeamShellDocumentsRoute
+  '/team/news': typeof TeamShellNewsRoute
   '/team/notifications': typeof TeamShellNotificationsRoute
   '/team/profile': typeof TeamShellProfileRoute
   '/team/progress': typeof TeamShellProgressRoute
@@ -316,6 +324,7 @@ export interface FileRoutesById {
   '/app/chats/$requestId': typeof AppChatsRequestIdRoute
   '/team/_shell/admin-chat': typeof TeamShellAdminChatRoute
   '/team/_shell/documents': typeof TeamShellDocumentsRoute
+  '/team/_shell/news': typeof TeamShellNewsRoute
   '/team/_shell/notifications': typeof TeamShellNotificationsRoute
   '/team/_shell/profile': typeof TeamShellProfileRoute
   '/team/_shell/progress': typeof TeamShellProgressRoute
@@ -353,6 +362,7 @@ export interface FileRouteTypes {
     | '/app/chats/$requestId'
     | '/team/admin-chat'
     | '/team/documents'
+    | '/team/news'
     | '/team/notifications'
     | '/team/profile'
     | '/team/progress'
@@ -387,6 +397,7 @@ export interface FileRouteTypes {
     | '/app/chats/$requestId'
     | '/team/admin-chat'
     | '/team/documents'
+    | '/team/news'
     | '/team/notifications'
     | '/team/profile'
     | '/team/progress'
@@ -422,6 +433,7 @@ export interface FileRouteTypes {
     | '/app/chats/$requestId'
     | '/team/_shell/admin-chat'
     | '/team/_shell/documents'
+    | '/team/_shell/news'
     | '/team/_shell/notifications'
     | '/team/_shell/profile'
     | '/team/_shell/progress'
@@ -661,6 +673,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TeamShellDocumentsRouteImport
       parentRoute: typeof TeamShellRoute
     }
+    '/team/_shell/news': {
+      id: '/team/_shell/news'
+      path: '/news'
+      fullPath: '/team/news'
+      preLoaderRoute: typeof TeamShellNewsRouteImport
+      parentRoute: typeof TeamShellRoute
+    }
     '/team/_shell/notifications': {
       id: '/team/_shell/notifications'
       path: '/notifications'
@@ -757,6 +776,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 interface TeamShellRouteChildren {
   TeamShellAdminChatRoute: typeof TeamShellAdminChatRoute
   TeamShellDocumentsRoute: typeof TeamShellDocumentsRoute
+  TeamShellNewsRoute: typeof TeamShellNewsRoute
   TeamShellNotificationsRoute: typeof TeamShellNotificationsRoute
   TeamShellProfileRoute: typeof TeamShellProfileRoute
   TeamShellProgressRoute: typeof TeamShellProgressRoute
@@ -767,6 +787,7 @@ interface TeamShellRouteChildren {
 const TeamShellRouteChildren: TeamShellRouteChildren = {
   TeamShellAdminChatRoute: TeamShellAdminChatRoute,
   TeamShellDocumentsRoute: TeamShellDocumentsRoute,
+  TeamShellNewsRoute: TeamShellNewsRoute,
   TeamShellNotificationsRoute: TeamShellNotificationsRoute,
   TeamShellProfileRoute: TeamShellProfileRoute,
   TeamShellProgressRoute: TeamShellProgressRoute,

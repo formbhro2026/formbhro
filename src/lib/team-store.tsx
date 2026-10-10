@@ -135,6 +135,7 @@ type TeamStore = {
     },
   ) => void;
   deleteDocument: (documentId: string, storagePath?: string) => Promise<void>;
+  deleteMessage: (messageId: string) => Promise<void>;
   setStatus: (requestId: string, status: TeamStatus) => void;
   updatePriority: (requestId: string, priority: Priority) => Promise<void>;
   /** Marks every incoming user message on this request as read. */
@@ -174,7 +175,7 @@ type TeamStore = {
   /** Transfer request to another team member. */
   transferChat: (requestId: string, targetAssigneeId: string) => Promise<void>;
   /** Escalate request to Admin attention. */
-  escalateChat: (requestId: string) => Promise<void>;
+  escalateChat: (requestId: string, reason?: string) => Promise<void>;
   /** Open direct chat thread with Admin. */
   openAdminChat: () => Promise<string | null>;
   /** Update tags on a request in local store */
@@ -1004,7 +1005,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
   );
 
   const escalateChat = useCallback(
-    async (requestId: string) => {
+    async (requestId: string, reason = "Escalated to Admin attention") => {
       if (!member?.id) return;
       try {
         let dbUuid = rooms.current[requestId]?.requestId;
@@ -1017,10 +1018,11 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           dbUuid = rows?.id ?? requestId;
         }
 
-        await requestsApi.escalateRequest(dbUuid);
+        await requestsApi.escalateRequestWithReason(dbUuid, reason);
         setRequests((prev) =>
           prev.map((r) => (r.id === requestId ? { ...r, isEscalated: true } : r)),
         );
+        toast.success("Conversation escalated to Admin");
       } catch (err) {
         console.error("Failed to escalate chat:", err);
         throw err;
@@ -1219,6 +1221,17 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       // Still remove from local state if already deleted remotely
       setDocuments((prev) => prev.filter((d) => d.id !== documentId));
       toast.error(err?.message || "Failed to delete document");
+    }
+  }, []);
+
+  const deleteMessage = useCallback(async (messageId: string) => {
+    try {
+      await messagesApi.deleteChatMessage(messageId);
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      toast.success("Message deleted");
+    } catch (err: any) {
+      console.error("Delete message error:", err);
+      toast.error(err?.message || "Failed to delete message");
     }
   }, []);
 
@@ -1814,6 +1827,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       notifyTyping,
       attachDocument,
       deleteDocument,
+      deleteMessage,
       setStatus,
       updatePriority,
       markRead,
@@ -1869,6 +1883,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       notifyTyping,
       attachDocument,
       deleteDocument,
+      deleteMessage,
       setStatus,
       updatePriority,
       markRead,

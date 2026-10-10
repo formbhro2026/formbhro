@@ -291,6 +291,17 @@ export async function updateRequestStatus(
     }
   }
 
+  // Also handle transitions between waiting_documents and under_review / completed
+  if (
+    (currentStatus === "waiting_documents" && status !== "waiting_documents" && status !== "in_progress" && status !== "assigned") ||
+    (currentStatus === "under_review" && status === "waiting_documents")
+  ) {
+    await supabase
+      .from("requests")
+      .update({ status: "in_progress" })
+      .eq("id", requestId);
+  }
+
   const patch = typeof progress === "number" ? { status, progress } : { status };
   let { data, error } = await supabase
     .from("requests")
@@ -482,4 +493,94 @@ export async function updateRequestPriority(
     ? await supabase.from("requests").update({ priority }).eq("id", resolvedUuid)
     : await supabase.from("requests").update({ priority }).eq("reference", requestId);
   if (error) throw new ApiError(error.message, error.code);
+}
+
+/** Escalate a request to admin with a mandatory reason */
+export async function escalateRequestWithReason(
+  requestId: string,
+  reason: string,
+): Promise<void> {
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId);
+  let resolvedUuid = requestId;
+  if (!isUuid) {
+    const { data: row } = await supabase
+      .from("requests")
+      .select("id")
+      .eq("reference", requestId)
+      .maybeSingle();
+    if (row?.id) resolvedUuid = row.id;
+  }
+
+  try {
+    const { data, error } = await (supabase as any).rpc("escalate_conversation", {
+      p_request_id: resolvedUuid,
+      p_reason: reason,
+    });
+    if (!error) return;
+  } catch (_) {}
+
+  // Fallback direct update
+  const { error } = await supabase
+    .from("requests")
+    .update({
+      is_escalated: true,
+      last_activity_at: new Date().toISOString(),
+    })
+    .eq("id", resolvedUuid);
+  if (error) throw new ApiError(error.message, error.code);
+}
+
+/** Resolve or change status of an escalated request */
+export async function resolveEscalation(
+  requestId: string,
+  status: "resolved" | "under_review" | "reopened" = "resolved",
+  notes?: string,
+): Promise<void> {
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId);
+  let resolvedUuid = requestId;
+  if (!isUuid) {
+    const { data: row } = await supabase
+      .from("requests")
+      .select("id")
+      .eq("reference", requestId)
+      .maybeSingle();
+    if (row?.id) resolvedUuid = row.id;
+  }
+
+  try {
+    const { error } = await (supabase as any).rpc("resolve_escalation", {
+      p_request_id: resolvedUuid,
+      p_status: status,
+      p_notes: notes || null,
+    });
+    if (!error) return;
+  } catch (_) {}
+
+  // Fallback: clear escalation flag if resolved, keep if reopened
+  const { error } = await supabase
+    .from("requests")
+    .update({
+      is_escalated: status !== "resolved",
+      last_activity_at: new Date().toISOString(),
+    })
+    .eq("id", resolvedUuid);
+  if (error) throw new ApiError(error.message, error.code);
+}
+
+/** Update team member availability status and last seen timestamp */
+export async function updateTeamPresence(status: "online" | "away" | "offline"): Promise<void> {
+  try {
+    const { error } = await (supabase as any).rpc("update_team_presence", {
+      p_status: status,
+    });
+    if (!error) return;
+  } catch (_) {}
+
+  const { data: userData } = await supabase.auth.getUser();
+  if (userData.user?.id) {
+    await (supabase as any)
+      .from("team_members")
+      .update({ availability_status: status, last_seen_at: new Date().toISOString() })
+      .eq("id", userData.user.id);
+  }
 }

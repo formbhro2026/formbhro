@@ -9,7 +9,7 @@ export type WorkFilterValues = {
   rid: string;
   type: string;
   tag?: string;
-  state: "all" | "pending" | "completed";
+  state: "all" | "pending" | "waiting_documents" | "escalated" | "completed";
   priority: "all" | Priority;
   sort: "newest" | "oldest";
   dateRange?: "all" | "today" | "yesterday" | "this-week" | "this-month" | "custom";
@@ -28,6 +28,8 @@ const DATES = [
 const STATES = [
   { key: "all", label: "All" },
   { key: "pending", label: "Pending" },
+  { key: "waiting_documents", label: "Waiting for Docs" },
+  { key: "escalated", label: "Escalated" },
   { key: "completed", label: "Completed" },
 ] as const;
 

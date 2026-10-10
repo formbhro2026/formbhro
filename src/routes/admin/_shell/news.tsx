@@ -265,7 +265,7 @@ function AdminNews() {
         category: editingItem.category.trim() || "Service Announcement",
         published: editingItem.published,
         featured: editingItem.featured,
-        image_url: trimmedUrl || null,
+        image_url: trimmedUrl || undefined,
       });
       setEditingItem(null);
       await refresh();

@@ -60,7 +60,14 @@ interface AdminStore extends AdminData {
   requestsTotal: number;
   fetchRequestsPage: (
     page: number,
-    filters?: { status?: string[]; search?: string; limit?: number },
+    filters?: {
+      status?: string[];
+      search?: string;
+      limit?: number;
+      userId?: string;
+      isEscalated?: boolean;
+      assignedTeamId?: string;
+    },
   ) => Promise<void>;
   signIn: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   signOut: () => Promise<void>;
@@ -125,7 +132,17 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const initialLoadDone = useRef(false);
 
   const fetchRequestsPage = useCallback(
-    async (page: number, filters?: { status?: string[]; search?: string; limit?: number }) => {
+    async (
+      page: number,
+      filters?: {
+        status?: string[];
+        search?: string;
+        limit?: number;
+        userId?: string;
+        isEscalated?: boolean;
+        assignedTeamId?: string;
+      },
+    ) => {
       const gen = ++activeGen.current;
       lastFetchParams.current = { page, filters };
 
@@ -136,9 +153,37 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         .from("requests")
         .select("*", { count: "exact" })
         .order("last_activity_at", { ascending: false });
+
       if (filters?.status?.length) query = query.in("status", filters.status as any[]);
-      if (filters?.search)
-        query = query.or(`title.ilike.%${filters.search}%,reference.ilike.%${filters.search}%`);
+      if (filters?.userId) query = query.eq("user_id", filters.userId);
+      if (filters?.isEscalated !== undefined) query = query.eq("is_escalated", filters.isEscalated);
+      if (filters?.assignedTeamId) query = query.eq("assigned_team_id", filters.assignedTeamId);
+
+      if (filters?.search) {
+        const s = filters.search.trim();
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+        if (isUuid) {
+          query = query.or(`id.eq.${s},user_id.eq.${s},reference.eq.${s}`);
+        } else {
+          try {
+            const { data: matchedUsers } = await supabase
+              .from("profiles")
+              .select("id")
+              .or(`full_name.ilike.%${s}%,email.ilike.%${s}%`)
+              .limit(20);
+            const matchedIds = matchedUsers?.map((u) => u.id) || [];
+            if (matchedIds.length > 0) {
+              query = query.or(
+                `title.ilike.%${s}%,reference.ilike.%${s}%,user_id.in.(${matchedIds.join(",")})`,
+              );
+            } else {
+              query = query.or(`title.ilike.%${s}%,reference.ilike.%${s}%`);
+            }
+          } catch (_) {
+            query = query.or(`title.ilike.%${s}%,reference.ilike.%${s}%`);
+          }
+        }
+      }
 
       const { data: fetchedData, count } = await query.range(offset, offset + limit - 1);
       if (gen !== activeGen.current) return; // guard against race conditions

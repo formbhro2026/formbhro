@@ -14,7 +14,10 @@ import {
   MessageSquare,
   Sparkles,
   Zap,
+  Download,
+  Trash2,
 } from "lucide-react";
+import { downloadCsv } from "@/lib/csv-export";
 import { useAdmin } from "@/lib/admin-store";
 import { Button, Panel, Pill, SearchBox, formatDate, inputClass } from "@/components/admin/AdminUI";
 import * as messagesApi from "@/lib/api/messages";
@@ -152,6 +155,10 @@ function AdminChats() {
     setPage(1);
   }, [debouncedQ]);
 
+  const [filterTab, setFilterTab] = useState<
+    "all" | "escalated" | "waiting_documents" | "pending" | "completed"
+  >("all");
+
   // Fetch page for monitor
   useEffect(() => {
     if (chatType === "monitor") {
@@ -162,7 +169,45 @@ function AdminChats() {
     }
   }, [page, debouncedQ, fetchRequestsPage, chatType]);
 
-  const threads = customerRequests;
+  const threads = useMemo(() => {
+    return customerRequests.filter((r) => {
+      if (filterTab === "escalated" && !r.is_escalated) return false;
+      if (filterTab === "waiting_documents" && r.status !== "waiting_documents") return false;
+      if (filterTab === "pending" && r.status !== "pending" && r.status !== "assigned") return false;
+      if (filterTab === "completed" && r.status !== "completed") return false;
+      return true;
+    });
+  }, [customerRequests, filterTab]);
+
+  const handleExportCsv = () => {
+    const headers = [
+      "Chat ID",
+      "User ID",
+      "User Name",
+      "Title",
+      "Status",
+      "Priority",
+      "Escalated",
+      "Assigned Agent",
+      "Created At",
+      "Last Activity",
+    ];
+    const rows = threads.map((r) => [
+      r.reference || r.id,
+      r.user_id,
+      profileOf(r.user_id)?.full_name ?? "User",
+      r.title,
+      STATUS_LABEL[r.status] || r.status,
+      r.priority ?? "medium",
+      r.is_escalated ? "Yes" : "No",
+      profileOf(r.assigned_team_id)?.full_name ?? "Unassigned",
+      r.created_at,
+      r.last_activity_at || r.created_at,
+    ]);
+    downloadCsv("admin_customer_chats", headers, rows);
+    toast.success(`Exported ${rows.length} chats to CSV`);
+  };
+
   const totalPages = Math.max(1, Math.ceil(requestsTotal / pageSize));
 
   // Filtered team members for Team Chat
@@ -386,13 +431,48 @@ function AdminChats() {
             </div>
           }
         >
-          <div className="mb-3">
+          <div className="mb-3 space-y-2">
             <SearchBox
               value={q}
               onChange={setQ}
               label="Search chats"
-              placeholder={chatType === "monitor" ? "User, request…" : "Team member, code…"}
+              placeholder={chatType === "monitor" ? "User ID, Chat ID, Name…" : "Team member, code…"}
             />
+            {chatType === "monitor" && (
+              <div className="flex items-center justify-between gap-1 pt-1">
+                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
+                  {[
+                    { id: "all", label: "All" },
+                    { id: "escalated", label: "Escalated" },
+                    { id: "waiting_documents", label: "Waiting Docs" },
+                    { id: "pending", label: "Pending" },
+                    { id: "completed", label: "Done" },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setFilterTab(tab.id as any)}
+                      className={`px-2 py-0.5 text-[9px] font-bold rounded-full transition-colors shrink-0 ${
+                        filterTab === tab.id
+                          ? "bg-brand text-white shadow-sm"
+                          : "bg-surface-2 text-text-muted hover:text-white"
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleExportCsv}
+                  title="Export Chats CSV"
+                  className="inline-flex items-center gap-1 shrink-0 rounded-md border border-border-subtle bg-surface-2 px-1.5 py-0.5 text-[9px] font-semibold text-text-secondary hover:text-white hover:bg-surface-3 transition-colors"
+                >
+                  <Download className="h-2.5 w-2.5" />
+                  CSV
+                </button>
+              </div>
+            )}
           </div>
 
           {chatType === "monitor" ? (
@@ -590,6 +670,34 @@ function AdminChats() {
             {active ? (
               <div className="flex flex-1 gap-4 overflow-hidden">
                 <div className="flex-1 flex flex-col min-w-0">
+                  {active.is_escalated && (
+                    <div className="mb-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 flex items-center justify-between gap-3 shrink-0">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
+                        <div className="text-xs">
+                          <span className="font-bold text-amber-300">Escalated to Admin</span>
+                          <span className="text-text-muted ml-1.5 hidden sm:inline">Requires supervisor review & resolution</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await requestsApi.resolveEscalation(active.id, "resolved");
+                            toast.success("Escalation marked as resolved");
+                            void fetchRequestsPage(page);
+                            refresh();
+                          } catch (err: any) {
+                            toast.error(err?.message || "Failed to resolve escalation");
+                          }
+                        }}
+                        className="rounded-lg bg-amber-500 px-2.5 py-1 text-[11px] font-bold text-black hover:bg-amber-400 transition-colors shrink-0"
+                      >
+                        Resolve Escalation
+                      </button>
+                    </div>
+                  )}
+
                   <div
                     ref={scrollContainerRef}
                     onScroll={handleScroll}
@@ -619,10 +727,10 @@ function AdminChats() {
                       return (
                         <div
                           key={m.id}
-                          className={`flex ${mine ? "justify-end" : "justify-start"}`}
+                          className={`flex group ${mine ? "justify-end" : "justify-start"}`}
                         >
                           <div
-                            className={`max-w-[85%] rounded-2xl border px-4 py-3 text-xs shadow-sm ${
+                            className={`max-w-[85%] rounded-2xl border px-4 py-3 text-xs shadow-sm relative ${
                               m.is_system
                                 ? "border-border-subtle bg-surface-1 text-text-muted mx-auto text-center"
                                 : mine
@@ -635,9 +743,29 @@ function AdminChats() {
                                 <span className="text-[9px] font-black uppercase tracking-widest text-brand">
                                   {senderDisplayName}
                                 </span>
-                                <span className="text-[8px] text-text-muted">
-                                  {formatDate(m.created_at)}
-                                </span>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[8px] text-text-muted">
+                                    {formatDate(m.created_at)}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      if (window.confirm("Are you sure you want to delete this message?")) {
+                                        try {
+                                          await messagesApi.deleteChatMessage(m.id);
+                                          setMessages((prev) => prev.filter((msg) => msg.id !== m.id));
+                                          toast.success("Message deleted");
+                                        } catch (err: any) {
+                                          toast.error(err?.message || "Failed to delete message");
+                                        }
+                                      }
+                                    }}
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-text-muted hover:text-red-400 p-0.5 rounded"
+                                    title="Delete message"
+                                  >
+                                    <Trash2 className="h-2.5 w-2.5" />
+                                  </button>
+                                </div>
                               </div>
                             )}
                             {m.body && (
