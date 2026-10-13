@@ -27,7 +27,7 @@ export const ensureAdminAccount = createServerFn({ method: "POST" })
   .validator((input: unknown) =>
     z.object({ username: z.string().max(120), password: z.string().max(200) }).parse(input),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data }: any) => {
     const username = data.username.trim().toLowerCase();
     const password = data.password;
 
@@ -148,7 +148,7 @@ export const createTeamMember = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }: any) => {
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -239,7 +239,7 @@ export const updateTeamMember = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }: any) => {
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { id, job_title, permissions, ...profilePatch } = data;
@@ -278,7 +278,7 @@ export const resetTeamPassword = createServerFn({ method: "POST" })
   .validator((input: unknown) =>
     z.object({ id: z.string().uuid(), password: z.string().min(8).max(72) }).parse(input),
   )
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }: any) => {
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.auth.admin.updateUserById(data.id, {
@@ -297,7 +297,7 @@ export const resetTeamPassword = createServerFn({ method: "POST" })
 export const deleteTeamMember = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }: any) => {
     await assertAdmin(context);
     if (data.id === context.userId) throw new Error("You cannot delete your own account");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -332,7 +332,7 @@ export const setTeamMemberActive = createServerFn({ method: "POST" })
   .validator((input: unknown) =>
     z.object({ id: z.string().uuid(), active: z.boolean() }).parse(input),
   )
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }: any) => {
     await assertAdmin(context);
     if (data.id === context.userId) throw new Error("You cannot suspend your own account");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -346,7 +346,7 @@ export const setTeamMemberAvailability = createServerFn({ method: "POST" })
   .validator((input: unknown) =>
     z.object({ status: z.enum(["online", "away", "offline"]) }).parse(input),
   )
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }: any) => {
     // Must be a team member or admin — regular users cannot set availability
     await assertTeamOrAdmin(context as Parameters<typeof assertTeamOrAdmin>[0]);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -363,7 +363,7 @@ export const setUserActive = createServerFn({ method: "POST" })
   .validator((input: unknown) =>
     z.object({ id: z.string().uuid(), active: z.boolean() }).parse(input),
   )
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }: any) => {
     await assertAdmin(context);
     if (data.id === context.userId) throw new Error("You cannot suspend your own account");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -392,7 +392,7 @@ export const assignRequestToTeam = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }: any) => {
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -469,7 +469,7 @@ export const listAllNotifications = createServerFn({ method: "POST" })
   .validator((input: unknown) =>
     z.object({ limit: z.number().min(1).max(300).default(120) }).parse(input),
   )
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }: any) => {
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: rows, error } = await supabaseAdmin
@@ -493,7 +493,7 @@ export const broadcastNotification = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }: any) => {
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -530,7 +530,7 @@ export const broadcastNotification = createServerFn({ method: "POST" })
 export const deleteDocument = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }: any) => {
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: doc } = await supabaseAdmin
@@ -570,7 +570,7 @@ export const logAdminAction = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }: any) => {
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await supabaseAdmin.from("activity_logs").insert({
@@ -587,7 +587,7 @@ export const logAdminAction = createServerFn({ method: "POST" })
 export const verifyTeamCode = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: unknown) => z.object({ code: z.string().min(4) }).parse(input))
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }: any) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     // 1. Verify the authenticated user is a team member
@@ -634,7 +634,7 @@ export const verifyTeamCode = createServerFn({ method: "POST" })
 export const takeoverRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: unknown) => z.object({ request_id: z.string().uuid() }).parse(input))
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }: any) => {
     await assertAdmin(context);
 
     const { error } = await supabase.rpc("takeover_request", {
@@ -681,7 +681,7 @@ export interface AdminAnalyticsStats {
 
 export const getAdminAnalytics = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .handler(async ({ context }: any) => {
     // Admins always pass; team members need can_view_analytics permission
     await assertPermission(context, "can_view_analytics");
 
@@ -695,7 +695,7 @@ export const getAdminAnalytics = createServerFn({ method: "GET" })
 export const deleteMessage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }: any) => {
     await assertPermission(context, "can_delete_messages");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // Soft-delete: set deleted = true (matches existing listMessages filter)
@@ -738,7 +738,7 @@ export const getAdminUsers = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }: any) => {
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const offset = (data.page - 1) * data.limit;
@@ -765,7 +765,7 @@ export const resolveImageUrl = createServerFn({ method: "POST" })
   .validator((input: unknown) =>
     z.object({ url: z.string().min(1).max(2000) }).parse(input),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data }: any) => {
     const rawUrl = data.url.trim();
 
     // 1. Check if it's an ImgBB viewer page (e.g. https://ibb.co/m5BvK5z8)
@@ -814,7 +814,7 @@ export const uploadNewsBanner = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data }: any) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const cleanBase64 = data.fileBase64.replace(/^data:image\/[a-z0-9+-]+;base64,/, "");
     const buffer = Buffer.from(cleanBase64, "base64");

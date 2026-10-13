@@ -243,7 +243,7 @@ function AdminChats() {
     setActiveId(id);
     void navigate({
       to: "/admin/chats",
-      search: (prev) => ({ ...prev, request: id, type: "monitor", teamMember: undefined }),
+      search: (prev: any) => ({ ...prev, request: id, type: "monitor", teamMember: undefined }),
       replace: false,
     });
   };
@@ -253,7 +253,7 @@ function AdminChats() {
     setSelectedTeamMemberId(tmId);
     void navigate({
       to: "/admin/chats",
-      search: (prev) => ({ ...prev, teamMember: tmId, type: "team", request: undefined }),
+      search: (prev: any) => ({ ...prev, teamMember: tmId, type: "team", request: undefined }),
       replace: false,
     });
     setBusy(true);
@@ -276,7 +276,7 @@ function AdminChats() {
     setRoom(null);
     void navigate({
       to: "/admin/chats",
-      search: (prev) => ({
+      search: (prev: any) => ({
         ...prev,
         request: undefined,
         teamMember: undefined,
@@ -398,7 +398,7 @@ function AdminChats() {
                   setSelectedTeamMemberId(undefined);
                   void navigate({
                     to: "/admin/chats",
-                    search: (prev) => ({ ...prev, type: "monitor", teamMember: undefined }),
+                    search: (prev: any) => ({ ...prev, type: "monitor", teamMember: undefined }),
                     replace: true,
                   });
                 }}
@@ -416,7 +416,7 @@ function AdminChats() {
                   setActiveId(undefined);
                   void navigate({
                     to: "/admin/chats",
-                    search: (prev) => ({ ...prev, type: "team", request: undefined }),
+                    search: (prev: any) => ({ ...prev, type: "team", request: undefined }),
                     replace: true,
                   });
                 }}

@@ -89,7 +89,7 @@ async function loadAll(): Promise<AdminData> {
 
   const notifications = (notificationsRes as NotificationRow[]) || [];
   const teamData = team.data ?? [];
-  const teamIds = teamData.map((t) => t.id);
+  const teamIds = teamData.map((t: any) => t.id);
 
   let teamProfiles: ProfileRow[] = [];
   let teamRoles: RoleRow[] = [];
@@ -262,11 +262,11 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         );
         setData((prev) => {
           // merge dynamically loaded profiles with the team profiles from loadAll
-          const profileMap = new Map(prev.profiles.map((p) => [p.id, p]));
-          allData.profiles.forEach((p) => profileMap.set(p.id, p));
+          const profileMap = new Map(prev.profiles.map((p: any) => [p.id, p]));
+          allData.profiles.forEach((p: any) => profileMap.set(p.id, p));
 
-          const roleMap = new Map(prev.roles.map((r) => [r.user_id, r]));
-          allData.roles.forEach((r) => roleMap.set(r.user_id, r));
+          const roleMap = new Map(prev.roles.map((r: any) => [r.user_id, r]));
+          allData.roles.forEach((r: any) => roleMap.set(r.user_id, r));
 
           return {
             ...allData,

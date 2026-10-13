@@ -113,7 +113,7 @@ function AdminUsers() {
             {isLoading ? (
               <EmptyRow colSpan={6} text="Loading users..." />
             ) : (
-              list.map((p) => {
+              list.map((p: any) => {
                 return (
                   <tr key={p.id} className="border-t border-border-subtle/50">
                     <td className="px-3 py-2.5">
