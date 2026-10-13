@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import {
   Newspaper,
   Pin,
@@ -15,6 +15,14 @@ import {
   Eye,
   X,
   Loader2,
+  Briefcase,
+  Building2,
+  GraduationCap,
+  SlidersHorizontal,
+  ExternalLink,
+  ShieldCheck,
+  Search,
+  Filter,
 } from "lucide-react";
 import { TeamHeader } from "@/components/team/TeamHeader";
 import { EmptyState } from "@/components/common/EmptyState";
@@ -22,13 +30,19 @@ import { useTeamStore } from "@/lib/team-store";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import * as notificationsApi from "@/lib/api/notifications";
+import { DEFAULT_QUALIFICATIONS, JOB_GROUPS, isVacancyLive } from "@/data/vacancy-groups";
+import { uploadNewsBanner } from "@/lib/api/admin.functions";
 
 export const Route = createFileRoute("/team/_shell/news")({
-  component: TeamInternalNews,
+  component: TeamNewsAndVacancies,
   head: () => ({
     meta: [
-      { title: "Internal News — Formbhro Team" },
-      { name: "description", content: "Internal announcements, operational bulletins and team news." },
+      { title: "News, Updates & Vacancies — Formbhro Team" },
+      {
+        name: "description",
+        content: "Publish job vacancies to user groups and manage operational bulletins.",
+      },
     ],
   }),
 });
@@ -47,23 +61,98 @@ export interface InternalNewsItem {
   is_read?: boolean;
 }
 
-function TeamInternalNews() {
-  const { member } = useTeamStore();
-  const [items, setItems] = useState<InternalNewsItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | "pinned" | "archived">("all");
-  const [showPublishModal, setShowPublishModal] = useState(false);
-  const [publishing, setPublishing] = useState(false);
+export interface PublicVacancyItem {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  image_url?: string | null;
+  published: boolean;
+  featured: boolean;
+  published_at?: string;
+  organization?: string | null;
+  qualification?: string | null;
+  min_age?: number | null;
+  max_age?: number | null;
+  vacancy_status?: string | null;
+  application_last_date?: string | null;
+  vacancies_count?: number | null;
+  application_url?: string | null;
+  custom_fields?: Record<string, any>;
+}
 
-  // Form state
-  const [formTitle, setFormTitle] = useState("");
-  const [formContent, setFormContent] = useState("");
-  const [formImageUrl, setFormImageUrl] = useState("");
-  const [formPinned, setFormPinned] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+function TeamNewsAndVacancies() {
+  const { member } = useTeamStore();
+  const [activeTab, setActiveTab] = useState<"vacancies" | "internal">("vacancies");
+
+  // Vacancy updates state
+  const [vacancies, setVacancies] = useState<PublicVacancyItem[]>([]);
+  const [loadingVacancies, setLoadingVacancies] = useState(true);
+  const [vacancySearch, setVacancySearch] = useState("");
+  const [vacancyGroupFilter, setVacancyGroupFilter] = useState<string>("all");
+  const [vacancyQualFilter, setVacancyQualFilter] = useState<string>("all");
+  const [vacancyStatusFilter, setVacancyStatusFilter] = useState<string>("all");
+
+  // Internal bulletins state
+  const [internalItems, setInternalItems] = useState<InternalNewsItem[]>([]);
+  const [loadingInternal, setLoadingInternal] = useState(true);
+  const [internalFilter, setInternalFilter] = useState<"all" | "pinned" | "archived">("all");
+
+  // Post Vacancy Modal
+  const [showVacancyModal, setShowVacancyModal] = useState(false);
+  const [publishingVacancy, setPublishingVacancy] = useState(false);
+  const [customFields, setCustomFields] = useState<notificationsApi.CustomFieldRow[]>([]);
+  const vacancyFileRef = useRef<HTMLInputElement>(null);
+  const [uploadingVacancyBanner, setUploadingVacancyBanner] = useState(false);
+
+  // Vacancy Form State (with Mandatory Details)
+  const [vacancyForm, setVacancyForm] = useState({
+    category: "Jobs Update",
+    title: "",
+    description: "",
+    organization: "",
+    qualification: "Graduation",
+    min_age: "18",
+    max_age: "45",
+    vacancy_status: "live" as "live" | "closed",
+    application_last_date: "",
+    vacancies_count: "",
+    application_url: "",
+    image_url: "",
+    custom_fields: {} as Record<string, any>,
+  });
+
+  // Post Internal Bulletin Modal
+  const [showInternalModal, setShowInternalModal] = useState(false);
+  const [publishingInternal, setPublishingInternal] = useState(false);
+  const [internalFormTitle, setInternalFormTitle] = useState("");
+  const [internalFormContent, setInternalFormContent] = useState("");
+  const [internalFormImageUrl, setInternalFormImageUrl] = useState("");
+  const [internalFormPinned, setInternalFormPinned] = useState(false);
+  const [internalImagePreview, setInternalImagePreview] = useState<string | null>(null);
+
+  // Permission check for posting news/vacancies
+  const canPostVacancies = member?.permissions?.can_post_news !== false;
+
+  const fetchVacancies = async () => {
+    setLoadingVacancies(true);
+    try {
+      const { data, error } = await supabase
+        .from("news")
+        .select("*")
+        .order("published_at", { ascending: false });
+      if (!error && data) {
+        setVacancies(data as any);
+      }
+    } catch (err) {
+      console.warn("[TeamNews] Error loading vacancies:", err);
+    } finally {
+      setLoadingVacancies(false);
+    }
+  };
 
   const fetchInternalNews = async () => {
-    setLoading(true);
+    setLoadingInternal(true);
     try {
       const { data, error } = await (supabase as any)
         .from("internal_news")
@@ -72,10 +161,8 @@ function TeamInternalNews() {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-
       const rawItems = (data ?? []) as InternalNewsItem[];
 
-      // Fetch author profiles
       const authorIds = Array.from(new Set(rawItems.map((i) => i.author_id).filter(Boolean))) as string[];
       let authorMap = new Map<string, string>();
       if (authorIds.length > 0) {
@@ -86,425 +173,1077 @@ function TeamInternalNews() {
         profs?.forEach((p) => authorMap.set(p.id, p.full_name));
       }
 
-      setItems(
+      setInternalItems(
         rawItems.map((item) => ({
           ...item,
           author_name: item.author_id ? authorMap.get(item.author_id) || "Team Member" : "System",
         }))
       );
     } catch (err) {
-      console.warn("[InternalNews] Error fetching:", err);
-      // Fallback empty list gracefully
-      setItems([]);
+      console.warn("[TeamNews] Error fetching internal news:", err);
+      setInternalItems([]);
     } finally {
-      setLoading(false);
+      setLoadingInternal(false);
     }
+  };
+
+  const loadCustomFields = async () => {
+    try {
+      const list = await notificationsApi.listCustomFields();
+      setCustomFields(list);
+    } catch (_) {}
   };
 
   useEffect(() => {
+    void fetchVacancies();
     void fetchInternalNews();
+    void loadCustomFields();
   }, []);
 
-  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  // Filtered Vacancies List
+  const filteredVacancies = useMemo(() => {
+    return vacancies.filter((item) => {
+      // Group filter
+      if (vacancyGroupFilter !== "all") {
+        if ((item.category || "").toLowerCase() !== vacancyGroupFilter.toLowerCase()) {
+          return false;
+        }
+      }
+      // Status filter
+      if (vacancyStatusFilter !== "all") {
+        const isLive = isVacancyLive(item);
+        if (vacancyStatusFilter === "live" && !isLive) return false;
+        if (vacancyStatusFilter === "closed" && isLive) return false;
+      }
+      // Qualification filter
+      if (vacancyQualFilter !== "all") {
+        if (
+          !item.qualification ||
+          !item.qualification.toLowerCase().includes(vacancyQualFilter.toLowerCase())
+        ) {
+          return false;
+        }
+      }
+      // Search
+      if (vacancySearch.trim()) {
+        const q = vacancySearch.trim().toLowerCase();
+        const full = `${item.title} ${item.description} ${item.organization || ""} ${
+          item.qualification || ""
+        }`.toLowerCase();
+        if (!full.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [vacancies, vacancyGroupFilter, vacancyStatusFilter, vacancyQualFilter, vacancySearch]);
+
+  // Filtered Internal List
+  const filteredInternalItems = useMemo(() => {
+    return internalItems.filter((item) => {
+      if (internalFilter === "pinned") return item.is_pinned && !item.is_archived;
+      if (internalFilter === "archived") return item.is_archived;
+      return !item.is_archived;
+    });
+  }, [internalItems, internalFilter]);
+
+  // Handle Vacancy Banner File Upload
+  const handleVacancyBannerUpload = async (file: File) => {
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Image file size must be less than 5MB");
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select a valid image file.");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      setImagePreview(reader.result as string);
-      setFormImageUrl(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Image file size must be less than 10MB.");
+      return;
+    }
+    setUploadingVacancyBanner(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData.user?.id;
+      let publicUrl = "";
+
+      if (uid) {
+        const ext = file.name.includes(".") ? file.name.slice(file.name.lastIndexOf(".")) : ".jpg";
+        const safeName = file.name.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 40);
+        const path = `${uid}/banner-${Date.now()}-${safeName}${ext}`;
+
+        const { error: upErr } = await supabase.storage.from("avatars").upload(path, file, {
+          contentType: file.type || "image/jpeg",
+          upsert: true,
+        });
+        if (!upErr) {
+          const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+          if (data?.publicUrl) publicUrl = data.publicUrl;
+        }
+      }
+
+      if (!publicUrl) {
+        const reader = new FileReader();
+        const base64 = await new Promise<string>((res, rej) => {
+          reader.onload = () => res(reader.result as string);
+          reader.onerror = rej;
+          reader.readAsDataURL(file);
+        });
+        const res = await uploadNewsBanner({
+          data: {
+            fileName: file.name,
+            fileBase64: base64,
+            mimeType: file.type || "image/jpeg",
+          },
+        });
+        publicUrl = res.url;
+      }
+
+      if (publicUrl) {
+        setVacancyForm((prev) => ({ ...prev, image_url: publicUrl }));
+        toast.success("Banner image attached!");
+      }
+    } catch (err) {
+      toast.error("Failed to upload banner image. Please try again or paste image link.");
+    } finally {
+      setUploadingVacancyBanner(false);
+    }
   };
 
-  const handlePublish = async (e: React.FormEvent) => {
+  // Submit Vacancy Post (Requirement 6B: Mandatory Details Validated Before Publishing)
+  const handlePublishVacancy = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formTitle.trim() || !formContent.trim()) {
-      toast.error("Please enter a title and content.");
+
+    if (!canPostVacancies) {
+      toast.error("You do not have permission to publish vacancies. Please contact Admin.");
       return;
     }
-    setPublishing(true);
+
+    // 1. Mandatory Title and Description
+    if (!vacancyForm.title.trim()) {
+      toast.error("Mandatory: Please enter vacancy title.");
+      return;
+    }
+    if (!vacancyForm.description.trim()) {
+      toast.error("Mandatory: Please enter vacancy description.");
+      return;
+    }
+
+    // 2. Mandatory Qualification
+    if (!vacancyForm.qualification.trim()) {
+      toast.error("Mandatory: Please select the required Qualification (e.g. 10th, 12th, Graduation).");
+      return;
+    }
+
+    // 3. Mandatory Age Limit
+    if (!vacancyForm.min_age || !vacancyForm.max_age) {
+      toast.error("Mandatory: Please enter valid Age Limit criteria (Min & Max Age).");
+      return;
+    }
+    const minAge = parseInt(vacancyForm.min_age, 10);
+    const maxAge = parseInt(vacancyForm.max_age, 10);
+    if (isNaN(minAge) || isNaN(maxAge) || minAge > maxAge) {
+      toast.error("Please enter a valid age range (e.g. 18 to 45).");
+      return;
+    }
+
+    // 4. Mandatory Vacancy Status
+    if (!vacancyForm.vacancy_status) {
+      toast.error("Mandatory: Please specify Vacancy Status (Live or Closed).");
+      return;
+    }
+
+    // 5. Mandatory Application Last Date
+    if (!vacancyForm.application_last_date) {
+      toast.error("Mandatory: Please specify the Application Last Date deadline.");
+      return;
+    }
+
+    // 6. Check required custom filters
+    for (const cf of customFields) {
+      if (cf.is_required && !vacancyForm.custom_fields[cf.field_name]) {
+        toast.error(`Mandatory: Please fill in required filter "${cf.field_label}".`);
+        return;
+      }
+    }
+
+    setPublishingVacancy(true);
+    try {
+      await notificationsApi.createNews({
+        title: vacancyForm.title.trim(),
+        description: vacancyForm.description.trim(),
+        category: vacancyForm.category,
+        published: true,
+        featured: false,
+        organization: vacancyForm.organization.trim() || undefined,
+        qualification: vacancyForm.qualification.trim(),
+        min_age: minAge,
+        max_age: maxAge,
+        vacancy_status: vacancyForm.vacancy_status,
+        application_last_date: vacancyForm.application_last_date,
+        total_vacancies: vacancyForm.vacancies_count ? parseInt(vacancyForm.vacancies_count, 10) : null,
+        apply_url: vacancyForm.application_url.trim() || undefined,
+        image_url: vacancyForm.image_url.trim() || undefined,
+        custom_fields: vacancyForm.custom_fields,
+      });
+
+      toast.success(`Published to "${vacancyForm.category}" group! Users can now search and apply.`);
+      setShowVacancyModal(false);
+      setVacancyForm({
+        category: "Jobs Update",
+        title: "",
+        description: "",
+        organization: "",
+        qualification: "Graduation",
+        min_age: "18",
+        max_age: "45",
+        vacancy_status: "live",
+        application_last_date: "",
+        vacancies_count: "",
+        application_url: "",
+        image_url: "",
+        custom_fields: {},
+      });
+      await fetchVacancies();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to publish vacancy.");
+    } finally {
+      setPublishingVacancy(false);
+    }
+  };
+
+  // Internal Bulletin Publishing
+  const handlePublishInternal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!internalFormTitle.trim() || !internalFormContent.trim()) {
+      toast.error("Please enter both title and content.");
+      return;
+    }
+    setPublishingInternal(true);
     try {
       const { data: userData } = await supabase.auth.getUser();
       const uid = userData.user?.id || null;
 
       const { error } = await (supabase as any).from("internal_news").insert({
-        title: formTitle.trim(),
-        content: formContent.trim(),
-        image_url: formImageUrl.trim() || null,
-        is_pinned: formPinned,
+        title: internalFormTitle.trim(),
+        content: internalFormContent.trim(),
+        image_url: internalFormImageUrl.trim() || null,
+        is_pinned: internalFormPinned,
         author_id: uid,
       });
 
       if (error) throw error;
-
-      toast.success("Internal announcement published!");
-      setShowPublishModal(false);
-      setFormTitle("");
-      setFormContent("");
-      setFormImageUrl("");
-      setImagePreview(null);
-      setFormPinned(false);
+      toast.success("Internal bulletin published!");
+      setShowInternalModal(false);
+      setInternalFormTitle("");
+      setInternalFormContent("");
+      setInternalFormImageUrl("");
+      setInternalImagePreview(null);
+      setInternalFormPinned(false);
       await fetchInternalNews();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to publish announcement");
+      toast.error(err instanceof Error ? err.message : "Failed to publish bulletin.");
     } finally {
-      setPublishing(false);
+      setPublishingInternal(false);
     }
   };
 
-  const togglePin = async (item: InternalNewsItem) => {
+  const togglePinInternal = async (item: InternalNewsItem) => {
     try {
       const { error } = await (supabase as any)
         .from("internal_news")
         .update({ is_pinned: !item.is_pinned })
         .eq("id", item.id);
       if (error) throw error;
-      setItems((prev) =>
+      setInternalItems((prev) =>
         prev.map((i) => (i.id === item.id ? { ...i, is_pinned: !i.is_pinned } : i))
       );
-      toast.success(item.is_pinned ? "Announcement unpinned" : "Announcement pinned");
+      toast.success(item.is_pinned ? "Bulletin unpinned" : "Bulletin pinned");
     } catch (err) {
       toast.error("Failed to update pin state");
     }
   };
 
-  const toggleArchive = async (item: InternalNewsItem) => {
-    try {
-      const { error } = await (supabase as any)
-        .from("internal_news")
-        .update({ is_archived: !item.is_archived })
-        .eq("id", item.id);
-      if (error) throw error;
-      setItems((prev) =>
-        prev.map((i) => (i.id === item.id ? { ...i, is_archived: !i.is_archived } : i))
-      );
-      toast.success(item.is_archived ? "Restored from archive" : "Archived");
-    } catch (err) {
-      toast.error("Failed to update archive status");
-    }
-  };
-
-  const deleteItem = async (item: InternalNewsItem) => {
-    if (!confirm("Are you sure you want to permanently delete this internal update?")) return;
+  const deleteInternal = async (item: InternalNewsItem) => {
+    if (!confirm("Are you sure you want to permanently delete this internal bulletin?")) return;
     try {
       const { error } = await (supabase as any)
         .from("internal_news")
         .delete()
         .eq("id", item.id);
       if (error) throw error;
-      setItems((prev) => prev.filter((i) => i.id !== item.id));
-      toast.success("Announcement deleted");
+      setInternalItems((prev) => prev.filter((i) => i.id !== item.id));
+      toast.success("Bulletin deleted");
     } catch (err) {
-      toast.error("Failed to delete announcement");
+      toast.error("Failed to delete bulletin");
     }
   };
 
-  const filteredItems = useMemo(() => {
-    return items.filter((item) => {
-      if (filter === "pinned") return item.is_pinned && !item.is_archived;
-      if (filter === "archived") return item.is_archived;
-      return !item.is_archived;
-    });
-  }, [items, filter]);
-
   return (
     <>
-      <TeamHeader title="Internal News" />
+      <TeamHeader title="News & Job Vacancy Management" />
 
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-28 pt-5 sm:px-6 lg:pb-10">
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-28 pt-5 sm:px-6 lg:pb-10">
+        {/* Top Header & Actions */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-xl font-extrabold tracking-tight text-white sm:text-2xl flex items-center gap-2">
-              <Newspaper className="h-6 w-6 text-brand" />
-              Internal News &amp; Bulletins
+              <Briefcase className="h-6 w-6 text-brand" />
+              News, Updates &amp; Job Groups
             </h1>
             <p className="mt-1 text-xs text-text-secondary">
-              Private company updates, operational guidelines, and internal announcements for team members.
+              Publish structured vacancies to "Jobs Update" and "Hidden Jobs Update" groups, and manage internal bulletins.
             </p>
           </div>
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => void fetchInternalNews()}
+              onClick={() => {
+                void fetchVacancies();
+                void fetchInternalNews();
+              }}
               className="inline-flex items-center gap-1.5 rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs font-semibold text-text-secondary hover:bg-surface-3 transition-colors"
-              title="Refresh announcements"
+              title="Refresh"
             >
-              <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
+              <RefreshCw className={cn("h-3.5 w-3.5", (loadingVacancies || loadingInternal) && "animate-spin")} />
               Refresh
             </button>
-            <button
-              onClick={() => setShowPublishModal(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2 text-xs font-bold text-black hover:bg-brand-light transition-all shadow-lg shadow-brand/20"
-            >
-              <Plus className="h-4 w-4" />
-              Post Announcement
-            </button>
+
+            {activeTab === "vacancies" ? (
+              <button
+                disabled={!canPostVacancies}
+                onClick={() => setShowVacancyModal(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2 text-xs font-bold text-black hover:bg-brand-light transition-all shadow-lg shadow-brand/20 disabled:opacity-50"
+                title={canPostVacancies ? "Post new vacancy" : "Posting disabled by Admin"}
+              >
+                <Plus className="h-4 w-4" />
+                Post Job Update
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowInternalModal(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-surface-3 border border-border-subtle px-4 py-2 text-xs font-bold text-white hover:bg-surface-2 transition-all"
+              >
+                <Plus className="h-4 w-4" />
+                Post Internal Bulletin
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Filter bar */}
+        {/* Primary Tabs */}
         <div className="mt-6 flex items-center gap-2 border-b border-border-subtle pb-3">
           <button
-            onClick={() => setFilter("all")}
+            onClick={() => setActiveTab("vacancies")}
             className={cn(
-              "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
-              filter === "all"
-                ? "bg-brand/15 text-brand border border-brand/30"
-                : "text-text-muted hover:text-white"
+              "rounded-xl px-4 py-2 text-xs font-bold transition-all flex items-center gap-2",
+              activeTab === "vacancies"
+                ? "bg-brand text-black shadow-md shadow-brand/20"
+                : "text-text-secondary hover:text-white bg-surface-2"
             )}
           >
-            Active Updates ({items.filter((i) => !i.is_archived).length})
+            <Briefcase className="h-4 w-4" />
+            Job Vacancy Updates ({vacancies.length})
           </button>
           <button
-            onClick={() => setFilter("pinned")}
+            onClick={() => setActiveTab("internal")}
             className={cn(
-              "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors flex items-center gap-1.5",
-              filter === "pinned"
-                ? "bg-brand/15 text-brand border border-brand/30"
-                : "text-text-muted hover:text-white"
+              "rounded-xl px-4 py-2 text-xs font-bold transition-all flex items-center gap-2",
+              activeTab === "internal"
+                ? "bg-brand text-black shadow-md shadow-brand/20"
+                : "text-text-secondary hover:text-white bg-surface-2"
             )}
           >
-            <Pin className="h-3 w-3" />
-            Pinned ({items.filter((i) => i.is_pinned && !i.is_archived).length})
-          </button>
-          <button
-            onClick={() => setFilter("archived")}
-            className={cn(
-              "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors flex items-center gap-1.5",
-              filter === "archived"
-                ? "bg-brand/15 text-brand border border-brand/30"
-                : "text-text-muted hover:text-white"
-            )}
-          >
-            <Archive className="h-3 w-3" />
-            Archived ({items.filter((i) => i.is_archived).length})
+            <Newspaper className="h-4 w-4" />
+            Internal Team Bulletins ({internalItems.length})
           </button>
         </div>
 
-        {/* Content list */}
-        <div className="mt-6 space-y-4">
-          {loading ? (
-            <div className="flex justify-center py-16">
-              <Loader2 className="h-8 w-8 animate-spin text-brand" />
+        {/* TAB 1: JOB VACANCY UPDATES & USER GROUPS */}
+        {activeTab === "vacancies" && (
+          <div className="mt-5 space-y-4">
+            {/* Filter Controls for Vacancies */}
+            <div className="flex flex-wrap items-center gap-2 p-3 rounded-2xl border border-border-subtle bg-surface-1">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-muted" />
+                <input
+                  type="text"
+                  placeholder="Search vacancies by title, qualification, or department…"
+                  className="w-full rounded-xl border border-border-subtle bg-surface-2 pl-8.5 pr-3 py-1.5 text-xs text-white placeholder:text-text-muted outline-none focus:border-brand/40"
+                  value={vacancySearch}
+                  onChange={(e) => setVacancySearch(e.target.value)}
+                />
+              </div>
+
+              {/* Group filter */}
+              <select
+                className="rounded-xl border border-border-subtle bg-surface-2 px-3 py-1.5 text-xs text-white outline-none focus:border-brand/40"
+                value={vacancyGroupFilter}
+                onChange={(e) => setVacancyGroupFilter(e.target.value)}
+              >
+                <option value="all">All Groups</option>
+                <option value="Jobs Update">Jobs Update</option>
+                <option value="Hidden Jobs Update">Hidden Jobs Update</option>
+              </select>
+
+              {/* Qualification filter */}
+              <select
+                className="rounded-xl border border-border-subtle bg-surface-2 px-3 py-1.5 text-xs text-white outline-none focus:border-brand/40"
+                value={vacancyQualFilter}
+                onChange={(e) => setVacancyQualFilter(e.target.value)}
+              >
+                <option value="all">All Qualifications</option>
+                {DEFAULT_QUALIFICATIONS.map((q) => (
+                  <option key={q} value={q}>
+                    {q}
+                  </option>
+                ))}
+              </select>
+
+              {/* Status filter */}
+              <select
+                className="rounded-xl border border-border-subtle bg-surface-2 px-3 py-1.5 text-xs text-white outline-none focus:border-brand/40"
+                value={vacancyStatusFilter}
+                onChange={(e) => setVacancyStatusFilter(e.target.value)}
+              >
+                <option value="all">All Statuses</option>
+                <option value="live">Live Now / Open</option>
+                <option value="closed">Closed</option>
+              </select>
             </div>
-          ) : filteredItems.length === 0 ? (
-            <EmptyState
-              icon={Newspaper}
-              title="No internal announcements."
-              description="New organizational announcements and team updates will appear here."
-            />
-          ) : (
-            filteredItems.map((item) => (
-              <article
-                key={item.id}
-                className={cn(
-                  "relative overflow-hidden rounded-2xl border bg-surface-1 p-5 transition-colors duration-200",
-                  item.is_pinned
-                    ? "border-brand/40 bg-gradient-to-br from-surface-1 to-brand/5 shadow-md shadow-brand/10"
-                    : "border-border-subtle hover:border-border-strong"
-                )}
-              >
-                {item.is_pinned && (
-                  <div className="mb-2 flex items-center gap-1 text-[11px] font-bold text-brand uppercase tracking-wider">
-                    <Pin className="h-3.5 w-3.5 fill-brand" />
-                    Pinned Announcement
-                  </div>
-                )}
 
-                {item.image_url && (
-                  <div className="mb-4 overflow-hidden rounded-xl border border-white/10 max-h-72 bg-surface-2">
-                    <img
-                      src={item.image_url}
-                      alt={item.title}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                      onError={(e) => {
-                        (e.target as HTMLElement).style.display = "none";
-                      }}
-                    />
-                  </div>
-                )}
+            {/* Vacancies List */}
+            {loadingVacancies ? (
+              <div className="flex justify-center py-16">
+                <Loader2 className="h-8 w-8 animate-spin text-brand" />
+              </div>
+            ) : filteredVacancies.length === 0 ? (
+              <EmptyState
+                icon={Briefcase}
+                title="No vacancies match your filters."
+                description="Post new vacancy updates to 'Jobs Update' or 'Hidden Jobs Update' to help candidates."
+              />
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {filteredVacancies.map((v) => {
+                  const isLive = isVacancyLive(v);
 
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <h2 className="text-base font-bold text-white sm:text-lg">{item.title}</h2>
-                    <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-text-muted">
-                      <span className="flex items-center gap-1">
-                        <User className="h-3.5 w-3.5 text-text-muted" />
-                        {item.author_name}
-                      </span>
-                      <span>•</span>
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3.5 w-3.5 text-text-muted" />
-                        {new Date(item.created_at).toLocaleDateString("en-IN", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </span>
+                  return (
+                    <div
+                      key={v.id}
+                      className="rounded-2xl border border-border-subtle bg-surface-1 p-4 flex flex-col justify-between space-y-3 shadow-md hover:border-brand/30 transition-all"
+                    >
+                      <div className="space-y-2">
+                        {/* Group and Status Row */}
+                        <div className="flex items-center justify-between gap-2">
+                          <span
+                            className={cn(
+                              "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                              v.category === "Hidden Jobs Update"
+                                ? "bg-purple-500/15 text-purple-300 border border-purple-500/30"
+                                : "bg-brand/15 text-brand border border-brand/30"
+                            )}
+                          >
+                            {v.category || "Jobs Update"}
+                          </span>
+                          <span
+                            className={cn(
+                              "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                              isLive
+                                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                                : "bg-red-500/15 text-red-400 border border-red-500/30"
+                            )}
+                          >
+                            {isLive ? "Live Now" : "Closed"}
+                          </span>
+                        </div>
+
+                        {/* Title and Org */}
+                        <div>
+                          <h3 className="text-sm font-bold text-white leading-snug line-clamp-2">
+                            {v.title}
+                          </h3>
+                          {v.organization && (
+                            <p className="text-xs text-text-secondary mt-0.5 flex items-center gap-1.5">
+                              <Building2 className="h-3 w-3 text-text-muted" />
+                              {v.organization}
+                            </p>
+                          )}
+                        </div>
+
+                        <p className="text-xs text-text-muted line-clamp-2 leading-relaxed">
+                          {v.description}
+                        </p>
+
+                        {/* Structured Vacancy Attributes */}
+                        <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[10px]">
+                          {v.qualification && (
+                            <span className="flex items-center gap-1 rounded-md bg-surface-2 px-2 py-1 text-emerald-300 border border-emerald-500/20">
+                              <GraduationCap className="h-3 w-3" />
+                              {v.qualification}
+                            </span>
+                          )}
+                          {(v.min_age != null || v.max_age != null) && (
+                            <span className="rounded-md bg-surface-2 px-2 py-1 text-text-secondary border border-border-subtle">
+                              Age: {v.min_age ?? 18}–{v.max_age ?? 45} yrs
+                            </span>
+                          )}
+                          {v.application_last_date && (
+                            <span className="flex items-center gap-1 rounded-md bg-surface-2 px-2 py-1 text-amber-300 border border-amber-500/20">
+                              <Calendar className="h-3 w-3" />
+                              Last Date: {new Date(v.application_last_date).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Footer Actions */}
+                      <div className="flex items-center justify-between pt-2 border-t border-border-subtle text-[11px] text-text-muted">
+                        <span>
+                          {v.published_at ? new Date(v.published_at).toLocaleDateString() : "Active"}
+                        </span>
+                        {v.application_url && (
+                          <a
+                            href={v.application_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 font-semibold text-brand hover:underline"
+                          >
+                            <ExternalLink className="h-3 w-3" /> Portal Link
+                          </a>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => void togglePin(item)}
-                      title={item.is_pinned ? "Unpin announcement" : "Pin announcement"}
-                      className="rounded-lg p-1.5 text-text-muted hover:bg-white/5 hover:text-brand transition-colors"
-                    >
-                      {item.is_pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void toggleArchive(item)}
-                      title={item.is_archived ? "Restore announcement" : "Archive announcement"}
-                      className="rounded-lg p-1.5 text-text-muted hover:bg-white/5 hover:text-amber-400 transition-colors"
-                    >
-                      <Archive className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void deleteItem(item)}
-                      title="Delete announcement"
-                      className="rounded-lg p-1.5 text-text-muted hover:bg-white/5 hover:text-red-400 transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mt-3 text-sm leading-relaxed text-text-secondary whitespace-pre-line">
-                  {item.content}
-                </div>
-              </article>
-            ))
-          )}
-        </div>
-      </main>
-
-      {/* Publish Modal */}
-      {showPublishModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl border border-border-strong bg-surface-1 p-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-border-subtle pb-3">
-              <h2 className="text-base font-bold text-white flex items-center gap-2">
-                <Newspaper className="h-5 w-5 text-brand" />
-                Post Internal Announcement
-              </h2>
+        {/* TAB 2: INTERNAL TEAM BULLETINS */}
+        {activeTab === "internal" && (
+          <div className="mt-5 space-y-4">
+            {/* Filter bar */}
+            <div className="flex items-center gap-2 border-b border-border-subtle pb-3">
               <button
-                onClick={() => setShowPublishModal(false)}
-                className="rounded p-1 text-text-muted hover:bg-white/10 hover:text-white"
+                onClick={() => setInternalFilter("all")}
+                className={cn(
+                  "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+                  internalFilter === "all"
+                    ? "bg-brand/15 text-brand border border-brand/30"
+                    : "text-text-muted hover:text-white"
+                )}
               >
-                <X className="h-4 w-4" />
+                Active Updates ({internalItems.filter((i) => !i.is_archived).length})
+              </button>
+              <button
+                onClick={() => setInternalFilter("pinned")}
+                className={cn(
+                  "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors flex items-center gap-1.5",
+                  internalFilter === "pinned"
+                    ? "bg-brand/15 text-brand border border-brand/30"
+                    : "text-text-muted hover:text-white"
+                )}
+              >
+                <Pin className="h-3 w-3" />
+                Pinned ({internalItems.filter((i) => i.is_pinned && !i.is_archived).length})
+              </button>
+              <button
+                onClick={() => setInternalFilter("archived")}
+                className={cn(
+                  "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors flex items-center gap-1.5",
+                  internalFilter === "archived"
+                    ? "bg-brand/15 text-brand border border-brand/30"
+                    : "text-text-muted hover:text-white"
+                )}
+              >
+                <Archive className="h-3 w-3" />
+                Archived ({internalItems.filter((i) => i.is_archived).length})
               </button>
             </div>
 
-            <form onSubmit={handlePublish} className="mt-4 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-text-secondary mb-1">
-                  Announcement Title *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formTitle}
-                  onChange={(e) => setFormTitle(e.target.value)}
-                  placeholder="e.g. System Maintenance Notice / Policy Update"
-                  className="w-full rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs text-white focus:border-brand/50 outline-none"
-                />
+            {loadingInternal ? (
+              <div className="flex justify-center py-16">
+                <Loader2 className="h-8 w-8 animate-spin text-brand" />
               </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-text-secondary mb-1">
-                  Content / Message *
-                </label>
-                <textarea
-                  required
-                  rows={4}
-                  value={formContent}
-                  onChange={(e) => setFormContent(e.target.value)}
-                  placeholder="Details of the announcement, procedures, or guidelines..."
-                  className="w-full rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs text-white focus:border-brand/50 outline-none resize-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-text-secondary mb-1">
-                  Optional Image (URL or file)
-                </label>
-                <input
-                  type="text"
-                  value={formImageUrl}
-                  onChange={(e) => {
-                    setFormImageUrl(e.target.value);
-                    setImagePreview(e.target.value || null);
-                  }}
-                  placeholder="https://... or upload below"
-                  className="w-full rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs text-white focus:border-brand/50 outline-none mb-2"
-                />
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={handleImageFileChange}
-                  className="text-xs text-text-muted file:mr-2 file:rounded-lg file:border-0 file:bg-surface-3 file:px-3 file:py-1 file:text-xs file:font-semibold file:text-white hover:file:bg-brand hover:file:text-black cursor-pointer"
-                />
-              </div>
-
-              {imagePreview && (
-                <div className="relative overflow-hidden rounded-xl border border-white/10 max-h-40 bg-surface-2">
-                  <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setImagePreview(null);
-                      setFormImageUrl("");
-                    }}
-                    className="absolute top-2 right-2 rounded-full bg-black/60 p-1 text-white hover:bg-black"
+            ) : filteredInternalItems.length === 0 ? (
+              <EmptyState
+                icon={Newspaper}
+                title="No internal announcements."
+                description="New operational bulletins and internal guidelines will appear here."
+              />
+            ) : (
+              <div className="space-y-3">
+                {filteredInternalItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className="rounded-2xl border border-border-subtle bg-surface-1 p-4 shadow-sm"
                   >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              )}
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-bold text-white">{item.title}</h3>
+                          {item.is_pinned && (
+                            <span className="flex items-center gap-1 text-[10px] text-brand bg-brand/10 px-2 py-0.5 rounded-full font-bold">
+                              <Pin className="h-3 w-3" /> Pinned
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-xs text-text-secondary leading-relaxed">
+                          {item.content}
+                        </p>
+                      </div>
 
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="pin-post"
-                  checked={formPinned}
-                  onChange={(e) => setFormPinned(e.target.checked)}
-                  className="rounded border-border-subtle bg-surface-2 text-brand focus:ring-0"
-                />
-                <label htmlFor="pin-post" className="text-xs text-text-secondary cursor-pointer">
-                  Pin this announcement to the top
-                </label>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => void togglePinInternal(item)}
+                          className="rounded-lg p-1.5 text-text-muted hover:text-brand hover:bg-surface-2"
+                          title={item.is_pinned ? "Unpin" : "Pin"}
+                        >
+                          <Pin className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => void deleteInternal(item)}
+                          className="rounded-lg p-1.5 text-text-muted hover:text-danger hover:bg-surface-2"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-between border-t border-border-subtle pt-2 text-[10px] text-text-muted">
+                      <span>By {item.author_name}</span>
+                      <span>{new Date(item.created_at).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
+            )}
+          </div>
+        )}
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-border-subtle">
+        {/* MODAL 1: POST JOB VACANCY UPDATE (Mandatory Vacancy Details Form) */}
+        {showVacancyModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+            <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl border border-border-subtle bg-surface-1 p-5 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-border-subtle pb-3">
+                <div>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Briefcase className="h-4 w-4 text-brand" />
+                    Post Vacancy to Job Group
+                  </h3>
+                  <p className="text-[11px] text-text-muted mt-0.5">
+                    Enter mandatory qualification, age, status, and deadline before publishing.
+                  </p>
+                </div>
                 <button
                   type="button"
-                  onClick={() => setShowPublishModal(false)}
-                  className="rounded-xl border border-white/10 px-4 py-2 text-xs font-semibold text-white hover:bg-white/5"
-                  disabled={publishing}
+                  onClick={() => setShowVacancyModal(false)}
+                  className="rounded-lg p-1.5 text-text-muted hover:bg-surface-2 hover:text-white"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={publishing}
-                  className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-xs font-bold text-black hover:bg-brand-light disabled:opacity-50"
-                >
-                  {publishing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                  Publish Announcement
+                  <X className="h-4 w-4" />
                 </button>
               </div>
-            </form>
+
+              <form onSubmit={handlePublishVacancy} className="space-y-3">
+                {/* Target Group Selector */}
+                <div>
+                  <label className="block text-xs font-semibold text-text-secondary mb-1">
+                    Select Target Job Group *
+                  </label>
+                  <select
+                    className="w-full rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs text-white outline-none focus:border-brand/40"
+                    value={vacancyForm.category}
+                    onChange={(e) => setVacancyForm({ ...vacancyForm, category: e.target.value })}
+                  >
+                    <option value="Jobs Update">Jobs Update (Verified Govt Vacancies)</option>
+                    <option value="Hidden Jobs Update">Hidden Jobs Update (Special / Off-Campus)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-text-secondary mb-1">
+                    Vacancy Title *
+                  </label>
+                  <input
+                    required
+                    type="text"
+                    value={vacancyForm.title}
+                    onChange={(e) => setVacancyForm({ ...vacancyForm, title: e.target.value })}
+                    placeholder="e.g. UPSC Civil Services Prelims 2026 Notification"
+                    className="w-full rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs text-white outline-none focus:border-brand/40"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-text-secondary mb-1">
+                    Description &amp; Important Details *
+                  </label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={vacancyForm.description}
+                    onChange={(e) => setVacancyForm({ ...vacancyForm, description: e.target.value })}
+                    placeholder="Provide full vacancy summary, eligibility, exam stages, syllabus overview..."
+                    className="w-full rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs text-white outline-none focus:border-brand/40 resize-y"
+                  />
+                </div>
+
+                {/* Mandatory Vacancy Fields Box (Requirement 6B) */}
+                <div className="rounded-xl border border-brand/20 bg-brand/5 p-3.5 space-y-3">
+                  <div className="flex items-center justify-between pb-1 border-b border-brand/10">
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <ShieldCheck className="h-3.5 w-3.5 text-brand" />
+                      Mandatory Vacancy Details
+                    </span>
+                    <span className="text-[10px] text-brand uppercase tracking-wider font-bold">
+                      Required for Publishing
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-text-secondary mb-1">
+                      Organization / Department Name
+                    </label>
+                    <input
+                      type="text"
+                      value={vacancyForm.organization}
+                      onChange={(e) => setVacancyForm({ ...vacancyForm, organization: e.target.value })}
+                      placeholder="e.g. Union Public Service Commission / Railway Recruitment Board"
+                      className="w-full rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs text-white outline-none focus:border-brand/40"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-text-secondary mb-1">
+                        Qualification *
+                      </label>
+                      <select
+                        required
+                        className="w-full rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs text-white outline-none focus:border-brand/40"
+                        value={vacancyForm.qualification}
+                        onChange={(e) => setVacancyForm({ ...vacancyForm, qualification: e.target.value })}
+                      >
+                        {DEFAULT_QUALIFICATIONS.map((q) => (
+                          <option key={q} value={q}>
+                            {q}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-text-secondary mb-1">
+                        Vacancy Status *
+                      </label>
+                      <select
+                        required
+                        className="w-full rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs text-white outline-none focus:border-brand/40"
+                        value={vacancyForm.vacancy_status}
+                        onChange={(e) =>
+                          setVacancyForm({
+                            ...vacancyForm,
+                            vacancy_status: e.target.value as "live" | "closed",
+                          })
+                        }
+                      >
+                        <option value="live">Live Now / Open</option>
+                        <option value="closed">Closed / Expired</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-text-secondary mb-1">
+                        Min Age Limit *
+                      </label>
+                      <input
+                        required
+                        type="number"
+                        min="14"
+                        max="65"
+                        value={vacancyForm.min_age}
+                        onChange={(e) => setVacancyForm({ ...vacancyForm, min_age: e.target.value })}
+                        placeholder="18"
+                        className="w-full rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs text-white outline-none focus:border-brand/40"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-text-secondary mb-1">
+                        Max Age Limit *
+                      </label>
+                      <input
+                        required
+                        type="number"
+                        min="14"
+                        max="65"
+                        value={vacancyForm.max_age}
+                        onChange={(e) => setVacancyForm({ ...vacancyForm, max_age: e.target.value })}
+                        placeholder="45"
+                        className="w-full rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs text-white outline-none focus:border-brand/40"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-text-secondary mb-1">
+                        Last Date to Apply *
+                      </label>
+                      <input
+                        required
+                        type="date"
+                        value={vacancyForm.application_last_date}
+                        onChange={(e) =>
+                          setVacancyForm({ ...vacancyForm, application_last_date: e.target.value })
+                        }
+                        className="w-full rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs text-white outline-none focus:border-brand/40"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-text-secondary mb-1">
+                        Total Vacancies (Count)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={vacancyForm.vacancies_count}
+                        onChange={(e) =>
+                          setVacancyForm({ ...vacancyForm, vacancies_count: e.target.value })
+                        }
+                        placeholder="e.g. 1056"
+                        className="w-full rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs text-white outline-none focus:border-brand/40"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-text-secondary mb-1">
+                      Official Application Link (URL)
+                    </label>
+                    <input
+                      type="url"
+                      value={vacancyForm.application_url}
+                      onChange={(e) =>
+                        setVacancyForm({ ...vacancyForm, application_url: e.target.value })
+                      }
+                      placeholder="https://upsconline.nic.in"
+                      className="w-full rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs text-white outline-none focus:border-brand/40"
+                    />
+                  </div>
+
+                  {/* Dynamic Custom Filters from Admin */}
+                  {customFields.length > 0 && (
+                    <div className="pt-2 border-t border-brand/10 space-y-2">
+                      <p className="text-[11px] font-semibold text-text-secondary flex items-center gap-1">
+                        <SlidersHorizontal className="h-3 w-3 text-brand" /> Additional Admin Filters
+                      </p>
+                      {customFields.map((cf) => (
+                        <div key={cf.id}>
+                          <label className="block text-xs font-semibold text-text-secondary mb-1">
+                            {cf.field_label} {cf.is_required ? "*" : ""}
+                          </label>
+                          {cf.field_type === "dropdown" ? (
+                            <select
+                              className="w-full rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs text-white outline-none focus:border-brand/40"
+                              value={vacancyForm.custom_fields[cf.field_name] || ""}
+                              onChange={(e) =>
+                                setVacancyForm({
+                                  ...vacancyForm,
+                                  custom_fields: {
+                                    ...vacancyForm.custom_fields,
+                                    [cf.field_name]: e.target.value,
+                                  },
+                                })
+                              }
+                            >
+                              <option value="">Select option</option>
+                              {cf.options?.map((opt) => (
+                                <option key={opt} value={opt}>
+                                  {opt}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              type={
+                                cf.field_type === "number"
+                                  ? "number"
+                                  : cf.field_type === "date"
+                                  ? "date"
+                                  : "text"
+                              }
+                              className="w-full rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs text-white outline-none focus:border-brand/40"
+                              value={vacancyForm.custom_fields[cf.field_name] || ""}
+                              onChange={(e) =>
+                                setVacancyForm({
+                                  ...vacancyForm,
+                                  custom_fields: {
+                                    ...vacancyForm.custom_fields,
+                                    [cf.field_name]: e.target.value,
+                                  },
+                                })
+                              }
+                              placeholder={`Enter ${cf.field_label}…`}
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Banner Image */}
+                <div>
+                  <label className="block text-xs font-semibold text-text-secondary mb-1">
+                    Banner Image (Shows on Mobile Banners)
+                  </label>
+                  <div className="flex items-center gap-2 mb-2">
+                    <input
+                      type="file"
+                      ref={vacancyFileRef}
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) void handleVacancyBannerUpload(file);
+                        e.target.value = "";
+                      }}
+                    />
+                    <button
+                      type="button"
+                      disabled={uploadingVacancyBanner}
+                      onClick={() => vacancyFileRef.current?.click()}
+                      className="rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs font-semibold text-white hover:bg-surface-3 transition-colors flex items-center gap-1.5"
+                    >
+                      {uploadingVacancyBanner ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-brand" />
+                          <span>Uploading…</span>
+                        </>
+                      ) : (
+                        <>
+                          <ImageIcon className="h-3.5 w-3.5 text-brand" />
+                          <span>Upload Banner</span>
+                        </>
+                      )}
+                    </button>
+                    <span className="text-[11px] text-text-muted">or paste image link</span>
+                  </div>
+                  <input
+                    type="url"
+                    value={vacancyForm.image_url}
+                    onChange={(e) => setVacancyForm({ ...vacancyForm, image_url: e.target.value })}
+                    placeholder="https://example.com/banner.jpg"
+                    className="w-full rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs text-white outline-none focus:border-brand/40"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-3 border-t border-border-subtle">
+                  <button
+                    type="button"
+                    onClick={() => setShowVacancyModal(false)}
+                    className="rounded-xl border border-white/10 px-4 py-2 text-xs font-semibold text-white hover:bg-white/5"
+                    disabled={publishingVacancy}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={publishingVacancy}
+                    className="inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-2 text-xs font-bold text-black hover:bg-brand-light disabled:opacity-50 shadow-lg shadow-brand/20"
+                  >
+                    {publishingVacancy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                    Publish Vacancy Update
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* MODAL 2: POST INTERNAL BULLETIN */}
+        {showInternalModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+            <div className="w-full max-w-lg rounded-2xl border border-border-subtle bg-surface-1 p-5 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-border-subtle pb-3">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <Newspaper className="h-4 w-4 text-brand" />
+                  Post Internal Team Bulletin
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowInternalModal(false)}
+                  className="rounded-lg p-1.5 text-text-muted hover:bg-surface-2 hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handlePublishInternal} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-text-secondary mb-1">
+                    Bulletin Title *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={internalFormTitle}
+                    onChange={(e) => setInternalFormTitle(e.target.value)}
+                    placeholder="e.g. Server Maintenance Notice / Document Review SOP"
+                    className="w-full rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs text-white outline-none focus:border-brand/40"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-text-secondary mb-1">
+                    Bulletin Message *
+                  </label>
+                  <textarea
+                    required
+                    rows={4}
+                    value={internalFormContent}
+                    onChange={(e) => setInternalFormContent(e.target.value)}
+                    placeholder="Provide operational guidance, announcements, or policies..."
+                    className="w-full rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs text-white outline-none focus:border-brand/40 resize-none"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="pin-internal"
+                    checked={internalFormPinned}
+                    onChange={(e) => setInternalFormPinned(e.target.checked)}
+                    className="rounded border-border-subtle bg-surface-2 text-brand focus:ring-0"
+                  />
+                  <label htmlFor="pin-internal" className="text-xs text-text-secondary cursor-pointer">
+                    Pin this bulletin to the top of internal news
+                  </label>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-3 border-t border-border-subtle">
+                  <button
+                    type="button"
+                    onClick={() => setShowInternalModal(false)}
+                    className="rounded-xl border border-white/10 px-4 py-2 text-xs font-semibold text-white hover:bg-white/5"
+                    disabled={publishingInternal}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={publishingInternal}
+                    className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-xs font-bold text-black hover:bg-brand-light disabled:opacity-50"
+                  >
+                    {publishingInternal && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                    Publish Bulletin
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </main>
     </>
   );
 }

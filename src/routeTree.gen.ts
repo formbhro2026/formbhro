@@ -21,6 +21,7 @@ import { Route as AdminShellRouteImport } from './routes/admin/_shell'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppDocumentsRouteImport } from './routes/app.documents'
+import { Route as AppGroupsRouteImport } from './routes/app.groups'
 import { Route as AppNewsRouteImport } from './routes/app.news'
 import { Route as AppProfileRouteImport } from './routes/app.profile'
 import { Route as TeamShellRouteImport } from './routes/team/_shell'
@@ -103,6 +104,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
 const AppDocumentsRoute = AppDocumentsRouteImport.update({
   id: '/documents',
   path: '/documents',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppGroupsRoute = AppGroupsRouteImport.update({
+  id: '/groups',
+  path: '/groups',
   getParentRoute: () => AppRoute,
 } as any)
 const AppNewsRoute = AppNewsRouteImport.update({
@@ -236,6 +242,7 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/admin/login': typeof AdminLoginRoute
   '/app/documents': typeof AppDocumentsRoute
+  '/app/groups': typeof AppGroupsRoute
   '/app/news': typeof AppNewsRoute
   '/app/profile': typeof AppProfileRoute
   '/team/login': typeof TeamLoginRoute
@@ -271,6 +278,7 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/admin/login': typeof AdminLoginRoute
   '/app/documents': typeof AppDocumentsRoute
+  '/app/groups': typeof AppGroupsRoute
   '/app/news': typeof AppNewsRoute
   '/app/profile': typeof AppProfileRoute
   '/team/login': typeof TeamLoginRoute
@@ -307,6 +315,7 @@ export interface FileRoutesById {
   '/admin/_shell': typeof AdminShellRouteWithChildren
   '/admin/login': typeof AdminLoginRoute
   '/app/documents': typeof AppDocumentsRoute
+  '/app/groups': typeof AppGroupsRoute
   '/app/news': typeof AppNewsRoute
   '/app/profile': typeof AppProfileRoute
   '/team/_shell': typeof TeamShellRouteWithChildren
@@ -346,6 +355,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/admin/login'
     | '/app/documents'
+    | '/app/groups'
     | '/app/news'
     | '/app/profile'
     | '/team/login'
@@ -381,6 +391,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/admin/login'
     | '/app/documents'
+    | '/app/groups'
     | '/app/news'
     | '/app/profile'
     | '/team/login'
@@ -416,6 +427,7 @@ export interface FileRouteTypes {
     | '/admin/_shell'
     | '/admin/login'
     | '/app/documents'
+    | '/app/groups'
     | '/app/news'
     | '/app/profile'
     | '/team/_shell'
@@ -538,6 +550,13 @@ declare module '@tanstack/react-router' {
       path: '/documents'
       fullPath: '/app/documents'
       preLoaderRoute: typeof AppDocumentsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/groups': {
+      id: '/app/groups'
+      path: '/groups'
+      fullPath: '/app/groups'
+      preLoaderRoute: typeof AppGroupsRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/news': {
@@ -755,6 +774,7 @@ const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface AppRouteChildren {
   AppDocumentsRoute: typeof AppDocumentsRoute
+  AppGroupsRoute: typeof AppGroupsRoute
   AppNewsRoute: typeof AppNewsRoute
   AppProfileRoute: typeof AppProfileRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -764,6 +784,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppDocumentsRoute: AppDocumentsRoute,
+  AppGroupsRoute: AppGroupsRoute,
   AppNewsRoute: AppNewsRoute,
   AppProfileRoute: AppProfileRoute,
   AppIndexRoute: AppIndexRoute,

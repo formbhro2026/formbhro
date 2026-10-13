@@ -33,6 +33,45 @@ export function generateCsvContent<T>(columns: CsvColumn<T>[], rows: T[]): strin
   return "\uFEFF" + [headerLine, ...dataLines].join("\r\n");
 }
 
+function triggerBrowserDownload(content: string, filename: string): void {
+  try {
+    const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", filename);
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+
+    // Clean up DOM element and revoke object URL after a safe delay
+    setTimeout(() => {
+      try {
+        if (link.parentNode) link.parentNode.removeChild(link);
+        URL.revokeObjectURL(url);
+      } catch (_) {}
+    }, 60000);
+  } catch (err) {
+    // Data URI fallback for restricted webviews or environments where Blob URLs fail
+    console.warn("[csv-export] Blob URL download failed, falling back to data URI:", err);
+    try {
+      const encodedUri = "data:text/csv;charset=utf-8," + encodeURIComponent(content);
+      const link = document.createElement("a");
+      link.href = encodedUri;
+      link.setAttribute("download", filename);
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        if (link.parentNode) link.parentNode.removeChild(link);
+      }, 5000);
+    } catch (fallbackErr) {
+      console.error("[csv-export] Failed to trigger CSV download:", fallbackErr);
+    }
+  }
+}
+
 export function downloadSimpleCsv(
   filenameBase: string,
   headers: string[],
@@ -41,19 +80,10 @@ export function downloadSimpleCsv(
   const headerLine = headers.map((h) => escapeCsvValue(h)).join(",");
   const dataLines = rows.map((r) => r.map((c) => escapeCsvValue(c)).join(","));
   const content = "\uFEFF" + [headerLine, ...dataLines].join("\r\n");
-  const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
 
   const dateStr = new Date().toISOString().split("T")[0];
   const filename = `${filenameBase}_${dateStr}.csv`;
-
-  const link = document.createElement("a");
-  link.href = url;
-  link.setAttribute("download", filename);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  triggerBrowserDownload(content, filename);
 }
 
 export function downloadCsv<T>(
@@ -61,22 +91,13 @@ export function downloadCsv<T>(
   columnsOrHeaders: CsvColumn<T>[] | string[],
   rows: T[] | unknown[][]
 ): void {
+  const dateStr = new Date().toISOString().split("T")[0];
+  const filename = `${filenameBase}_${dateStr}.csv`;
+
   if (columnsOrHeaders.length > 0 && typeof columnsOrHeaders[0] === "string") {
     downloadSimpleCsv(filenameBase, columnsOrHeaders as string[], rows as unknown[][]);
     return;
   }
   const content = generateCsvContent(columnsOrHeaders as CsvColumn<T>[], rows as T[]);
-  const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-
-  const dateStr = new Date().toISOString().split("T")[0];
-  const filename = `${filenameBase}_${dateStr}.csv`;
-
-  const link = document.createElement("a");
-  link.href = url;
-  link.setAttribute("download", filename);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  triggerBrowserDownload(content, filename);
 }

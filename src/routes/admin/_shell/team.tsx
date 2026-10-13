@@ -21,6 +21,7 @@ import {
   updateTeamMember,
   assignRequestToTeam,
 } from "@/lib/api/admin.functions";
+import { PresenceDot } from "@/components/team/PresenceDot";
 
 export const Route = createFileRoute("/admin/_shell/team")({ component: AdminTeam });
 
@@ -29,6 +30,7 @@ interface TeamPermissions {
   can_manage_team: boolean;
   can_view_analytics: boolean;
   can_delete_messages: boolean;
+  can_post_news: boolean;
 }
 
 function parsePerms(raw: unknown): TeamPermissions {
@@ -37,6 +39,7 @@ function parsePerms(raw: unknown): TeamPermissions {
     can_manage_team: p.can_manage_team ?? false,
     can_view_analytics: p.can_view_analytics ?? false,
     can_delete_messages: p.can_delete_messages ?? false,
+    can_post_news: p.can_post_news ?? true,
   };
 }
 
@@ -53,6 +56,7 @@ const BLANK = {
     can_manage_team: false,
     can_view_analytics: false,
     can_delete_messages: false,
+    can_post_news: true,
   } as TeamPermissions,
 };
 
@@ -266,6 +270,19 @@ function AdminTeam() {
                   />
                   Delete Messages
                 </label>
+                <label className="flex items-center gap-2 text-xs text-text-secondary cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.permissions.can_post_news}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        permissions: { ...form.permissions, can_post_news: e.target.checked },
+                      })
+                    }
+                  />
+                  Post News &amp; Vacancies
+                </label>
               </div>
               <Button type="submit" disabled={busy}>
                 {busy ? "Creating…" : "Create team member"}
@@ -340,9 +357,16 @@ function AdminTeam() {
                     {mineTotal} · {mineDone} done
                   </td>
                   <td className="px-3 py-2.5">
-                    <Pill tone={member.is_active ? "ok" : "bad"}>
-                      {member.is_active ? "Active" : "Suspended"}
-                    </Pill>
+                    <div className="flex items-center gap-2">
+                      <PresenceDot
+                        availability={member.availability_status}
+                        lastSeenAt={(member as any).last_seen_at}
+                        showLabel
+                      />
+                      <Pill tone={member.is_active ? "ok" : "bad"}>
+                        {member.is_active ? "Active" : "Suspended"}
+                      </Pill>
+                    </div>
                   </td>
                   <td className="px-3 py-2.5 text-text-muted">{formatDate(member.created_at)}</td>
                   <td className="px-3 py-2.5 text-right">
@@ -422,23 +446,39 @@ function AdminTeam() {
                 <p className="text-text-secondary">
                   Role: <span className="capitalize">{detailRole}</span>
                 </p>
-                <p className="text-text-secondary">
-                  Status:{" "}
-                  <span className="capitalize">{detail.availability_status ?? "online"}</span>
-                </p>
+                <div className="flex items-center gap-2">
+                  <span className="text-text-secondary">Presence:</span>
+                  <PresenceDot
+                    availability={detail.availability_status}
+                    lastSeenAt={(detail as any).last_seen_at}
+                    showLabel
+                  />
+                </div>
                 <p className="text-text-secondary">Joined: {formatDate(detail.created_at)}</p>
 
                 <div className="pt-2 pb-1">
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-text-muted mb-1">
-                    Permissions
-                  </p>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-text-muted">
+                      Permissions
+                    </p>
+                    {!editPerms && (
+                      <button
+                        type="button"
+                        onClick={() => setEditPerms(parsePerms(detail.permissions))}
+                        className="text-[10px] text-brand hover:underline font-semibold"
+                      >
+                        Edit Permissions
+                      </button>
+                    )}
+                  </div>
                   {editPerms ? (
-                    <div className="space-y-2">
+                    <div className="space-y-2 rounded-lg border border-border-subtle bg-surface-2 p-2.5">
                       {(
                         [
                           ["can_manage_team", "Manage Team"],
                           ["can_view_analytics", "View Analytics"],
                           ["can_delete_messages", "Delete Messages"],
+                          ["can_post_news", "Post News & Vacancies"],
                         ] as const
                       ).map(([key, label]) => (
                         <label
@@ -464,7 +504,7 @@ function AdminTeam() {
                                 updateTeamMember({
                                   data: { id: detail.id, permissions: editPerms },
                                 }),
-                              "Permissions updated.",
+                              "Permissions updated successfully.",
                             ).then(() => setEditPerms(null))
                           }
                         >
@@ -476,7 +516,7 @@ function AdminTeam() {
                       </div>
                     </div>
                   ) : (
-                    <ul className="text-text-secondary list-disc list-inside">
+                    <ul className="text-text-secondary list-disc list-inside space-y-0.5">
                       <li>
                         Manage Team: {parsePerms(detail.permissions).can_manage_team ? "Yes" : "No"}
                       </li>
@@ -487,6 +527,10 @@ function AdminTeam() {
                       <li>
                         Delete Messages:{" "}
                         {parsePerms(detail.permissions).can_delete_messages ? "Yes" : "No"}
+                      </li>
+                      <li>
+                        Post News &amp; Vacancies:{" "}
+                        {parsePerms(detail.permissions).can_post_news ? "Yes" : "No"}
                       </li>
                     </ul>
                   )}

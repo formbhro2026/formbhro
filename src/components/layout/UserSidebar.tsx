@@ -5,6 +5,7 @@ import {
   FileText,
   Newspaper,
   User,
+  Users,
   LifeBuoy,
   LogOut,
   Plus,
@@ -19,6 +20,7 @@ export const NAV_ITEMS = [
   { label: "Home", to: "/app", icon: Home, exact: true },
   { label: "My Chats", to: "/app/chats", icon: MessageSquareText, exact: false },
   { label: "My Documents", to: "/app/documents", icon: FileText, exact: false },
+  { label: "Job Groups", to: "/app/groups", icon: Users, exact: false },
   { label: "News & Updates", to: "/app/news", icon: Newspaper, exact: false },
   { label: "Profile", to: "/app/profile", icon: User, exact: false },
 ] as const;

@@ -14,6 +14,7 @@ import {
   MessageSquareText,
   FileText,
   Tag,
+  AlertTriangle,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,13 @@ export const ADMIN_NAV = [
   { label: "Team Members", to: "/admin/team", icon: UserCog, exact: false },
   { label: "Requests", to: "/admin/requests", icon: Inbox, exact: false },
   { label: "Chats", to: "/admin/chats", icon: MessagesSquare, exact: false },
+  {
+    label: "Escalated Chats",
+    to: "/admin/chats",
+    search: { f: "escalated" as const },
+    icon: AlertTriangle,
+    exact: false,
+  },
   { label: "Templates", to: "/admin/templates", icon: MessageSquareText, exact: false },
   { label: "Announcements", to: "/admin/news", icon: Megaphone, exact: false },
   { label: "Categories", to: "/admin/categories", icon: Tag, exact: false },
@@ -35,30 +43,68 @@ export const ADMIN_NAV = [
 ] as const;
 
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const routerState = useRouterState();
+  const pathname = routerState.location.pathname;
+  const searchStr = routerState.location.searchStr || "";
+
   return (
     <nav className="flex-1 space-y-1 overflow-y-auto px-2 py-3" aria-label="Admin navigation">
-      {ADMIN_NAV.map(({ label, to, icon: Icon, exact }) => {
-        const active = exact ? pathname === to : pathname.startsWith(to);
+      {ADMIN_NAV.map((item) => {
+        const { label, to, icon: Icon, exact } = item;
+        const search = "search" in item ? (item as any).search : undefined;
+        const isEscalatedLink = label === "Escalated Chats";
+        const isRegularChatLink = label === "Chats";
+        const hasEscalatedParam =
+          searchStr.includes("f=escalated") ||
+          (typeof window !== "undefined" && window.location.search.includes("f=escalated"));
+
+        let active = false;
+        if (isEscalatedLink) {
+          active = pathname === "/admin/chats" && hasEscalatedParam;
+        } else if (isRegularChatLink) {
+          active = pathname === "/admin/chats" && !hasEscalatedParam;
+        } else {
+          active = exact ? pathname === to : pathname.startsWith(to);
+        }
+
         return (
           <Link
-            key={to}
+            key={label}
             to={to}
+            search={search}
             onClick={onNavigate}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "flex min-h-10 items-center gap-3 rounded-xl px-3 text-xs font-medium transition-colors duration-200",
+              "flex min-h-10 items-center justify-between rounded-xl px-3 text-xs font-medium transition-colors duration-200",
               active
-                ? "bg-brand/10 text-brand font-semibold"
+                ? isEscalatedLink
+                  ? "bg-amber-500/15 text-amber-400 font-bold border border-amber-500/30 shadow-xs"
+                  : "bg-brand/10 text-brand font-semibold"
                 : "text-text-secondary hover:bg-surface-2 hover:text-text",
             )}
           >
-            <Icon
-              className={cn("h-4 w-4 shrink-0", active ? "text-brand" : "text-text-muted")}
-              strokeWidth={1.75}
-              aria-hidden="true"
-            />
-            <span className="truncate">{label}</span>
+            <div className="flex items-center gap-3 min-w-0">
+              <Icon
+                className={cn(
+                  "h-4 w-4 shrink-0",
+                  active
+                    ? isEscalatedLink
+                      ? "text-amber-400"
+                      : "text-brand"
+                    : isEscalatedLink
+                      ? "text-amber-400/80"
+                      : "text-text-muted",
+                )}
+                strokeWidth={1.75}
+                aria-hidden="true"
+              />
+              <span className="truncate">{label}</span>
+            </div>
+            {isEscalatedLink && (
+              <span className="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-bold text-amber-400">
+                Folder
+              </span>
+            )}
           </Link>
         );
       })}

@@ -83,7 +83,17 @@ function uid(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-export type TeamMember = Omit<TeamAccount, "password">;
+export type TeamPermissions = {
+  can_manage_team?: boolean;
+  can_view_analytics?: boolean;
+  can_delete_messages?: boolean;
+  can_post_news?: boolean;
+  [key: string]: boolean | undefined;
+};
+
+export type TeamMember = Omit<TeamAccount, "password"> & {
+  permissions?: TeamPermissions;
+};
 
 type TeamStore = {
   member: TeamMember | null;
@@ -389,6 +399,19 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       setDocuments(snapshot.documents);
       setNotifications(snapshot.notifications);
       setRoomsVersion((v) => v + 1);
+
+      try {
+        const { data: tm } = await (supabase as any)
+          .from("team_members")
+          .select("permissions")
+          .eq("id", safe.id)
+          .maybeSingle();
+        if (tm?.permissions) {
+          setMember((prev) =>
+            prev ? { ...prev, permissions: tm.permissions as TeamPermissions } : prev,
+          );
+        }
+      } catch (_) {}
     } catch {
       if (!silent) {
         rooms.current = {};
@@ -511,6 +534,22 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     }
   }, [live, member, hydrated, hydrateLive, fetchAnalytics]);
 
+  // Periodic heartbeat keeping team presence (last_seen_at) alive in DB every 30s
+  useEffect(() => {
+    if (!live || !member?.id) return;
+    const sendHeartbeat = async () => {
+      try {
+        await (supabase as any)
+          .from("team_members")
+          .update({ last_seen_at: new Date().toISOString() })
+          .eq("id", member.id);
+      } catch (_) {}
+    };
+    void sendHeartbeat();
+    const interval = setInterval(sendHeartbeat, 30000);
+    return () => clearInterval(interval);
+  }, [live, member?.id]);
+
   const signIn = useCallback(
     async (email: string, password: string, remember: boolean) => {
       try {
@@ -543,6 +582,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           teamId: teamRow?.team_code ?? "FBH-TEAM",
           memberSince: dayLabel(profile?.created_at),
           avatarColor: "#ff7a00",
+          permissions: (teamRow?.permissions as any) ?? {},
         };
 
         setMember(safe);
@@ -600,6 +640,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           teamId: teamRow?.team_code ?? codeClean,
           memberSince: dayLabel(profile?.created_at),
           avatarColor: "#ff7a00",
+          permissions: (teamRow?.permissions as any) ?? {},
         };
 
         setMember(safe);

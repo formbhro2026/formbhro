@@ -7,7 +7,7 @@ import { ACTIVE_STATUSES, type SupportRequest } from "@/data/user-module";
 import { listQuickReplies } from "@/lib/api/notifications";
 import type { QuickReplyRow } from "@/lib/api/types";
 
-const FILTERS = ["All", "Active", "Pending", "Completed"] as const;
+const FILTERS = ["All", "Active", "Waiting for Docs", "Pending", "Completed"] as const;
 type Filter = (typeof FILTERS)[number];
 
 export function ChatList({
@@ -51,6 +51,7 @@ export function ChatList({
       const matchesFilter =
         filter === "All" ||
         (filter === "Active" && ACTIVE_STATUSES.includes(r.status) && r.status !== "pending") ||
+        (filter === "Waiting for Docs" && r.status === "waiting-documents") ||
         (filter === "Pending" && (r.status === "pending" || r.status === "new")) ||
         (filter === "Completed" && r.status === "completed");
       return matchesQuery && matchesFilter;

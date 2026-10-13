@@ -78,7 +78,7 @@ export function WorkFilters({
           id={`${id}-q`}
           value={values.q}
           onChange={(e) => onChange({ q: e.target.value })}
-          placeholder="Search user, request ID, type"
+          placeholder="Search Chat ID, User ID, name, category…"
           className="h-10 w-full rounded-xl border border-border-subtle bg-surface-2 pl-9 pr-3 text-xs text-white placeholder:text-text-muted focus:border-brand/50"
         />
       </div>

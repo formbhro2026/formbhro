@@ -19,6 +19,8 @@ import { useTeamStore } from "@/lib/team-store";
 import { getOrCreateAdminTeamChat } from "@/lib/api/admin-team-chat";
 import { toast } from "sonner";
 
+import { PresenceDot } from "@/components/team/PresenceDot";
+
 export const TEAM_NAV = [
   { label: "Home", to: "/team", icon: Home, exact: true },
   { label: "Work Area", to: "/team/work", icon: Briefcase, exact: false },
@@ -65,7 +67,10 @@ export function TeamSidebar() {
       </div>
 
       <div className="mx-3 mt-3 rounded-xl border border-border-subtle bg-surface-2 px-3 py-2.5">
-        <p className="truncate text-xs font-semibold text-text">{member?.name}</p>
+        <div className="flex items-center justify-between">
+          <p className="truncate text-xs font-semibold text-text">{member?.name}</p>
+          <PresenceDot availability="online" lastSeenAt={new Date().toISOString()} showLabel />
+        </div>
         <p className="mt-0.5 truncate text-[11px] text-text-muted">{member?.role}</p>
       </div>
 

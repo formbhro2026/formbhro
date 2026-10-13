@@ -18,6 +18,7 @@ import {
   LifeBuoy,
   Newspaper,
   Loader2,
+  Users,
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useFillNow } from "@/components/layout/FillNowProvider";
@@ -28,13 +29,18 @@ export function MobileDashboard() {
   const { openFillNow, isStartingChat } = useFillNow();
 
   const announcements = useMemo(() => {
-    return (news ?? []).slice(0, 3).map((n) => ({
+    return (news ?? []).slice(0, 5).map((n) => ({
       id: n.id,
       title: n.title,
       category: n.category,
-      image_url: null,
+      image_url: n.image_url || null,
     }));
   }, [news]);
+
+  const banner = useMemo(() => {
+    if (!announcements.length) return null;
+    return announcements.find((a) => Boolean(a.image_url && a.image_url.trim())) || announcements[0];
+  }, [announcements]);
 
   const recentRequest = requests[0];
   const activeRequest = requests.find((r) => r.status !== "completed");
@@ -89,31 +95,36 @@ export function MobileDashboard() {
       </section>
 
       {/* Announcements / News Section */}
-      {announcements.length > 0 && (
+      {banner && (
         <section className="relative overflow-hidden rounded-2xl bg-surface-2 aspect-[16/7] border border-border-subtle shadow-xl group cursor-pointer">
           <Link to="/app/news" className="absolute inset-0 block">
-            {announcements[0].image_url ? (
+            {banner.image_url ? (
               <img
-                src={announcements[0].image_url}
-                alt={announcements[0].title}
+                src={banner.image_url}
+                alt={banner.title}
                 className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = "none";
+                }}
               />
             ) : (
-              <div className="h-full w-full bg-surface-2" />
+              <div className="h-full w-full bg-gradient-to-br from-surface-2 via-surface-1 to-brand/10 flex items-center justify-end pr-8">
+                <Megaphone className="h-20 w-20 text-brand/20 -rotate-12" />
+              </div>
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-4">
-              <span className="text-[9px] font-bold text-brand uppercase tracking-widest mb-1">
-                {announcements[0].category}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex flex-col justify-end p-4">
+              <span className="text-[10px] font-bold text-brand uppercase tracking-widest mb-1">
+                {banner.category || "Official Announcement"}
               </span>
-              <h2 className="text-sm font-bold leading-tight text-white line-clamp-2">
-                {announcements[0].title}
+              <h2 className="text-sm sm:text-base font-bold leading-tight text-white line-clamp-2">
+                {banner.title}
               </h2>
             </div>
           </Link>
         </section>
       )}
 
-      {announcements.length === 0 && (
+      {!banner && (
         <section className="relative overflow-hidden rounded-2xl bg-surface-2 aspect-[16/7] flex items-center px-6 border border-border-subtle shadow-xl">
           <div className="z-10 max-w-[65%] space-y-2">
             <h2 className="text-lg font-bold leading-tight text-white">Latest Platform Updates</h2>
@@ -243,15 +254,15 @@ export function MobileDashboard() {
         </h3>
         <div className="grid grid-cols-2 gap-3">
           {[
+            { label: "Job Groups", to: "/app/groups", icon: Users },
             { label: "My Chats", to: "/app/chats", icon: MessageSquare },
             { label: "My Documents", to: "/app/documents", icon: FileText },
-            { label: "Updates", to: "/app/news", icon: Newspaper },
-            { label: "Support", to: "/app/profile", hash: "help", icon: LifeBuoy },
+            { label: "News & Updates", to: "/app/news", icon: Newspaper },
           ].map((item, i) => (
             <Link
               key={i}
               to={item.to}
-              className="flex items-center gap-3 rounded-2xl bg-surface-1 border border-border-subtle p-4 active:bg-surface-2 transition-colors group"
+              className="flex items-center gap-3 rounded-2xl bg-surface-1 border border-border-subtle p-3.5 active:bg-surface-2 transition-colors group"
             >
               <div className="h-10 w-10 shrink-0 rounded-xl bg-surface-3 flex items-center justify-center text-text-secondary group-active:text-brand transition-colors">
                 <item.icon className="h-5 w-5" strokeWidth={2} />

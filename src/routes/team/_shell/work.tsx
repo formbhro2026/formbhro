@@ -257,10 +257,15 @@ function matchesDateFilter(r: TeamRequest, range: string, custom: string) {
       if (userFilter && r.userName !== userFilter) return false;
       if (typeFilter && r.category !== typeFilter) return false;
       if (tagFilter && (!r.tags || !r.tags.includes(tagFilter))) return false;
-      if (rid && !r.id.toLowerCase().includes(rid)) return false;
+      if (
+        rid &&
+        !r.id.toLowerCase().includes(rid) &&
+        !(r.requestUuid && r.requestUuid.toLowerCase().includes(rid))
+      )
+        return false;
       if (!matchesDateFilter(r, dateRange, customDate)) return false;
       if (!q) return true;
-      return `${r.userName} ${r.id} ${r.category} ${r.title} ${(r.tags ?? []).join(" ")}`
+      return `${r.userName} ${r.id} ${r.requestUuid ?? ""} ${r.userId ?? ""} ${r.category} ${r.title} ${(r.tags ?? []).join(" ")}`
         .toLowerCase()
         .includes(q);
     });
@@ -913,6 +918,7 @@ function Conversation({
 
   const { member } = useTeamStore();
   const memberId = member?.id || "";
+  const canDeleteMessages = Boolean(member?.permissions?.can_delete_messages);
 
   const failedCount = failedFor(r.id);
   const pinned = pinnedFor(r.id);
@@ -1253,19 +1259,28 @@ function Conversation({
           </div>
         </div>
 
-        {/* Row 2 desktop: status in header row (xl+) */}
-        <div className="hidden xl:block px-3 py-1.5">
-          {unreadCount > 0 && (
-            <button
-              type="button"
-              onClick={() => markRead(r.id)}
-              aria-label={`Mark ${unreadCount} unread ${unreadCount === 1 ? "message" : "messages"} as read`}
-              className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border border-brand/40 bg-brand/10 px-2.5 text-[10px] font-semibold text-brand-light hover:bg-brand/20 mr-2"
-            >
-              <CheckCheck className="h-3.5 w-3.5" aria-hidden="true" />
-              {unreadCount} unread — mark read
-            </button>
-          )}
+        {/* Row 2 desktop: status, transfer, escalate in header row (xl+) */}
+        <div className="hidden xl:flex items-center justify-between gap-3 border-t border-border-subtle/50 px-4 py-2 bg-surface-1/40">
+          <div className="flex items-center gap-2">
+            <div className="w-56">
+              <StatusSelect requestId={r.id} status={r.status} onChange={onStatus} />
+            </div>
+            {unreadCount > 0 && (
+              <button
+                type="button"
+                onClick={() => markRead(r.id)}
+                aria-label={`Mark ${unreadCount} unread ${unreadCount === 1 ? "message" : "messages"} as read`}
+                className="inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full border border-brand/40 bg-brand/10 px-2.5 text-[10px] font-semibold text-brand-light hover:bg-brand/20"
+              >
+                <CheckCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                {unreadCount} unread — mark read
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <TransferButton request={r} />
+            <EscalateButton request={r} />
+          </div>
         </div>
       </header>
 
@@ -1612,21 +1627,28 @@ function Conversation({
                     </div>
                   )}
 
-                  {mine && m.text && editingId !== m.id && (
-                    <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[10px] text-white/80">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditDraft(m.text ?? "");
-                          setEditingId(m.id);
-                        }}
-                        className="inline-flex min-h-7 items-center gap-1 rounded-full px-2 font-semibold hover:bg-white/15"
-                        aria-label="Edit this message"
-                      >
-                        <Pencil className="h-3 w-3" aria-hidden="true" />
-                        Edit
-                      </button>
-                      {m.edited && (
+                  {(mine || canDeleteMessages) && editingId !== m.id && (
+                    <div
+                      className={cn(
+                        "mt-1.5 flex flex-wrap items-center gap-2 text-[10px]",
+                        mine ? "justify-end text-white/80" : "justify-start text-text-muted",
+                      )}
+                    >
+                      {mine && m.text && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditDraft(m.text ?? "");
+                            setEditingId(m.id);
+                          }}
+                          className="inline-flex min-h-7 items-center gap-1 rounded-full px-2 font-semibold hover:bg-white/15"
+                          aria-label="Edit this message"
+                        >
+                          <Pencil className="h-3 w-3" aria-hidden="true" />
+                          Edit
+                        </button>
+                      )}
+                      {mine && m.edited && (
                         <>
                           <button
                             type="button"
@@ -1655,7 +1677,7 @@ function Conversation({
                             await deleteMessage(m.id);
                           }
                         }}
-                        className="inline-flex min-h-7 items-center gap-1 rounded-full px-2 font-semibold hover:bg-red-500/20 text-red-200"
+                        className="inline-flex min-h-7 items-center gap-1 rounded-full px-2 font-semibold hover:bg-red-500/20 text-red-300"
                         aria-label="Delete this message"
                       >
                         <Trash2 className="h-3 w-3" aria-hidden="true" />

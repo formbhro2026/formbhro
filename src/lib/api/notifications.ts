@@ -88,13 +88,27 @@ export async function listNews(): Promise<NewsRow[]> {
 
 /** Admin and authorized team publishing. */
 export async function createNews(input: VacancyInput) {
-  const { data, error } = await supabase.from("news").insert(input as any).select().single();
+  const payload: any = { ...input };
+  if (input.total_vacancies !== undefined && payload.vacancies_count === undefined) {
+    payload.vacancies_count = input.total_vacancies;
+  }
+  if (input.apply_url !== undefined && payload.application_url === undefined) {
+    payload.application_url = input.apply_url;
+  }
+  const { data, error } = await supabase.from("news").insert(payload as any).select().single();
   if (error) throw new ApiError(error.message, error.code);
   return data;
 }
 
 export async function updateNews(id: string, patch: Partial<VacancyInput>) {
-  const { data, error } = await supabase.from("news").update(patch as any).eq("id", id).select().single();
+  const payload: any = { ...patch };
+  if (patch.total_vacancies !== undefined && payload.vacancies_count === undefined) {
+    payload.vacancies_count = patch.total_vacancies;
+  }
+  if (patch.apply_url !== undefined && payload.application_url === undefined) {
+    payload.application_url = patch.apply_url;
+  }
+  const { data, error } = await supabase.from("news").update(payload as any).eq("id", id).select().single();
   if (error) throw new ApiError(error.message, error.code);
   return data;
 }
@@ -110,15 +124,42 @@ export async function listCustomFields(): Promise<CustomFieldRow[]> {
       .from("vacancy_custom_fields")
       .select("*")
       .order("sort_order", { ascending: true });
-    if (!error && data) return data;
+    if (!error && Array.isArray(data)) {
+      return data.map((d: any) => ({
+        id: d.id,
+        field_name: d.field_name || d.name || "",
+        field_label: d.field_label || d.label || "",
+        field_type: (d.field_type === "select" ? "dropdown" : d.field_type) as CustomFieldRow["field_type"],
+        options: Array.isArray(d.options)
+          ? d.options
+          : typeof d.options === "string"
+          ? JSON.parse(d.options)
+          : [],
+        is_required: Boolean(d.is_required),
+        is_filter: d.is_filter !== false,
+        is_active: d.is_active !== false,
+        sort_order: d.sort_order ?? 0,
+      }));
+    }
   } catch (_) {}
   return [];
 }
 
-export async function upsertCustomField(field: Partial<CustomFieldRow>) {
+export async function upsertCustomField(field: Partial<CustomFieldRow> & Record<string, any>) {
+  const row: any = {
+    name: (field.field_name || field.name || "").toLowerCase().replace(/\s+/g, "_"),
+    label: field.field_label || field.label || "",
+    field_type: field.field_type === "dropdown" ? "select" : (field.field_type || "select"),
+    options: Array.isArray(field.options) ? field.options : [],
+    is_required: Boolean(field.is_required),
+    is_filter: field.is_filter !== false,
+    is_active: field.is_active !== false,
+    sort_order: field.sort_order ?? 0,
+  };
+  if (field.id) row.id = field.id;
   const { data, error } = await (supabase as any)
     .from("vacancy_custom_fields")
-    .upsert(field)
+    .upsert(row)
     .select()
     .single();
   if (error) throw new ApiError(error.message, error.code);

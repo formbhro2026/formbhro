@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { ArrowLeft, FileText, Info, Monitor, Phone, Search, Video } from "lucide-react";
 import { canShareScreen } from "@/lib/utils";
 import type { SupportRequest } from "@/data/user-module";
+import { StatusBadge } from "@/components/common/StatusBadge";
 
 export function ChatHeader({
   request,
@@ -39,10 +40,16 @@ export function ChatHeader({
             </div>
           </div>
           <div className="min-w-0">
-            <h1 className="truncate text-[15px] font-bold text-white">{request.title}</h1>
-            <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[10px] text-text-muted font-bold tracking-tight uppercase">
+            <div className="flex items-center gap-2">
+              <h1 className="truncate text-[15px] font-bold text-white">{request.title}</h1>
+              <StatusBadge status={request.status} className="hidden sm:inline-flex py-0.5 text-[10px]" />
+            </div>
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[10px] text-text-muted font-bold tracking-tight uppercase">
               <span className="truncate">{request.assigneeOnline ? "Online" : "Support Team"}</span>
-            </p>
+              <span className="sm:hidden">
+                <StatusBadge status={request.status} className="py-0 px-2 text-[9px]" />
+              </span>
+            </div>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">

@@ -16,7 +16,13 @@ import {
   Zap,
   Download,
   Trash2,
+  History,
+  Copy,
+  Check,
+  RefreshCw,
+  Search,
 } from "lucide-react";
+import { PresenceDot } from "@/components/team/PresenceDot";
 import { downloadCsv } from "@/lib/csv-export";
 import { useAdmin } from "@/lib/admin-store";
 import { Button, Panel, Pill, SearchBox, formatDate, inputClass } from "@/components/admin/AdminUI";
@@ -43,6 +49,9 @@ export const Route = createFileRoute("/admin/_shell/chats")({
     request?: string;
     teamMember?: string;
     type?: "monitor" | "team";
+    f?: "all" | "escalated" | "waiting_documents" | "pending" | "completed";
+    userId?: string;
+    q?: string;
   } => ({
     request: typeof search["request"] === "string" ? (search["request"] as string) : undefined,
     teamMember:
@@ -51,6 +60,16 @@ export const Route = createFileRoute("/admin/_shell/chats")({
       search["type"] === "team" || search["type"] === "monitor"
         ? (search["type"] as "monitor" | "team")
         : undefined,
+    f:
+      search["f"] === "all" ||
+      search["f"] === "escalated" ||
+      search["f"] === "waiting_documents" ||
+      search["f"] === "pending" ||
+      search["f"] === "completed"
+        ? (search["f"] as any)
+        : undefined,
+    userId: typeof search["userId"] === "string" ? (search["userId"] as string) : undefined,
+    q: typeof search["q"] === "string" ? (search["q"] as string) : undefined,
   }),
 });
 
@@ -157,7 +176,89 @@ function AdminChats() {
 
   const [filterTab, setFilterTab] = useState<
     "all" | "escalated" | "waiting_documents" | "pending" | "completed"
-  >("all");
+  >(searchParams.f || "all");
+
+  useEffect(() => {
+    if (searchParams.f) {
+      setFilterTab(searchParams.f);
+    }
+  }, [searchParams.f]);
+
+  useEffect(() => {
+    if (searchParams.userId) {
+      setQ(searchParams.userId);
+    } else if (searchParams.q) {
+      setQ(searchParams.q);
+    }
+  }, [searchParams.userId, searchParams.q]);
+
+  const [userChatHistory, setUserChatHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [copiedText, setCopiedText] = useState<string | null>(null);
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedText(label);
+    toast.success(`Copied ${label}`);
+    setTimeout(() => setCopiedText(null), 2000);
+  };
+
+  useEffect(() => {
+    if (!active?.user_id || chatType !== "monitor") {
+      setUserChatHistory([]);
+      return;
+    }
+    let isMounted = true;
+    setLoadingHistory(true);
+    void (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("requests")
+          .select("id, reference, title, status, created_at, last_activity_at, is_escalated")
+          .eq("user_id", active.user_id)
+          .order("created_at", { ascending: false })
+          .limit(30);
+        if (isMounted) {
+          setLoadingHistory(false);
+          if (!error && data) {
+            setUserChatHistory(data);
+          }
+        }
+      } catch (_) {
+        if (isMounted) setLoadingHistory(false);
+      }
+    })();
+    return () => {
+      isMounted = false;
+    };
+  }, [active?.user_id, chatType]);
+
+  const handleDirectChatSearch = async (term?: string) => {
+    const s = (term ?? q).trim();
+    if (!s) return;
+    try {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+      let query = supabase.from("requests").select("*");
+      if (isUuid) {
+        query = query.or(`id.eq.${s},user_id.eq.${s}`);
+      } else {
+        query = query.or(`reference.ilike.%${s}%,title.ilike.%${s}%`);
+      }
+      const { data } = await query.limit(1).maybeSingle();
+      if (data) {
+        setFetchedActive(data);
+        setActiveId(data.id);
+        void navigate({
+          to: "/admin/chats",
+          search: (prev: any) => ({ ...prev, request: data.id, type: "monitor" }),
+          replace: true,
+        });
+        toast.success(`Found chat ${data.reference || data.id}`);
+      } else {
+        toast.info(`No single chat found directly for "${s}". Showing search results.`);
+      }
+    } catch (_) {}
+  };
 
   // Fetch page for monitor
   useEffect(() => {
@@ -432,12 +533,37 @@ function AdminChats() {
           }
         >
           <div className="mb-3 space-y-2">
-            <SearchBox
-              value={q}
-              onChange={setQ}
-              label="Search chats"
-              placeholder={chatType === "monitor" ? "User ID, Chat ID, Name…" : "Team member, code…"}
-            />
+            <div className="relative">
+              <SearchBox
+                value={q}
+                onChange={setQ}
+                label="Search chats"
+                placeholder={chatType === "monitor" ? "Chat ID, User ID, Name…" : "Team member, code…"}
+              />
+              {chatType === "monitor" && q.trim() && (
+                <button
+                  type="button"
+                  onClick={() => void handleDirectChatSearch()}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-brand px-2 py-1 text-[10px] font-bold text-white hover:bg-brand-dark transition-colors shadow-sm"
+                  title="Direct Search by ID"
+                >
+                  Find ID
+                </button>
+              )}
+            </div>
+
+            {filterTab === "escalated" && chatType === "monitor" && (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5 flex items-center gap-2 text-[11px] text-amber-300">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
+                <div className="min-w-0 flex-1">
+                  <span className="font-bold">Escalated Folder</span>
+                  <span className="text-text-muted ml-1.5 hidden sm:inline">
+                    ({threads.length} escalated {threads.length === 1 ? "chat" : "chats"})
+                  </span>
+                </div>
+              </div>
+            )}
+
             {chatType === "monitor" && (
               <div className="flex items-center justify-between gap-1 pt-1">
                 <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
@@ -565,9 +691,15 @@ function AdminChats() {
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <h3 className="truncate text-xs font-bold text-white">
-                          {profile?.full_name || "Team Member"}
-                        </h3>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <h3 className="truncate text-xs font-bold text-white">
+                            {profile?.full_name || "Team Member"}
+                          </h3>
+                          <PresenceDot
+                            availability={(member as any).availability}
+                            lastSeenAt={(member as any).last_seen_at}
+                          />
+                        </div>
                         <span className="text-[10px] font-mono text-brand font-semibold">
                           {member.team_code}
                         </span>
@@ -760,7 +892,7 @@ function AdminChats() {
                                         }
                                       }
                                     }}
-                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-text-muted hover:text-red-400 p-0.5 rounded"
+                                    className="opacity-70 sm:opacity-0 sm:group-hover:opacity-100 hover:!opacity-100 transition-opacity text-text-muted hover:text-red-400 p-1 rounded"
                                     title="Delete message"
                                   >
                                     <Trash2 className="h-2.5 w-2.5" />
@@ -1033,6 +1165,119 @@ function AdminChats() {
                               </div>
                             </div>
                           </div>
+                        </section>
+
+                        <section className="border-t border-border-subtle pt-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-brand flex items-center gap-1.5">
+                              <History className="h-3.5 w-3.5" /> Previous User Chats ({userChatHistory.length})
+                            </h4>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setQ(active.user_id);
+                                toast.info("Filtering chats for this user ID");
+                              }}
+                              className="text-[10px] font-semibold text-brand hover:underline"
+                              title="Filter main chat list by this user ID"
+                            >
+                              Filter User
+                            </button>
+                          </div>
+
+                          {/* User ID & Chat ID copy shortcuts */}
+                          <div className="mb-3 space-y-1.5 rounded-xl border border-border-subtle bg-surface-2 p-2.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[10px] font-bold text-text-muted">User ID:</span>
+                              <div className="flex items-center gap-1 min-w-0">
+                                <code className="truncate font-mono text-[10px] text-white max-w-[130px]">
+                                  {active.user_id}
+                                </code>
+                                <button
+                                  type="button"
+                                  onClick={() => copyToClipboard(active.user_id, "User ID")}
+                                  className="rounded p-1 text-text-muted hover:text-white hover:bg-surface-3 transition-colors"
+                                  title="Copy User ID"
+                                >
+                                  {copiedText === "User ID" ? (
+                                    <Check className="h-3 w-3 text-emerald-400" />
+                                  ) : (
+                                    <Copy className="h-3 w-3" />
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[10px] font-bold text-text-muted">Chat ID:</span>
+                              <div className="flex items-center gap-1 min-w-0">
+                                <code className="truncate font-mono text-[10px] text-brand font-semibold max-w-[130px]">
+                                  {active.reference || active.id}
+                                </code>
+                                <button
+                                  type="button"
+                                  onClick={() => copyToClipboard(active.reference || active.id, "Chat ID")}
+                                  className="rounded p-1 text-text-muted hover:text-white hover:bg-surface-3 transition-colors"
+                                  title="Copy Chat ID"
+                                >
+                                  {copiedText === "Chat ID" ? (
+                                    <Check className="h-3 w-3 text-emerald-400" />
+                                  ) : (
+                                    <Copy className="h-3 w-3" />
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Previous chats list for this user */}
+                          {loadingHistory ? (
+                            <div className="flex items-center justify-center py-4 text-xs text-text-muted">
+                              <RefreshCw className="h-3.5 w-3.5 animate-spin mr-1.5 text-brand" /> Loading previous chats...
+                            </div>
+                          ) : userChatHistory.length === 0 ? (
+                            <p className="text-[11px] text-text-muted py-2 text-center">
+                              No previous chats found for this user.
+                            </p>
+                          ) : (
+                            <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                              {userChatHistory.map((prevReq) => {
+                                const isCurrent = prevReq.id === active.id;
+                                return (
+                                  <button
+                                    key={prevReq.id}
+                                    type="button"
+                                    onClick={() => handleSelectRequest(prevReq.id)}
+                                    className={cn(
+                                      "w-full text-left rounded-xl border p-2 transition-all block",
+                                      isCurrent
+                                        ? "border-brand bg-brand/10 shadow-xs"
+                                        : "border-border-subtle bg-surface-2 hover:border-border-strong hover:bg-surface-3",
+                                    )}
+                                  >
+                                    <div className="flex items-center justify-between gap-1 mb-1">
+                                      <span className="font-mono text-[10px] font-bold text-text-secondary truncate">
+                                        {prevReq.reference || prevReq.id.slice(0, 8)}
+                                      </span>
+                                      <span className="text-[9px] text-text-muted">
+                                        {formatDate(prevReq.created_at)}
+                                      </span>
+                                    </div>
+                                    <p className="text-xs font-semibold text-white truncate">{prevReq.title}</p>
+                                    <div className="mt-1 flex items-center justify-between gap-1">
+                                      <span className="text-[9px] text-text-muted capitalize">
+                                        {STATUS_LABEL[prevReq.status as DbRequestStatus] || prevReq.status}
+                                      </span>
+                                      {prevReq.is_escalated && (
+                                        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-400">
+                                          <AlertTriangle className="h-2.5 w-2.5" /> Escalated
+                                        </span>
+                                      )}
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
                         </section>
 
                         <section>
