@@ -306,6 +306,23 @@ function AdminNews() {
     }
 
     try {
+      let target = "jobs_updates";
+      let groupId: string | undefined = undefined;
+
+      if (form.category === "Group: jobs-update") {
+        target = "group";
+        groupId = "jobs-update";
+      } else if (form.category === "Group: hidden-jobs-update") {
+        target = "group";
+        groupId = "hidden-jobs-update";
+      }
+
+      const customFieldsPayload = {
+        ...form.custom_fields,
+        target,
+        ...(groupId ? { group_id: groupId } : {}),
+      };
+
       await notificationsApi.createNews({
         title: form.title.trim(),
         description: form.description.trim(),
@@ -321,7 +338,7 @@ function AdminNews() {
         application_last_date: form.application_last_date || null,
         total_vacancies: form.vacancies_count ? parseInt(form.vacancies_count, 10) : null,
         apply_url: form.application_url.trim() || undefined,
-        custom_fields: form.custom_fields,
+        custom_fields: customFieldsPayload,
       });
 
       setForm({
@@ -379,6 +396,23 @@ function AdminNews() {
     }
 
     try {
+      let target = "jobs_updates";
+      let groupId: string | undefined = undefined;
+
+      if (editingItem.category === "Group: jobs-update") {
+        target = "group";
+        groupId = "jobs-update";
+      } else if (editingItem.category === "Group: hidden-jobs-update") {
+        target = "group";
+        groupId = "hidden-jobs-update";
+      }
+
+      const customFieldsPayload = {
+        ...(editingItem.custom_fields || {}),
+        target,
+        ...(groupId ? { group_id: groupId } : {}),
+      };
+
       await notificationsApi.updateNews(editingItem.id, {
         title: editingItem.title.trim(),
         description: editingItem.description.trim(),
@@ -394,7 +428,7 @@ function AdminNews() {
         application_last_date: editingItem.application_last_date || null,
         total_vacancies: editingItem.vacancies_count ? parseInt(String(editingItem.vacancies_count), 10) : null,
         apply_url: editingItem.application_url?.trim() || undefined,
-        custom_fields: editingItem.custom_fields,
+        custom_fields: customFieldsPayload,
       });
       setEditingItem(null);
       await refresh();
@@ -483,16 +517,17 @@ function AdminNews() {
           </div>
         )}
         <form onSubmit={(e) => void submit(e)} className="space-y-3">
-          <Field label="Post Group / Category">
+          <Field label="Publish Destination / Channel *">
             <select
               className={inputClass}
               value={form.category}
               onChange={(e) => setForm({ ...form, category: e.target.value })}
             >
-              <option value="Jobs Update">Jobs Update (Official Govt Vacancies)</option>
-              <option value="Hidden Jobs Update">Hidden Jobs Update (Special / Off-Campus)</option>
-              <option value="Service Announcement">Service Announcement</option>
-              <option value="General Notice">General Notice</option>
+              <option value="Jobs Update">Jobs Updates Section (Public Vacancies Feed - /app/news)</option>
+              <option value="Group: jobs-update">Jobs Update Group (Dedicated Group Feed Only - /app/groups)</option>
+              <option value="Group: hidden-jobs-update">Hidden Jobs Update Group (Dedicated Group Feed Only - /app/groups)</option>
+              <option value="Service Announcement">Service Announcement (Public)</option>
+              <option value="General Notice">General Notice (Public)</option>
             </select>
           </Field>
 
@@ -986,16 +1021,17 @@ function AdminNews() {
             </div>
 
             <form onSubmit={(e) => void handleEditSubmit(e)} className="space-y-3">
-              <Field label="Category / Group">
+              <Field label="Publish Destination / Channel *">
                 <select
                   className={inputClass}
                   value={editingItem.category}
                   onChange={(e) => setEditingItem({ ...editingItem, category: e.target.value })}
                 >
-                  <option value="Jobs Update">Jobs Update</option>
-                  <option value="Hidden Jobs Update">Hidden Jobs Update</option>
-                  <option value="Service Announcement">Service Announcement</option>
-                  <option value="General Notice">General Notice</option>
+                  <option value="Jobs Update">Jobs Updates Section (Public Vacancies Feed - /app/news)</option>
+                  <option value="Group: jobs-update">Jobs Update Group (Dedicated Group Feed Only - /app/groups)</option>
+                  <option value="Group: hidden-jobs-update">Hidden Jobs Update Group (Dedicated Group Feed Only - /app/groups)</option>
+                  <option value="Service Announcement">Service Announcement (Public)</option>
+                  <option value="General Notice">General Notice (Public)</option>
                 </select>
               </Field>
 

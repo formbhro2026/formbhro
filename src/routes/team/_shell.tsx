@@ -16,7 +16,7 @@ function TeamShell() {
 
   // Presence heartbeat for team member
   useEffect(() => {
-    if (!member) return;
+    if (!member?.id) return;
 
     // Mark online immediately
     void updateTeamPresence("online").catch(() => undefined);
@@ -46,7 +46,7 @@ function TeamShell() {
       window.removeEventListener("beforeunload", handleBeforeUnload);
       void updateTeamPresence("offline").catch(() => undefined);
     };
-  }, [member]);
+  }, [member?.id]);
 
   if (!hydrated || !member) {
     return (

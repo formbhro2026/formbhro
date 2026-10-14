@@ -24,6 +24,8 @@ import {
   Bell,
   Clock,
   Info,
+  HelpCircle,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -53,7 +55,7 @@ export const Route = createFileRoute("/app/groups")({
 });
 
 function UserJobGroups() {
-  const { news } = useUserStore();
+  const { news, createRequest, requests } = useUserStore();
   const searchParams = Route.useSearch();
   const navigate = useNavigate();
 
@@ -69,6 +71,7 @@ function UserJobGroups() {
   const [sortBy, setSortBy] = useState<"newest" | "deadline">("newest");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [applyingId, setApplyingId] = useState<string | null>(null);
 
   // Helper to enter a group
   const handleOpenGroup = (groupId: JobGroupId) => {
@@ -97,29 +100,73 @@ function UserJobGroups() {
     setFiltersOpen(false);
   };
 
-  // Items belonging to the active group
+  const handleApplyWithFormbhro = async (item: NewsItem) => {
+    if (applyingId) return;
+    setApplyingId(item.id);
+    try {
+      const title = `Apply for: ${item.title}`;
+      const category = item.organization || item.category || "Job Application";
+
+      const activeReq = (requests ?? []).find(
+        (r) => r.status !== "completed" && r.status !== "cancelled" && r.status !== "closed",
+      );
+
+      if (activeReq) {
+        toast.info("Opening your active conversation with the Formbhro team.");
+        void navigate({
+          to: "/app/chats/$requestId",
+          params: { requestId: activeReq.id },
+        });
+        return;
+      }
+
+      const newReq = await createRequest(title, category);
+      toast.success(`Application chat opened for ${item.title}!`);
+      void navigate({
+        to: "/app/chats/$requestId",
+        params: { requestId: newReq.id },
+      });
+    } catch (err: any) {
+      if (
+        err?.message?.includes("ACTIVE_REQUEST_LIMIT_EXCEEDED") ||
+        err?.message?.includes("requests_one_active_per_user")
+      ) {
+        toast.info("Opening your active conversation with the Formbhro team.");
+        void navigate({ to: "/app/chats" });
+      } else {
+        toast.error(err?.message || "Failed to start chat. Opening chats list.");
+        void navigate({ to: "/app/chats" });
+      }
+    } finally {
+      setApplyingId(null);
+    }
+  };
+
+  // Items belonging strictly to the active group (Requirement 4: Completely separate feeds)
   const groupItems = useMemo(() => {
     if (!activeGroupId) return [];
     return (news ?? []).filter((item) => {
       const cat = (item.category || "").toLowerCase();
+      const target = (item.custom_fields as any)?.target;
+      const groupId = (item.custom_fields as any)?.group_id;
+
       if (activeGroupId === "jobs-update") {
-        // Matches Jobs Update group or general government vacancies
         return (
-          cat.includes("jobs update") ||
-          cat.includes("job") ||
-          cat.includes("vacancy") ||
-          cat.includes("recruitment") ||
-          (!cat.includes("hidden") && !cat.includes("internal"))
+          cat === "group: jobs-update" ||
+          cat === "jobs update group" ||
+          (target === "group" && groupId === "jobs-update") ||
+          groupId === "jobs-update"
         );
-      } else {
-        // Matches Hidden Jobs Update group
+      } else if (activeGroupId === "hidden-jobs-update") {
         return (
+          cat === "group: hidden-jobs-update" ||
+          cat === "hidden jobs update" ||
           cat.includes("hidden") ||
-          cat.includes("private") ||
-          cat.includes("off-campus") ||
-          cat.includes("special")
+          (target === "group" && groupId === "hidden-jobs-update") ||
+          groupId === "hidden-jobs-update"
         );
       }
+      return false;
     });
   }, [news, activeGroupId]);
 
@@ -555,11 +602,11 @@ function UserJobGroups() {
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-border-subtle/50">
                       <span className="text-[10px] text-text-muted">
                         Published {item.date} • Verified by Formbhro
                       </span>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         {item.apply_url && (
                           <a
                             href={item.apply_url}
@@ -580,6 +627,24 @@ function UserJobGroups() {
                             Notification PDF
                           </a>
                         )}
+                        <button
+                          type="button"
+                          disabled={applyingId === item.id}
+                          onClick={() => void handleApplyWithFormbhro(item)}
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-brand/40 bg-brand/10 px-3.5 py-1.5 text-xs font-bold text-brand-light hover:bg-brand/20 active:scale-95 transition-all disabled:opacity-60 cursor-pointer"
+                        >
+                          {applyingId === item.id ? (
+                            <>
+                              <Loader2 className="h-3.5 w-3.5 animate-spin text-brand" />
+                              <span>Connecting...</span>
+                            </>
+                          ) : (
+                            <>
+                              <HelpCircle className="h-3.5 w-3.5 text-brand" />
+                              <span>Apply with Formbhro</span>
+                            </>
+                          )}
+                        </button>
                       </div>
                     </div>
                   </article>
@@ -641,9 +706,24 @@ function UserJobGroups() {
           {JOB_GROUPS.map((group) => {
             const count = (news ?? []).filter((n) => {
               const c = (n.category || "").toLowerCase();
-              return group.id === "jobs-update"
-                ? c.includes("job") || c.includes("vacancy") || !c.includes("hidden")
-                : c.includes("hidden") || c.includes("special") || c.includes("off-campus");
+              const target = (n.custom_fields as any)?.target;
+              const gId = (n.custom_fields as any)?.group_id;
+              if (group.id === "jobs-update") {
+                return (
+                  c === "group: jobs-update" ||
+                  c === "jobs update group" ||
+                  (target === "group" && gId === "jobs-update") ||
+                  gId === "jobs-update"
+                );
+              } else {
+                return (
+                  c === "group: hidden-jobs-update" ||
+                  c === "hidden jobs update" ||
+                  c.includes("hidden") ||
+                  (target === "group" && gId === "hidden-jobs-update") ||
+                  gId === "hidden-jobs-update"
+                );
+              }
             }).length;
 
             const isHiddenGroup = group.id === "hidden-jobs-update";

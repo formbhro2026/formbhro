@@ -387,7 +387,8 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
 
   /** Replaces the demo seed with live backend records for the signed-in member. */
   const hydrateLive = useCallback(async (safe: TeamMember, silent = false) => {
-    if (!silent) setLoading(true);
+    // Only show full skeleton loader on fresh cold start when no requests are in memory
+    if (!silent && requestsRef.current.length === 0) setLoading(true);
     try {
       const snapshot = await loadTeamSnapshot(safe.id, safe.name);
       rooms.current = snapshot.rooms;
@@ -407,13 +408,17 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           .eq("id", safe.id)
           .maybeSingle();
         if (tm?.permissions) {
-          setMember((prev) =>
-            prev ? { ...prev, permissions: tm.permissions as TeamPermissions } : prev,
-          );
+          setMember((prev) => {
+            if (!prev) return prev;
+            if (JSON.stringify(prev.permissions ?? {}) === JSON.stringify(tm.permissions ?? {})) {
+              return prev;
+            }
+            return { ...prev, permissions: tm.permissions as TeamPermissions };
+          });
         }
       } catch (_) {}
     } catch {
-      if (!silent) {
+      if (!silent && requestsRef.current.length === 0) {
         rooms.current = {};
         refByRequestId.current = {};
         setRequests([]);
@@ -425,7 +430,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         setRoomsVersion((v) => v + 1);
       }
     } finally {
-      if (!silent) setLoading(false);
+      setLoading(false);
     }
   }, []);
 
@@ -512,8 +517,8 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
   }, [requestsLoadingMore, requestsHasMore, requestsPage]);
 
   useEffect(() => {
-    if (live && member) {
-      void hydrateLive(member);
+    if (live && member?.id) {
+      void hydrateLive(member, requestsRef.current.length > 0);
       fetchAnalytics();
       // Request browser notification permission so new-message alerts can fire
       if (typeof Notification !== "undefined" && Notification.permission === "default") {
@@ -523,8 +528,10 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       const handleVisibilityChange = () => {
         if (document.visibilityState === "visible") {
           // Silent refresh on app resume to keep existing UI displayed without full-screen loading flash
-          void hydrateLive(member, true);
-          fetchAnalytics();
+          if (memberRef.current) {
+            void hydrateLive(memberRef.current, true);
+            fetchAnalytics();
+          }
         }
       };
       document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -532,7 +539,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     } else if (hydrated && !member) {
       setLoading(false);
     }
-  }, [live, member, hydrated, hydrateLive, fetchAnalytics]);
+  }, [live, member?.id, hydrated, fetchAnalytics, hydrateLive]);
 
   // Periodic heartbeat keeping team presence (last_seen_at) alive in DB every 30s
   useEffect(() => {
@@ -1494,9 +1501,70 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     [messages],
   );
 
-  // Live layer: new messages, documents and request changes stream in.
+  // Dedicated subscription to requests table (independent of individual room changes)
   useEffect(() => {
-    if (!live || !member) return;
+    if (!live || !member?.id) return;
+    const memberId = member.id;
+    const offRequests = subscribeToRequests((row) => {
+      // Internal Admin direct chats are isolated in /team/admin-chat and never enter Work requests
+      if (
+        row.category === "Team Direct Report" ||
+        (row.reference && row.reference.startsWith("ADM-TM")) ||
+        (row.title && row.title.toLowerCase().startsWith("direct chat"))
+      ) {
+        return;
+      }
+
+      const ref = row.reference || row.id;
+      if (row.id) {
+        refByRequestId.current[row.id] = ref;
+        // Asynchronously register new chat room and bump version to attach realtime listener
+        if (!rooms.current[ref]?.chatRoomId || !rooms.current[row.id]?.chatRoomId) {
+          void requestsApi
+            .getOrCreateChatRoom(row.id)
+            .then((rm) => {
+              if (rm?.id) {
+                rooms.current[ref] = { requestId: row.id, chatRoomId: rm.id };
+                rooms.current[row.id] = { requestId: row.id, chatRoomId: rm.id };
+                setRoomsVersion((v) => v + 1);
+              }
+            })
+            .catch(() => undefined);
+        }
+      }
+
+      setRequests((prev) => {
+        // If it's assigned to someone else (not null and not this member), remove it from the pool.
+        if (row.assigned_team_id !== null && row.assigned_team_id !== memberId) {
+          return prev.filter((r) => r.id !== (row.reference || row.id));
+        }
+
+        const mapped = mapTeamRequest(
+          row,
+          memberId,
+          prev.find((r) => r.id === (row.reference || row.id))?.userName ?? "User",
+        );
+        const exists = prev.some((r) => r.id === mapped.id || (row.id && r.id === row.id));
+        const next = exists
+          ? prev.map((r) =>
+              r.id === mapped.id || (row.id && r.id === row.id)
+                ? { ...mapped, unread: r.unread, timeline: r.timeline }
+                : r,
+            )
+          : [{ ...mapped }, ...prev];
+        return next.length > 500 ? next.slice(0, 500) : next;
+      });
+    });
+
+    return () => {
+      offRequests();
+    };
+  }, [live, member?.id]);
+
+  // Live layer: subscribe to known room channels for messages and documents
+  useEffect(() => {
+    if (!live || !member?.id) return;
+    const memberName = member.name;
     const entries = Object.entries(rooms.current).filter(([, r]) => r.chatRoomId);
     const offs = entries.map(([reference, room]) =>
       subscribeToRoom(room.chatRoomId as string, {
@@ -1504,7 +1572,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           const isUserMsg = row.sender_role === "user";
           setMessages((prev) => {
             if (prev.some((m) => m.id === row.id)) return prev;
-            return [...prev, mapTeamMessage(row, reference, member.name)];
+            return [...prev, mapTeamMessage(row, reference, memberName)];
           });
 
           // Synchronize requests list in real time
@@ -1557,7 +1625,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         onMessageUpdate: (row) => {
           setMessages((prev) =>
             prev.map((m) =>
-              m.id === row.id ? { ...m, ...mapTeamMessage(row, reference, member.name) } : m,
+              m.id === row.id ? { ...m, ...mapTeamMessage(row, reference, memberName) } : m,
             ),
           );
         },
@@ -1586,65 +1654,15 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         },
       }),
     );
-    const offRequests = subscribeToRequests((row) => {
-      // Internal Admin direct chats are isolated in /team/admin-chat and never enter Work requests
-      if (
-        row.category === "Team Direct Report" ||
-        (row.reference && row.reference.startsWith("ADM-TM")) ||
-        (row.title && row.title.toLowerCase().startsWith("direct chat"))
-      ) {
-        return;
-      }
 
-      const ref = row.reference || row.id;
-      if (row.id) {
-        refByRequestId.current[row.id] = ref;
-        // Asynchronously register new chat room and bump version to attach realtime listener
-        if (!rooms.current[ref]?.chatRoomId || !rooms.current[row.id]?.chatRoomId) {
-          void requestsApi
-            .getOrCreateChatRoom(row.id)
-            .then((rm) => {
-              if (rm?.id) {
-                rooms.current[ref] = { requestId: row.id, chatRoomId: rm.id };
-                rooms.current[row.id] = { requestId: row.id, chatRoomId: rm.id };
-                setRoomsVersion((v) => v + 1);
-              }
-            })
-            .catch(() => undefined);
-        }
-      }
-
-      setRequests((prev) => {
-        // If it's assigned to someone else (not null and not this member), remove it from the pool.
-        if (row.assigned_team_id !== null && row.assigned_team_id !== member.id) {
-          return prev.filter((r) => r.id !== (row.reference || row.id));
-        }
-
-        const mapped = mapTeamRequest(
-          row,
-          member.id,
-          prev.find((r) => r.id === (row.reference || row.id))?.userName ?? "User",
-        );
-        const exists = prev.some((r) => r.id === mapped.id || (row.id && r.id === row.id));
-        const next = exists
-          ? prev.map((r) =>
-              r.id === mapped.id || (row.id && r.id === row.id)
-                ? { ...mapped, unread: r.unread, timeline: r.timeline }
-                : r,
-            )
-          : [{ ...mapped }, ...prev];
-        return next.length > 500 ? next.slice(0, 500) : next;
-      });
-    });
     return () => {
       offs.forEach((off) => off());
-      offRequests();
     };
-  }, [live, member, roomsVersion, startTyping]);
+  }, [live, member?.id, roomsVersion, startTyping]);
 
   // Active chat dedicated realtime streaming listener
   useEffect(() => {
-    if (!live || !member) return;
+    if (!live || !member?.id) return;
     let unsubActive: (() => void) | null = null;
     let alive = true;
 
@@ -1670,7 +1688,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
             const existingIds = new Set(prev.map((m) => m.id));
             const newMsgs = msgs
               .filter((m) => !existingIds.has(m.id))
-              .map((m) => mapTeamMessage(m, ref || target, memberRef.current?.name ?? member.name));
+              .map((m) => mapTeamMessage(m, ref || target, memberRef.current?.name ?? "Team Member"));
             return newMsgs.length ? [...prev, ...newMsgs] : prev;
           });
 
@@ -1703,13 +1721,13 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           onMessage: (row) => {
             setMessages((prev) => {
               if (prev.some((m) => m.id === row.id)) return prev;
-              return [...prev, mapTeamMessage(row, ref || target, member.name)];
+              return [...prev, mapTeamMessage(row, ref || target, memberRef.current?.name ?? "Team Member")];
             });
           },
           onMessageUpdate: (row) => {
             setMessages((prev) =>
               prev.map((m) =>
-                m.id === row.id ? { ...m, ...mapTeamMessage(row, ref || target, member.name) } : m,
+                m.id === row.id ? { ...m, ...mapTeamMessage(row, ref || target, memberRef.current?.name ?? "Team Member") } : m,
               ),
             );
           },
@@ -1734,11 +1752,11 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       unsubChange();
       if (unsubActive) unsubActive();
     };
-  }, [live, member, startTyping]);
+  }, [live, member?.id, startTyping]);
 
   // Live notification centre: new rows stream straight into the bell.
   useEffect(() => {
-    if (!live || !member) return;
+    if (!live || !member?.id) return;
     return subscribeToMyNotifications(member.id, (row) => {
       setNotifications((prev) =>
         prev.some((n) => n.id === row.id)
@@ -1787,7 +1805,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         }
       }
     });
-  }, [live, member]);
+  }, [live, member?.id]);
 
   const unreadFor = useCallback(
     (requestId: string) => unreadByRequest[requestId] ?? 0,

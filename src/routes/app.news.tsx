@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   Newspaper,
   Share2,
@@ -17,6 +17,7 @@ import {
   HelpCircle,
   AlertCircle,
   Sparkles,
+  Loader2,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { UserHeader } from "@/components/layout/UserHeader";
@@ -109,8 +110,10 @@ function getStatusBadge(status: "live" | "upcoming" | "closed" | "expired") {
 }
 
 function NewsUpdates() {
-  const { news } = useUserStore();
+  const { news, createRequest, requests } = useUserStore();
+  const navigate = useNavigate();
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [applyingId, setApplyingId] = useState<string | null>(null);
 
   // Search & Filters state
   const [q, setQ] = useState("");
@@ -137,12 +140,65 @@ function NewsUpdates() {
     setSortBy("newest");
   };
 
+  const handleApplyWithFormbhro = async (item: NewsItem) => {
+    if (applyingId) return;
+    setApplyingId(item.id);
+    try {
+      const title = `Apply for: ${item.title}`;
+      const category = item.organization || item.category || "Job Application";
+
+      // Check if user already has an active pending/in-progress chat
+      const activeReq = (requests ?? []).find(
+        (r) => r.status !== "completed" && r.status !== "cancelled" && r.status !== "closed",
+      );
+
+      if (activeReq) {
+        toast.info("Opening your active conversation with the Formbhro team.");
+        void navigate({
+          to: "/app/chats/$requestId",
+          params: { requestId: activeReq.id },
+        });
+        return;
+      }
+
+      const newReq = await createRequest(title, category);
+      toast.success(`Application chat opened for ${item.title}!`);
+      void navigate({
+        to: "/app/chats/$requestId",
+        params: { requestId: newReq.id },
+      });
+    } catch (err: any) {
+      if (
+        err?.message?.includes("ACTIVE_REQUEST_LIMIT_EXCEEDED") ||
+        err?.message?.includes("requests_one_active_per_user")
+      ) {
+        toast.info("Opening your active conversation with the Formbhro team.");
+        void navigate({ to: "/app/chats" });
+      } else {
+        toast.error(err?.message || "Failed to start chat. Opening chats list.");
+        void navigate({ to: "/app/chats" });
+      }
+    } finally {
+      setApplyingId(null);
+    }
+  };
+
   // Filtered & sorted vacancy list
   const filteredList = useMemo(() => {
     const term = q.trim().toLowerCase();
     const ageNum = userAge ? parseInt(userAge, 10) : null;
 
     let items = news.filter((item) => {
+      // CRITICAL REQUIREMENT 4: Keep Groups and Jobs Updates Completely Separate!
+      // Any update posted inside a particular group appears only inside that group.
+      // Jobs Updates section displays only job notifications published specifically in Jobs Updates.
+      const cat = (item.category || "").toLowerCase();
+      const target = (item.custom_fields as any)?.target;
+      const groupId = (item.custom_fields as any)?.group_id;
+      if (cat.startsWith("group:") || target === "group" || groupId) {
+        return false;
+      }
+
       const computedStatus = computeVacancyStatus(item);
 
       // Search term
@@ -602,14 +658,24 @@ function NewsUpdates() {
                       )}
                     </div>
 
-                    <Link
-                      to="/app/chat"
-                      search={{ q: `Need help filling ${item.title}` }}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-brand/30 bg-brand/10 px-3.5 py-2 text-xs font-bold text-brand-light hover:bg-brand/20 transition-colors"
+                    <button
+                      type="button"
+                      disabled={applyingId === item.id}
+                      onClick={() => void handleApplyWithFormbhro(item)}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-brand/40 bg-brand/10 px-3.5 py-2 text-xs font-bold text-brand-light hover:bg-brand/20 active:scale-95 transition-all disabled:opacity-60 cursor-pointer"
                     >
-                      <HelpCircle className="h-3.5 w-3.5" />
-                      <span>Apply with Formbhro</span>
-                    </Link>
+                      {applyingId === item.id ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-brand" />
+                          <span>Connecting...</span>
+                        </>
+                      ) : (
+                        <>
+                          <HelpCircle className="h-3.5 w-3.5 text-brand" />
+                          <span>Apply with Formbhro</span>
+                        </>
+                      )}
+                    </button>
                   </div>
                 </article>
               );

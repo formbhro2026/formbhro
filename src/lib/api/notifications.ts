@@ -86,6 +86,73 @@ export async function listNews(): Promise<NewsRow[]> {
   return data ?? [];
 }
 
+/** Fetches public job vacancy notifications strictly for the Jobs Updates section (excludes all groups). */
+export async function listJobsUpdates(limit = 100): Promise<NewsRow[]> {
+  try {
+    const { data, error } = await (supabase as any).rpc("get_public_job_updates", { p_limit: limit });
+    if (!error && data) return data;
+  } catch (_) {}
+
+  // Fallback: direct table query with strict filter
+  const { data, error } = await supabase
+    .from("news")
+    .select("*")
+    .eq("published", true)
+    .order("published_at", { ascending: false })
+    .limit(limit);
+  if (error) throw new ApiError(error.message, error.code);
+  return (data ?? []).filter((item: any) => {
+    const cat = (item.category || "").toLowerCase();
+    const target = item.custom_fields?.target;
+    const groupId = item.custom_fields?.group_id;
+    return !cat.startsWith("group:") && target !== "group" && !groupId;
+  });
+}
+
+/** Fetches updates targeted strictly to a specific group channel. */
+export async function listGroupUpdates(
+  groupId: "jobs-update" | "hidden-jobs-update",
+  limit = 100
+): Promise<NewsRow[]> {
+  try {
+    const { data, error } = await (supabase as any).rpc("get_group_feed", {
+      p_group_id: groupId,
+      p_limit: limit,
+    });
+    if (!error && data) return data;
+  } catch (_) {}
+
+  // Fallback: direct table query with strict group filter
+  const { data, error } = await supabase
+    .from("news")
+    .select("*")
+    .eq("published", true)
+    .order("published_at", { ascending: false })
+    .limit(limit);
+  if (error) throw new ApiError(error.message, error.code);
+  return (data ?? []).filter((item: any) => {
+    const cat = (item.category || "").toLowerCase();
+    const target = item.custom_fields?.target;
+    const itemGroupId = item.custom_fields?.group_id;
+    if (groupId === "jobs-update") {
+      return (
+        cat === "group: jobs-update" ||
+        cat === "jobs update group" ||
+        (target === "group" && itemGroupId === "jobs-update") ||
+        itemGroupId === "jobs-update"
+      );
+    } else {
+      return (
+        cat === "group: hidden-jobs-update" ||
+        cat === "hidden jobs update" ||
+        cat.includes("hidden") ||
+        (target === "group" && itemGroupId === "hidden-jobs-update") ||
+        itemGroupId === "hidden-jobs-update"
+      );
+    }
+  });
+}
+
 /** Admin and authorized team publishing. */
 export async function createNews(input: VacancyInput) {
   const payload: any = { ...input };

@@ -203,10 +203,29 @@ function TeamNewsAndVacancies() {
   // Filtered Vacancies List
   const filteredVacancies = useMemo(() => {
     return vacancies.filter((item) => {
-      // Group filter
+      // Channel filter
       if (vacancyGroupFilter !== "all") {
-        if ((item.category || "").toLowerCase() !== vacancyGroupFilter.toLowerCase()) {
-          return false;
+        const cat = (item.category || "").toLowerCase();
+        const target = (item.custom_fields as any)?.target;
+        const groupId = (item.custom_fields as any)?.group_id;
+
+        if (vacancyGroupFilter === "jobs_updates") {
+          if (cat.startsWith("group:") || target === "group" || groupId) return false;
+        } else if (vacancyGroupFilter === "jobs-update") {
+          const match =
+            cat === "group: jobs-update" ||
+            cat === "jobs update group" ||
+            (target === "group" && groupId === "jobs-update") ||
+            groupId === "jobs-update";
+          if (!match) return false;
+        } else if (vacancyGroupFilter === "hidden-jobs-update") {
+          const match =
+            cat === "group: hidden-jobs-update" ||
+            cat === "hidden jobs update" ||
+            cat.includes("hidden") ||
+            (target === "group" && groupId === "hidden-jobs-update") ||
+            groupId === "hidden-jobs-update";
+          if (!match) return false;
         }
       }
       // Status filter
@@ -364,6 +383,23 @@ function TeamNewsAndVacancies() {
 
     setPublishingVacancy(true);
     try {
+      let target = "jobs_updates";
+      let groupId: string | undefined = undefined;
+
+      if (vacancyForm.category === "Group: jobs-update") {
+        target = "group";
+        groupId = "jobs-update";
+      } else if (vacancyForm.category === "Group: hidden-jobs-update") {
+        target = "group";
+        groupId = "hidden-jobs-update";
+      }
+
+      const customPayload = {
+        ...vacancyForm.custom_fields,
+        target,
+        ...(groupId ? { group_id: groupId } : {}),
+      };
+
       await notificationsApi.createNews({
         title: vacancyForm.title.trim(),
         description: vacancyForm.description.trim(),
@@ -379,10 +415,10 @@ function TeamNewsAndVacancies() {
         total_vacancies: vacancyForm.vacancies_count ? parseInt(vacancyForm.vacancies_count, 10) : null,
         apply_url: vacancyForm.application_url.trim() || undefined,
         image_url: vacancyForm.image_url.trim() || undefined,
-        custom_fields: vacancyForm.custom_fields,
+        custom_fields: customPayload,
       });
 
-      toast.success(`Published to "${vacancyForm.category}" group! Users can now search and apply.`);
+      toast.success(`Published to "${vacancyForm.category}"! It will appear exclusively in that channel.`);
       setShowVacancyModal(false);
       setVacancyForm({
         category: "Jobs Update",
@@ -570,15 +606,16 @@ function TeamNewsAndVacancies() {
                 />
               </div>
 
-              {/* Group filter */}
+              {/* Channel filter */}
               <select
                 className="rounded-xl border border-border-subtle bg-surface-2 px-3 py-1.5 text-xs text-white outline-none focus:border-brand/40"
                 value={vacancyGroupFilter}
                 onChange={(e) => setVacancyGroupFilter(e.target.value)}
               >
-                <option value="all">All Groups</option>
-                <option value="Jobs Update">Jobs Update</option>
-                <option value="Hidden Jobs Update">Hidden Jobs Update</option>
+                <option value="all">All Channels</option>
+                <option value="jobs_updates">Jobs Updates Section (/app/news)</option>
+                <option value="jobs-update">Jobs Update Group (/app/groups)</option>
+                <option value="hidden-jobs-update">Hidden Jobs Update Group (/app/groups)</option>
               </select>
 
               {/* Qualification filter */}
@@ -843,18 +880,19 @@ function TeamNewsAndVacancies() {
               </div>
 
               <form onSubmit={handlePublishVacancy} className="space-y-3">
-                {/* Target Group Selector */}
+                {/* Target Channel Selector */}
                 <div>
                   <label className="block text-xs font-semibold text-text-secondary mb-1">
-                    Select Target Job Group *
+                    Select Target Publishing Channel *
                   </label>
                   <select
                     className="w-full rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs text-white outline-none focus:border-brand/40"
                     value={vacancyForm.category}
                     onChange={(e) => setVacancyForm({ ...vacancyForm, category: e.target.value })}
                   >
-                    <option value="Jobs Update">Jobs Update (Verified Govt Vacancies)</option>
-                    <option value="Hidden Jobs Update">Hidden Jobs Update (Special / Off-Campus)</option>
+                    <option value="Jobs Update">Jobs Updates Section (Public Vacancies Feed - /app/news)</option>
+                    <option value="Group: jobs-update">Jobs Update Group (Dedicated Group Feed Only - /app/groups)</option>
+                    <option value="Group: hidden-jobs-update">Hidden Jobs Update Group (Dedicated Group Feed Only - /app/groups)</option>
                   </select>
                 </div>
 
