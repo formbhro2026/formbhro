@@ -65,7 +65,7 @@ export async function signInWithGoogle(redirectPath: string = "/app") {
   const origin =
     typeof window !== "undefined" && window.location.origin
       ? window.location.origin
-      : "https://formbhro-oa2i.vercel.app";
+      : "https://formbhro-main.vercel.app";
 
   // For Capacitor Android fallback, route with source=app so external browser triggers deep link com.formbhro.app://oauth-callback
   const redirectUri = isAndroid

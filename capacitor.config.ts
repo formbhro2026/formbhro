@@ -5,11 +5,12 @@ const config: CapacitorConfig = {
   appName: "Formbhro",
   webDir: "dist",
   server: {
-    url: "https://formbhro-oa2i.vercel.app",
+    url: "https://formbhro-main.vercel.app",
     allowNavigation: [
       "*.supabase.co",
       "*.supabase.io",
       "*.lovable.app",
+      "formbhro-main.vercel.app",
       "formbhro-oa2i.vercel.app",
       "*.vercel.app",
       "oauth.lovable.app",

@@ -1,0 +1,10 @@
+android/
+node_modules/
+.git/
+*.apk
+*.aab
+dist/
+.output/
+scratch/
+*.mp4
+*.png
