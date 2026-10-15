@@ -53,7 +53,7 @@ export function DocumentCard({
           )}
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-sm font-bold text-white transition-colors group-hover:text-brand">
+          <h3 className="truncate text-sm font-bold text-text transition-colors group-hover:text-brand">
             {doc.name}
           </h3>
           <p className="mt-0.5 truncate text-[10px] font-bold text-brand uppercase tracking-wider">
@@ -92,7 +92,7 @@ export function DocumentCard({
           type="button"
           onClick={onView}
           aria-label={`View ${doc.name}`}
-          className="flex items-center justify-center gap-1.5 rounded-xl border border-border-subtle bg-surface-3 px-2.5 py-2 text-[10px] font-bold text-white uppercase tracking-wider transition-all hover:bg-surface-1 active:scale-95"
+          className="flex items-center justify-center gap-1.5 rounded-xl border border-border-subtle bg-surface-3 px-2.5 py-2 text-[10px] font-bold text-text uppercase tracking-wider transition-all hover:bg-surface-1 active:scale-95"
         >
           <Eye className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden="true" /> View
         </button>

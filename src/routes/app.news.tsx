@@ -308,7 +308,7 @@ function NewsUpdates() {
         {/* Page Heading */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 className="text-xl font-extrabold tracking-tight text-white sm:text-2xl">
+            <h1 className="text-xl font-extrabold tracking-tight text-text sm:text-2xl">
               Vacancies &amp; Updates
             </h1>
             <p className="mt-0.5 text-xs text-text-secondary sm:text-sm">
@@ -332,13 +332,13 @@ function NewsUpdates() {
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Search by job title, organization (e.g. UPSC, SSC), department..."
-                className="h-11 w-full rounded-2xl border border-border-subtle bg-surface-1 pl-10 pr-4 text-xs sm:text-sm text-white placeholder:text-text-muted focus:border-brand/50 focus:outline-none"
+                className="h-11 w-full rounded-2xl border border-border-subtle bg-surface-1 pl-10 pr-4 text-xs sm:text-sm text-text placeholder:text-text-muted focus:border-brand/50 focus:outline-none"
               />
               {q && (
                 <button
                   type="button"
                   onClick={() => setQ("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-white"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -353,7 +353,7 @@ function NewsUpdates() {
                 "inline-flex h-11 items-center gap-2 rounded-2xl border px-3.5 text-xs font-semibold transition-all shrink-0",
                 activeFilterCount > 0
                   ? "border-brand bg-brand/10 text-brand-light"
-                  : "border-border-subtle bg-surface-1 text-text-secondary hover:border-border-strong hover:text-white",
+                  : "border-border-subtle bg-surface-1 text-text-secondary hover:border-border-strong hover:text-text",
               )}
             >
               <SlidersHorizontal className="h-4 w-4" />
@@ -370,7 +370,7 @@ function NewsUpdates() {
           {filterPanelOpen && (
             <div className="rounded-2xl border border-border-subtle bg-surface-1 p-4 shadow-xl space-y-4 animate-in fade-in slide-in-from-top-2 duration-150">
               <div className="flex items-center justify-between border-b border-border-subtle pb-2.5">
-                <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                <span className="text-xs font-bold text-text uppercase tracking-wider flex items-center gap-1.5">
                   <SlidersHorizontal className="h-3.5 w-3.5 text-brand" /> Filter &amp; Eligibility
                   Criteria
                 </span>
@@ -394,7 +394,7 @@ function NewsUpdates() {
                   <select
                     value={selectedQualification}
                     onChange={(e) => setSelectedQualification(e.target.value)}
-                    className="w-full h-9 rounded-xl border border-border-subtle bg-surface-2 px-2.5 text-xs text-white focus:border-brand/50 outline-none"
+                    className="w-full h-9 rounded-xl border border-border-subtle bg-surface-2 px-2.5 text-xs text-text focus:border-brand/50 outline-none"
                   >
                     {QUALIFICATIONS.map((qOpt) => (
                       <option key={qOpt} value={qOpt}>
@@ -412,7 +412,7 @@ function NewsUpdates() {
                   <select
                     value={selectedStatus}
                     onChange={(e) => setSelectedStatus(e.target.value)}
-                    className="w-full h-9 rounded-xl border border-border-subtle bg-surface-2 px-2.5 text-xs text-white focus:border-brand/50 outline-none"
+                    className="w-full h-9 rounded-xl border border-border-subtle bg-surface-2 px-2.5 text-xs text-text focus:border-brand/50 outline-none"
                   >
                     {STATUS_FILTERS.map((s) => (
                       <option key={s.id} value={s.id}>
@@ -434,7 +434,7 @@ function NewsUpdates() {
                     placeholder="e.g. 24"
                     value={userAge}
                     onChange={(e) => setUserAge(e.target.value)}
-                    className="w-full h-9 rounded-xl border border-border-subtle bg-surface-2 px-2.5 text-xs text-white focus:border-brand/50 outline-none"
+                    className="w-full h-9 rounded-xl border border-border-subtle bg-surface-2 px-2.5 text-xs text-text focus:border-brand/50 outline-none"
                   />
                 </div>
 
@@ -446,7 +446,7 @@ function NewsUpdates() {
                   <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value as any)}
-                    className="w-full h-9 rounded-xl border border-border-subtle bg-surface-2 px-2.5 text-xs text-white focus:border-brand/50 outline-none"
+                    className="w-full h-9 rounded-xl border border-border-subtle bg-surface-2 px-2.5 text-xs text-text focus:border-brand/50 outline-none"
                   >
                     <option value="newest">Newest Published</option>
                     <option value="deadline">Closing Soonest</option>
@@ -531,7 +531,7 @@ function NewsUpdates() {
                       </span>
 
                       {item.organization && (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-border-subtle bg-surface-2 px-2.5 py-0.5 text-[10px] font-semibold text-white">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-border-subtle bg-surface-2 px-2.5 py-0.5 text-[10px] font-semibold text-text">
                           <Building2 className="h-3 w-3 text-brand" />
                           {item.organization}
                         </span>
@@ -546,7 +546,7 @@ function NewsUpdates() {
                       <button
                         type="button"
                         onClick={() => void handleShare(item)}
-                        className="inline-flex items-center gap-1 rounded-lg border border-border-subtle bg-surface-2 px-2.5 py-1 text-xs font-semibold text-text-secondary hover:text-white transition-colors"
+                        className="inline-flex items-center gap-1 rounded-lg border border-border-subtle bg-surface-2 px-2.5 py-1 text-xs font-semibold text-text-secondary hover:text-text transition-colors"
                         title="Share Vacancy"
                       >
                         {copiedId === item.id ? (
@@ -566,7 +566,7 @@ function NewsUpdates() {
 
                   {/* Title & Description */}
                   <div className="mt-3">
-                    <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                    <h2 className="text-base sm:text-lg font-bold text-text tracking-tight">
                       {item.title}
                     </h2>
                     <p className="mt-1.5 text-xs sm:text-sm text-text-secondary leading-relaxed line-clamp-3">
@@ -581,7 +581,7 @@ function NewsUpdates() {
                       <span className="text-[10px] font-semibold text-text-muted flex items-center gap-1">
                         <GraduationCap className="h-3 w-3 text-brand" /> Qualification
                       </span>
-                      <p className="font-semibold text-white truncate">
+                      <p className="font-semibold text-text truncate">
                         {item.qualification || "As per notification"}
                       </p>
                     </div>
@@ -591,7 +591,7 @@ function NewsUpdates() {
                       <span className="text-[10px] font-semibold text-text-muted flex items-center gap-1">
                         <Users className="h-3 w-3 text-brand" /> Age Limit
                       </span>
-                      <p className="font-semibold text-white">
+                      <p className="font-semibold text-text">
                         {item.min_age && item.max_age
                           ? `${item.min_age} - ${item.max_age} yrs`
                           : item.max_age
@@ -605,7 +605,7 @@ function NewsUpdates() {
                       <span className="text-[10px] font-semibold text-text-muted flex items-center gap-1">
                         <FileText className="h-3 w-3 text-brand" /> Posts
                       </span>
-                      <p className="font-semibold text-white">
+                      <p className="font-semibold text-text">
                         {item.total_vacancies ? `${item.total_vacancies} Posts` : "Specified in notice"}
                       </p>
                     </div>
@@ -621,8 +621,8 @@ function NewsUpdates() {
                           status === "expired"
                             ? "text-rose-400"
                             : status === "live"
-                              ? "text-emerald-400"
-                              : "text-white",
+                              ? "text-emerald-500 dark:text-emerald-400"
+                              : "text-text",
                         )}
                       >
                         {item.application_last_date || "Check notice"}
@@ -650,7 +650,7 @@ function NewsUpdates() {
                           href={item.notification_url}
                           target="_blank"
                           rel="noreferrer noopener"
-                          className="inline-flex items-center gap-1.5 rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs font-semibold text-text-secondary hover:text-white hover:bg-surface-3 transition-colors"
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs font-semibold text-text-secondary hover:text-text hover:bg-surface-3 transition-colors"
                         >
                           <FileText className="h-3.5 w-3.5 text-text-muted" />
                           <span>Official PDF</span>

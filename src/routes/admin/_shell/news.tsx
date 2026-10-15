@@ -25,6 +25,7 @@ import * as notificationsApi from "@/lib/api/notifications";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveImageUrl, uploadNewsBanner } from "@/lib/api/admin.functions";
 import { DEFAULT_QUALIFICATIONS, JOB_GROUPS } from "@/data/vacancy-groups";
+import { QualificationMultiSelect } from "@/components/common/QualificationMultiSelect";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/_shell/news")({ component: AdminNews });
@@ -576,21 +577,15 @@ function AdminNews() {
                 </div>
               </Field>
 
-              <div className="grid grid-cols-2 gap-2">
-                <Field label="Qualification *">
-                  <select
-                    className={inputClass}
-                    value={form.qualification}
-                    onChange={(e) => setForm({ ...form, qualification: e.target.value })}
-                  >
-                    {DEFAULT_QUALIFICATIONS.map((q) => (
-                      <option key={q} value={q}>
-                        {q}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
+              <div className="space-y-1">
+                <QualificationMultiSelect
+                  value={form.qualification}
+                  onChange={(val) => setForm({ ...form, qualification: val })}
+                  error={!form.qualification.trim() ? "Please select at least one qualification" : undefined}
+                />
+              </div>
 
+              <div>
                 <Field label="Vacancy Status *">
                   <select
                     className={inputClass}
@@ -1066,21 +1061,14 @@ function AdminNews() {
                   />
                 </Field>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <Field label="Qualification">
-                    <select
-                      className={inputClass}
-                      value={editingItem.qualification || "Graduation"}
-                      onChange={(e) => setEditingItem({ ...editingItem, qualification: e.target.value })}
-                    >
-                      {DEFAULT_QUALIFICATIONS.map((q) => (
-                        <option key={q} value={q}>
-                          {q}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
+                <div className="space-y-1">
+                  <QualificationMultiSelect
+                    value={editingItem.qualification || ""}
+                    onChange={(val) => setEditingItem({ ...editingItem, qualification: val })}
+                  />
+                </div>
 
+                <div>
                   <Field label="Vacancy Status">
                     <select
                       className={inputClass}

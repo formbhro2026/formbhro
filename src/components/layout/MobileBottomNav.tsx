@@ -42,7 +42,7 @@ export function MobileBottomNav() {
         aria-current={active ? "page" : undefined}
         className={cn(
           "flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-0.5 py-1 text-[10px] font-medium transition-colors duration-200 select-none",
-          active ? "text-brand font-bold" : "text-text-secondary hover:text-white",
+          active ? "text-brand font-bold" : "text-text-secondary hover:text-text",
         )}
       >
         <Icon
@@ -62,7 +62,7 @@ export function MobileBottomNav() {
   return (
     <nav
       aria-label="Primary mobile navigation"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border-subtle bg-surface-1/95 backdrop-blur-md pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.6)]"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border-subtle bg-surface-1/95 backdrop-blur-md pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:hidden shadow-lg"
     >
       <div className="mx-auto grid max-w-md grid-cols-6 items-end px-1.5 py-1.5">
         {LEFT.map((i) => (

@@ -88,7 +88,7 @@ function Profile() {
   };
 
   const field =
-    "w-full rounded-2xl border border-border-subtle bg-surface-2 px-4 py-3 text-sm text-white placeholder:text-text-muted focus:border-brand/40 focus:ring-1 focus:ring-brand/10 outline-none transition-all disabled:opacity-60 disabled:cursor-not-allowed";
+    "w-full rounded-2xl border border-border-subtle bg-surface-2 px-4 py-3 text-sm text-text placeholder:text-text-muted focus:border-brand/40 focus:ring-1 focus:ring-brand/10 outline-none transition-all disabled:opacity-60 disabled:cursor-not-allowed";
 
   return (
     <div className="flex min-h-full flex-col bg-bg">
@@ -131,7 +131,7 @@ function Profile() {
             </div>
 
             <div className="flex-1 min-w-0">
-              <h1 className="truncate text-2xl font-bold text-white tracking-tight">
+              <h1 className="truncate text-2xl font-bold text-text tracking-tight">
                 {profile.name}
               </h1>
               <div className="mt-2 flex flex-wrap items-center justify-center gap-3 sm:justify-start">
@@ -149,14 +149,14 @@ function Profile() {
         {/* Profile Info */}
         <section className="rounded-3xl border border-border-subtle bg-surface-1 p-6 shadow-lg shadow-black/10">
           <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold text-white uppercase tracking-widest flex items-center gap-2">
+            <h2 className="text-xs font-bold text-text uppercase tracking-widest flex items-center gap-2">
               <Settings className="h-4 w-4 text-brand" /> Settings
             </h2>
             {!editing ? (
               <button
                 type="button"
                 onClick={() => setEditing(true)}
-                className="text-[10px] font-bold text-brand uppercase tracking-widest hover:text-white transition-colors"
+                className="text-[10px] font-bold text-brand uppercase tracking-widest hover:text-brand-dark transition-colors"
               >
                 Modify
               </button>
@@ -249,7 +249,7 @@ function Profile() {
                     setForm({ name: profile.name, email: profile.email, phone: profile.phone });
                     setEditing(false);
                   }}
-                  className="rounded-2xl border border-border-subtle bg-surface-2 px-6 py-3 text-[10px] font-bold text-white uppercase tracking-widest transition-all hover:bg-surface-3 active:scale-[0.98]"
+                  className="rounded-2xl border border-border-subtle bg-surface-2 px-6 py-3 text-[10px] font-bold text-text uppercase tracking-widest transition-all hover:bg-surface-3 hover:text-brand active:scale-[0.98]"
                 >
                   Discard
                 </button>
@@ -261,7 +261,7 @@ function Profile() {
         {/* Theme Preferences */}
         <section className="rounded-3xl border border-border-subtle bg-surface-1 p-6 shadow-lg shadow-black/10">
           <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold text-white uppercase tracking-widest flex items-center gap-2">
+            <h2 className="text-xs font-bold text-text uppercase tracking-widest flex items-center gap-2">
               <Sun className="h-4 w-4 text-brand" /> Appearance &amp; Theme
             </h2>
             <span className="text-[10px] font-bold uppercase text-brand tracking-wider">
@@ -275,8 +275,8 @@ function Profile() {
               className={cn(
                 "flex items-center justify-center gap-2.5 rounded-2xl border p-4 text-xs font-bold transition-all",
                 theme === "dark"
-                  ? "border-brand bg-brand/10 text-white shadow-lg shadow-brand/10"
-                  : "border-border-subtle bg-surface-2 text-text-secondary hover:border-border-strong hover:text-white",
+                  ? "border-brand bg-brand/10 text-brand shadow-lg shadow-brand/10"
+                  : "border-border-subtle bg-surface-2 text-text-secondary hover:border-border-strong hover:text-text",
               )}
             >
               <Moon className="h-4 w-4 text-brand" />
@@ -288,8 +288,8 @@ function Profile() {
               className={cn(
                 "flex items-center justify-center gap-2.5 rounded-2xl border p-4 text-xs font-bold transition-all",
                 theme === "light"
-                  ? "border-brand bg-brand/10 text-brand-dark shadow-lg shadow-brand/10"
-                  : "border-border-subtle bg-surface-2 text-text-secondary hover:border-border-strong hover:text-white",
+                  ? "border-brand bg-brand/10 text-brand-dark shadow-lg shadow-brand/10 font-bold"
+                  : "border-border-subtle bg-surface-2 text-text-secondary hover:border-border-strong hover:text-text",
               )}
             >
               <Sun className="h-4 w-4 text-amber-500" />
@@ -301,17 +301,17 @@ function Profile() {
         {/* Security & Support Grid */}
         <div className="grid gap-6 sm:grid-cols-2">
           <section className="rounded-3xl border border-border-subtle bg-surface-1 p-6 shadow-lg shadow-black/10">
-            <h2 className="text-[10px] font-bold text-white uppercase tracking-widest flex items-center gap-2">
+            <h2 className="text-[10px] font-bold text-text uppercase tracking-widest flex items-center gap-2">
               <KeyRound className="h-4 w-4 text-brand" /> Security
             </h2>
             <div className="mt-5 space-y-4">
-              <div className="flex items-center justify-between py-2 border-b border-white/5">
+              <div className="flex items-center justify-between py-2 border-b border-border-subtle">
                 <span className="text-[11px] font-bold text-text-muted uppercase tracking-tight">
                   Active Since
                 </span>
-                <span className="text-[11px] font-bold text-white">{profile.createdAt}</span>
+                <span className="text-[11px] font-bold text-text">{profile.createdAt}</span>
               </div>
-              <div className="flex items-center justify-between py-2 border-b border-white/5">
+              <div className="flex items-center justify-between py-2 border-b border-border-subtle">
                 <span className="text-[11px] font-bold text-text-muted uppercase tracking-tight">
                   Provider
                 </span>
@@ -321,7 +321,7 @@ function Profile() {
               </div>
 
               {profile.authProvider !== "google" && (
-                <button className="w-full mt-2 rounded-2xl border border-border-subtle bg-surface-2 py-3 text-[10px] font-bold text-white uppercase tracking-widest transition-all hover:bg-surface-3 active:scale-[0.98]">
+                <button className="w-full mt-2 rounded-2xl border border-border-subtle bg-surface-2 py-3 text-[10px] font-bold text-text uppercase tracking-widest transition-all hover:bg-surface-3 active:scale-[0.98]">
                   Reset Passkey
                 </button>
               )}
@@ -329,7 +329,7 @@ function Profile() {
           </section>
 
           <section className="rounded-3xl border border-border-subtle bg-surface-1 p-6 shadow-lg shadow-black/10">
-            <h2 className="text-[10px] font-bold text-white uppercase tracking-widest flex items-center gap-2">
+            <h2 className="text-[10px] font-bold text-text uppercase tracking-widest flex items-center gap-2">
               <LifeBuoy className="h-4 w-4 text-brand" /> Concierge
             </h2>
             <p className="mt-4 text-[10px] font-bold text-text-secondary uppercase leading-relaxed tracking-tight">
@@ -338,23 +338,23 @@ function Profile() {
             <div className="mt-4 space-y-2">
               <a
                 href={`tel:${CONTACT.phone}`}
-                className="flex items-center justify-between py-2 border-b border-white/5 group"
+                className="flex items-center justify-between py-2 border-b border-border-subtle group"
               >
                 <span className="text-[11px] font-bold text-text-muted uppercase tracking-tight">
                   Phone
                 </span>
-                <span className="text-[11px] font-bold text-white group-hover:text-brand transition-colors">
+                <span className="text-[11px] font-bold text-text group-hover:text-brand transition-colors">
                   {CONTACT.phone}
                 </span>
               </a>
               <a
                 href={`mailto:${CONTACT.email}`}
-                className="flex items-center justify-between py-2 border-b border-white/5 group"
+                className="flex items-center justify-between py-2 border-b border-border-subtle group"
               >
                 <span className="text-[11px] font-bold text-text-muted uppercase tracking-tight">
                   Support
                 </span>
-                <span className="text-[11px] font-bold text-white group-hover:text-brand transition-colors">
+                <span className="text-[11px] font-bold text-text group-hover:text-brand transition-colors">
                   {CONTACT.email}
                 </span>
               </a>

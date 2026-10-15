@@ -32,6 +32,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import * as notificationsApi from "@/lib/api/notifications";
 import { DEFAULT_QUALIFICATIONS, JOB_GROUPS, isVacancyLive } from "@/data/vacancy-groups";
+import { QualificationMultiSelect } from "@/components/common/QualificationMultiSelect";
 import { uploadNewsBanner } from "@/lib/api/admin.functions";
 
 export const Route = createFileRoute("/team/_shell/news")({
@@ -949,44 +950,32 @@ function TeamNewsAndVacancies() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-xs font-semibold text-text-secondary mb-1">
-                        Qualification *
-                      </label>
-                      <select
-                        required
-                        className="w-full rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs text-white outline-none focus:border-brand/40"
-                        value={vacancyForm.qualification}
-                        onChange={(e) => setVacancyForm({ ...vacancyForm, qualification: e.target.value })}
-                      >
-                        {DEFAULT_QUALIFICATIONS.map((q) => (
-                          <option key={q} value={q}>
-                            {q}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                  <div>
+                    <QualificationMultiSelect
+                      value={vacancyForm.qualification}
+                      onChange={(val) => setVacancyForm({ ...vacancyForm, qualification: val })}
+                      error={!vacancyForm.qualification.trim() ? "Please select at least one qualification" : undefined}
+                    />
+                  </div>
 
-                    <div>
-                      <label className="block text-xs font-semibold text-text-secondary mb-1">
-                        Vacancy Status *
-                      </label>
-                      <select
-                        required
-                        className="w-full rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs text-white outline-none focus:border-brand/40"
-                        value={vacancyForm.vacancy_status}
-                        onChange={(e) =>
-                          setVacancyForm({
-                            ...vacancyForm,
-                            vacancy_status: e.target.value as "live" | "closed",
-                          })
-                        }
-                      >
-                        <option value="live">Live Now / Open</option>
-                        <option value="closed">Closed / Expired</option>
-                      </select>
-                    </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-text-secondary mb-1">
+                      Vacancy Status *
+                    </label>
+                    <select
+                      required
+                      className="w-full rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs text-text outline-none focus:border-brand/40"
+                      value={vacancyForm.vacancy_status}
+                      onChange={(e) =>
+                        setVacancyForm({
+                          ...vacancyForm,
+                          vacancy_status: e.target.value as "live" | "closed",
+                        })
+                      }
+                    >
+                      <option value="live">Live Now / Open</option>
+                      <option value="closed">Closed / Expired</option>
+                    </select>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">

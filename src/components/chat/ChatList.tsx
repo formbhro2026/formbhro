@@ -71,7 +71,7 @@ export function ChatList({
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search conversations or type '/' for Quick Chats..."
           aria-label="Search conversations"
-          className="w-full rounded-2xl border border-border-subtle bg-surface-2 py-3 pl-10 pr-4 text-sm text-white placeholder:text-text-muted focus:border-brand/40 focus:ring-1 focus:ring-brand/10 outline-none transition-all"
+          className="w-full rounded-2xl border border-border-subtle bg-surface-2 py-3 pl-10 pr-4 text-sm text-text placeholder:text-text-muted focus:border-brand/40 focus:ring-1 focus:ring-brand/10 outline-none transition-all"
         />
 
         {isQuickMode && (
@@ -89,7 +89,7 @@ export function ChatList({
                   key={qr.id}
                   className="rounded-lg p-2.5 hover:bg-surface-3 transition-colors text-left"
                 >
-                  <div className="text-xs font-bold text-white">{qr.title}</div>
+                  <div className="text-xs font-bold text-text">{qr.title}</div>
                   <div className="text-[11px] text-text-secondary mt-0.5 line-clamp-2">{qr.body}</div>
                 </div>
               ))

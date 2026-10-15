@@ -36,6 +36,7 @@ import {
   isVacancyLive,
   type JobGroupId,
 } from "@/data/vacancy-groups";
+import { QualificationMultiSelect } from "@/components/common/QualificationMultiSelect";
 import { uploadNewsBanner } from "@/lib/api/admin.functions";
 
 export const Route = createFileRoute("/team/_shell/groups")({
@@ -832,23 +833,13 @@ function TeamJobGroups() {
                 </div>
 
                 {/* Qualification & Status */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-[10px] font-semibold text-text-muted mb-1">
-                      Qualification <span className="text-red-400">*</span>
-                    </label>
-                    <select
-                      value={form.qualification}
-                      onChange={(e) => setForm((p) => ({ ...p, qualification: e.target.value }))}
-                      className="h-9 w-full rounded-xl border border-border-subtle bg-surface-2 px-2 text-xs text-white focus:border-brand/50 outline-none"
-                    >
-                      {DEFAULT_QUALIFICATIONS.map((q) => (
-                        <option key={q} value={q}>
-                          {q}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                <div className="space-y-2">
+                  <QualificationMultiSelect
+                    value={form.qualification}
+                    onChange={(val) => setForm((p) => ({ ...p, qualification: val }))}
+                    error={!form.qualification.trim() ? "Please select at least one qualification" : undefined}
+                  />
+
                   <div>
                     <label className="block text-[10px] font-semibold text-text-muted mb-1">
                       Status <span className="text-red-400">*</span>
@@ -856,7 +847,7 @@ function TeamJobGroups() {
                     <select
                       value={form.vacancy_status}
                       onChange={(e) => setForm((p) => ({ ...p, vacancy_status: e.target.value }))}
-                      className="h-9 w-full rounded-xl border border-border-subtle bg-surface-2 px-2 text-xs text-white focus:border-brand/50 outline-none"
+                      className="h-9 w-full rounded-xl border border-border-subtle bg-surface-2 px-2 text-xs text-text focus:border-brand/50 outline-none"
                     >
                       <option value="Live">Live Vacancy</option>
                       <option value="Closed">Closed / Expired</option>

@@ -38,7 +38,7 @@ export function UserHeader({ title }: { title?: string }) {
         <button
           type="button"
           onClick={() => setSidebarOpen(true)}
-          className="lg:hidden p-2 text-white active:bg-surface-2 rounded-lg transition-colors"
+          className="lg:hidden p-2 text-text active:bg-surface-2 rounded-lg transition-colors"
           aria-label="Open sidebar"
         >
           <Menu className="h-6 w-6" strokeWidth={1.5} />
@@ -56,7 +56,7 @@ export function UserHeader({ title }: { title?: string }) {
             />
           </Link>
           {title && (
-            <h1 className="hidden truncate text-sm font-semibold text-white lg:block">{title}</h1>
+            <h1 className="hidden truncate text-sm font-semibold text-text lg:block">{title}</h1>
           )}
         </div>
 
@@ -69,7 +69,7 @@ export function UserHeader({ title }: { title?: string }) {
               aria-label={unread ? "Notifications, unread" : "Notifications"}
               aria-haspopup="dialog"
               aria-expanded={open}
-              className="relative inline-flex h-10 w-10 items-center justify-center text-white transition-colors duration-200 hover:bg-surface-2 rounded-xl"
+              className="relative inline-flex h-10 w-10 items-center justify-center text-text transition-colors duration-200 hover:bg-surface-2 rounded-xl"
             >
               <Bell className="h-6 w-6 lg:h-5 lg:w-5" strokeWidth={1.5} aria-hidden="true" />
               {unread && (

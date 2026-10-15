@@ -83,14 +83,14 @@ export async function listNews(): Promise<NewsRow[]> {
     .eq("published", true)
     .order("published_at", { ascending: false });
   if (error) throw new ApiError(error.message, error.code);
-  return data ?? [];
+  return (data ?? []).map(mapNewsRowToVacancy);
 }
 
 /** Fetches public job vacancy notifications strictly for the Jobs Updates section (excludes all groups). */
 export async function listJobsUpdates(limit = 100): Promise<NewsRow[]> {
   try {
     const { data, error } = await (supabase as any).rpc("get_public_job_updates", { p_limit: limit });
-    if (!error && data) return data;
+    if (!error && data) return data.map(mapNewsRowToVacancy);
   } catch (_) {}
 
   // Fallback: direct table query with strict filter
@@ -101,7 +101,7 @@ export async function listJobsUpdates(limit = 100): Promise<NewsRow[]> {
     .order("published_at", { ascending: false })
     .limit(limit);
   if (error) throw new ApiError(error.message, error.code);
-  return (data ?? []).filter((item: any) => {
+  return (data ?? []).map(mapNewsRowToVacancy).filter((item: any) => {
     const cat = (item.category || "").toLowerCase();
     const target = item.custom_fields?.target;
     const groupId = item.custom_fields?.group_id;
@@ -119,7 +119,7 @@ export async function listGroupUpdates(
       p_group_id: groupId,
       p_limit: limit,
     });
-    if (!error && data) return data;
+    if (!error && data) return data.map(mapNewsRowToVacancy);
   } catch (_) {}
 
   // Fallback: direct table query with strict group filter
@@ -130,7 +130,7 @@ export async function listGroupUpdates(
     .order("published_at", { ascending: false })
     .limit(limit);
   if (error) throw new ApiError(error.message, error.code);
-  return (data ?? []).filter((item: any) => {
+  return (data ?? []).map(mapNewsRowToVacancy).filter((item: any) => {
     const cat = (item.category || "").toLowerCase();
     const target = item.custom_fields?.target;
     const itemGroupId = item.custom_fields?.group_id;
@@ -138,6 +138,7 @@ export async function listGroupUpdates(
       return (
         cat === "group: jobs-update" ||
         cat === "jobs update group" ||
+        cat.includes("jobs-update") ||
         (target === "group" && itemGroupId === "jobs-update") ||
         itemGroupId === "jobs-update"
       );
@@ -153,31 +154,79 @@ export async function listGroupUpdates(
   });
 }
 
+function toDbNewsPayload(input: Partial<VacancyInput> & Record<string, any>) {
+  const payload: Record<string, any> = {};
+
+  if (input.title !== undefined) payload.title = input.title;
+  if (input.description !== undefined) payload.description = input.description;
+  if (input.category !== undefined) payload.category = input.category;
+  if (input.published !== undefined) payload.published = input.published;
+  if (input.featured !== undefined) payload.featured = input.featured;
+  if (input.image_url !== undefined) payload.image_url = input.image_url || null;
+  if (input.organization !== undefined) payload.organization = input.organization || null;
+  if (input.qualification !== undefined) payload.qualification = input.qualification || null;
+  if (input.min_age !== undefined) payload.min_age = input.min_age ?? null;
+  if (input.max_age !== undefined) payload.max_age = input.max_age ?? null;
+  if (input.vacancy_status !== undefined) payload.vacancy_status = input.vacancy_status || "live";
+  if (input.application_start_date !== undefined) payload.application_start_date = input.application_start_date || null;
+  if (input.application_last_date !== undefined) payload.application_last_date = input.application_last_date || null;
+  if (input.location !== undefined) payload.location = input.location || null;
+  if (input.responsibilities !== undefined) payload.responsibilities = input.responsibilities || null;
+
+  // Map total_vacancies -> vacancies_count (the actual DB column)
+  if (input.vacancies_count !== undefined) {
+    payload.vacancies_count = input.vacancies_count ?? null;
+  } else if (input.total_vacancies !== undefined) {
+    payload.vacancies_count = input.total_vacancies ?? null;
+  }
+
+  // Map apply_url -> application_url (the actual DB column)
+  if (input.application_url !== undefined) {
+    payload.application_url = input.application_url || null;
+  } else if (input.apply_url !== undefined) {
+    payload.application_url = input.apply_url || null;
+  }
+
+  // Map notification_url -> notification_doc_url (the actual DB column)
+  if (input.notification_doc_url !== undefined) {
+    payload.notification_doc_url = input.notification_doc_url || null;
+  } else if (input.notification_url !== undefined) {
+    payload.notification_doc_url = input.notification_url || null;
+  }
+
+  if (input.custom_fields !== undefined) {
+    payload.custom_fields = input.custom_fields || {};
+  }
+
+  return payload;
+}
+
+export function mapNewsRowToVacancy(item: any): any {
+  if (!item) return item;
+  return {
+    ...item,
+    apply_url: item.application_url ?? item.apply_url,
+    total_vacancies: item.vacancies_count ?? item.total_vacancies,
+    notification_url: item.notification_doc_url ?? item.notification_url,
+  };
+}
+
 /** Admin and authorized team publishing. */
 export async function createNews(input: VacancyInput) {
-  const payload: any = { ...input };
-  if (input.total_vacancies !== undefined && payload.vacancies_count === undefined) {
-    payload.vacancies_count = input.total_vacancies;
-  }
-  if (input.apply_url !== undefined && payload.application_url === undefined) {
-    payload.application_url = input.apply_url;
+  const payload = toDbNewsPayload(input);
+  if (!payload.published_at) {
+    payload.published_at = new Date().toISOString();
   }
   const { data, error } = await supabase.from("news").insert(payload as any).select().single();
   if (error) throw new ApiError(error.message, error.code);
-  return data;
+  return mapNewsRowToVacancy(data);
 }
 
 export async function updateNews(id: string, patch: Partial<VacancyInput>) {
-  const payload: any = { ...patch };
-  if (patch.total_vacancies !== undefined && payload.vacancies_count === undefined) {
-    payload.vacancies_count = patch.total_vacancies;
-  }
-  if (patch.apply_url !== undefined && payload.application_url === undefined) {
-    payload.application_url = patch.apply_url;
-  }
+  const payload = toDbNewsPayload(patch);
   const { data, error } = await supabase.from("news").update(payload as any).eq("id", id).select().single();
   if (error) throw new ApiError(error.message, error.code);
-  return data;
+  return mapNewsRowToVacancy(data);
 }
 
 export async function deleteNews(id: string) {

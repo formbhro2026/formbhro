@@ -41,7 +41,7 @@ export function ChatHeader({
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h1 className="truncate text-[15px] font-bold text-white">{request.title}</h1>
+              <h1 className="truncate text-[15px] font-bold text-text">{request.title}</h1>
               <StatusBadge status={request.status} className="hidden sm:inline-flex py-0.5 text-[10px]" />
             </div>
             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[10px] text-text-muted font-bold tracking-tight uppercase">

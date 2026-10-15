@@ -127,7 +127,7 @@ export function MobileDashboard() {
       {!banner && (
         <section className="relative overflow-hidden rounded-2xl bg-surface-2 aspect-[16/7] flex items-center px-6 border border-border-subtle shadow-xl">
           <div className="z-10 max-w-[65%] space-y-2">
-            <h2 className="text-lg font-bold leading-tight text-white">Latest Platform Updates</h2>
+            <h2 className="text-lg font-bold leading-tight text-text">Latest Platform Updates</h2>
             <p className="text-xs text-text-secondary font-medium">
               Stay updated with latest opportunities
             </p>

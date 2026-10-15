@@ -29,7 +29,7 @@ export function ChatListItem({
           <h3
             className={cn(
               "truncate text-sm font-bold transition-colors",
-              active ? "text-white" : "text-white group-hover:text-brand",
+              active ? "text-brand" : "text-text group-hover:text-brand",
             )}
           >
             {request.title}

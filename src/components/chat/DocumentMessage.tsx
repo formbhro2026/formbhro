@@ -48,14 +48,14 @@ export function DocumentMessage({
           <Icon className="h-5 w-5" strokeWidth={2.5} aria-hidden="true" />
         </span>
         <div className="min-w-0">
-          <p className="truncate text-sm font-bold text-white">{name}</p>
+          <p className="truncate text-sm font-bold text-chat-text">{name}</p>
           <p className="mt-0.5 text-[10px] font-bold text-chat-meta uppercase tracking-tight">
             {kind.toUpperCase()} • {size}
             {pageCount ? ` • ${pageCount}p` : ""}
           </p>
         </div>
       </div>
-      <div className="mt-2.5 flex items-center justify-between border-t border-white/10 pt-2 pb-1">
+      <div className="mt-2.5 flex items-center justify-between border-t border-border-subtle pt-2 pb-1">
         <div className="flex gap-4">
           <button
             type="button"

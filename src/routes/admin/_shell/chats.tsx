@@ -21,6 +21,10 @@ import {
   Check,
   RefreshCw,
   Search,
+  User,
+  X,
+  ExternalLink,
+  CheckCircle2,
 } from "lucide-react";
 import { PresenceDot } from "@/components/team/PresenceDot";
 import { downloadCsv } from "@/lib/csv-export";
@@ -49,8 +53,10 @@ export const Route = createFileRoute("/admin/_shell/chats")({
     request?: string;
     teamMember?: string;
     type?: "monitor" | "team";
+    mode?: "threads" | "user-search" | "chat-search";
     f?: "all" | "escalated" | "waiting_documents" | "pending" | "completed";
     userId?: string;
+    chatId?: string;
     q?: string;
   } => ({
     request: typeof search["request"] === "string" ? (search["request"] as string) : undefined,
@@ -59,6 +65,12 @@ export const Route = createFileRoute("/admin/_shell/chats")({
     type:
       search["type"] === "team" || search["type"] === "monitor"
         ? (search["type"] as "monitor" | "team")
+        : undefined,
+    mode:
+      search["mode"] === "user-search" ||
+      search["mode"] === "chat-search" ||
+      search["mode"] === "threads"
+        ? (search["mode"] as "threads" | "user-search" | "chat-search")
         : undefined,
     f:
       search["f"] === "all" ||
@@ -69,6 +81,7 @@ export const Route = createFileRoute("/admin/_shell/chats")({
         ? (search["f"] as any)
         : undefined,
     userId: typeof search["userId"] === "string" ? (search["userId"] as string) : undefined,
+    chatId: typeof search["chatId"] === "string" ? (search["chatId"] as string) : undefined,
     q: typeof search["q"] === "string" ? (search["q"] as string) : undefined,
   }),
 });
@@ -111,6 +124,17 @@ function AdminChats() {
   const [quickReplies, setQuickReplies] = useState<any[]>([]);
   const [showQuickReplies, setShowQuickReplies] = useState(false);
 
+  // ── Navigation Section: "threads" | "user-search" | "chat-search" | "team" ──
+  const [sidebarSection, setSidebarSection] = useState<"threads" | "user-search" | "chat-search" | "team">(
+    searchParams.type === "team"
+      ? "team"
+      : searchParams.mode === "user-search" || searchParams.userId
+        ? "user-search"
+        : searchParams.mode === "chat-search" || searchParams.chatId
+          ? "chat-search"
+          : "threads",
+  );
+
   // Sync search parameters bidirectionally (handles history back/forward)
   useEffect(() => {
     setActiveId(searchParams.request);
@@ -118,12 +142,229 @@ function AdminChats() {
     if (searchParams.type) {
       setChatType(searchParams.type);
     }
-  }, [searchParams.request, searchParams.teamMember, searchParams.type]);
+    if (searchParams.type === "team") {
+      setSidebarSection("team");
+    } else if (searchParams.mode === "user-search" || searchParams.userId) {
+      setSidebarSection("user-search");
+    } else if (searchParams.mode === "chat-search" || searchParams.chatId) {
+      setSidebarSection("chat-search");
+    } else if (searchParams.mode === "threads") {
+      setSidebarSection("threads");
+    }
+  }, [searchParams.request, searchParams.teamMember, searchParams.type, searchParams.mode, searchParams.userId, searchParams.chatId]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setCurrentAdminId(data.user?.id ?? null));
     void notificationsApi.listQuickReplies().then(setQuickReplies).catch(() => {});
   }, []);
+
+  // ── A. Dedicated User Search State & Handler ───────────────────────────────
+  const [userIdInput, setUserIdInput] = useState(searchParams.userId || "");
+  const [userSearchLoading, setUserSearchLoading] = useState(false);
+  const [userSearchError, setUserSearchError] = useState<string | null>(null);
+  const [searchedUser, setSearchedUser] = useState<any | null>(null);
+  const [searchedUserRequests, setSearchedUserRequests] = useState<any[]>([]);
+
+  const executeUserSearch = async (targetUid?: string) => {
+    const raw = (targetUid ?? userIdInput).trim();
+    if (!raw) {
+      toast.error("Please enter a User Unique ID");
+      return;
+    }
+    setUserSearchLoading(true);
+    setUserSearchError(null);
+    setSearchedUser(null);
+    setSearchedUserRequests([]);
+
+    try {
+      // 1. Fetch user profile
+      let profile = profiles.find((p) => p.id === raw);
+      if (!profile) {
+        const { data: profData } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", raw)
+          .maybeSingle();
+        profile = profData;
+      }
+      if (!profile) {
+        const { data: profData } = await supabase
+          .from("profiles")
+          .select("*")
+          .ilike("id", `%${raw}%`)
+          .limit(1)
+          .maybeSingle();
+        profile = profData;
+      }
+
+      const effectiveUid = profile?.id || raw;
+
+      // 2. Fetch all historical requests & chats for this user
+      const { data: reqs, error: reqErr } = await supabase
+        .from("requests")
+        .select("*")
+        .eq("user_id", effectiveUid)
+        .order("created_at", { ascending: false });
+
+      if (reqErr) throw reqErr;
+
+      if (!profile && (!reqs || reqs.length === 0)) {
+        setUserSearchError(`No user profile or request history found for User ID "${raw}".`);
+      } else {
+        setSearchedUser(
+          profile || {
+            id: effectiveUid,
+            full_name: "User Record",
+            email: "—",
+            phone: "—",
+            created_at: reqs?.[0]?.created_at,
+          },
+        );
+        setSearchedUserRequests(reqs || []);
+        toast.success(`Found ${reqs?.length || 0} service requests for user`);
+      }
+    } catch (err: any) {
+      const msg = err?.message || "Failed to search user history";
+      setUserSearchError(msg);
+      toast.error(msg);
+    } finally {
+      setUserSearchLoading(false);
+    }
+  };
+
+  // Auto-run User Search if userId is passed in URL
+  useEffect(() => {
+    if (searchParams.userId && (searchParams.mode === "user-search" || !searchParams.mode)) {
+      setUserIdInput(searchParams.userId);
+      setSidebarSection("user-search");
+      void executeUserSearch(searchParams.userId);
+    }
+  }, [searchParams.userId]);
+
+  // ── B. Dedicated Chat Search State & Handler ───────────────────────────────
+  const [chatIdInput, setChatIdInput] = useState(searchParams.chatId || "");
+  const [chatSearchLoading, setChatSearchLoading] = useState(false);
+  const [chatSearchError, setChatSearchError] = useState<string | null>(null);
+  const [chatSearchResult, setChatSearchResult] = useState<any | null>(null);
+
+  const executeChatSearch = async (targetCid?: string) => {
+    const raw = (targetCid ?? chatIdInput).trim();
+    if (!raw) {
+      toast.error("Please enter a Chat ID or Reference number");
+      return;
+    }
+    setChatSearchLoading(true);
+    setChatSearchError(null);
+    setChatSearchResult(null);
+
+    try {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw);
+      let query = supabase.from("requests").select("*");
+      if (isUuid) {
+        query = query.eq("id", raw);
+      } else {
+        query = query.or(`reference.eq.${raw},reference.ilike.%${raw}%`);
+      }
+
+      let { data } = await query.limit(1).maybeSingle();
+      if (!data && !isUuid) {
+        const { data: fallback } = await supabase
+          .from("requests")
+          .select("*")
+          .ilike("id", `%${raw}%`)
+          .limit(1)
+          .maybeSingle();
+        data = fallback;
+      }
+
+      if (data) {
+        setChatSearchResult(data);
+        toast.success(`Found chat ${data.reference || data.id}`);
+      } else {
+        setChatSearchError(`No conversation found with Chat ID "${raw}". Please check the reference.`);
+      }
+    } catch (err: any) {
+      const msg = err?.message || "Failed to search chat";
+      setChatSearchError(msg);
+      toast.error(msg);
+    } finally {
+      setChatSearchLoading(false);
+    }
+  };
+
+  // Auto-run Chat Search if chatId is passed in URL
+  useEffect(() => {
+    if (searchParams.chatId && (searchParams.mode === "chat-search" || !searchParams.mode)) {
+      setChatIdInput(searchParams.chatId);
+      setSidebarSection("chat-search");
+      void executeChatSearch(searchParams.chatId);
+    }
+  }, [searchParams.chatId]);
+
+  // Open any found chat directly into the active conversation pane
+  const handleOpenSelectedChat = (chatData: any) => {
+    setFetchedActive(chatData);
+    setActiveId(chatData.id);
+    void navigate({
+      to: "/admin/chats",
+      search: (prev: any) => ({
+        ...prev,
+        request: chatData.id,
+        type: "monitor",
+        teamMember: undefined,
+      }),
+      replace: false,
+    });
+    toast.success(`Opened chat ${chatData.reference || chatData.id}`);
+  };
+
+  // Jump from any chat/view directly into User Search for that user
+  const handleJumpToUserSearch = (uid: string) => {
+    setSidebarSection("user-search");
+    setUserIdInput(uid);
+    void executeUserSearch(uid);
+    void navigate({
+      to: "/admin/chats",
+      search: (prev: any) => ({
+        ...prev,
+        mode: "user-search",
+        userId: uid,
+      }),
+      replace: false,
+    });
+  };
+
+  // Switch between left-sidebar modes cleanly
+  const handleSwitchSection = (section: "threads" | "user-search" | "chat-search" | "team") => {
+    setSidebarSection(section);
+    if (section === "team") {
+      setChatType("team");
+      setActiveId(undefined);
+      void navigate({
+        to: "/admin/chats",
+        search: (prev: any) => ({
+          ...prev,
+          type: "team",
+          mode: undefined,
+          request: undefined,
+        }),
+        replace: true,
+      });
+    } else {
+      setChatType("monitor");
+      setSelectedTeamMemberId(undefined);
+      void navigate({
+        to: "/admin/chats",
+        search: (prev: any) => ({
+          ...prev,
+          type: "monitor",
+          mode: section === "threads" ? undefined : section,
+          teamMember: undefined,
+        }),
+        replace: true,
+      });
+    }
+  };
 
   const customerRequests = useMemo(() => {
     let list = requestsPage.filter(
@@ -184,14 +425,6 @@ function AdminChats() {
     }
   }, [searchParams.f]);
 
-  useEffect(() => {
-    if (searchParams.userId) {
-      setQ(searchParams.userId);
-    } else if (searchParams.q) {
-      setQ(searchParams.q);
-    }
-  }, [searchParams.userId, searchParams.q]);
-
   const [userChatHistory, setUserChatHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [copiedText, setCopiedText] = useState<string | null>(null);
@@ -232,33 +465,6 @@ function AdminChats() {
       isMounted = false;
     };
   }, [active?.user_id, chatType]);
-
-  const handleDirectChatSearch = async (term?: string) => {
-    const s = (term ?? q).trim();
-    if (!s) return;
-    try {
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
-      let query = supabase.from("requests").select("*");
-      if (isUuid) {
-        query = query.or(`id.eq.${s},user_id.eq.${s}`);
-      } else {
-        query = query.or(`reference.ilike.%${s}%,title.ilike.%${s}%`);
-      }
-      const { data } = await query.limit(1).maybeSingle();
-      if (data) {
-        setFetchedActive(data);
-        setActiveId(data.id);
-        void navigate({
-          to: "/admin/chats",
-          search: (prev: any) => ({ ...prev, request: data.id, type: "monitor" }),
-          replace: true,
-        });
-        toast.success(`Found chat ${data.reference || data.id}`);
-      } else {
-        toast.info(`No single chat found directly for "${s}". Showing search results.`);
-      }
-    } catch (_) {}
-  };
 
   // Fetch page for monitor
   useEffect(() => {
@@ -489,120 +695,138 @@ function AdminChats() {
     <div className="fixed inset-0 lg:left-60 xl:left-64 top-[calc(3.5rem+env(safe-area-inset-top))] z-10 bg-bg overflow-hidden">
       <div className="grid h-full gap-4 p-4 xl:grid-cols-[320px_1fr]">
         <Panel
-          title={chatType === "monitor" ? "Customer Chats" : "Team Direct Chats"}
-          className={cn("h-full overflow-y-auto", isMobileDetailOpen ? "hidden xl:block" : "block")}
-          action={
-            <div className="flex bg-surface-2 p-0.5 rounded-lg border border-border-subtle">
-              <button
-                onClick={() => {
-                  setChatType("monitor");
-                  setSelectedTeamMemberId(undefined);
-                  void navigate({
-                    to: "/admin/chats",
-                    search: (prev: any) => ({ ...prev, type: "monitor", teamMember: undefined }),
-                    replace: true,
-                  });
-                }}
-                className={`px-2 py-1 text-[10px] font-bold rounded-md transition-all ${
-                  chatType === "monitor"
-                    ? "bg-brand text-white shadow-sm"
-                    : "text-text-muted hover:text-white"
-                }`}
-              >
-                Requests
-              </button>
-              <button
-                onClick={() => {
-                  setChatType("team");
-                  setActiveId(undefined);
-                  void navigate({
-                    to: "/admin/chats",
-                    search: (prev: any) => ({ ...prev, type: "team", request: undefined }),
-                    replace: true,
-                  });
-                }}
-                className={`px-2 py-1 text-[10px] font-bold rounded-md transition-all ${
-                  chatType === "team"
-                    ? "bg-brand text-white shadow-sm"
-                    : "text-text-muted hover:text-white"
-                }`}
-              >
-                Team ({team.length})
-              </button>
-            </div>
+          title={
+            sidebarSection === "user-search"
+              ? "User Search"
+              : sidebarSection === "chat-search"
+                ? "Chat Search"
+                : sidebarSection === "team"
+                  ? `Team Direct (${team.length})`
+                  : "Customer Chats"
           }
+          className={cn("h-full overflow-y-auto", isMobileDetailOpen ? "hidden xl:block" : "block")}
         >
-          <div className="mb-3 space-y-2">
-            <div className="relative">
-              <SearchBox
-                value={q}
-                onChange={setQ}
-                label="Search chats"
-                placeholder={chatType === "monitor" ? "Chat ID, User ID, Name…" : "Team member, code…"}
-              />
-              {chatType === "monitor" && q.trim() && (
-                <button
-                  type="button"
-                  onClick={() => void handleDirectChatSearch()}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-brand px-2 py-1 text-[10px] font-bold text-white hover:bg-brand-dark transition-colors shadow-sm"
-                  title="Direct Search by ID"
-                >
-                  Find ID
-                </button>
+          {/* Dedicated Section Mode Switcher */}
+          <div className="grid grid-cols-4 gap-1 p-1 bg-surface-2 rounded-xl border border-border-subtle mb-3 shrink-0">
+            <button
+              type="button"
+              onClick={() => handleSwitchSection("threads")}
+              className={cn(
+                "flex flex-col sm:flex-row items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-[10px] font-bold transition-all",
+                sidebarSection === "threads"
+                  ? "bg-brand text-white shadow-sm"
+                  : "text-text-muted hover:text-text hover:bg-surface-3",
               )}
-            </div>
+              title="Active Chats List"
+            >
+              <MessageSquare className="h-3 w-3 shrink-0" />
+              <span className="truncate">Chats</span>
+            </button>
 
-            {filterTab === "escalated" && chatType === "monitor" && (
-              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5 flex items-center gap-2 text-[11px] text-amber-300">
-                <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
-                <div className="min-w-0 flex-1">
-                  <span className="font-bold">Escalated Folder</span>
-                  <span className="text-text-muted ml-1.5 hidden sm:inline">
-                    ({threads.length} escalated {threads.length === 1 ? "chat" : "chats"})
-                  </span>
-                </div>
-              </div>
-            )}
+            <button
+              type="button"
+              onClick={() => handleSwitchSection("user-search")}
+              className={cn(
+                "flex flex-col sm:flex-row items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-[10px] font-bold transition-all",
+                sidebarSection === "user-search"
+                  ? "bg-brand text-white shadow-sm"
+                  : "text-text-muted hover:text-text hover:bg-surface-3",
+              )}
+              title="Search by Unique User ID"
+            >
+              <User className="h-3 w-3 shrink-0" />
+              <span className="truncate">User Search</span>
+            </button>
 
-            {chatType === "monitor" && (
-              <div className="flex items-center justify-between gap-1 pt-1">
-                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
-                  {[
-                    { id: "all", label: "All" },
-                    { id: "escalated", label: "Escalated" },
-                    { id: "waiting_documents", label: "Waiting Docs" },
-                    { id: "pending", label: "Pending" },
-                    { id: "completed", label: "Done" },
-                  ].map((tab) => (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => setFilterTab(tab.id as any)}
-                      className={`px-2 py-0.5 text-[9px] font-bold rounded-full transition-colors shrink-0 ${
-                        filterTab === tab.id
-                          ? "bg-brand text-white shadow-sm"
-                          : "bg-surface-2 text-text-muted hover:text-white"
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={handleExportCsv}
-                  title="Export Chats CSV"
-                  className="inline-flex items-center gap-1 shrink-0 rounded-md border border-border-subtle bg-surface-2 px-1.5 py-0.5 text-[9px] font-semibold text-text-secondary hover:text-white hover:bg-surface-3 transition-colors"
-                >
-                  <Download className="h-2.5 w-2.5" />
-                  CSV
-                </button>
-              </div>
-            )}
+            <button
+              type="button"
+              onClick={() => handleSwitchSection("chat-search")}
+              className={cn(
+                "flex flex-col sm:flex-row items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-[10px] font-bold transition-all",
+                sidebarSection === "chat-search"
+                  ? "bg-brand text-white shadow-sm"
+                  : "text-text-muted hover:text-text hover:bg-surface-3",
+              )}
+              title="Search by Chat ID"
+            >
+              <Search className="h-3 w-3 shrink-0" />
+              <span className="truncate">Chat Search</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleSwitchSection("team")}
+              className={cn(
+                "flex flex-col sm:flex-row items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-[10px] font-bold transition-all",
+                sidebarSection === "team"
+                  ? "bg-brand text-white shadow-sm"
+                  : "text-text-muted hover:text-text hover:bg-surface-3",
+              )}
+              title="Team Direct Chats"
+            >
+              <Users className="h-3 w-3 shrink-0" />
+              <span className="truncate">Team</span>
+            </button>
           </div>
 
-          {chatType === "monitor" ? (
+          {/* ── 1. ACTIVE THREADS / REQUESTS LIST ── */}
+          {sidebarSection === "threads" && (
             <>
+              <div className="mb-3 space-y-2">
+                <SearchBox
+                  value={q}
+                  onChange={setQ}
+                  label="Search chats"
+                  placeholder="Filter conversations by customer, title..."
+                />
+
+                {filterTab === "escalated" && (
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5 flex items-center gap-2 text-[11px] text-amber-300">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
+                    <div className="min-w-0 flex-1">
+                      <span className="font-bold">Escalated Folder</span>
+                      <span className="text-text-muted ml-1.5 hidden sm:inline">
+                        ({threads.length} escalated {threads.length === 1 ? "chat" : "chats"})
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between gap-1 pt-1">
+                  <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
+                    {[
+                      { id: "all", label: "All" },
+                      { id: "escalated", label: "Escalated" },
+                      { id: "waiting_documents", label: "Waiting Docs" },
+                      { id: "pending", label: "Pending" },
+                      { id: "completed", label: "Done" },
+                    ].map((tab) => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setFilterTab(tab.id as any)}
+                        className={`px-2 py-0.5 text-[9px] font-bold rounded-full transition-colors shrink-0 ${
+                          filterTab === tab.id
+                            ? "bg-brand text-white shadow-sm"
+                            : "bg-surface-2 text-text-muted hover:text-text"
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleExportCsv}
+                    title="Export Chats CSV"
+                    className="inline-flex items-center gap-1 shrink-0 rounded-md border border-border-subtle bg-surface-2 px-1.5 py-0.5 text-[9px] font-semibold text-text-secondary hover:text-text hover:bg-surface-3 transition-colors"
+                  >
+                    <Download className="h-2.5 w-2.5" />
+                    CSV
+                  </button>
+                </div>
+              </div>
+
               <ul className="space-y-2">
                 {threads.map((r) => (
                   <li key={r.id}>
@@ -617,7 +841,7 @@ function AdminChats() {
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5 min-w-0">
-                          <h3 className="truncate text-xs font-bold text-white group-hover:text-brand transition-colors">
+                          <h3 className="truncate text-xs font-bold text-text group-hover:text-brand transition-colors">
                             {profileOf(r.user_id)?.full_name ?? "User"}
                           </h3>
                           {r.is_escalated && (
@@ -647,7 +871,7 @@ function AdminChats() {
                   </li>
                 ))}
                 {!threads.length && (
-                  <li className="py-6 text-center text-xs text-text-muted">No conversations.</li>
+                  <li className="py-6 text-center text-xs text-text-muted">No conversations found.</li>
                 )}
               </ul>
 
@@ -675,52 +899,496 @@ function AdminChats() {
                 </div>
               </div>
             </>
-          ) : (
-            <ul className="space-y-2">
-              {teamList.map(({ member, profile }) => {
-                const isSelected = selectedTeamMemberId === member.id;
-                return (
-                  <li key={member.id}>
-                    <button
-                      type="button"
-                      onClick={() => void handleSelectTeamMember(member.id, profile?.full_name)}
-                      className={`w-full rounded-xl border px-3 py-3 text-left transition-all ${
-                        isSelected
-                          ? "border-brand bg-brand/10 shadow-sm shadow-brand/10"
-                          : "border-border-subtle bg-bg hover:border-border-strong"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <h3 className="truncate text-xs font-bold text-white">
-                            {profile?.full_name || "Team Member"}
-                          </h3>
-                          <PresenceDot
-                            availability={(member as any).availability}
-                            lastSeenAt={(member as any).last_seen_at}
-                          />
-                        </div>
-                        <span className="text-[10px] font-mono text-brand font-semibold">
-                          {member.team_code}
+          )}
+
+          {/* ── 2. DEDICATED USER SEARCH SECTION ── */}
+          {sidebarSection === "user-search" && (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-brand/20 bg-brand/5 p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <User className="h-4 w-4 text-brand" />
+                  <h3 className="text-xs font-bold text-text">User Search</h3>
+                </div>
+                <p className="text-[11px] text-text-secondary">
+                  Search by a user's Unique User ID to inspect all their past chats, complete service request history, and current statuses.
+                </p>
+
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void executeUserSearch();
+                  }}
+                  className="mt-3 flex gap-1.5"
+                >
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      value={userIdInput}
+                      onChange={(e) => setUserIdInput(e.target.value)}
+                      placeholder="Enter Unique User ID (UUID)..."
+                      className={`${inputClass} text-xs h-9 pr-7`}
+                    />
+                    {userIdInput && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUserIdInput("");
+                          setSearchedUser(null);
+                          setSearchedUserRequests([]);
+                          setUserSearchError(null);
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text p-0.5"
+                        title="Clear input"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <Button
+                    type="submit"
+                    disabled={userSearchLoading || !userIdInput.trim()}
+                    className="h-9 px-3 text-xs shrink-0"
+                  >
+                    {userSearchLoading ? (
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Search className="h-3.5 w-3.5 mr-1" />
+                    )}
+                    Search
+                  </Button>
+                </form>
+              </div>
+
+              {userSearchError && (
+                <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400">
+                  <p className="font-semibold">{userSearchError}</p>
+                  <p className="text-[11px] text-text-muted mt-1">Please verify the user's Unique ID.</p>
+                </div>
+              )}
+
+              {searchedUser && (
+                <div className="space-y-3">
+                  {/* User Profile Card */}
+                  <div className="rounded-xl border border-border-subtle bg-surface-2 p-3 space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h4 className="text-xs font-bold text-text">
+                          {searchedUser.full_name || "Unnamed User"}
+                        </h4>
+                        <p className="text-[11px] text-text-muted">{searchedUser.email || "No email"}</p>
+                        {searchedUser.phone && (
+                          <p className="text-[11px] text-text-muted">Phone: {searchedUser.phone}</p>
+                        )}
+                      </div>
+                      <Pill tone={searchedUser.is_active === false ? "bad" : "ok"}>
+                        {searchedUser.is_active === false ? "Suspended" : "Active"}
+                      </Pill>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 rounded-lg bg-bg p-2 border border-border-subtle">
+                      <div className="min-w-0">
+                        <span className="text-[9px] uppercase font-bold text-text-muted block">Unique User ID</span>
+                        <code className="text-[10px] font-mono text-text block truncate max-w-[210px]">
+                          {searchedUser.id}
+                        </code>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(searchedUser.id, "User ID")}
+                        className="p-1 rounded text-text-muted hover:text-text hover:bg-surface-3 transition-colors shrink-0"
+                        title="Copy User ID"
+                      >
+                        {copiedText === "User ID" ? (
+                          <Check className="h-3 w-3 text-emerald-400" />
+                        ) : (
+                          <Copy className="h-3 w-3" />
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Breakdown Counts */}
+                    <div className="grid grid-cols-3 gap-1.5 pt-1 text-center">
+                      <div className="rounded-lg bg-bg p-1.5 border border-border-subtle">
+                        <span className="text-[9px] text-text-muted block">Total Requests</span>
+                        <span className="text-xs font-bold text-text">{searchedUserRequests.length}</span>
+                      </div>
+                      <div className="rounded-lg bg-bg p-1.5 border border-border-subtle">
+                        <span className="text-[9px] text-text-muted block">Completed</span>
+                        <span className="text-xs font-bold text-emerald-400">
+                          {searchedUserRequests.filter((r) => r.status === "completed").length}
                         </span>
                       </div>
-                      <p className="truncate text-[11px] text-text-secondary mt-0.5">
-                        {member.job_title}
-                      </p>
-                      <div className="mt-2 flex items-center justify-between">
-                        <span className="text-[10px] text-text-muted">{profile?.email}</span>
-                        <Pill tone={member.is_active ? "ok" : "bad"}>
-                          {member.is_active ? "Active" : "Suspended"}
-                        </Pill>
+                      <div className="rounded-lg bg-bg p-1.5 border border-border-subtle">
+                        <span className="text-[9px] text-text-muted block">Pending / Active</span>
+                        <span className="text-xs font-bold text-brand">
+                          {searchedUserRequests.filter((r) => r.status !== "completed" && r.status !== "cancelled").length}
+                        </span>
                       </div>
-                    </button>
-                  </li>
-                );
-              })}
-              {!teamList.length && (
-                <li className="py-6 text-center text-xs text-text-muted">No team members found.</li>
+                    </div>
+                  </div>
+
+                  {/* Requests & Chats History List */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-[11px] font-bold uppercase tracking-wider text-text-secondary flex items-center gap-1.5">
+                        <History className="h-3.5 w-3.5 text-brand" />
+                        All Previous Chats & Service Requests ({searchedUserRequests.length})
+                      </h4>
+                    </div>
+
+                    {searchedUserRequests.length === 0 ? (
+                      <div className="py-6 text-center text-xs text-text-muted bg-surface-2 rounded-xl border border-border-subtle p-4">
+                        No historical chats or service requests found for this user.
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {searchedUserRequests.map((req) => {
+                          const isSelected = active?.id === req.id;
+                          return (
+                            <div
+                              key={req.id}
+                              className={cn(
+                                "rounded-xl border p-3 transition-all bg-bg",
+                                isSelected
+                                  ? "border-brand bg-brand/10 shadow-sm"
+                                  : "border-border-subtle hover:border-border-strong",
+                              )}
+                            >
+                              <div className="flex items-center justify-between gap-1 mb-1.5">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span className="font-mono text-[10px] font-bold text-brand truncate">
+                                    {req.reference || req.id.slice(0, 8)}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => copyToClipboard(req.reference || req.id, "Chat ID")}
+                                    className="text-text-muted hover:text-text p-0.5"
+                                    title="Copy Chat ID"
+                                  >
+                                    <Copy className="h-2.5 w-2.5" />
+                                  </button>
+                                </div>
+                                <time className="text-[10px] text-text-muted shrink-0">
+                                  {formatDate(req.created_at)}
+                                </time>
+                              </div>
+
+                              <h5 className="text-xs font-bold text-text truncate mb-1">
+                                {req.title}
+                              </h5>
+
+                              {req.category && (
+                                <span className="inline-block rounded bg-surface-2 px-1.5 py-0.5 text-[9px] text-text-muted mb-2">
+                                  {req.category}
+                                </span>
+                              )}
+
+                              <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-border-subtle">
+                                <div className="flex items-center gap-1.5">
+                                  <Pill tone={req.status === "completed" ? "ok" : "brand"}>
+                                    {STATUS_LABEL[req.status as DbRequestStatus] || req.status}
+                                  </Pill>
+                                  {req.is_escalated && (
+                                    <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-400">
+                                      <AlertTriangle className="h-2.5 w-2.5" /> Escalated
+                                    </span>
+                                  )}
+                                </div>
+
+                                <Button
+                                  type="button"
+                                  variant={isSelected ? "secondary" : "outline"}
+                                  className="h-7 px-2.5 text-[11px] font-semibold"
+                                  onClick={() => handleOpenSelectedChat(req)}
+                                >
+                                  {isSelected ? (
+                                    <span className="flex items-center gap-1 text-emerald-400">
+                                      <Check className="h-3 w-3" /> Active
+                                    </span>
+                                  ) : (
+                                    "Open Chat"
+                                  )}
+                                </Button>
+                              </div>
+
+                              <div className="mt-2 text-[10px] text-text-muted flex items-center justify-between">
+                                <span>Agent: {profileOf(req.assigned_team_id)?.full_name ?? "Unassigned"}</span>
+                                {req.last_activity_at && (
+                                  <span>Activity: {formatDate(req.last_activity_at)}</span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
-            </ul>
+
+              {!searchedUser && !userSearchLoading && !userSearchError && (
+                <div className="py-10 text-center px-4">
+                  <User className="h-10 w-10 mx-auto text-text-muted/40 mb-2" />
+                  <p className="text-xs font-semibold text-text">No User Selected</p>
+                  <p className="text-[11px] text-text-muted mt-1">
+                    Enter a User's Unique User ID above to review their full request history and open any associated chat.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── 3. DEDICATED CHAT SEARCH SECTION ── */}
+          {sidebarSection === "chat-search" && (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-brand/20 bg-brand/5 p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <Search className="h-4 w-4 text-brand" />
+                  <h3 className="text-xs font-bold text-text">Chat Search</h3>
+                </div>
+                <p className="text-[11px] text-text-secondary">
+                  Search for an individual conversation directly by its Chat ID or Reference number (e.g. FRM-XXXX or UUID).
+                </p>
+
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void executeChatSearch();
+                  }}
+                  className="mt-3 flex gap-1.5"
+                >
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      value={chatIdInput}
+                      onChange={(e) => setChatIdInput(e.target.value)}
+                      placeholder="Enter Chat ID (e.g. FRM-1024 or UUID)..."
+                      className={`${inputClass} text-xs h-9 pr-7`}
+                    />
+                    {chatIdInput && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setChatIdInput("");
+                          setChatSearchResult(null);
+                          setChatSearchError(null);
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text p-0.5"
+                        title="Clear input"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <Button
+                    type="submit"
+                    disabled={chatSearchLoading || !chatIdInput.trim()}
+                    className="h-9 px-3 text-xs shrink-0"
+                  >
+                    {chatSearchLoading ? (
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Search className="h-3.5 w-3.5 mr-1" />
+                    )}
+                    Find Chat
+                  </Button>
+                </form>
+              </div>
+
+              {chatSearchError && (
+                <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400">
+                  <p className="font-semibold">{chatSearchError}</p>
+                  <p className="text-[11px] text-text-muted mt-1">
+                    Please verify the Chat ID or reference number and try again.
+                  </p>
+                </div>
+              )}
+
+              {chatSearchResult && (
+                <div className="space-y-3">
+                  <div
+                    className={cn(
+                      "rounded-xl border p-4 transition-all bg-bg space-y-3",
+                      active?.id === chatSearchResult.id
+                        ? "border-brand bg-brand/10 shadow-sm"
+                        : "border-border-subtle",
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="font-mono text-xs font-bold text-brand truncate">
+                          {chatSearchResult.reference || chatSearchResult.id}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            copyToClipboard(chatSearchResult.reference || chatSearchResult.id, "Chat ID")
+                          }
+                          className="text-text-muted hover:text-text p-0.5"
+                          title="Copy Chat ID"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </button>
+                      </div>
+                      <Pill tone={chatSearchResult.status === "completed" ? "ok" : "brand"}>
+                        {STATUS_LABEL[chatSearchResult.status as DbRequestStatus] || chatSearchResult.status}
+                      </Pill>
+                    </div>
+
+                    <div>
+                      <h4 className="text-sm font-bold text-text">{chatSearchResult.title}</h4>
+                      {chatSearchResult.category && (
+                        <span className="inline-block mt-1 rounded bg-surface-2 px-2 py-0.5 text-[10px] text-text-muted">
+                          {chatSearchResult.category}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Customer info with 1-click jump to User Search */}
+                    <div className="rounded-lg bg-surface-2 p-2.5 border border-border-subtle space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] uppercase font-bold text-text-muted">Customer:</span>
+                        <span className="text-xs font-bold text-text">
+                          {profileOf(chatSearchResult.user_id)?.full_name ?? "User"}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-[10px] uppercase font-bold text-text-muted">User ID:</span>
+                        <div className="flex items-center gap-1 min-w-0">
+                          <code className="text-[10px] font-mono text-text-secondary truncate max-w-[130px]">
+                            {chatSearchResult.user_id}
+                          </code>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(chatSearchResult.user_id, "User ID")}
+                            className="text-text-muted hover:text-text p-0.5"
+                            title="Copy User ID"
+                          >
+                            <Copy className="h-2.5 w-2.5" />
+                          </button>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleJumpToUserSearch(chatSearchResult.user_id)}
+                        className="text-[10px] font-semibold text-brand hover:underline flex items-center gap-1 pt-1"
+                      >
+                        <User className="h-3 w-3" /> View this user's full history & chats →
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-[10px] text-text-muted">
+                      <div>
+                        <span className="block font-semibold text-text-secondary">Assigned Agent:</span>
+                        <span>{profileOf(chatSearchResult.assigned_team_id)?.full_name ?? "Unassigned"}</span>
+                      </div>
+                      <div>
+                        <span className="block font-semibold text-text-secondary">Priority:</span>
+                        <span className="capitalize">{chatSearchResult.priority || "medium"}</span>
+                      </div>
+                      <div>
+                        <span className="block font-semibold text-text-secondary">Created:</span>
+                        <span>{formatDate(chatSearchResult.created_at)}</span>
+                      </div>
+                      <div>
+                        <span className="block font-semibold text-text-secondary">Last Active:</span>
+                        <span>{formatDate(chatSearchResult.last_activity_at || chatSearchResult.created_at)}</span>
+                      </div>
+                    </div>
+
+                    {chatSearchResult.is_escalated && (
+                      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-300 flex items-center gap-1.5">
+                        <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                        <span>This conversation is escalated to Admin</span>
+                      </div>
+                    )}
+
+                    <Button
+                      type="button"
+                      className="w-full text-xs font-bold h-9"
+                      onClick={() => handleOpenSelectedChat(chatSearchResult)}
+                    >
+                      {active?.id === chatSearchResult.id ? (
+                        <span className="flex items-center justify-center gap-1 text-emerald-400">
+                          <Check className="h-4 w-4" /> Chat Currently Open in Right Pane
+                        </span>
+                      ) : (
+                        <span className="flex items-center justify-center gap-1">
+                          <MessageSquare className="h-3.5 w-3.5" /> Open Chat in View
+                        </span>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {!chatSearchResult && !chatSearchLoading && !chatSearchError && (
+                <div className="py-10 text-center px-4">
+                  <Search className="h-10 w-10 mx-auto text-text-muted/40 mb-2" />
+                  <p className="text-xs font-semibold text-text">No Chat Selected</p>
+                  <p className="text-[11px] text-text-muted mt-1">
+                    Enter a Chat ID or Reference number above to locate and open the conversation directly.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── 4. TEAM DIRECT CHATS ── */}
+          {sidebarSection === "team" && (
+            <div className="space-y-3">
+              <SearchBox
+                value={q}
+                onChange={setQ}
+                label="Search team"
+                placeholder="Team member, code..."
+              />
+              <ul className="space-y-2">
+                {teamList.map(({ member, profile }) => {
+                  const isSelected = selectedTeamMemberId === member.id;
+                  return (
+                    <li key={member.id}>
+                      <button
+                        type="button"
+                        onClick={() => void handleSelectTeamMember(member.id, profile?.full_name)}
+                        className={`w-full rounded-xl border px-3 py-3 text-left transition-all ${
+                          isSelected
+                            ? "border-brand bg-brand/10 shadow-sm shadow-brand/10"
+                            : "border-border-subtle bg-bg hover:border-border-strong"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <h3 className="truncate text-xs font-bold text-text">
+                              {profile?.full_name || "Team Member"}
+                            </h3>
+                            <PresenceDot
+                              availability={(member as any).availability}
+                              lastSeenAt={(member as any).last_seen_at}
+                            />
+                          </div>
+                          <span className="text-[10px] font-mono text-brand font-semibold">
+                            {member.team_code}
+                          </span>
+                        </div>
+                        <p className="truncate text-[11px] text-text-secondary mt-0.5">
+                          {member.job_title}
+                        </p>
+                        <div className="mt-2 flex items-center justify-between">
+                          <span className="text-[10px] text-text-muted">{profile?.email}</span>
+                          <Pill tone={member.is_active ? "ok" : "bad"}>
+                            {member.is_active ? "Active" : "Suspended"}
+                          </Pill>
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
+                {!teamList.length && (
+                  <li className="py-6 text-center text-xs text-text-muted">No team members found.</li>
+                )}
+              </ul>
+            </div>
           )}
         </Panel>
 
@@ -1151,7 +1819,7 @@ function AdminChats() {
                                 <p className="text-[10px] text-text-muted uppercase font-bold">
                                   User
                                 </p>
-                                <p className="text-xs text-white font-medium">
+                                <p className="text-xs text-text font-medium">
                                   {profileOf(active.user_id)?.full_name ?? "—"}
                                 </p>
                               </div>
@@ -1159,7 +1827,7 @@ function AdminChats() {
                                 <p className="text-[10px] text-text-muted uppercase font-bold">
                                   Team Member
                                 </p>
-                                <p className="text-xs text-white font-medium">
+                                <p className="text-xs text-text font-medium">
                                   {profileOf(active.assigned_team_id)?.full_name ?? "Unassigned"}
                                 </p>
                               </div>
@@ -1175,13 +1843,12 @@ function AdminChats() {
                             <button
                               type="button"
                               onClick={() => {
-                                setQ(active.user_id);
-                                toast.info("Filtering chats for this user ID");
+                                handleJumpToUserSearch(active.user_id);
                               }}
-                              className="text-[10px] font-semibold text-brand hover:underline"
-                              title="Filter main chat list by this user ID"
+                              className="text-[10px] font-semibold text-brand hover:underline flex items-center gap-1"
+                              title="Search this user's complete history"
                             >
-                              Filter User
+                              <User className="h-3 w-3" /> User Search →
                             </button>
                           </div>
 
@@ -1190,13 +1857,13 @@ function AdminChats() {
                             <div className="flex items-center justify-between gap-2">
                               <span className="text-[10px] font-bold text-text-muted">User ID:</span>
                               <div className="flex items-center gap-1 min-w-0">
-                                <code className="truncate font-mono text-[10px] text-white max-w-[130px]">
+                                <code className="truncate font-mono text-[10px] text-text max-w-[130px]">
                                   {active.user_id}
                                 </code>
                                 <button
                                   type="button"
                                   onClick={() => copyToClipboard(active.user_id, "User ID")}
-                                  className="rounded p-1 text-text-muted hover:text-white hover:bg-surface-3 transition-colors"
+                                  className="rounded p-1 text-text-muted hover:text-text hover:bg-surface-3 transition-colors"
                                   title="Copy User ID"
                                 >
                                   {copiedText === "User ID" ? (
@@ -1216,7 +1883,7 @@ function AdminChats() {
                                 <button
                                   type="button"
                                   onClick={() => copyToClipboard(active.reference || active.id, "Chat ID")}
-                                  className="rounded p-1 text-text-muted hover:text-white hover:bg-surface-3 transition-colors"
+                                  className="rounded p-1 text-text-muted hover:text-text hover:bg-surface-3 transition-colors"
                                   title="Copy Chat ID"
                                 >
                                   {copiedText === "Chat ID" ? (
@@ -1262,7 +1929,7 @@ function AdminChats() {
                                         {formatDate(prevReq.created_at)}
                                       </span>
                                     </div>
-                                    <p className="text-xs font-semibold text-white truncate">{prevReq.title}</p>
+                                    <p className="text-xs font-semibold text-text truncate">{prevReq.title}</p>
                                     <div className="mt-1 flex items-center justify-between gap-1">
                                       <span className="text-[9px] text-text-muted capitalize">
                                         {STATUS_LABEL[prevReq.status as DbRequestStatus] || prevReq.status}

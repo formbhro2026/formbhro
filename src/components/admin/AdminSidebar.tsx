@@ -15,6 +15,8 @@ import {
   FileText,
   Tag,
   AlertTriangle,
+  User,
+  Search,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -28,6 +30,20 @@ export const ADMIN_NAV = [
   { label: "Team Members", to: "/admin/team", icon: UserCog, exact: false },
   { label: "Requests", to: "/admin/requests", icon: Inbox, exact: false },
   { label: "Chats", to: "/admin/chats", icon: MessagesSquare, exact: false },
+  {
+    label: "User Search",
+    to: "/admin/chats",
+    search: { mode: "user-search" as const },
+    icon: User,
+    exact: false,
+  },
+  {
+    label: "Chat Search",
+    to: "/admin/chats",
+    search: { mode: "chat-search" as const },
+    icon: Search,
+    exact: false,
+  },
   {
     label: "Escalated Chats",
     to: "/admin/chats",
@@ -53,16 +69,32 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
         const { label, to, icon: Icon, exact } = item;
         const search = "search" in item ? (item as any).search : undefined;
         const isEscalatedLink = label === "Escalated Chats";
+        const isUserSearchLink = label === "User Search";
+        const isChatSearchLink = label === "Chat Search";
         const isRegularChatLink = label === "Chats";
         const hasEscalatedParam =
           searchStr.includes("f=escalated") ||
           (typeof window !== "undefined" && window.location.search.includes("f=escalated"));
+        const hasUserSearchParam =
+          searchStr.includes("mode=user-search") ||
+          (typeof window !== "undefined" && window.location.search.includes("mode=user-search"));
+        const hasChatSearchParam =
+          searchStr.includes("mode=chat-search") ||
+          (typeof window !== "undefined" && window.location.search.includes("mode=chat-search"));
 
         let active = false;
         if (isEscalatedLink) {
           active = pathname === "/admin/chats" && hasEscalatedParam;
+        } else if (isUserSearchLink) {
+          active = pathname === "/admin/chats" && hasUserSearchParam;
+        } else if (isChatSearchLink) {
+          active = pathname === "/admin/chats" && hasChatSearchParam;
         } else if (isRegularChatLink) {
-          active = pathname === "/admin/chats" && !hasEscalatedParam;
+          active =
+            pathname === "/admin/chats" &&
+            !hasEscalatedParam &&
+            !hasUserSearchParam &&
+            !hasChatSearchParam;
         } else {
           active = exact ? pathname === to : pathname.startsWith(to);
         }

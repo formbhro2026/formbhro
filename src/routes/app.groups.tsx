@@ -55,7 +55,7 @@ export const Route = createFileRoute("/app/groups")({
 });
 
 function UserJobGroups() {
-  const { news, createRequest, requests } = useUserStore();
+  const { news, createRequest, requests, sendMessage } = useUserStore();
   const searchParams = Route.useSearch();
   const navigate = useNavigate();
 
@@ -100,28 +100,64 @@ function UserJobGroups() {
     setFiltersOpen(false);
   };
 
-  const handleApplyWithFormbhro = async (item: NewsItem) => {
+  // Requirement 3: Apply Now Button on Every Group Post
+  const handleApplyNow = async (item: NewsItem) => {
     if (applyingId) return;
     setApplyingId(item.id);
     try {
-      const title = `Apply for: ${item.title}`;
-      const category = item.organization || item.category || "Job Application";
+      const itemTitle = (item.title || "").trim();
+      const lowerTitle = itemTitle.toLowerCase();
 
-      const activeReq = (requests ?? []).find(
-        (r) => r.status !== "completed" && r.status !== "cancelled" && r.status !== "closed",
-      );
+      // Check if user already has an existing chat specifically related to this vacancy
+      const existingRelatedReq = (requests ?? []).find((r) => {
+        const t = (r.title || "").toLowerCase();
+        return (
+          t.includes(lowerTitle) ||
+          lowerTitle.includes(t.replace("apply for:", "").replace("apply:", "").trim()) ||
+          (r as any).vacancy_id === item.id ||
+          (r as any).custom_fields?.vacancy_id === item.id
+        );
+      });
 
-      if (activeReq) {
-        toast.info("Opening your active conversation with the Formbhro team.");
+      if (existingRelatedReq) {
+        toast.info(`Opening your existing chat for "${item.title}".`);
         void navigate({
           to: "/app/chats/$requestId",
-          params: { requestId: activeReq.id },
+          params: { requestId: existingRelatedReq.id },
         });
         return;
       }
 
+      // If no relevant chat exists, create a new chat
+      const title = `Apply for: ${itemTitle}`;
+      const category = item.organization || item.category || "Job Application";
+
+      const vacancyDetailsMessage = [
+        `📋 *Job Application Request*`,
+        ``,
+        `*Post / Vacancy:* ${itemTitle}`,
+        item.organization ? `*Department / Org:* ${item.organization}` : null,
+        item.total_vacancies ? `*Total Posts:* ${item.total_vacancies}` : null,
+        item.qualification ? `*Required Qualification:* ${item.qualification}` : null,
+        item.application_last_date ? `*Application Deadline:* ${item.application_last_date}` : null,
+        activeGroup ? `*Group Channel:* ${activeGroup.name}` : null,
+        `*Group Post Ref ID:* ${item.id}`,
+        ``,
+        `Hello Formbhro Team, I am applying for this post. Please guide me and assist with submitting my application.`,
+      ]
+        .filter(Boolean)
+        .join("\n");
+
       const newReq = await createRequest(title, category);
-      toast.success(`Application chat opened for ${item.title}!`);
+
+      // Automatically attach/insert the vacancy post details into the chat
+      if (sendMessage && newReq?.id) {
+        try {
+          await sendMessage(newReq.id, vacancyDetailsMessage);
+        } catch (_) {}
+      }
+
+      toast.success(`Application chat opened for "${item.title}"!`);
       void navigate({
         to: "/app/chats/$requestId",
         params: { requestId: newReq.id },
@@ -131,7 +167,24 @@ function UserJobGroups() {
         err?.message?.includes("ACTIVE_REQUEST_LIMIT_EXCEEDED") ||
         err?.message?.includes("requests_one_active_per_user")
       ) {
-        toast.info("Opening your active conversation with the Formbhro team.");
+        // Open active chat and send details if possible
+        const activeReq = (requests ?? []).find(
+          (r) => r.status !== "completed" && r.status !== "cancelled" && r.status !== "closed",
+        );
+        if (activeReq) {
+          toast.info("Connecting vacancy details to your active conversation.");
+          if (sendMessage) {
+            try {
+              const vacancyDetailsMessage = `📋 *Applying for:* ${item.title}\n*Department:* ${item.organization || "Govt"}\n*Post ID:* ${item.id}\n*Last Date:* ${item.application_last_date || "Open"}`;
+              await sendMessage(activeReq.id, vacancyDetailsMessage);
+            } catch (_) {}
+          }
+          void navigate({
+            to: "/app/chats/$requestId",
+            params: { requestId: activeReq.id },
+          });
+          return;
+        }
         void navigate({ to: "/app/chats" });
       } else {
         toast.error(err?.message || "Failed to start chat. Opening chats list.");
@@ -283,7 +336,7 @@ function UserJobGroups() {
             {/* Group Name & Subtitle */}
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <h1 className="text-sm sm:text-base font-extrabold text-white truncate">
+                <h1 className="text-sm sm:text-base font-extrabold text-text truncate">
                   {activeGroup.name}
                 </h1>
                 <CheckCircle2
@@ -304,7 +357,7 @@ function UserJobGroups() {
             <button
               type="button"
               onClick={handleShareGroup}
-              className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-border-subtle bg-surface-2 px-3 text-xs font-semibold text-text-secondary hover:text-white transition-colors"
+              className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-border-subtle bg-surface-2 px-3 text-xs font-semibold text-text-secondary hover:text-text transition-colors"
               title="Share Group"
             >
               <Share2 className="h-3.5 w-3.5" />
@@ -353,13 +406,13 @@ function UserJobGroups() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder={`Search ${activeGroup.name} vacancies...`}
-                  className="h-10 w-full rounded-xl border border-border-subtle bg-surface-2 pl-10 pr-4 text-xs sm:text-sm text-white placeholder:text-text-muted focus:border-brand/50 outline-none"
+                  className="h-10 w-full rounded-xl border border-border-subtle bg-surface-2 pl-10 pr-4 text-xs sm:text-sm text-text placeholder:text-text-muted focus:border-brand/50 outline-none"
                 />
                 {searchQuery && (
                   <button
                     type="button"
                     onClick={() => setSearchQuery("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-white"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -373,7 +426,7 @@ function UserJobGroups() {
                   "inline-flex h-10 items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold transition-all shrink-0",
                   activeFilterCount > 0
                     ? "border-brand bg-brand/10 text-brand-light"
-                    : "border-border-subtle bg-surface-2 text-text-secondary hover:text-white",
+                    : "border-border-subtle bg-surface-2 text-text-secondary hover:text-text",
                 )}
               >
                 <SlidersHorizontal className="h-4 w-4" />
@@ -390,7 +443,7 @@ function UserJobGroups() {
             {filtersOpen && (
               <div className="rounded-xl border border-border-subtle bg-surface-2 p-3 space-y-3 animate-in fade-in duration-150">
                 <div className="flex items-center justify-between border-b border-border-subtle pb-2">
-                  <span className="text-[11px] font-bold text-white uppercase tracking-wider">
+                  <span className="text-[11px] font-bold text-text uppercase tracking-wider">
                     Filter Vacancies
                   </span>
                   {activeFilterCount > 0 && (
@@ -413,7 +466,7 @@ function UserJobGroups() {
                     <select
                       value={selectedQualification}
                       onChange={(e) => setSelectedQualification(e.target.value)}
-                      className="w-full h-8.5 rounded-lg border border-border-subtle bg-surface-1 px-2 text-xs text-white focus:border-brand/50 outline-none"
+                      className="w-full h-8.5 rounded-lg border border-border-subtle bg-surface-1 px-2 text-xs text-text focus:border-brand/50 outline-none"
                     >
                       <option value="All">All Qualifications</option>
                       {DEFAULT_QUALIFICATIONS.map((q) => (
@@ -432,7 +485,7 @@ function UserJobGroups() {
                     <select
                       value={selectedStatus}
                       onChange={(e) => setSelectedStatus(e.target.value as any)}
-                      className="w-full h-8.5 rounded-lg border border-border-subtle bg-surface-1 px-2 text-xs text-white focus:border-brand/50 outline-none"
+                      className="w-full h-8.5 rounded-lg border border-border-subtle bg-surface-1 px-2 text-xs text-text focus:border-brand/50 outline-none"
                     >
                       <option value="all">All Statuses</option>
                       <option value="live">Live Now / Open</option>
@@ -452,7 +505,7 @@ function UserJobGroups() {
                       value={userAge}
                       onChange={(e) => setUserAge(e.target.value)}
                       placeholder="Enter age"
-                      className="w-full h-8.5 rounded-lg border border-border-subtle bg-surface-1 px-2.5 text-xs text-white focus:border-brand/50 outline-none"
+                      className="w-full h-8.5 rounded-lg border border-border-subtle bg-surface-1 px-2.5 text-xs text-text focus:border-brand/50 outline-none"
                     />
                   </div>
                 </div>
@@ -522,7 +575,7 @@ function UserJobGroups() {
                         </span>
 
                         {item.organization && (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-border-subtle bg-surface-2 px-2.5 py-0.5 text-[10px] font-semibold text-white">
+                          <span className="inline-flex items-center gap-1 rounded-full border border-border-subtle bg-surface-2 px-2.5 py-0.5 text-[10px] font-semibold text-text">
                             <Building2 className="h-3 w-3 text-brand" />
                             {item.organization}
                           </span>
@@ -536,7 +589,7 @@ function UserJobGroups() {
                       <button
                         type="button"
                         onClick={() => void handleShare(item)}
-                        className="inline-flex items-center gap-1 rounded-lg border border-border-subtle bg-surface-2 px-2.5 py-1 text-xs font-semibold text-text-secondary hover:text-white transition-colors"
+                        className="inline-flex items-center gap-1 rounded-lg border border-border-subtle bg-surface-2 px-2.5 py-1 text-xs font-semibold text-text-secondary hover:text-text transition-colors"
                         title="Share vacancy"
                       >
                         {copiedId === item.id ? (
@@ -555,7 +608,7 @@ function UserJobGroups() {
 
                     {/* Title & Description */}
                     <div className="mt-3">
-                      <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                      <h2 className="text-base sm:text-lg font-bold text-text tracking-tight">
                         {item.title}
                       </h2>
                       <p className="mt-1.5 text-xs sm:text-sm text-text-secondary leading-relaxed">
@@ -569,7 +622,7 @@ function UserJobGroups() {
                         <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted block">
                           Qualification
                         </span>
-                        <span className="font-semibold text-white mt-0.5 block truncate">
+                        <span className="font-semibold text-text mt-0.5 block truncate">
                           {item.qualification || "As per notification"}
                         </span>
                       </div>
@@ -577,7 +630,7 @@ function UserJobGroups() {
                         <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted block">
                           Age Criteria
                         </span>
-                        <span className="font-semibold text-white mt-0.5 block truncate">
+                        <span className="font-semibold text-text mt-0.5 block truncate">
                           {item.min_age || item.max_age
                             ? `${item.min_age ?? "18"} - ${item.max_age ?? "45"} Yrs`
                             : "18 - 45 Yrs"}
@@ -587,7 +640,7 @@ function UserJobGroups() {
                         <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted block">
                           Last Date
                         </span>
-                        <span className="font-semibold text-brand-light mt-0.5 block truncate">
+                        <span className="font-semibold text-brand mt-0.5 block truncate">
                           {item.application_last_date || "Open"}
                         </span>
                       </div>
@@ -595,7 +648,7 @@ function UserJobGroups() {
                         <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted block">
                           Vacancies
                         </span>
-                        <span className="font-semibold text-white mt-0.5 block truncate">
+                        <span className="font-semibold text-text mt-0.5 block truncate">
                           {item.total_vacancies ? `${item.total_vacancies} Posts` : "Multiple Posts"}
                         </span>
                       </div>
@@ -611,14 +664,33 @@ function UserJobGroups() {
                         <time>{item.date}</time>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
+                        {/* Requirement 3: Dedicated Apply Now button on every group post */}
+                        <button
+                          type="button"
+                          disabled={applyingId === item.id}
+                          onClick={() => void handleApplyNow(item)}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2 text-xs font-bold text-white shadow-md shadow-brand/25 hover:bg-brand-light active:scale-95 transition-all disabled:opacity-60 cursor-pointer"
+                        >
+                          {applyingId === item.id ? (
+                            <>
+                              <Loader2 className="h-3.5 w-3.5 animate-spin text-white" />
+                              <span>Connecting...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Zap className="h-3.5 w-3.5" />
+                              <span>Apply Now</span>
+                            </>
+                          )}
+                        </button>
                         {item.apply_url && (
                           <a
                             href={item.apply_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-xl bg-brand px-3.5 py-1.5 text-xs font-bold text-white shadow-md shadow-brand/20 hover:bg-brand-light transition-all active:scale-95"
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs font-semibold text-text-secondary hover:text-text transition-colors"
                           >
-                            Apply Online <ExternalLink className="h-3.5 w-3.5" />
+                            Official Portal <ExternalLink className="h-3.5 w-3.5" />
                           </a>
                         )}
                         {item.notification_url && (
@@ -626,29 +698,11 @@ function UserJobGroups() {
                             href={item.notification_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-border-subtle bg-surface-2 px-3 py-1.5 text-xs font-semibold text-white hover:bg-surface-3 transition-colors"
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs font-semibold text-text-secondary hover:text-text hover:bg-surface-3 transition-colors"
                           >
                             Notification PDF
                           </a>
                         )}
-                        <button
-                          type="button"
-                          disabled={applyingId === item.id}
-                          onClick={() => void handleApplyWithFormbhro(item)}
-                          className="inline-flex items-center gap-1.5 rounded-xl border border-brand/40 bg-brand/10 px-3.5 py-1.5 text-xs font-bold text-brand-light hover:bg-brand/20 active:scale-95 transition-all disabled:opacity-60 cursor-pointer"
-                        >
-                          {applyingId === item.id ? (
-                            <>
-                              <Loader2 className="h-3.5 w-3.5 animate-spin text-brand" />
-                              <span>Connecting...</span>
-                            </>
-                          ) : (
-                            <>
-                              <HelpCircle className="h-3.5 w-3.5 text-brand" />
-                              <span>Apply with Formbhro</span>
-                            </>
-                          )}
-                        </button>
                       </div>
                     </div>
                   </article>
@@ -673,7 +727,7 @@ function UserJobGroups() {
         {/* Navigation Header */}
         <div className="mb-5 flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-extrabold text-white sm:text-2xl flex items-center gap-2">
+            <h1 className="text-xl font-extrabold text-text sm:text-2xl flex items-center gap-2">
               <Users className="h-6 w-6 text-brand" /> Job Update Groups
             </h1>
             <p className="mt-0.5 text-xs text-text-secondary">
@@ -743,7 +797,7 @@ function UserJobGroups() {
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <h2 className="text-base font-bold text-white group-hover:text-brand transition-colors truncate">
+                        <h2 className="text-base font-bold text-text group-hover:text-brand transition-colors truncate">
                           {group.name}
                         </h2>
                         <CheckCircle2

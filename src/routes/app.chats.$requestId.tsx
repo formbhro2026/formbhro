@@ -238,7 +238,7 @@ function ChatScreen() {
     >
       <div className="grid min-h-0 flex-1 xl:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,20rem)_minmax(0,1fr)_minmax(0,20rem)]">
         {/* Conversation list (desktop) */}
-        <aside className="hidden min-h-0 flex-col overflow-y-auto border-r border-white/10 p-4 xl:flex">
+        <aside className="hidden min-h-0 flex-col overflow-y-auto border-r border-border-subtle p-4 xl:flex">
           <ChatList requests={requests} activeId={requestId} compact />
         </aside>
 
@@ -285,7 +285,7 @@ function ChatScreen() {
                     type="search"
                     placeholder="Search messages or type '/' for Quick Custom Chats..."
                     aria-label="Search in this conversation"
-                    className="h-9 w-full rounded-xl border border-border-subtle bg-surface-2 pl-8 pr-3 text-xs text-white placeholder:text-text-muted outline-none focus:border-brand/40 transition-colors"
+                    className="h-9 w-full rounded-xl border border-border-subtle bg-surface-2 pl-8 pr-3 text-xs text-text placeholder:text-text-muted outline-none focus:border-brand/40 transition-colors"
                   />
                 </div>
                 {searchQuery.trim() && !isQuickChatSearch && (
@@ -304,7 +304,7 @@ function ChatScreen() {
                     setSearchOpen(false);
                     setSearchQuery("");
                   }}
-                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-muted hover:bg-surface-2 hover:text-white transition-colors"
+                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-muted hover:bg-surface-2 hover:text-text transition-colors"
                   aria-label="Close search"
                 >
                   <X className="h-4 w-4" />
@@ -335,7 +335,7 @@ function ChatScreen() {
                         className="w-full text-left rounded-lg p-2.5 hover:bg-surface-3 transition-colors group flex items-start justify-between gap-2"
                       >
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-bold text-white group-hover:text-brand transition-colors">
+                          <p className="text-xs font-bold text-text group-hover:text-brand transition-colors">
                             {qr.title}
                           </p>
                           <p className="text-[11px] text-text-secondary mt-0.5 line-clamp-2">

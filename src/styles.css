@@ -41,15 +41,15 @@ body {
 .light-theme,
 html.light-theme,
 body.light-theme {
-  --color-bg: #f4f6f8;
+  --color-bg: #f8fafc;
   --color-surface-1: #ffffff;
-  --color-surface-2: #f0f2f5;
-  --color-surface-3: #e4e7eb;
-  --color-text: #111827;
-  --color-text-secondary: #4b5563;
-  --color-text-muted: #6b7280;
-  --color-border-subtle: rgba(0, 0, 0, 0.08);
-  --color-border-strong: rgba(255, 122, 0, 0.6);
+  --color-surface-2: #f1f5f9;
+  --color-surface-3: #e2e8f0;
+  --color-text: #0f172a;
+  --color-text-secondary: #334155;
+  --color-text-muted: #64748b;
+  --color-border-subtle: rgba(15, 23, 42, 0.12);
+  --color-border-strong: rgba(255, 122, 0, 0.7);
 
   /* WhatsApp Light Tokens */
   --color-chat-bg: #efeae2;
@@ -85,6 +85,28 @@ body.dark-theme {
   --color-chat-accent: #53bdeb;
 
   background-color: var(--color-bg);
+  color: var(--color-text);
+}
+
+.light-theme input,
+.light-theme textarea,
+.light-theme select {
+  color: var(--color-text);
+  background-color: var(--color-surface-1);
+}
+
+.light-theme select option {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+.light-theme ::placeholder {
+  color: var(--color-text-muted) !important;
+  opacity: 1 !important;
+}
+
+/* Guard against text-white in light theme unless inside a colored button, badge, or banner */
+.light-theme .text-white:not(.bg-brand):not(.bg-brand *):not(.bg-gradient-to-br *):not([class*="bg-red-"]):not([class*="bg-emerald-"]):not([class*="bg-purple-"]):not([class*="bg-blue-"]):not([class*="bg-black"]):not([class*="bg-black *"]):not(.keep-white) {
   color: var(--color-text);
 }
 

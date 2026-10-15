@@ -137,13 +137,26 @@ function AdminUsers() {
                     </td>
                     <td className="px-3 py-2.5 text-text-muted">{formatDate(p.created_at)}</td>
                     <td className="px-3 py-2.5 text-right">
-                      <Button
-                        variant={p.is_active ? "danger" : "ghost"}
-                        disabled={busy === p.id}
-                        onClick={() => void toggleActive(p.id, !p.is_active)}
-                      >
-                        {p.is_active ? "Suspend" : "Activate"}
-                      </Button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Link
+                          to="/admin/chats"
+                          search={{ mode: "user-search", userId: p.id }}
+                          className="inline-flex"
+                          title="View user history & chats in User Search"
+                        >
+                          <Button variant="ghost" className="h-7 px-2 text-[10px]">
+                            History
+                          </Button>
+                        </Link>
+                        <Button
+                          variant={p.is_active ? "danger" : "ghost"}
+                          className="h-7 px-2 text-[10px]"
+                          disabled={busy === p.id}
+                          onClick={() => void toggleActive(p.id, !p.is_active)}
+                        >
+                          {p.is_active ? "Suspend" : "Activate"}
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -216,10 +229,10 @@ function AdminUsers() {
               <div className="flex flex-wrap gap-2 pt-2">
                 <Link
                   to="/admin/chats"
-                  search={{ request: detailRequests[0]?.id }}
+                  search={{ mode: "user-search", userId: selected.id }}
                   className="inline-flex"
                 >
-                  <Button variant="ghost">Open chats</Button>
+                  <Button variant="ghost">Full User History & Chats</Button>
                 </Link>
                 <Button
                   variant={selected.is_active ? "danger" : "primary"}
