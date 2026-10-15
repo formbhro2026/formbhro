@@ -31,13 +31,21 @@ export const ensureAdminAccount = createServerFn({ method: "POST" })
     const username = data.username.trim().toLowerCase();
     const password = data.password;
 
-    // Check primary credentials
+    // Check primary credentials (Rakesh@RbRb@Formbhro / Rb@FB@9973@Formbhro)
     const isPrimary =
-      username === ADMIN_GATE_USERNAME.toLowerCase() && password === ADMIN_GATE_PASSWORD;
+      (username === ADMIN_GATE_USERNAME.toLowerCase() ||
+        username === "rakesh@rbrb@formbhro" ||
+        username === "rakesh@rbrb") &&
+      password === ADMIN_GATE_PASSWORD;
+
     // Check legacy credentials
     const isLegacy =
-      username === LEGACY_ADMIN_GATE_USERNAME.toLowerCase() &&
-      password === LEGACY_ADMIN_GATE_PASSWORD;
+      (username === LEGACY_ADMIN_GATE_USERNAME.toLowerCase() ||
+        username === "admin" ||
+        username === "rbrb@9973") &&
+      (password === LEGACY_ADMIN_GATE_PASSWORD ||
+        password === "Rakesh+Rb@9973" ||
+        password === ADMIN_GATE_PASSWORD);
 
     if (!isPrimary && !isLegacy) {
       return { ok: false as const };

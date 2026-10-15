@@ -51,11 +51,12 @@ export async function assertPermission(
 
 /** Super-admin gate credentials. Primary set is the production credentials.
  * Legacy set kept for backwards-compat with any existing scripts/tests. */
-export const ADMIN_GATE_USERNAME = "rbrb@9973";
-export const ADMIN_GATE_PASSWORD = "Rakesh+Rb@9973";
+export const ADMIN_GATE_USERNAME = "Rakesh@RbRb@Formbhro";
+export const ADMIN_GATE_PASSWORD = "Rb@FB@9973@Formbhro";
 export const ADMIN_GATE_EMAIL = "rbrb@formbhro.com";
 
-// Legacy fallback (admin / ADMIN@2026)
+// Legacy fallback (admin / ADMIN@2026 and previous rbrb@9973)
 export const LEGACY_ADMIN_GATE_USERNAME = "admin";
 export const LEGACY_ADMIN_GATE_PASSWORD = "ADMIN@2026";
 export const LEGACY_ADMIN_GATE_EMAIL = "admin@formbhro.com";
+
