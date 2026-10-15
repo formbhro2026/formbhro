@@ -42,6 +42,8 @@ export function WorkFilters({
   total,
   onChange,
   onReset,
+  onDirectSearch,
+  directSearching = false,
 }: {
   values: WorkFilterValues;
   users: string[];
@@ -51,6 +53,8 @@ export function WorkFilters({
   total: number;
   onChange: (patch: Partial<WorkFilterValues>) => void;
   onReset: () => void;
+  onDirectSearch?: (term: string) => void;
+  directSearching?: boolean;
 }) {
   const id = useId();
   const activeCount =
@@ -78,9 +82,26 @@ export function WorkFilters({
           id={`${id}-q`}
           value={values.q}
           onChange={(e) => onChange({ q: e.target.value })}
-          placeholder="Search Chat ID, User ID, name, category…"
-          className="h-10 w-full rounded-xl border border-border-subtle bg-surface-2 pl-9 pr-3 text-xs text-white placeholder:text-text-muted focus:border-brand/50"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && onDirectSearch && values.q.trim()) {
+              e.preventDefault();
+              onDirectSearch(values.q);
+            }
+          }}
+          placeholder="Search Chat ID (FRM-XXXX), User ID, name…"
+          className="h-10 w-full rounded-xl border border-border-subtle bg-surface-2 pl-9 pr-16 text-xs text-white placeholder:text-text-muted focus:border-brand/50 outline-none"
         />
+        {values.q.trim() && onDirectSearch && (
+          <button
+            type="button"
+            onClick={() => onDirectSearch(values.q)}
+            disabled={directSearching}
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-brand px-2 py-1 text-[10px] font-bold text-white hover:bg-brand-light transition-colors shadow-sm disabled:opacity-60"
+            title="Direct Search by Chat ID or User ID"
+          >
+            {directSearching ? "Searching..." : "Find ID"}
+          </button>
+        )}
       </div>
 
       {/* Date Filter Row */}

@@ -12,6 +12,7 @@ import {
   MessageSquareText,
   MessageSquare,
   Plus,
+  Search,
   SlidersHorizontal,
   Timer,
 } from "lucide-react";
@@ -56,6 +57,7 @@ function TeamHome() {
   const navigate = useNavigate();
   const { member, requests, pool, assignToMe, loading } = useTeamStore();
   const [claiming, setClaiming] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const stats = useMemo(() => {
     const pending = requests.filter((r) => r.status === "pending").length;
@@ -118,6 +120,36 @@ function TeamHome() {
             </p>
           </div>
         </header>
+
+        {/* Search Chat Section (Requirement 2: Search chat by Chat ID / User Unique ID) */}
+        <section className="mb-6">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!searchQuery.trim()) return;
+              void navigate({ to: "/team/work", search: { q: searchQuery.trim() } });
+            }}
+            className="flex items-center gap-2 rounded-2xl border border-border-subtle bg-surface-1 p-2 shadow-sm focus-within:border-brand/50 transition-all"
+          >
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search Chat ID (FRM-XXXX), User Unique ID, name, or form category..."
+                className="h-10 w-full rounded-xl border border-border-subtle bg-surface-2 pl-10 pr-4 text-xs sm:text-sm text-white placeholder:text-text-muted focus:border-brand/40 outline-none"
+              />
+            </div>
+            <button
+              type="submit"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2.5 text-xs font-bold text-white hover:bg-brand-light transition-all shrink-0 shadow-md shadow-brand/15"
+            >
+              <Search className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Search Chat</span>
+              <span className="sm:hidden">Search</span>
+            </button>
+          </form>
+        </section>
 
         {/* KPI Grid */}
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">

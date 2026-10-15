@@ -188,45 +188,6 @@ export function RequestDetails({
           <RequestTimeline activity={request.activity} />
         </div>
       </section>
-
-      <section>
-        <h2 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-text-muted">
-          <StickyNote className="h-3.5 w-3.5" aria-hidden="true" /> Personal Notes
-        </h2>
-        <ul className="mt-4 space-y-2.5">
-          {request.notes.map((n, i) => (
-            <li
-              key={i}
-              className="rounded-2xl border border-border-subtle bg-surface-2 p-4 text-xs font-medium leading-relaxed text-text-secondary"
-            >
-              {n}
-            </li>
-          ))}
-        </ul>
-        <form
-          className="mt-3 flex items-center gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const value = note.trim();
-            if (!value) return;
-            onAddNote(value);
-            setNote("");
-          }}
-        >
-          <input
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Keep a private note..."
-            className="min-w-0 flex-1 rounded-2xl border border-border-subtle bg-surface-2 px-4 py-3 text-sm text-white placeholder:text-text-muted focus:border-brand/40 outline-none"
-          />
-          <button
-            type="submit"
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-brand/40 bg-brand/10 text-brand transition-all hover:bg-brand hover:text-white active:scale-90 shadow-lg shadow-brand/10"
-          >
-            <Plus className="h-5 w-5" aria-hidden="true" />
-          </button>
-        </form>
-      </section>
     </div>
   );
 }

@@ -93,11 +93,15 @@ export type TeamPermissions = {
 
 export type TeamMember = Omit<TeamAccount, "password"> & {
   permissions?: TeamPermissions;
+  availability_status?: "online" | "away" | "busy" | "offline";
+  last_seen_at?: string;
 };
 
 type TeamStore = {
   member: TeamMember | null;
   hydrated: boolean;
+  availabilityStatus: "online" | "away" | "busy" | "offline";
+  setAvailabilityStatus: (status: "online" | "away" | "busy" | "offline") => Promise<void>;
   signIn: (
     email: string,
     password: string,
@@ -199,6 +203,7 @@ const Ctx = createContext<TeamStore | null>(null);
 export function TeamStoreProvider({ children }: { children: ReactNode }) {
   const [member, setMember] = useState<TeamMember | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [availabilityStatus, setAvailabilityStatusState] = useState<"online" | "away" | "busy" | "offline">("online");
   const [loading, setLoading] = useState(true);
   const [live, setLive] = useState(false);
   const liveRef = useRef(false);
@@ -541,20 +546,65 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     }
   }, [live, member?.id, hydrated, fetchAnalytics, hydrateLive]);
 
-  // Periodic heartbeat keeping team presence (last_seen_at) alive in DB every 30s
+  const setAvailabilityStatus = useCallback(async (status: "online" | "away" | "busy" | "offline") => {
+    setAvailabilityStatusState(status);
+    if (!liveRef.current || !memberRef.current?.id) return;
+    try {
+      await (supabase as any)
+        .from("team_members")
+        .update({
+          availability_status: status,
+          last_seen_at: new Date().toISOString(),
+        })
+        .eq("id", memberRef.current.id);
+    } catch (_) {}
+  }, []);
+
+  // Periodic heartbeat keeping team presence (availability_status & last_seen_at) alive in DB every 25s
   useEffect(() => {
     if (!live || !member?.id) return;
-    const sendHeartbeat = async () => {
+    const sendHeartbeat = async (statusOverride?: "online" | "away" | "busy" | "offline") => {
       try {
+        const effectiveStatus = statusOverride || (document.visibilityState === "visible" ? "online" : "away");
+        setAvailabilityStatusState(effectiveStatus);
         await (supabase as any)
           .from("team_members")
-          .update({ last_seen_at: new Date().toISOString() })
+          .update({
+            availability_status: effectiveStatus,
+            last_seen_at: new Date().toISOString(),
+          })
           .eq("id", member.id);
       } catch (_) {}
     };
-    void sendHeartbeat();
-    const interval = setInterval(sendHeartbeat, 30000);
-    return () => clearInterval(interval);
+
+    void sendHeartbeat("online");
+    const interval = setInterval(() => void sendHeartbeat(), 25000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void sendHeartbeat("online");
+      } else {
+        void sendHeartbeat("away");
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      try {
+        navigator.sendBeacon?.(
+          `${(supabase as any).supabaseUrl}/rest/v1/team_members?id=eq.${member.id}`,
+          JSON.stringify({ availability_status: "offline", last_seen_at: new Date().toISOString() })
+        );
+      } catch (_) {}
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
   }, [live, member?.id]);
 
   const signIn = useCallback(
@@ -667,7 +717,13 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
   );
 
   const signOut = useCallback(() => {
-    if (liveRef.current) void apiSignOut().catch(() => undefined);
+    if (liveRef.current && memberRef.current?.id) {
+      void (supabase as any)
+        .from("team_members")
+        .update({ availability_status: "offline", last_seen_at: new Date().toISOString() })
+        .eq("id", memberRef.current.id);
+      void apiSignOut().catch(() => undefined);
+    }
     setMember(null);
     setLive(false);
     liveRef.current = false;
@@ -1913,10 +1969,14 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       openAdminChat,
       pool,
       loading,
+      availabilityStatus,
+      setAvailabilityStatus,
     }),
     [
       member,
       hydrated,
+      availabilityStatus,
+      setAvailabilityStatus,
       loading,
       live,
       signIn,

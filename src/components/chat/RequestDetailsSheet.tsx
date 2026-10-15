@@ -173,7 +173,7 @@ export function RequestDetailsSheet({
               onClick={() => setTab("details")}
               className={tabClass(tab === "details")}
             >
-              <Info className="h-3.5 w-3.5" aria-hidden="true" /> Info & Notes
+              <Info className="h-3.5 w-3.5" aria-hidden="true" /> Request Info
             </button>
           </div>
 

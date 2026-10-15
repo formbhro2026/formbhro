@@ -63,6 +63,7 @@ import { useGlobalCall } from "@/lib/call-store";
 import { listQuickReplies } from "@/lib/api/notifications";
 import type { QuickReplyRow } from "@/lib/api/types";
 import { Zap } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 type WorkSearch = {
   r?: string;
@@ -314,15 +315,147 @@ function matchesDateFilter(r: TeamRequest, range: string, custom: string) {
 
   const listUnread = useMemo(() => list.reduce((sum, r) => sum + r.unread, 0), [list]);
 
+  const [directFoundRequest, setDirectFoundRequest] = useState<TeamRequest | null>(null);
+  const [directSearching, setDirectSearching] = useState(false);
+
   const searchR = search.r || search.id;
+
+  useEffect(() => {
+    if (!searchR) {
+      setDirectFoundRequest(null);
+      return;
+    }
+    const alreadyFound = requests.some(
+      (r) =>
+        r.id === searchR ||
+        r.id.toLowerCase() === searchR.toLowerCase() ||
+        r.requestUuid === searchR ||
+        r.id.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() ===
+          searchR.replace(/[^a-zA-Z0-9]/g, "").toLowerCase(),
+    );
+    if (alreadyFound) return;
+
+    let active = true;
+    (async () => {
+      try {
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(searchR);
+        let q = supabase.from("requests").select("*, profiles:user_id(full_name, email)");
+        if (isUuid) {
+          q = q.or(`id.eq.${searchR},user_id.eq.${searchR}`);
+        } else {
+          q = q.or(`reference.ilike.%${searchR}%,title.ilike.%${searchR}%`);
+        }
+        const { data } = await q.limit(1).maybeSingle();
+        if (active && data) {
+          const profile = (data as any).profiles;
+          const mapped: TeamRequest = {
+            id: data.reference || data.id,
+            title: data.title || "Form Assistance",
+            category: data.category || "General",
+            userName: profile?.full_name || "User",
+            userInitials: (profile?.full_name || "U").slice(0, 2).toUpperCase(),
+            userId: data.user_id,
+            status: (data.status as any) || "pending",
+            priority: (data.priority as any) || "medium",
+            createdOn: new Date(data.created_at).toLocaleDateString(),
+            assignedAt: data.assigned_at ? new Date(data.assigned_at).toLocaleDateString() : "Just now",
+            lastUpdated: new Date(data.last_activity_at || data.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            lastMessage: data.last_message || "No messages yet",
+            unread: 0,
+            progress: data.status === "completed" ? 100 : 50,
+            assigneeId: data.assigned_team_id || "",
+            timeline: [],
+            isEscalated: Boolean(data.is_escalated),
+            tags: data.tags || [],
+            requestUuid: data.id,
+            chatRoomId: null,
+            assignedAtRaw: data.assigned_at,
+            lastActivityAt: data.last_activity_at,
+            completedAt: data.completed_at,
+            createdAt: data.created_at,
+          };
+          setDirectFoundRequest(mapped);
+        }
+      } catch (_) {}
+    })();
+    return () => {
+      active = false;
+    };
+  }, [searchR, requests]);
+
+  const handleDirectChatSearch = async (term?: string) => {
+    const s = (term ?? query).trim();
+    if (!s) return;
+    setDirectSearching(true);
+    try {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+      let q = supabase.from("requests").select("*, profiles:user_id(full_name, email)");
+      if (isUuid) {
+        q = q.or(`id.eq.${s},user_id.eq.${s}`);
+      } else {
+        q = q.or(`reference.ilike.%${s}%,title.ilike.%${s}%`);
+      }
+      const { data } = await q.limit(1).maybeSingle();
+      if (data) {
+        const isMine = data.assigned_team_id === member?.id;
+        const isPool = !data.assigned_team_id;
+        const canManage = member?.role === "Administrator" || (member?.permissions as any)?.can_manage_team;
+
+        if (!isMine && !isPool && !canManage) {
+          toast.info(`Found chat ${data.reference || data.id}, but it is assigned to another team member.`);
+          return;
+        }
+
+        const profile = (data as any).profiles;
+        const mapped: TeamRequest = {
+          id: data.reference || data.id,
+          title: data.title || "Form Assistance",
+          category: data.category || "General",
+          userName: profile?.full_name || "User",
+          userInitials: (profile?.full_name || "U").slice(0, 2).toUpperCase(),
+          userId: data.user_id,
+          status: (data.status as any) || "pending",
+          priority: (data.priority as any) || "medium",
+          createdOn: new Date(data.created_at).toLocaleDateString(),
+          assignedAt: data.assigned_at ? new Date(data.assigned_at).toLocaleDateString() : "Just now",
+          lastUpdated: new Date(data.last_activity_at || data.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          lastMessage: data.last_message || "No messages yet",
+          unread: 0,
+          progress: data.status === "completed" ? 100 : 50,
+          assigneeId: data.assigned_team_id || "",
+          timeline: [],
+          isEscalated: Boolean(data.is_escalated),
+          tags: data.tags || [],
+          requestUuid: data.id,
+          chatRoomId: null,
+          assignedAtRaw: data.assigned_at,
+          lastActivityAt: data.last_activity_at,
+          completedAt: data.completed_at,
+          createdAt: data.created_at,
+        };
+        setDirectFoundRequest(mapped);
+        setSearch({ r: data.reference || data.id, q: undefined });
+        toast.success(`Found chat ${data.reference || data.id}`);
+      } else {
+        toast.info(`No chat found directly for "${s}". Showing matches from loaded requests.`);
+      }
+    } catch (err) {
+      console.error("Direct chat search error:", err);
+      toast.error("Error searching for chat.");
+    } finally {
+      setDirectSearching(false);
+    }
+  };
+
   const selected = searchR
     ? (requests.find(
         (r) =>
           r.id === searchR ||
           r.id.toLowerCase() === searchR.toLowerCase() ||
+          r.requestUuid === searchR ||
           r.id.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() ===
             searchR.replace(/[^a-zA-Z0-9]/g, "").toLowerCase(),
-      ) ?? null)
+      ) ?? (directFoundRequest && (directFoundRequest.id === searchR || directFoundRequest.requestUuid === searchR) ? directFoundRequest : null))
     : null;
 
   useEffect(() => {
@@ -435,6 +568,8 @@ function matchesDateFilter(r: TeamRequest, range: string, custom: string) {
             tags={allTags}
             shown={list.length}
             total={requests.length}
+            onDirectSearch={handleDirectChatSearch}
+            directSearching={directSearching}
             onChange={(patch) =>
               setSearch({
                 ...("q" in patch ? { q: patch.q || undefined } : {}),

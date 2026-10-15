@@ -1,6 +1,6 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { Home, Briefcase, MessageSquare, FileText, BarChart3, User, Loader2 } from "lucide-react";
+import { Home, Briefcase, MessageSquare, FileText, Users, BarChart3, User, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTeamStore } from "@/lib/team-store";
 import { toast } from "sonner";
@@ -23,19 +23,19 @@ export function TeamBottomNav() {
       aria-label="Team mobile navigation"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-border-subtle bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden"
     >
-      <div className="mx-auto grid max-w-lg grid-cols-6 px-1 py-1.5">
+      <div className="mx-auto grid max-w-lg grid-cols-7 px-0.5 py-1">
         {/* 1. Home */}
         <Link
           to="/team"
           aria-current={isActive("/team", true) ? "page" : undefined}
           className={cn(
-            "flex min-h-11 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-0.5 py-1 text-[10px] font-medium transition-colors duration-200",
-            isActive("/team", true) ? "text-brand" : "text-text-muted",
+            "flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-0.5 py-1 text-[9px] font-medium transition-colors duration-200",
+            isActive("/team", true) ? "text-brand font-bold" : "text-text-muted hover:text-white",
           )}
         >
           <Home
             className={cn(
-              "h-5 w-5",
+              "h-4.5 w-4.5",
               isActive("/team", true) ? "text-brand" : "text-text-muted",
             )}
             strokeWidth={1.75}
@@ -49,21 +49,21 @@ export function TeamBottomNav() {
           to="/team/work"
           aria-current={isActive("/team/work", false) ? "page" : undefined}
           className={cn(
-            "flex min-h-11 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-0.5 py-1 text-[10px] font-medium transition-colors duration-200",
-            isActive("/team/work", false) ? "text-brand" : "text-text-muted",
+            "flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-0.5 py-1 text-[9px] font-medium transition-colors duration-200",
+            isActive("/team/work", false) ? "text-brand font-bold" : "text-text-muted hover:text-white",
           )}
         >
           <span className="relative">
             <Briefcase
               className={cn(
-                "h-5 w-5",
+                "h-4.5 w-4.5",
                 isActive("/team/work", false) ? "text-brand" : "text-text-muted",
               )}
               strokeWidth={1.75}
               aria-hidden="true"
             />
             {totalUnread > 0 && (
-              <span className="absolute -right-2 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[9px] font-bold text-white">
+              <span className="absolute -right-2 -top-1.5 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-brand px-0.5 text-[8px] font-bold text-white">
                 {totalUnread}
                 <span className="sr-only"> unread messages</span>
               </span>
@@ -72,18 +72,18 @@ export function TeamBottomNav() {
           <span className="truncate">Work</span>
         </Link>
 
-        {/* 3. Admin Chat (between Work and Docs) */}
+        {/* 3. Admin */}
         <Link
           to="/team/admin-chat"
           aria-label="Direct Chat with Admin"
           aria-current={isActive("/team/admin-chat", true) ? "page" : undefined}
           className={cn(
-            "flex min-h-11 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-0.5 py-1 text-[10px] font-medium transition-colors duration-200",
-            isActive("/team/admin-chat", true) ? "text-brand font-semibold" : "text-text-muted",
+            "flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-0.5 py-1 text-[9px] font-medium transition-colors duration-200",
+            isActive("/team/admin-chat", true) ? "text-brand font-bold" : "text-text-muted hover:text-white",
           )}
         >
           <MessageSquare
-            className={cn("h-5 w-5", isActive("/team/admin-chat", true) ? "text-brand" : "text-text-muted")}
+            className={cn("h-4.5 w-4.5", isActive("/team/admin-chat", true) ? "text-brand" : "text-text-muted")}
             strokeWidth={1.75}
             aria-hidden="true"
           />
@@ -95,13 +95,13 @@ export function TeamBottomNav() {
           to="/team/documents"
           aria-current={isActive("/team/documents", false) ? "page" : undefined}
           className={cn(
-            "flex min-h-11 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-0.5 py-1 text-[10px] font-medium transition-colors duration-200",
-            isActive("/team/documents", false) ? "text-white" : "text-text-muted",
+            "flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-0.5 py-1 text-[9px] font-medium transition-colors duration-200",
+            isActive("/team/documents", false) ? "text-brand font-bold" : "text-text-muted hover:text-white",
           )}
         >
           <FileText
             className={cn(
-              "h-5 w-5",
+              "h-4.5 w-4.5",
               isActive("/team/documents", false) ? "text-brand" : "text-text-muted",
             )}
             strokeWidth={1.75}
@@ -110,18 +110,38 @@ export function TeamBottomNav() {
           <span className="truncate">Docs</span>
         </Link>
 
-        {/* 5. Progress */}
+        {/* 5. Groups (Dedicated Groups tab immediately to the right of Docs) */}
+        <Link
+          to="/team/groups"
+          aria-current={isActive("/team/groups", false) ? "page" : undefined}
+          className={cn(
+            "flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-0.5 py-1 text-[9px] font-medium transition-colors duration-200",
+            isActive("/team/groups", false) ? "text-brand font-bold" : "text-text-muted hover:text-white",
+          )}
+        >
+          <Users
+            className={cn(
+              "h-4.5 w-4.5",
+              isActive("/team/groups", false) ? "text-brand" : "text-text-muted",
+            )}
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
+          <span className="truncate">Groups</span>
+        </Link>
+
+        {/* 6. Progress */}
         <Link
           to="/team/progress"
           aria-current={isActive("/team/progress", false) ? "page" : undefined}
           className={cn(
-            "flex min-h-11 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-0.5 py-1 text-[10px] font-medium transition-colors duration-200",
-            isActive("/team/progress", false) ? "text-white" : "text-text-muted",
+            "flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-0.5 py-1 text-[9px] font-medium transition-colors duration-200",
+            isActive("/team/progress", false) ? "text-brand font-bold" : "text-text-muted hover:text-white",
           )}
         >
           <BarChart3
             className={cn(
-              "h-5 w-5",
+              "h-4.5 w-4.5",
               isActive("/team/progress", false) ? "text-brand" : "text-text-muted",
             )}
             strokeWidth={1.75}
@@ -130,18 +150,18 @@ export function TeamBottomNav() {
           <span className="truncate">Progress</span>
         </Link>
 
-        {/* 6. Profile */}
+        {/* 7. Profile */}
         <Link
           to="/team/profile"
           aria-current={isActive("/team/profile", false) ? "page" : undefined}
           className={cn(
-            "flex min-h-11 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-0.5 py-1 text-[10px] font-medium transition-colors duration-200",
-            isActive("/team/profile", false) ? "text-white" : "text-text-muted",
+            "flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-0.5 py-1 text-[9px] font-medium transition-colors duration-200",
+            isActive("/team/profile", false) ? "text-brand font-bold" : "text-text-muted hover:text-white",
           )}
         >
           <User
             className={cn(
-              "h-5 w-5",
+              "h-4.5 w-4.5",
               isActive("/team/profile", false) ? "text-brand" : "text-text-muted",
             )}
             strokeWidth={1.75}

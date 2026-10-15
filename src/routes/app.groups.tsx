@@ -603,9 +603,13 @@ function UserJobGroups() {
 
                     {/* Action Buttons */}
                     <div className="mt-4 flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-border-subtle/50">
-                      <span className="text-[10px] text-text-muted">
-                        Published {item.date} • Verified by Formbhro
-                      </span>
+                      <div className="flex items-center gap-1.5 text-[10px] text-text-muted">
+                        <span className="font-semibold text-text-secondary">
+                          Posted by {(item as any).author_name || (item.custom_fields as any)?.author_name || "Formbhro Team"}
+                        </span>
+                        <span>•</span>
+                        <time>{item.date}</time>
+                      </div>
                       <div className="flex flex-wrap items-center gap-2">
                         {item.apply_url && (
                           <a
@@ -682,23 +686,6 @@ function UserJobGroups() {
           >
             All Updates <ChevronRight className="h-3.5 w-3.5" />
           </Link>
-        </div>
-
-        {/* Informative Welcome Banner */}
-        <div className="mb-6 rounded-2xl border border-border-subtle bg-surface-1 p-4 shadow-sm">
-          <div className="flex items-start gap-3">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-brand/15 text-brand border border-brand/30">
-              <ShieldCheck className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-white">
-                Official Formbhro Broadcast Channels
-              </h2>
-              <p className="mt-1 text-xs text-text-secondary leading-relaxed">
-                Click any group below to open its dedicated feed. Similar to WhatsApp groups, each group contains its own updates, eligibility criteria, and application links.
-              </p>
-            </div>
-          </div>
         </div>
 
         {/* WhatsApp-Style Group Channels List */}
