@@ -40,6 +40,13 @@ export function ModernAuthForm({
           (res as any)?.data?.user ||
           (res as any)?.data?.session)
       ) {
+        if (typeof window !== "undefined") {
+          const target =
+            sessionStorage.getItem("formbhro:redirect") ||
+            localStorage.getItem("formbhro:redirect") ||
+            "/app";
+          window.location.href = target;
+        }
         onSuccess?.();
       }
     } catch (err) {
