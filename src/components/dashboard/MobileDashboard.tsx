@@ -29,12 +29,29 @@ export function MobileDashboard() {
   const { openFillNow, isStartingChat } = useFillNow();
 
   const announcements = useMemo(() => {
-    return (news ?? []).slice(0, 5).map((n) => ({
-      id: n.id,
-      title: n.title,
-      category: n.category,
-      image_url: n.image_url || null,
-    }));
+    return (news ?? [])
+      .filter((n) => {
+        const cat = (n.category || "").toLowerCase();
+        const target = (n.custom_fields as any)?.target;
+        const groupId = (n.custom_fields as any)?.group_id;
+        // Group posts must never appear in Home Screen Announcements
+        if (
+          cat.startsWith("group:") ||
+          cat.includes("group") ||
+          target === "group" ||
+          groupId
+        ) {
+          return false;
+        }
+        return true;
+      })
+      .slice(0, 5)
+      .map((n) => ({
+        id: n.id,
+        title: n.title,
+        category: n.category,
+        image_url: n.image_url || null,
+      }));
   }, [news]);
 
   const banner = useMemo(() => {
@@ -43,7 +60,9 @@ export function MobileDashboard() {
   }, [announcements]);
 
   const recentRequest = requests[0];
-  const activeRequest = requests.find((r) => r.status !== "completed");
+  const activeRequests = useMemo(() => {
+    return (requests ?? []).filter((r) => r.status !== "completed");
+  }, [requests]);
 
   if (loading) {
     return (
@@ -170,50 +189,63 @@ export function MobileDashboard() {
         </div>
       </section>
 
-      {/* ACTIVE REQUEST CARD (If exists) */}
-      {activeRequest && (
+      {/* ACTIVE REQUESTS CARDS (Up to 3 permitted requests) */}
+      {activeRequests.length > 0 && (
         <section className="space-y-3">
-          <h3 className="text-[10px] font-bold text-text-muted uppercase tracking-wider ml-1">
-            Your Active Request
-          </h3>
-          <Link
-            to="/app/chats/$requestId"
-            params={{ requestId: activeRequest.id }}
-            className="block overflow-hidden rounded-[24px] bg-surface-1 border-strong border-opacity-40 border p-5 transition-all active:scale-[0.98] shadow-lg"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div className="min-w-0 flex-1">
-                <h4 className="text-base font-bold text-text truncate">{activeRequest.title}</h4>
-                <p className="text-[10px] text-text-muted mt-0.5">
-                  ID: {activeRequest.reference || "FBH-2026-0000"}
-                </p>
-              </div>
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand/10 text-brand border border-brand/20">
-                <span className="h-1.5 w-1.5 rounded-full bg-brand animate-pulse" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">
-                  {activeRequest.status}
-                </span>
-              </div>
-            </div>
+          <div className="flex items-center justify-between ml-1">
+            <h3 className="text-[10px] font-bold text-text-muted uppercase tracking-wider">
+              Your Active Requests ({activeRequests.length}/3)
+            </h3>
+            {activeRequests.length < 3 && (
+              <span className="text-[10px] text-brand font-medium">
+                {3 - activeRequests.length} slot{3 - activeRequests.length === 1 ? "" : "s"} available
+              </span>
+            )}
+          </div>
 
-            <div className="flex items-center justify-between mt-6">
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-lg bg-surface-2 flex items-center justify-center text-brand">
-                  <User className="h-4 w-4" />
+          <div className="space-y-3">
+            {activeRequests.map((req) => (
+              <Link
+                key={req.id}
+                to="/app/chats/$requestId"
+                params={{ requestId: req.id }}
+                className="block overflow-hidden rounded-[24px] bg-surface-1 border-strong border-opacity-40 border p-5 transition-all active:scale-[0.98] shadow-lg"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-base font-bold text-text truncate">{req.title}</h4>
+                    <p className="text-[10px] text-text-muted mt-0.5">
+                      ID: {req.reference || "FBH-2026-0000"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand/10 text-brand border border-brand/20">
+                    <span className="h-1.5 w-1.5 rounded-full bg-brand animate-pulse" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider">
+                      {req.status}
+                    </span>
+                  </div>
                 </div>
-                <div className="text-left">
-                  <p className="text-[10px] text-text-muted leading-none mb-1 uppercase tracking-tight font-bold">
-                    Assigned To
-                  </p>
-                  <p className="text-xs font-bold text-text">Support Team</p>
+
+                <div className="flex items-center justify-between mt-6">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-lg bg-surface-2 flex items-center justify-center text-brand">
+                      <User className="h-4 w-4" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-[10px] text-text-muted leading-none mb-1 uppercase tracking-tight font-bold">
+                        Assigned To
+                      </p>
+                      <p className="text-xs font-bold text-text">Support Team</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 font-bold text-brand text-sm group">
+                    Continue Chat
+                    <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2 font-bold text-brand text-sm group">
-                Continue Chat
-                <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </div>
-          </Link>
+              </Link>
+            ))}
+          </div>
         </section>
       )}
 

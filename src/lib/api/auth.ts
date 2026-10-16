@@ -32,11 +32,14 @@ export async function signInWithGoogle(redirectPath: string = "/app") {
       console.log("[Auth] Calling GoogleAuth.signIn()...");
       const googleUser = await GoogleAuth.signIn();
       console.log(
-        "[Auth] GoogleAuth.signIn() returned:",
-        JSON.stringify(googleUser).substring(0, 100),
+        "[Auth] GoogleAuth.signIn() returned user with id:",
+        googleUser?.id || (googleUser as any)?.email,
       );
 
-      const idToken = googleUser?.authentication?.idToken || (googleUser as any)?.idToken;
+      const idToken =
+        googleUser?.authentication?.idToken ||
+        (googleUser as any)?.idToken ||
+        (googleUser as any)?.authentication?.token;
       if (idToken) {
         const { data, error } = await supabase.auth.signInWithIdToken({
           provider: "google",

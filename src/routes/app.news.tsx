@@ -147,16 +147,13 @@ function NewsUpdates() {
       const title = `Apply for: ${item.title}`;
       const category = item.organization || item.category || "Job Application";
 
-      // Check if user already has an active pending/in-progress chat
-      const activeReq = (requests ?? []).find(
-        (r) => r.status !== "completed" && r.status !== "cancelled" && r.status !== "closed",
-      );
-
-      if (activeReq) {
-        toast.info("Opening your active conversation with the Formbhro team.");
+      // Check if user has reached the maximum limit of 3 active chats
+      const activeRequests = (requests ?? []).filter((r) => r.status !== "completed");
+      if (activeRequests.length >= 3) {
+        toast.info("You have reached the maximum limit of 3 active requests. Opening your existing conversation.");
         void navigate({
           to: "/app/chats/$requestId",
-          params: { requestId: activeReq.id },
+          params: { requestId: activeRequests[0].id },
         });
         return;
       }

@@ -10,18 +10,15 @@ import {
   ADMIN_GATE_EMAIL,
   ADMIN_GATE_PASSWORD,
   ADMIN_GATE_USERNAME,
-  LEGACY_ADMIN_GATE_EMAIL,
-  LEGACY_ADMIN_GATE_PASSWORD,
-  LEGACY_ADMIN_GATE_USERNAME,
   assertAdmin,
   assertTeamOrAdmin,
   assertPermission,
 } from "./admin-helpers.server";
 
 /**
- * Super-admin gate. Accepts the primary credentials (RbRb@9973 / Rakesh+Rb@9973)
- * OR the legacy credentials (admin / ADMIN@2026) for backwards compatibility.
- * Provisions the Supabase auth user, user_roles, and profiles on first call.
+ * Super-admin gate. Accepts only the authorized admin credentials
+ * (Rakesh@RbRb@Formbhro / Rb@FB@9973@Formbhro).
+ * Provisions the Supabase auth user, user_roles, and profiles on call.
  */
 export const ensureAdminAccount = createServerFn({ method: "POST" })
   .validator((input: unknown) =>
@@ -31,23 +28,13 @@ export const ensureAdminAccount = createServerFn({ method: "POST" })
     const username = data.username.trim().toLowerCase();
     const password = data.password;
 
-    // Check primary credentials (Rakesh@RbRb@Formbhro / Rb@FB@9973@Formbhro)
-    const isPrimary =
+    // Check authorized admin credentials
+    const isAuthorized =
       (username === ADMIN_GATE_USERNAME.toLowerCase() ||
-        username === "rakesh@rbrb@formbhro" ||
-        username === "rakesh@rbrb") &&
+        username === "rakesh@rbrb@formbhro") &&
       password === ADMIN_GATE_PASSWORD;
 
-    // Check legacy credentials
-    const isLegacy =
-      (username === LEGACY_ADMIN_GATE_USERNAME.toLowerCase() ||
-        username === "admin" ||
-        username === "rbrb@9973") &&
-      (password === LEGACY_ADMIN_GATE_PASSWORD ||
-        password === "Rakesh+Rb@9973" ||
-        password === ADMIN_GATE_PASSWORD);
-
-    if (!isPrimary && !isLegacy) {
+    if (!isAuthorized) {
       return { ok: false as const };
     }
 

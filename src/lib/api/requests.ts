@@ -25,17 +25,23 @@ async function requireUid() {
   return fallbackUid;
 }
 
-/** Returns the user's single active (non-completed, non-cancelled) request, if any. */
-export async function getActiveRequest(): Promise<RequestRow | null> {
+/** Returns all active (non-completed, non-cancelled) requests for the user. */
+export async function getActiveRequests(): Promise<RequestRow[]> {
   const uid = await requireUid();
   const { data, error } = await supabase
     .from("requests")
     .select("*")
     .eq("user_id", uid)
     .in("status", ACTIVE_DB_STATUSES)
-    .maybeSingle();
+    .order("created_at", { ascending: false });
   if (error) throw new ApiError(error.message, error.code);
-  return data;
+  return data ?? [];
+}
+
+/** Returns the user's latest active (non-completed, non-cancelled) request, if any. */
+export async function getActiveRequest(): Promise<RequestRow | null> {
+  const active = await getActiveRequests();
+  return active[0] ?? null;
 }
 
 /**
@@ -62,9 +68,12 @@ export async function createNewRequest(input?: {
         "CHAT_LIMIT_EXCEEDED",
       );
     }
-    if (error.code === "23505" && error.message.includes("requests_one_active_per_user")) {
+    if (
+      (error.code === "23505" && error.message.includes("requests_one_active_per_user")) ||
+      error.message.includes("ACTIVE_REQUEST_LIMIT_EXCEEDED")
+    ) {
       throw new ApiError(
-        "You already have an active request. Please wait for it to be completed before starting a new one.",
+        "You have reached the maximum limit of 3 active form requests. Please wait for one to be completed before starting a new one.",
         "ACTIVE_REQUEST_LIMIT_EXCEEDED",
       );
     }
@@ -83,14 +92,18 @@ export async function createNewRequest(input?: {
 
 /**
  * Entry point to either create or return active request.
+ * Allows up to 3 active requests. If user already has 3 active requests,
+ * returns the latest active request with created: false.
  */
 export async function createOrContinueRequest(input: {
   title: string;
   category?: string;
   priority?: DbRequestPriority;
 }): Promise<{ request: RequestRow; created: boolean }> {
-  const existing = await getActiveRequest();
-  if (existing) return { request: existing, created: false };
+  const active = await getActiveRequests();
+  if (active.length >= 3) {
+    return { request: active[0], created: false };
+  }
 
   const request = await createNewRequest(input);
   return { request, created: true };

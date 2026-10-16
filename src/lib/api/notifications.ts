@@ -83,7 +83,14 @@ export async function listNews(): Promise<NewsRow[]> {
     .eq("published", true)
     .order("published_at", { ascending: false });
   if (error) throw new ApiError(error.message, error.code);
-  return (data ?? []).map(mapNewsRowToVacancy);
+  return (data ?? [])
+    .map(mapNewsRowToVacancy)
+    .filter((item: any) => {
+      const cat = (item.category || "").toLowerCase();
+      const target = item.custom_fields?.target;
+      const groupId = item.custom_fields?.group_id;
+      return !cat.startsWith("group:") && !cat.includes("group") && target !== "group" && !groupId;
+    });
 }
 
 /** Fetches public job vacancy notifications strictly for the Jobs Updates section (excludes all groups). */

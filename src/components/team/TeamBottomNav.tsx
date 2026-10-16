@@ -15,7 +15,8 @@ export function TeamBottomNav() {
     exact ? pathname === to : pathname.startsWith(to);
 
   // Hide the bottom nav on mobile when a work chat is open or inside admin-chat to give full screen space
-  const isFullScreenChat = (pathname === "/team/work" && !!search.r) || pathname === "/team/admin-chat";
+  const isFullScreenChat =
+    (pathname === "/team/work" && (!!search.r || !!search.id)) || pathname === "/team/admin-chat";
   if (isFullScreenChat) return null;
 
   return (

@@ -360,7 +360,7 @@ function TeamJobGroups() {
         qualification: form.qualification.trim(),
         min_age: minAge,
         max_age: maxAge,
-        vacancy_status: form.vacancy_status,
+        vacancy_status: form.vacancy_status as any,
         application_last_date: form.application_last_date,
         total_vacancies: form.vacancies_count ? parseInt(form.vacancies_count, 10) : null,
         apply_url: form.application_url.trim() || undefined,

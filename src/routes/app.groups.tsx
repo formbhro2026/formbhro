@@ -3,7 +3,7 @@ import { useUserStore } from "@/lib/user-store";
 import { UserHeader } from "@/components/layout/UserHeader";
 import { EmptyState } from "@/components/common/EmptyState";
 import { cn } from "@/lib/utils";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   Search,
   SlidersHorizontal,
@@ -26,8 +26,10 @@ import {
   Info,
   HelpCircle,
   Loader2,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
+import * as notificationsApi from "@/lib/api/notifications";
 import {
   JOB_GROUPS,
   DEFAULT_QUALIFICATIONS,
@@ -59,9 +61,71 @@ function UserJobGroups() {
   const searchParams = Route.useSearch();
   const navigate = useNavigate();
 
-  // If groupId is in URL, use it; otherwise null (main group list screen)
-  const activeGroupId = (searchParams.groupId as JobGroupId | undefined) ?? null;
+  // Dual-tier active group state: reads from URL search params AND local state for immediate, resilient rendering
+  const [selectedGroupId, setSelectedGroupId] = useState<JobGroupId | null>(
+    (searchParams?.groupId as JobGroupId | undefined) ?? null,
+  );
+
+  useEffect(() => {
+    if (
+      searchParams?.groupId &&
+      (searchParams.groupId === "jobs-update" || searchParams.groupId === "hidden-jobs-update")
+    ) {
+      setSelectedGroupId(searchParams.groupId as JobGroupId);
+    } else if (!searchParams?.groupId) {
+      setSelectedGroupId(null);
+    }
+  }, [searchParams?.groupId]);
+
+  const activeGroupId = selectedGroupId;
   const activeGroup = activeGroupId ? JOB_GROUPS.find((g) => g.id === activeGroupId) ?? null : null;
+
+  // Direct backend group updates feed
+  const [remoteGroupPosts, setRemoteGroupPosts] = useState<NewsItem[]>([]);
+  const [loadingPosts, setLoadingPosts] = useState(false);
+
+  useEffect(() => {
+    if (!activeGroupId) {
+      setRemoteGroupPosts([]);
+      return;
+    }
+    let active = true;
+    setLoadingPosts(true);
+
+    (async () => {
+      try {
+        const data = await notificationsApi.listGroupUpdates(activeGroupId, 100);
+        if (!active) return;
+        const mapped: NewsItem[] = (data ?? []).map((row: any) => ({
+          id: row.id,
+          title: row.title,
+          description: row.description,
+          date: row.published_at ? new Date(row.published_at).toLocaleDateString() : "Recent",
+          category: row.category,
+          image_url: row.image_url,
+          organization: row.organization,
+          qualification: row.qualification,
+          application_last_date: row.application_last_date,
+          total_vacancies: row.total_vacancies,
+          min_age: row.min_age,
+          max_age: row.max_age,
+          vacancy_status: row.vacancy_status,
+          apply_url: row.apply_url,
+          notification_url: row.notification_url,
+          custom_fields: row.custom_fields,
+        }));
+        setRemoteGroupPosts(mapped);
+      } catch (err) {
+        console.error("[UserJobGroups] Error fetching group feed:", err);
+      } finally {
+        if (active) setLoadingPosts(false);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [activeGroupId]);
 
   // Search & Filter state for inside the group feed
   const [searchQuery, setSearchQuery] = useState("");
@@ -76,19 +140,21 @@ function UserJobGroups() {
   // Helper to enter a group
   const handleOpenGroup = (groupId: JobGroupId) => {
     resetFilters();
+    setSelectedGroupId(groupId);
     void navigate({
       to: "/app/groups",
       search: { groupId },
-    });
+    }).catch(() => {});
   };
 
   // Helper to exit a group back to the group list
   const handleBackToList = () => {
     resetFilters();
+    setSelectedGroupId(null);
     void navigate({
       to: "/app/groups",
       search: {},
-    });
+    }).catch(() => {});
   };
 
   const resetFilters = () => {
@@ -169,7 +235,7 @@ function UserJobGroups() {
       ) {
         // Open active chat and send details if possible
         const activeReq = (requests ?? []).find(
-          (r) => r.status !== "completed" && r.status !== "cancelled" && r.status !== "closed",
+          (r) => r.status !== "completed",
         );
         if (activeReq) {
           toast.info("Connecting vacancy details to your active conversation.");
@@ -198,6 +264,7 @@ function UserJobGroups() {
   // Items belonging strictly to the active group (Requirement 4: Completely separate feeds)
   const groupItems = useMemo(() => {
     if (!activeGroupId) return [];
+    if (remoteGroupPosts.length > 0) return remoteGroupPosts;
     return (news ?? []).filter((item) => {
       const cat = (item.category || "").toLowerCase();
       const target = (item.custom_fields as any)?.target;
@@ -221,7 +288,7 @@ function UserJobGroups() {
       }
       return false;
     });
-  }, [news, activeGroupId]);
+  }, [news, remoteGroupPosts, activeGroupId]);
 
   // Apply search & interactive filters
   const filteredList = useMemo(() => {
@@ -515,7 +582,12 @@ function UserJobGroups() {
 
           {/* Group Updates Feed */}
           <div className="space-y-4">
-            {filteredList.length === 0 ? (
+            {loadingPosts && groupItems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 gap-3 text-text-muted rounded-2xl border border-border-subtle bg-surface-1">
+                <Loader2 className="h-7 w-7 animate-spin text-brand" />
+                <p className="text-xs font-medium">Loading {activeGroup.name} feed...</p>
+              </div>
+            ) : filteredList.length === 0 ? (
               <div className="rounded-2xl border border-border-subtle bg-surface-1 p-8 text-center">
                 <EmptyState
                   icon={Briefcase}

@@ -185,7 +185,7 @@ function AdminChats() {
           .select("*")
           .eq("id", raw)
           .maybeSingle();
-        profile = profData;
+        profile = profData ?? undefined;
       }
       if (!profile) {
         const { data: profData } = await supabase
@@ -194,7 +194,7 @@ function AdminChats() {
           .ilike("id", `%${raw}%`)
           .limit(1)
           .maybeSingle();
-        profile = profData;
+        profile = profData ?? undefined;
       }
 
       const effectiveUid = profile?.id || raw;
@@ -1097,7 +1097,7 @@ function AdminChats() {
 
                                 <Button
                                   type="button"
-                                  variant={isSelected ? "secondary" : "outline"}
+                                  variant={isSelected ? "primary" : "ghost"}
                                   className="h-7 px-2.5 text-[11px] font-semibold"
                                   onClick={() => handleOpenSelectedChat(req)}
                                 >

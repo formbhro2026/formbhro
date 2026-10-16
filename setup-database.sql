@@ -100,9 +100,38 @@ GRANT SELECT, INSERT, UPDATE ON public.requests TO authenticated;
 GRANT ALL ON public.requests TO service_role;
 ALTER TABLE public.requests ENABLE ROW LEVEL SECURITY;
 
-CREATE UNIQUE INDEX IF NOT EXISTS requests_one_active_per_user
+CREATE INDEX IF NOT EXISTS requests_user_active_idx
   ON public.requests (user_id)
   WHERE status NOT IN ('completed','cancelled');
+
+CREATE OR REPLACE FUNCTION public.check_max_active_requests()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_active_count int;
+BEGIN
+  IF NEW.status NOT IN ('completed', 'cancelled') THEN
+    SELECT COUNT(*) INTO v_active_count
+    FROM public.requests
+    WHERE user_id = NEW.user_id
+      AND status NOT IN ('completed', 'cancelled')
+      AND id != COALESCE(NEW.id, '00000000-0000-0000-0000-000000000000'::uuid);
+
+    IF v_active_count >= 3 THEN
+      RAISE EXCEPTION 'ACTIVE_REQUEST_LIMIT_EXCEEDED: Maximum 3 active requests allowed at a time.';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trigger_check_max_active_requests ON public.requests;
+CREATE TRIGGER trigger_check_max_active_requests
+BEFORE INSERT OR UPDATE OF status, user_id
+ON public.requests
+FOR EACH ROW
+EXECUTE FUNCTION public.check_max_active_requests();
 CREATE INDEX IF NOT EXISTS requests_user_idx ON public.requests (user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS requests_team_idx ON public.requests (assigned_team_id, last_activity_at DESC);
 CREATE INDEX IF NOT EXISTS requests_status_idx ON public.requests (status);

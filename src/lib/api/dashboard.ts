@@ -2,20 +2,22 @@ import { supabase } from "@/integrations/supabase/client";
 import { getMyProfile } from "./auth";
 import { documentsCount, listDocuments } from "./documents";
 import { listNews, listNotifications, unreadNotificationCount } from "./notifications";
-import { getActiveRequest, listRequests } from "./requests";
+import { getActiveRequest, getActiveRequests, listRequests } from "./requests";
 import type { ActivityLogRow } from "./types";
 
 /** Single round of parallel reads that powers the User dashboard (no N+1). */
 export async function loadUserDashboard() {
-  const [profile, activeRequest, recent, notifications, unread, news, docs] = await Promise.all([
+  const [profile, activeRequests, recent, notifications, unread, news, docs] = await Promise.all([
     getMyProfile(),
-    getActiveRequest(),
+    getActiveRequests(),
     listRequests({ limit: 5 }),
     listNotifications(20),
     unreadNotificationCount(),
     listNews(),
     documentsCount(),
   ]);
+
+  const activeRequest = activeRequests[0] ?? null;
 
   let latestUpdate: ActivityLogRow | null = null;
   if (activeRequest) {
@@ -32,7 +34,8 @@ export async function loadUserDashboard() {
   return {
     profile,
     activeRequest,
-    hasActiveRequest: Boolean(activeRequest),
+    activeRequests,
+    hasActiveRequest: activeRequests.length > 0,
     recentRequests: recent,
     notifications,
     unreadNotifications: unread,

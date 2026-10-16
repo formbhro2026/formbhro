@@ -128,6 +128,7 @@ function WorkArea() {
   const search = Route.useSearch();
   const navigate = useNavigate();
   const {
+    member,
     requests,
     pool,
     requestsHasMore,
@@ -366,7 +367,7 @@ function matchesDateFilter(r: TeamRequest, range: string, custom: string) {
             assigneeId: data.assigned_team_id || "",
             timeline: [],
             isEscalated: Boolean(data.is_escalated),
-            tags: data.tags || [],
+            tags: (data as any).tags || [],
             requestUuid: data.id,
             chatRoomId: null,
             assignedAtRaw: data.assigned_at,
@@ -425,7 +426,7 @@ function matchesDateFilter(r: TeamRequest, range: string, custom: string) {
           assigneeId: data.assigned_team_id || "",
           timeline: [],
           isEscalated: Boolean(data.is_escalated),
-          tags: data.tags || [],
+          tags: (data as any).tags || [],
           requestUuid: data.id,
           chatRoomId: null,
           assignedAtRaw: data.assigned_at,

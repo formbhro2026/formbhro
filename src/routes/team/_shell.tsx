@@ -1,10 +1,11 @@
-import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useTeamStore } from "@/lib/team-store";
 import { TeamSidebar } from "@/components/team/TeamSidebar";
 import { TeamBottomNav } from "@/components/team/TeamBottomNav";
 import { GlobalCallProvider } from "@/lib/call-store";
 import { updateTeamPresence } from "@/lib/api/requests";
+import { cn } from "@/lib/utils";
 
 function TeamShell() {
   const { member, hydrated } = useTeamStore();
@@ -59,14 +60,29 @@ function TeamShell() {
     );
   }
 
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const search = useRouterState({ select: (s) => s.location.search as Record<string, unknown> });
+  const isChatRoom =
+    (pathname === "/team/work" && (!!search?.r || !!search?.id)) || pathname === "/team/admin-chat";
+
   return (
     <GlobalCallProvider>
-      <div className="min-h-screen bg-bg text-text antialiased">
+      <div
+        className={cn(
+          "bg-bg text-text antialiased",
+          isChatRoom ? "h-[100dvh] flex flex-col overflow-hidden" : "min-h-screen",
+        )}
+      >
         <TeamSidebar />
-        <div className="flex min-h-screen flex-col lg:pl-60">
+        <div
+          className={cn(
+            "lg:pl-60",
+            isChatRoom ? "flex-1 flex flex-col min-h-0 overflow-hidden" : "flex min-h-screen flex-col",
+          )}
+        >
           <Outlet />
         </div>
-        <TeamBottomNav />
+        {!isChatRoom && <TeamBottomNav />}
       </div>
     </GlobalCallProvider>
   );

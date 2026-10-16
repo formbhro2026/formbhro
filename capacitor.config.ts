@@ -23,11 +23,10 @@ const config: CapacitorConfig = {
     GoogleAuth: {
       scopes: ["profile", "email"],
       // serverClientId: the WEB application OAuth client ID from Google Console.
-      // Used by Supabase to validate the idToken via signInWithIdToken.
+      // Must be used for requestIdToken to avoid Android ApiException: 10
       serverClientId: "111790521008-kdr78o80m6h10voviku4r6uq9iq9nj2v.apps.googleusercontent.com",
       clientId: "111790521008-kdr78o80m6h10voviku4r6uq9iq9nj2v.apps.googleusercontent.com",
-      androidClientId: "111790521008-5p9iv2598bl00nr9fdchq9he04ee6oac.apps.googleusercontent.com",
-      // forceCodeForRefreshToken false ensures standard idToken request without failing on missing offline server secret
+      androidClientId: "111790521008-kdr78o80m6h10voviku4r6uq9iq9nj2v.apps.googleusercontent.com",
       forceCodeForRefreshToken: false,
     },
     PushNotifications: {
