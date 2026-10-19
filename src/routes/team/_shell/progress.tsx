@@ -10,6 +10,7 @@ import type { TeamRequest, TeamStatus } from "@/data/team-module";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/team/_shell/progress")({
+  ssr: false,
   component: TeamProgress,
   head: () => ({
     meta: [

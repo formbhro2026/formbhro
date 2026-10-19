@@ -33,6 +33,7 @@ function TeamLogin() {
       setError(res.error ?? "Invalid access code.");
       return;
     }
+    localStorage.setItem("formbhro:last_workspace", "team");
     setError(null);
   };
 

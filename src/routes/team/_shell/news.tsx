@@ -36,6 +36,7 @@ import { QualificationMultiSelect } from "@/components/common/QualificationMulti
 import { uploadNewsBanner } from "@/lib/api/admin.functions";
 
 export const Route = createFileRoute("/team/_shell/news")({
+  ssr: false,
   component: TeamNewsAndVacancies,
   head: () => ({
     meta: [

@@ -183,6 +183,22 @@ export function TeamHeader({ title, onOpenNav }: { title?: string; onOpenNav?: (
                     <span className="h-2 w-2 rounded-full bg-red-400" />
                     <span>Busy</span>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void setAvailabilityStatus("offline");
+                      setShowStatusMenu(false);
+                    }}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs font-semibold transition-colors",
+                      availabilityStatus === "offline"
+                        ? "bg-zinc-500/15 text-zinc-300 font-bold"
+                        : "text-text-secondary hover:text-white hover:bg-surface-2",
+                    )}
+                  >
+                    <span className="h-2 w-2 rounded-full bg-zinc-400" />
+                    <span>Offline</span>
+                  </button>
                 </div>
               )}
             </div>

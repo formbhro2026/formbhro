@@ -34,7 +34,7 @@ function getCachedSession(): {
 } | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = sessionStorage.getItem(CACHE_KEY) || localStorage.getItem(CACHE_KEY);
+    const raw = localStorage.getItem(CACHE_KEY) || sessionStorage.getItem(CACHE_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -123,11 +123,18 @@ function SessionProviderInner({ children }: { children: ReactNode }) {
       setProfile(nextProfile);
       const roles = (rolesResult?.data ?? []).map((r) => r.role);
       if (rolesResult?.error) console.error("[Session] roles error:", rolesResult.error);
-      const nextRole: AppRole = roles.includes("admin")
-        ? "admin"
-        : roles.includes("team")
-          ? "team"
-          : "user";
+      const lastWorkspace =
+        typeof window !== "undefined" ? localStorage.getItem("formbhro:last_workspace") : null;
+      let nextRole: AppRole = "user";
+      if (lastWorkspace === "team" && roles.includes("team")) {
+        nextRole = "team";
+      } else if (lastWorkspace === "admin" && roles.includes("admin")) {
+        nextRole = "admin";
+      } else if (roles.includes("admin")) {
+        nextRole = "admin";
+      } else if (roles.includes("team")) {
+        nextRole = "team";
+      }
       setRole(nextRole);
 
       console.log(`[PERF][ROLE] T4: Resolved role=${nextRole} in ${Date.now() - t0}ms`);
@@ -169,10 +176,21 @@ function SessionProviderInner({ children }: { children: ReactNode }) {
       const t0 = Date.now();
       try {
         console.log("[PERF][SESSION] T2: getSession starting...");
-        const {
+        let {
           data: { session },
         } = await supabase.auth.getSession();
-        console.log(`[PERF][SESSION] T2: getSession resolved in ${Date.now() - t0}ms`);
+
+        // On cold start / app resume from background, if getSession is momentarily empty, retry briefly
+        if (!session) {
+          await new Promise((r) => setTimeout(r, 120));
+          const retry = await supabase.auth.getSession();
+          if (retry.data?.session) {
+            session = retry.data.session;
+          }
+        }
+        console.log(
+          `[PERF][SESSION] T2: getSession resolved in ${Date.now() - t0}ms, user=${session?.user?.id ?? "none"}`,
+        );
 
         if (active) {
           if (session?.user) {
@@ -195,7 +213,6 @@ function SessionProviderInner({ children }: { children: ReactNode }) {
               void load(session.user);
               return;
             } else {
-              setCachedSession(null);
               if (fcmInitializedUserIdRef.current !== session.user.id) {
                 fcmInitializedUserIdRef.current = session.user.id;
                 void initializeFCM(session.user.id);
@@ -203,8 +220,11 @@ function SessionProviderInner({ children }: { children: ReactNode }) {
               await load(session.user);
             }
           } else {
-            setCachedSession(null);
-            await load(null);
+            const cached = getCachedSession();
+            if (!cached) {
+              setCachedSession(null);
+              await load(null);
+            }
           }
         }
       } catch (e) {
@@ -221,11 +241,6 @@ function SessionProviderInner({ children }: { children: ReactNode }) {
     const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!active) return;
 
-      // Skip INITIAL_SESSION as init() is already running the startup hydration
-      if (event === "INITIAL_SESSION") {
-        return;
-      }
-
       if (event === "SIGNED_OUT" || !session?.user) {
         lastHandledUserIdRef.current = null;
         fcmInitializedUserIdRef.current = null;
@@ -233,13 +248,18 @@ function SessionProviderInner({ children }: { children: ReactNode }) {
         return;
       }
 
-      // If user is updated, or signed in as a new user, hydrate fresh profile & role
+      // If user is updated, or initial session recovered from disk, or signed in as new user:
       if (
+        event === "INITIAL_SESSION" ||
         event === "SIGNED_IN" ||
         event === "USER_UPDATED" ||
+        event === "TOKEN_REFRESHED" ||
         session.user.id !== lastHandledUserIdRef.current
       ) {
+        setUser(session.user);
         await load(session.user);
+        setLoading(false);
+        setInitialized(true);
       }
 
       // Initialize FCM token registration and notification channels idempotently

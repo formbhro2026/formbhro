@@ -51,14 +51,21 @@ function AppShell() {
       return;
     }
 
-    if (user && role === "admin") {
+    const lastWorkspace =
+      typeof window !== "undefined" ? localStorage.getItem("formbhro:last_workspace") : null;
+
+    if (user && (role === "team" || lastWorkspace === "team")) {
+      void navigate({ to: "/team", replace: true });
+      return;
+    }
+
+    if (user && role === "admin" && lastWorkspace !== "team") {
       void navigate({ to: "/admin", replace: true });
       return;
     }
 
-    if (user && role === "team") {
-      void navigate({ to: "/team", replace: true });
-      return;
+    if (user) {
+      localStorage.setItem("formbhro:last_workspace", "user");
     }
 
     // Reset so that a subsequent logout can redirect again from a fresh /app visit

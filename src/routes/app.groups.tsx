@@ -196,7 +196,7 @@ function UserJobGroups() {
 
       // If no relevant chat exists, create a new chat
       const title = `Apply for: ${itemTitle}`;
-      const category = item.organization || item.category || "Job Application";
+      const category = "Job Application";
 
       const vacancyDetailsMessage = [
         `📋 *Job Application Request*`,
@@ -679,13 +679,17 @@ function UserJobGroups() {
                     </div>
 
                     {/* Title & Description */}
-                    <div className="mt-3">
-                      <h2 className="text-base sm:text-lg font-bold text-text tracking-tight">
+                    <div className="mt-3.5 space-y-2.5">
+                      <h2 className="text-base sm:text-lg font-bold text-text tracking-tight leading-snug">
                         {item.title}
                       </h2>
-                      <p className="mt-1.5 text-xs sm:text-sm text-text-secondary leading-relaxed">
-                        {item.description}
-                      </p>
+                      {item.description && (
+                        <div className="rounded-xl border border-border-subtle/60 bg-surface-2/40 p-3 sm:p-3.5">
+                          <p className="text-xs sm:text-sm text-text-secondary leading-relaxed whitespace-pre-line break-words">
+                            {item.description}
+                          </p>
+                        </div>
+                      )}
                     </div>
 
                     {/* Key Details Grid */}
@@ -713,7 +717,21 @@ function UserJobGroups() {
                           Last Date
                         </span>
                         <span className="font-semibold text-brand mt-0.5 block truncate">
-                          {item.application_last_date || "Open"}
+                          {(() => {
+                            const raw = item.application_last_date;
+                            if (!raw || raw.toLowerCase() === "open") return "Open";
+                            try {
+                              const d = new Date(raw);
+                              if (!isNaN(d.getTime())) {
+                                return d.toLocaleDateString("en-IN", {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                });
+                              }
+                            } catch (_) {}
+                            return raw.replace(/T.*$/, "");
+                          })()}
                         </span>
                       </div>
                       <div>

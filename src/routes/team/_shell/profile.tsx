@@ -7,6 +7,7 @@ import { useTeamStore } from "@/lib/team-store";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/team/_shell/profile")({
+  ssr: false,
   component: TeamProfile,
   head: () => ({
     meta: [

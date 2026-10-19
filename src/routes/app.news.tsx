@@ -145,7 +145,7 @@ function NewsUpdates() {
     setApplyingId(item.id);
     try {
       const title = `Apply for: ${item.title}`;
-      const category = item.organization || item.category || "Job Application";
+      const category = "Job Application";
 
       // Check if user has reached the maximum limit of 3 active chats
       const activeRequests = (requests ?? []).filter((r) => r.status !== "completed");

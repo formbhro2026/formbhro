@@ -41,9 +41,10 @@ export function ModernAuthForm({
           (res as any)?.data?.session)
       ) {
         if (typeof window !== "undefined") {
+          localStorage.setItem("formbhro:last_workspace", "user");
           const target =
-            sessionStorage.getItem("formbhro:redirect") ||
             localStorage.getItem("formbhro:redirect") ||
+            sessionStorage.getItem("formbhro:redirect") ||
             "/app";
           window.location.href = target;
         }

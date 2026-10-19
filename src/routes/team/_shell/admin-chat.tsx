@@ -29,6 +29,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/team/_shell/admin-chat")({
+  ssr: false,
   component: TeamAdminChatPage,
   head: () => ({
     meta: [

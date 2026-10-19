@@ -25,10 +25,11 @@ export async function signInWithGoogle(redirectPath: string = "/app") {
       const { GoogleAuth } = await import("@codetrix-studio/capacitor-google-auth");
       await GoogleAuth.initialize({
         clientId: GOOGLE_CLIENT_ID,
+        serverClientId: GOOGLE_CLIENT_ID,
         scopes: ["profile", "email"],
         // grantOfflineAccess: false ensures we only request idToken and avoid ApiException: 10
         grantOfflineAccess: false,
-      });
+      } as any);
       console.log("[Auth] Calling GoogleAuth.signIn()...");
       const googleUser = await GoogleAuth.signIn();
       console.log(
@@ -46,6 +47,9 @@ export async function signInWithGoogle(redirectPath: string = "/app") {
           token: idToken,
         });
         if (error) throw error;
+        if (typeof window !== "undefined") {
+          localStorage.setItem("formbhro:last_workspace", "user");
+        }
         return data;
       }
       console.warn("[Auth] No idToken received from native auth, falling back to Web OAuth");
@@ -150,6 +154,10 @@ export async function getMyRole(): Promise<AppRole | null> {
   if (!uid) return null;
   const { data } = await supabase.from("user_roles").select("role").eq("user_id", uid);
   const roles = (data ?? []).map((r: { role: AppRole }) => r.role);
+  const lastWorkspace =
+    typeof window !== "undefined" ? localStorage.getItem("formbhro:last_workspace") : null;
+  if (lastWorkspace === "team" && roles.includes("team")) return "team";
+  if (lastWorkspace === "admin" && roles.includes("admin")) return "admin";
   if (roles.includes("admin")) return "admin";
   if (roles.includes("team")) return "team";
   return roles.length ? "user" : null;

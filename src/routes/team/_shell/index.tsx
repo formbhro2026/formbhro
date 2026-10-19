@@ -25,6 +25,7 @@ import { getOrCreateAdminTeamChat } from "@/lib/api/admin-team-chat";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/team/_shell/")({
+  ssr: false,
   component: TeamHome,
   head: () => ({
     meta: [

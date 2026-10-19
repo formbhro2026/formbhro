@@ -66,11 +66,16 @@ function AuthPage() {
       (search.source === "app" || query.includes("source=app") || hash.includes("source=app")) &&
       !isInsideApp;
 
+    const getReturnUrl = (at: string, rt: string) => {
+      // Android Intent URI format is supported natively by Chrome without being blocked
+      return `intent://oauth-callback#Intent;scheme=com.formbhro.app;package=com.formbhro.app;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;S.access_token=${encodeURIComponent(at)};S.refresh_token=${encodeURIComponent(rt)};end`;
+    };
+
     if (accessToken && refreshToken) {
       setProcessingOAuth(true);
 
       if (isExplicitAppSource) {
-        const deepLink = `com.formbhro.app://oauth-callback#access_token=${encodeURIComponent(accessToken)}&refresh_token=${encodeURIComponent(refreshToken)}`;
+        const deepLink = getReturnUrl(accessToken, refreshToken);
         setAppReturnUrl(deepLink);
 
         void supabase.auth.setSession({
@@ -126,7 +131,7 @@ function AuthPage() {
         .then(({ data }) => {
           if (data?.session) {
             if (isExplicitAppSource) {
-              const deepLink = `com.formbhro.app://oauth-callback#access_token=${encodeURIComponent(data.session.access_token)}&refresh_token=${encodeURIComponent(data.session.refresh_token)}`;
+              const deepLink = getReturnUrl(data.session.access_token, data.session.refresh_token);
               setAppReturnUrl(deepLink);
               window.location.href = deepLink;
               return;
@@ -159,7 +164,7 @@ function AuthPage() {
           }
           if (data?.session) {
             if (isExplicitAppSource) {
-              const deepLink = `com.formbhro.app://oauth-callback#access_token=${encodeURIComponent(data.session.access_token)}&refresh_token=${encodeURIComponent(data.session.refresh_token)}`;
+              const deepLink = getReturnUrl(data.session.access_token, data.session.refresh_token);
               setAppReturnUrl(deepLink);
               window.location.href = deepLink;
               return;
@@ -189,11 +194,18 @@ function AuthPage() {
     if (!initialized) return;
 
     if ((user || authSuccess) && !loading) {
+      const lastWorkspace =
+        typeof window !== "undefined" ? localStorage.getItem("formbhro:last_workspace") : null;
       let defaultDest = "/app";
-      if (role === "admin") defaultDest = "/admin";
+      if (lastWorkspace === "team" && role === "team") defaultDest = "/team";
+      else if (role === "admin" && lastWorkspace !== "team") defaultDest = "/admin";
       else if (role === "team") defaultDest = "/team";
 
       const dest = search.redirect_to ? decodeURIComponent(search.redirect_to) : defaultDest;
+      if (dest === "/app") localStorage.setItem("formbhro:last_workspace", "user");
+      else if (dest === "/team") localStorage.setItem("formbhro:last_workspace", "team");
+      else if (dest === "/admin") localStorage.setItem("formbhro:last_workspace", "admin");
+
       console.log(`[PERF][AUTH] Navigating to ${dest} after authentication`);
       void navigate({ to: dest as "/app" | "/admin" | "/team", replace: true });
     }

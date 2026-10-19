@@ -33,6 +33,7 @@ function AdminLogin() {
       setError(res.error ?? "Sign in failed.");
       return;
     }
+    localStorage.setItem("formbhro:last_workspace", "admin");
     navigate({ to: "/admin", replace: true });
   };
 

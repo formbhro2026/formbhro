@@ -6,6 +6,7 @@ import { useTeamStore } from "@/lib/team-store";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/team/_shell/notifications")({
+  ssr: false,
   component: TeamNotifications,
   head: () => ({
     meta: [

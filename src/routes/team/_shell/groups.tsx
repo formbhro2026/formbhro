@@ -40,6 +40,7 @@ import { QualificationMultiSelect } from "@/components/common/QualificationMulti
 import { uploadNewsBanner } from "@/lib/api/admin.functions";
 
 export const Route = createFileRoute("/team/_shell/groups")({
+  ssr: false,
   validateSearch: (search: Record<string, unknown>): { groupId?: string } => ({
     groupId: typeof search.groupId === "string" ? search.groupId : undefined,
   }),
@@ -327,11 +328,6 @@ function TeamJobGroups() {
       toast.error("Please enter vacancy details or instructions.");
       return;
     }
-    if (!form.application_last_date) {
-      toast.error("Please specify the application last date.");
-      return;
-    }
-
     const minAge = parseInt(form.min_age, 10);
     const maxAge = parseInt(form.max_age, 10);
     if (isNaN(minAge) || isNaN(maxAge) || minAge > maxAge) {
@@ -855,8 +851,8 @@ function TeamJobGroups() {
                   </div>
                 </div>
 
-                {/* Age Limit & Last Date */}
-                <div className="grid grid-cols-3 gap-2">
+                {/* Age Limit */}
+                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[10px] font-semibold text-text-muted mb-1">
                       Min Age
@@ -866,7 +862,7 @@ function TeamJobGroups() {
                       value={form.min_age}
                       onChange={(e) => setForm((p) => ({ ...p, min_age: e.target.value }))}
                       placeholder="18"
-                      className="h-9 w-full rounded-xl border border-border-subtle bg-surface-2 px-2 text-xs text-white focus:border-brand/50 outline-none"
+                      className="h-9 w-full rounded-xl border border-border-subtle bg-surface-2 px-3 text-xs text-white focus:border-brand/50 outline-none"
                     />
                   </div>
                   <div>
@@ -878,19 +874,7 @@ function TeamJobGroups() {
                       value={form.max_age}
                       onChange={(e) => setForm((p) => ({ ...p, max_age: e.target.value }))}
                       placeholder="45"
-                      className="h-9 w-full rounded-xl border border-border-subtle bg-surface-2 px-2 text-xs text-white focus:border-brand/50 outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-semibold text-text-muted mb-1">
-                      Last Date <span className="text-red-400">*</span>
-                    </label>
-                    <input
-                      required
-                      type="date"
-                      value={form.application_last_date}
-                      onChange={(e) => setForm((p) => ({ ...p, application_last_date: e.target.value }))}
-                      className="h-9 w-full rounded-xl border border-border-subtle bg-surface-2 px-2 text-xs text-white focus:border-brand/50 outline-none"
+                      className="h-9 w-full rounded-xl border border-border-subtle bg-surface-2 px-3 text-xs text-white focus:border-brand/50 outline-none"
                     />
                   </div>
                 </div>

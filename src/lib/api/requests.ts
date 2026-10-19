@@ -55,9 +55,23 @@ export async function createNewRequest(input?: {
   const uid = await requireUid();
   const title = input?.title?.trim() || "Form Assistance";
 
+  // Sanitize category against known active categories in database
+  const rawCat = (input?.category || "").trim();
+  const knownActive = [
+    "Government Form",
+    "Job Application",
+    "Student Scholarship",
+    "Other",
+    "Team Direct Report",
+    "CGL 2026",
+  ];
+  const safeCategory =
+    knownActive.find((c) => c.toLowerCase() === rawCat.toLowerCase()) ||
+    (rawCat ? "Job Application" : "Government Form");
+
   const { data, error } = await supabase.rpc("create_new_request_with_limit", {
     p_title: title,
-    p_category: input?.category ?? "Government Form",
+    p_category: safeCategory,
     p_priority: input?.priority ?? "medium",
   });
 

@@ -83,6 +83,7 @@ type WorkSearch = {
 const str = (v: unknown) => (typeof v === "string" && v ? v : undefined);
 
 export const Route = createFileRoute("/team/_shell/work")({
+  ssr: false,
   validateSearch: (search: Record<string, unknown>): WorkSearch => ({
     r: str(search.r) || str(search.id),
     id: str(search.id),
@@ -136,6 +137,7 @@ function WorkArea() {
     loadMoreRequests,
     messagesFor,
     documentsFor,
+    loadDocumentsForRequest,
     getDocument,
     sendMessage,
     attachDocument,
@@ -466,13 +468,14 @@ function matchesDateFilter(r: TeamRequest, range: string, custom: string) {
         requestRef: selected.id,
         chatRoomId: selected.chatRoomId || null,
       });
+      void loadDocumentsForRequest(selected.requestUuid || selected.id, selected.userId);
     } else {
       setActiveChat(null);
     }
     return () => {
       setActiveChat(null);
     };
-  }, [selected]);
+  }, [selected, loadDocumentsForRequest]);
 
   // Leaving a chat clears anything the member scrolled past but never reached.
   const openIdRef = useRef<string | null>(null);
@@ -491,12 +494,7 @@ function matchesDateFilter(r: TeamRequest, range: string, custom: string) {
       </div>
 
       <div
-        className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,19rem)_minmax(0,1fr)_minmax(0,20rem)]"
-        style={
-          selected && viewportHeight
-            ? { height: `${viewportHeight}px`, maxHeight: `${viewportHeight}px` }
-            : undefined
-        }
+        className="grid min-h-0 flex-1 h-full lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,19rem)_minmax(0,1fr)_minmax(0,20rem)] overflow-hidden"
       >
         {/* LEFT — assigned chat list */}
         <section
@@ -1353,13 +1351,13 @@ function Conversation({
             <Search className="h-4 w-4" aria-hidden="true" />
           </button>
 
-          {/* Info / sheet — always visible on non-xl */}
+          {/* Info / sheet — always visible on all screen sizes */}
           <button
             type="button"
             onClick={onOpenSheet}
             aria-haspopup="dialog"
             aria-label={`Request details, ${docCount} documents`}
-            className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 xl:hidden"
+            className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 transition-colors"
           >
             <Info className="h-4 w-4" aria-hidden="true" />
             {docCount > 0 && (
@@ -2308,7 +2306,7 @@ function RequestSheet({
 }) {
   const panelRef = useDialogA11y<HTMLDivElement>(onClose);
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/70 backdrop-blur-sm xl:hidden">
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-4">
       <button
         type="button"
         tabIndex={-1}
@@ -2321,7 +2319,7 @@ function RequestSheet({
         role="dialog"
         aria-modal="true"
         aria-label="Request details"
-        className="relative flex max-h-[85vh] w-full flex-col rounded-t-2xl border border-border-subtle bg-surface-1 duration-200 animate-in slide-in-from-bottom-4 shadow-2xl"
+        className="relative flex max-h-[85vh] w-full sm:max-w-xl flex-col rounded-t-2xl sm:rounded-2xl border border-border-subtle bg-surface-1 duration-200 animate-in slide-in-from-bottom-4 shadow-2xl"
       >
         <div className="flex items-center justify-between border-b border-border-subtle p-4">
           <h2 className="text-sm font-semibold text-text">Request Details</h2>

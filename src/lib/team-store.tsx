@@ -203,7 +203,24 @@ const Ctx = createContext<TeamStore | null>(null);
 export function TeamStoreProvider({ children }: { children: ReactNode }) {
   const [member, setMember] = useState<TeamMember | null>(null);
   const [hydrated, setHydrated] = useState(false);
-  const [availabilityStatus, setAvailabilityStatusState] = useState<"online" | "away" | "busy" | "offline">("online");
+  const [availabilityStatus, setAvailabilityStatusState] = useState<"online" | "away" | "busy" | "offline">(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("formbhro:team_manual_status");
+      if (saved === "online" || saved === "away" || saved === "busy" || saved === "offline") {
+        return saved;
+      }
+    }
+    return "online";
+  });
+  const manualStatusRef = useRef<"online" | "away" | "busy" | "offline" | null>(null);
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("formbhro:team_manual_status");
+      if (saved === "online" || saved === "away" || saved === "busy" || saved === "offline") {
+        manualStatusRef.current = saved;
+      }
+    }
+  }, []);
   const [loading, setLoading] = useState(true);
   const [live, setLive] = useState(false);
   const liveRef = useRef(false);
@@ -339,7 +356,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true;
-    (async () => {
+    const restoreSession = async () => {
       let stored: { member: TeamMember; live?: boolean } | null = null;
       try {
         const raw =
@@ -356,12 +373,23 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       }
       if (!active) return;
       if (stored) {
-        const { data } = await supabase.auth.getSession();
+        let { data } = await supabase.auth.getSession();
+        if (!data.session) {
+          await new Promise((r) => setTimeout(r, 120));
+          const retry = await supabase.auth.getSession();
+          if (retry.data?.session) {
+            data = retry.data;
+          }
+        }
         if (!active) return;
         if (data.session && data.session.user && data.session.user.id === stored.member.id) {
           setMember(stored.member);
           setLive(true);
           persistSession(stored.member, true, true);
+        } else if (!data.session) {
+          // Keep member state while disk recovery settles; don't wipe prematurely
+          setMember(stored.member);
+          setLive(true);
         } else {
           try {
             window.localStorage.removeItem(SESSION_KEY);
@@ -375,16 +403,47 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         if (active) setLoading(false);
       }
       if (active) setHydrated(true);
-    })();
+    };
+
+    void restoreSession();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!active) return;
+      if (event === "SIGNED_OUT" || (!session && event !== "INITIAL_SESSION")) {
+        setMember(null);
+        setLive(false);
+        liveRef.current = false;
+        try {
+          window.localStorage.removeItem(SESSION_KEY);
+          window.sessionStorage.removeItem(SESSION_KEY);
+        } catch {}
+      } else if (session?.user && (event === "INITIAL_SESSION" || event === "SIGNED_IN")) {
+        try {
+          const raw =
+            window.localStorage.getItem(SESSION_KEY) ?? window.sessionStorage.getItem(SESSION_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            const m = parsed?.member || parsed;
+            if (m && m.id === session.user.id) {
+              setMember(m);
+              setLive(true);
+              persistSession(m, true, true);
+            }
+          }
+        } catch {}
+      }
+    });
+
     return () => {
       active = false;
+      authListener.subscription.unsubscribe();
     };
   }, []);
 
-  const persistSession = useCallback((safe: TeamMember, remember: boolean, isLive: boolean) => {
+  const persistSession = useCallback((safe: TeamMember, _remember: boolean, isLive: boolean) => {
     try {
-      const store = remember ? window.localStorage : window.sessionStorage;
-      store.setItem(SESSION_KEY, JSON.stringify({ member: safe, live: isLive }));
+      window.localStorage.setItem(SESSION_KEY, JSON.stringify({ member: safe, live: isLive }));
+      window.localStorage.setItem("formbhro:last_workspace", "team");
     } catch {
       /* ignore */
     }
@@ -547,6 +606,12 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
   }, [live, member?.id, hydrated, fetchAnalytics, hydrateLive]);
 
   const setAvailabilityStatus = useCallback(async (status: "online" | "away" | "busy" | "offline") => {
+    manualStatusRef.current = status;
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("formbhro:team_manual_status", status);
+      }
+    } catch (_) {}
     setAvailabilityStatusState(status);
     if (!liveRef.current || !memberRef.current?.id) return;
     try {
@@ -565,7 +630,15 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     if (!live || !member?.id) return;
     const sendHeartbeat = async (statusOverride?: "online" | "away" | "busy" | "offline") => {
       try {
-        const effectiveStatus = statusOverride || (document.visibilityState === "visible" ? "online" : "away");
+        const manual = manualStatusRef.current;
+        let effectiveStatus: "online" | "away" | "busy" | "offline";
+        if (statusOverride) {
+          effectiveStatus = statusOverride;
+        } else if (manual) {
+          effectiveStatus = manual;
+        } else {
+          effectiveStatus = document.visibilityState === "visible" ? "online" : "away";
+        }
         setAvailabilityStatusState(effectiveStatus);
         await (supabase as any)
           .from("team_members")
@@ -577,14 +650,17 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       } catch (_) {}
     };
 
-    void sendHeartbeat("online");
+    const initialStatus = manualStatusRef.current || "online";
+    void sendHeartbeat(initialStatus);
     const interval = setInterval(() => void sendHeartbeat(), 25000);
 
     const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        void sendHeartbeat("online");
-      } else {
-        void sendHeartbeat("away");
+      if (!manualStatusRef.current) {
+        if (document.visibilityState === "visible") {
+          void sendHeartbeat("online");
+        } else {
+          void sendHeartbeat("away");
+        }
       }
     };
 
@@ -735,6 +811,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     try {
       window.localStorage.removeItem(SESSION_KEY);
       window.sessionStorage.removeItem(SESSION_KEY);
+      window.localStorage.removeItem("formbhro:last_workspace");
     } catch {
       /* ignore */
     }

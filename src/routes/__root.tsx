@@ -66,6 +66,21 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
       boundary: "tanstack_root_error_component",
       url: typeof window !== "undefined" ? window.location.href : undefined,
     });
+
+    // Auto-recover chunk load failure / dynamic import failures caused by new deployment
+    const isChunkOrNetworkError =
+      error?.message?.includes("Failed to fetch dynamically imported module") ||
+      error?.message?.includes("Importing a module script failed") ||
+      error?.message?.includes("Failed to load") ||
+      error?.name === "ChunkLoadError";
+
+    if (isChunkOrNetworkError && typeof window !== "undefined") {
+      const hasReloaded = sessionStorage.getItem("chunk_reload_attempt");
+      if (!hasReloaded) {
+        sessionStorage.setItem("chunk_reload_attempt", "1");
+        window.location.reload();
+      }
+    }
   }, [error]);
 
   return (
@@ -80,8 +95,13 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
             onClick={() => {
-              router.invalidate();
-              reset();
+              if (typeof window !== "undefined") {
+                sessionStorage.removeItem("chunk_reload_attempt");
+                window.location.reload();
+              } else {
+                router.invalidate();
+                reset();
+              }
             }}
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
@@ -89,6 +109,11 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
           </button>
           <a
             href="/"
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                sessionStorage.removeItem("chunk_reload_attempt");
+              }
+            }}
             className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
             Go home
@@ -212,11 +237,23 @@ function RootComponent() {
           }
         }
 
+        // 3. Check Android Intent URI extras (e.g. intent://oauth-callback#Intent;...;S.access_token=...;S.refresh_token=...;end)
+        if (!accessToken || !refreshToken) {
+          const tokenMatch = rawUrl.match(/S\.access_token=([^;]+)/);
+          const refreshMatch = rawUrl.match(/S\.refresh_token=([^;]+)/);
+          if (tokenMatch && refreshMatch) {
+            accessToken = decodeURIComponent(tokenMatch[1]);
+            refreshToken = decodeURIComponent(refreshMatch[1]);
+          }
+        }
+
         const { supabase } = await import("../integrations/supabase/client");
 
         if (accessToken && refreshToken) {
-          accessToken = decodeURIComponent(accessToken);
-          refreshToken = decodeURIComponent(refreshToken);
+          try {
+            if (accessToken.includes("%")) accessToken = decodeURIComponent(accessToken);
+            if (refreshToken.includes("%")) refreshToken = decodeURIComponent(refreshToken);
+          } catch (_) {}
 
           const { data, error } = await supabase.auth.setSession({
             access_token: accessToken,
@@ -229,6 +266,7 @@ function RootComponent() {
           }
 
           if (data?.session) {
+            localStorage.setItem("formbhro:last_workspace", "user");
             const redirectPath =
               localStorage.getItem("formbhro:redirect") ||
               sessionStorage.getItem("formbhro:redirect") ||
@@ -247,6 +285,7 @@ function RootComponent() {
           }
 
           if (data?.session) {
+            localStorage.setItem("formbhro:last_workspace", "user");
             const redirectPath =
               localStorage.getItem("formbhro:redirect") ||
               sessionStorage.getItem("formbhro:redirect") ||
