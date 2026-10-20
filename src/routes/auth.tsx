@@ -67,8 +67,7 @@ function AuthPage() {
       !isInsideApp;
 
     const getReturnUrl = (at: string, rt: string) => {
-      // Android Intent URI format is supported natively by Chrome without being blocked
-      return `intent://oauth-callback#Intent;scheme=com.formbhro.app;package=com.formbhro.app;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;S.access_token=${encodeURIComponent(at)};S.refresh_token=${encodeURIComponent(rt)};end`;
+      return `com.formbhro.app://oauth-callback#access_token=${encodeURIComponent(at)}&refresh_token=${encodeURIComponent(rt)}`;
     };
 
     if (accessToken && refreshToken) {

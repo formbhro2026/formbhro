@@ -27,7 +27,6 @@ export async function signInWithGoogle(redirectPath: string = "/app") {
         clientId: GOOGLE_CLIENT_ID,
         serverClientId: GOOGLE_CLIENT_ID,
         scopes: ["profile", "email"],
-        // grantOfflineAccess: false ensures we only request idToken and avoid ApiException: 10
         grantOfflineAccess: false,
       } as any);
       console.log("[Auth] Calling GoogleAuth.signIn()...");
@@ -41,12 +40,22 @@ export async function signInWithGoogle(redirectPath: string = "/app") {
         googleUser?.authentication?.idToken ||
         (googleUser as any)?.idToken ||
         (googleUser as any)?.authentication?.token;
+      const accessToken =
+        googleUser?.authentication?.accessToken ||
+        (googleUser as any)?.accessToken ||
+        (googleUser as any)?.authentication?.access_token;
+
       if (idToken) {
+        console.log("[Auth] Exchanging idToken with Supabase (hasAccessToken:", Boolean(accessToken), ")");
         const { data, error } = await supabase.auth.signInWithIdToken({
           provider: "google",
           token: idToken,
+          access_token: accessToken || undefined,
         });
-        if (error) throw error;
+        if (error) {
+          console.warn("[Auth] signInWithIdToken error:", error.message);
+          throw error;
+        }
         if (typeof window !== "undefined") {
           localStorage.setItem("formbhro:last_workspace", "user");
         }
@@ -74,9 +83,10 @@ export async function signInWithGoogle(redirectPath: string = "/app") {
       ? window.location.origin
       : "https://formbhro-main.vercel.app";
 
-  // For Capacitor Android fallback, route with source=app so external browser triggers deep link com.formbhro.app://oauth-callback
+  // For Capacitor Android, redirect to com.formbhro.app://oauth-callback so Android OS brings the APK to the foreground
+  // Never use `${origin}/auth?source=app` on Android because that strands the user in external Chrome on the Vercel site
   const redirectUri = isAndroid
-    ? `${origin}/auth?source=app`
+    ? "com.formbhro.app://oauth-callback"
     : `${origin}/auth`;
 
   const { data, error } = await supabase.auth.signInWithOAuth({
@@ -95,7 +105,7 @@ export async function signInWithGoogle(redirectPath: string = "/app") {
   if (isAndroid && data?.url) {
     try {
       const { Browser } = await import("@capacitor/browser");
-      await Browser.open({ url: data.url });
+      await Browser.open({ url: data.url, presentationStyle: "fullscreen" });
     } catch (browserErr) {
       console.warn("[Auth] Browser plugin open failed, falling back to window.location:", browserErr);
       if (typeof window !== "undefined") {
