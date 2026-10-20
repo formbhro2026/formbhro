@@ -53,17 +53,17 @@ function Index() {
     const lastWorkspace =
       typeof window !== "undefined" ? localStorage.getItem("formbhro:last_workspace") : null;
     let target = "/app";
-    if (lastWorkspace === "team") target = "/team";
+    if (lastWorkspace === "team") target = "/team/work";
     else if (lastWorkspace === "admin") target = "/admin";
 
     if (isCapacitor()) {
-      void navigate({ to: target as "/app" | "/team" | "/admin", replace: true });
+      void navigate({ to: target as "/app" | "/team/work" | "/admin", replace: true });
       return;
     }
 
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) {
-        void navigate({ to: target as "/app" | "/team" | "/admin", replace: true });
+        void navigate({ to: target as "/app" | "/team/work" | "/admin", replace: true });
       }
     });
   }, [navigate]);

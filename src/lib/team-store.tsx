@@ -724,7 +724,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         persistSession(safe, remember, true);
 
         // Use window.location to ensure all stores re-initialize in Team mode
-        window.location.href = "/team";
+        window.location.href = "/team/work";
         return { ok: true };
       } catch (err) {
         return {
@@ -780,7 +780,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         setLive(true);
         liveRef.current = true;
         persistSession(safe, remember, true);
-        window.location.href = "/team";
+        window.location.href = "/team/work";
         return { ok: true };
       } catch (err) {
         return {

@@ -68,7 +68,7 @@ function AuthPage() {
     const shouldHandoffToNativeApp = !isInsideApp && (isAndroidDevice || isExplicitAppSource);
 
     const getIntentReturnUrl = (at: string, rt: string) => {
-      return `intent://oauth-callback#access_token=${encodeURIComponent(at)}&refresh_token=${encodeURIComponent(rt)}#Intent;scheme=com.formbhro.app;package=com.formbhro.app;S.access_token=${encodeURIComponent(at)};S.refresh_token=${encodeURIComponent(rt)};end`;
+      return `intent://oauth-callback?access_token=${encodeURIComponent(at)}&refresh_token=${encodeURIComponent(rt)}#Intent;scheme=com.formbhro.app;package=com.formbhro.app;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;S.access_token=${encodeURIComponent(at)};S.refresh_token=${encodeURIComponent(rt)};end`;
     };
 
     const getSchemeReturnUrl = (at: string, rt: string) => {
@@ -81,21 +81,22 @@ function AuthPage() {
       if (shouldHandoffToNativeApp) {
         const intentLink = getIntentReturnUrl(accessToken, refreshToken);
         const schemeLink = getSchemeReturnUrl(accessToken, refreshToken);
-        setAppReturnUrl(intentLink);
+        setAppReturnUrl(schemeLink);
 
         void supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken,
         });
 
-        // Trigger native intent switch
+        // Trigger native intent switch immediately
         try {
-          window.location.href = intentLink;
-        } catch (_) {
+          window.location.replace(schemeLink);
+        } catch (_) {}
+        setTimeout(() => {
           try {
-            window.location.href = schemeLink;
-          } catch (__) {}
-        }
+            window.location.replace(intentLink);
+          } catch (_) {}
+        }, 250);
         setProcessingOAuth(false);
         return;
       }
@@ -145,14 +146,15 @@ function AuthPage() {
             if (shouldHandoffToNativeApp) {
               const intentLink = getIntentReturnUrl(data.session.access_token, data.session.refresh_token);
               const schemeLink = getSchemeReturnUrl(data.session.access_token, data.session.refresh_token);
-              setAppReturnUrl(intentLink);
+              setAppReturnUrl(schemeLink);
               try {
-                window.location.href = intentLink;
-              } catch (_) {
+                window.location.replace(schemeLink);
+              } catch (_) {}
+              setTimeout(() => {
                 try {
-                  window.location.href = schemeLink;
-                } catch (__) {}
-              }
+                  window.location.replace(intentLink);
+                } catch (_) {}
+              }, 250);
               return;
             }
 
@@ -228,18 +230,26 @@ function AuthPage() {
       else if (role === "team") defaultDest = "/team";
 
       const dest = search.redirect_to ? decodeURIComponent(search.redirect_to) : defaultDest;
-      if (dest === "/app") localStorage.setItem("formbhro:last_workspace", "user");
-      else if (dest === "/team") localStorage.setItem("formbhro:last_workspace", "team");
-      else if (dest === "/admin") localStorage.setItem("formbhro:last_workspace", "admin");
+      const finalDest = dest === "/team" ? "/team/work" : dest;
+      if (finalDest === "/app") localStorage.setItem("formbhro:last_workspace", "user");
+      else if (finalDest === "/team/work" || finalDest === "/team") localStorage.setItem("formbhro:last_workspace", "team");
+      else if (finalDest === "/admin") localStorage.setItem("formbhro:last_workspace", "admin");
 
-      console.log(`[PERF][AUTH] Navigating to ${dest} after authentication`);
-      void navigate({ to: dest as "/app" | "/admin" | "/team", replace: true });
+      console.log(`[PERF][AUTH] Navigating to ${finalDest} after authentication`);
+      void navigate({ to: finalDest as "/app" | "/admin" | "/team/work", replace: true });
     }
   }, [user, authSuccess, loading, initialized, role, search.redirect_to, appReturnUrl, navigate]);
 
   const handleSuccess = () => {
     setAuthSuccess(true);
   };
+
+  useEffect(() => {
+    if (appReturnUrl && typeof document !== "undefined") {
+      const btn = document.getElementById("native-app-handoff-btn");
+      if (btn) btn.click();
+    }
+  }, [appReturnUrl]);
 
   // If handing off to the Android app, show dedicated handoff UI with fallback button
   if (appReturnUrl) {
@@ -249,29 +259,25 @@ function AuthPage() {
           <Loader2 className="h-10 w-10 animate-spin text-brand mx-auto mb-4" />
           <h2 className="text-xl font-bold text-white">Returning to Formbhro App…</h2>
           <p className="mt-2 text-sm text-gray-400">
-            Authentication successful. Redirecting back to your Formbhro app.
+            Authentication successful. Returning you to the Formbhro app.
           </p>
           <div className="mt-6 space-y-3">
             <a
+              id="native-app-handoff-btn"
               href={appReturnUrl}
-              className="inline-flex w-full items-center justify-center rounded-2xl bg-brand py-3.5 text-sm font-bold text-white transition-all hover:bg-brand-dark active:scale-[0.98] shadow-lg shadow-brand/20 cursor-pointer"
+              className="inline-flex w-full items-center justify-center rounded-2xl bg-brand py-4 text-base font-bold text-white transition-all hover:bg-brand-dark active:scale-[0.98] shadow-lg shadow-brand/20 cursor-pointer"
             >
               Open Formbhro App
             </a>
-            <button
-              type="button"
-              onClick={() => {
-                setAppReturnUrl(null);
-                setAuthSuccess(true);
-                void refresh();
-              }}
-              className="text-xs text-gray-500 hover:text-gray-300 underline cursor-pointer"
+            <a
+              href="intent://oauth-callback#Intent;scheme=com.formbhro.app;package=com.formbhro.app;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end"
+              className="inline-flex w-full items-center justify-center rounded-2xl border border-white/10 bg-white/5 py-3 text-xs font-semibold text-gray-300 hover:text-white transition-all cursor-pointer"
             >
-              Continue in browser instead
-            </button>
+              Tap here if app didn't open automatically
+            </a>
           </div>
           <p className="mt-4 text-xs text-gray-500">
-            If the app didn't open automatically, tap the button above.
+            Please tap the button above to switch back to your app.
           </p>
         </div>
       </main>

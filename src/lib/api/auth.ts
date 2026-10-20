@@ -105,6 +105,18 @@ export async function signInWithGoogle(redirectPath: string = "/app") {
   if (isAndroid && data?.url) {
     try {
       const { Browser } = await import("@capacitor/browser");
+      try {
+        const finishSub = await Browser.addListener("browserFinished", async () => {
+          try {
+            finishSub.remove();
+          } catch (_) {}
+          const { data: sessData } = await supabase.auth.getSession();
+          if (sessData?.session) {
+            localStorage.setItem("formbhro:last_workspace", "user");
+            window.location.href = "/app";
+          }
+        });
+      } catch (_) {}
       await Browser.open({ url: data.url, presentationStyle: "fullscreen" });
     } catch (browserErr) {
       console.warn("[Auth] Browser plugin open failed, falling back to window.location:", browserErr);

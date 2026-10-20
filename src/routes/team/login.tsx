@@ -16,7 +16,7 @@ function TeamLogin() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (hydrated && member) navigate({ to: "/team", replace: true });
+    if (hydrated && member) navigate({ to: "/team/work", replace: true });
   }, [hydrated, member, navigate]);
 
   const onSubmit = async (e: React.FormEvent) => {

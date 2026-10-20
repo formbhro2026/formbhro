@@ -55,7 +55,7 @@ function AppShell() {
       typeof window !== "undefined" ? localStorage.getItem("formbhro:last_workspace") : null;
 
     if (user && (role === "team" || lastWorkspace === "team")) {
-      void navigate({ to: "/team", replace: true });
+      void navigate({ to: "/team/work", replace: true });
       return;
     }
 
