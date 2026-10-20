@@ -55,7 +55,7 @@ export async function createNewRequest(input?: {
   const uid = await requireUid();
   const title = input?.title?.trim() || "Form Assistance";
 
-  // Sanitize category against known active categories in database
+  // Sanitize category against active categories in database
   const rawCat = (input?.category || "").trim();
   const knownActive = [
     "Government Form",
@@ -63,17 +63,53 @@ export async function createNewRequest(input?: {
     "Student Scholarship",
     "Other",
     "Team Direct Report",
+    "Ssc",
+    "SSC",
+    "Railways",
+    "Railway",
+    "UPSC",
+    "Banking",
+    "Defence",
+    "Defense",
     "CGL 2026",
   ];
-  const safeCategory =
+
+  let safeCategory =
     knownActive.find((c) => c.toLowerCase() === rawCat.toLowerCase()) ||
     (rawCat ? "Job Application" : "Government Form");
 
-  const { data, error } = await supabase.rpc("create_new_request_with_limit", {
+  // Attempt dynamic case-insensitive lookup from database active categories
+  try {
+    const { data: dbCats } = await supabase
+      .from("categories")
+      .select("name")
+      .eq("is_active", true);
+    if (dbCats && dbCats.length > 0) {
+      const match = dbCats.find(
+        (c) => c.name.trim().toLowerCase() === rawCat.toLowerCase(),
+      );
+      if (match) {
+        safeCategory = match.name;
+      }
+    }
+  } catch (_) {}
+
+  let { data, error } = await supabase.rpc("create_new_request_with_limit", {
     p_title: title,
     p_category: safeCategory,
     p_priority: input?.priority ?? "medium",
   });
+
+  // If DB rejected category due to constraint or trigger, retry with guaranteed default
+  if (error && error.message.includes("Invalid or inactive category")) {
+    const retry = await supabase.rpc("create_new_request_with_limit", {
+      p_title: title,
+      p_category: "Government Form",
+      p_priority: input?.priority ?? "medium",
+    });
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) {
     if (error.message.includes("CHAT_LIMIT_EXCEEDED")) {

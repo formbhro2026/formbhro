@@ -2,7 +2,8 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useUserStore } from "@/lib/user-store";
 import { UserHeader } from "@/components/layout/UserHeader";
 import { EmptyState } from "@/components/common/EmptyState";
-import { cn } from "@/lib/utils";
+import { cn, formatLastDate } from "@/lib/utils";
+import { FormattedNewsDescription } from "@/components/news/FormattedNewsDescription";
 import { useMemo, useState, useEffect } from "react";
 import {
   Search,
@@ -205,7 +206,7 @@ function UserJobGroups() {
         item.organization ? `*Department / Org:* ${item.organization}` : null,
         item.total_vacancies ? `*Total Posts:* ${item.total_vacancies}` : null,
         item.qualification ? `*Required Qualification:* ${item.qualification}` : null,
-        item.application_last_date ? `*Application Deadline:* ${item.application_last_date}` : null,
+        item.application_last_date ? `*Application Deadline:* ${formatLastDate(item.application_last_date)}` : null,
         activeGroup ? `*Group Channel:* ${activeGroup.name}` : null,
         `*Group Post Ref ID:* ${item.id}`,
         ``,
@@ -685,9 +686,7 @@ function UserJobGroups() {
                       </h2>
                       {item.description && (
                         <div className="rounded-xl border border-border-subtle/60 bg-surface-2/40 p-3 sm:p-3.5">
-                          <p className="text-xs sm:text-sm text-text-secondary leading-relaxed whitespace-pre-line break-words">
-                            {item.description}
-                          </p>
+                          <FormattedNewsDescription description={item.description} />
                         </div>
                       )}
                     </div>
@@ -717,21 +716,7 @@ function UserJobGroups() {
                           Last Date
                         </span>
                         <span className="font-semibold text-brand mt-0.5 block truncate">
-                          {(() => {
-                            const raw = item.application_last_date;
-                            if (!raw || raw.toLowerCase() === "open") return "Open";
-                            try {
-                              const d = new Date(raw);
-                              if (!isNaN(d.getTime())) {
-                                return d.toLocaleDateString("en-IN", {
-                                  day: "2-digit",
-                                  month: "short",
-                                  year: "numeric",
-                                });
-                              }
-                            } catch (_) {}
-                            return raw.replace(/T.*$/, "");
-                          })()}
+                          {formatLastDate(item.application_last_date)}
                         </span>
                       </div>
                       <div>

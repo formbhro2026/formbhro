@@ -29,7 +29,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { useTeamStore } from "@/lib/team-store";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, formatLastDate } from "@/lib/utils";
 import * as notificationsApi from "@/lib/api/notifications";
 import { DEFAULT_QUALIFICATIONS, JOB_GROUPS, isVacancyLive } from "@/data/vacancy-groups";
 import { QualificationMultiSelect } from "@/components/common/QualificationMultiSelect";
@@ -705,7 +705,7 @@ function TeamNewsAndVacancies() {
                           )}
                         </div>
 
-                        <p className="text-xs text-text-muted line-clamp-2 leading-relaxed">
+                        <p className="text-xs text-text-muted whitespace-pre-wrap break-words leading-relaxed">
                           {v.description}
                         </p>
 
@@ -725,7 +725,7 @@ function TeamNewsAndVacancies() {
                           {v.application_last_date && (
                             <span className="flex items-center gap-1 rounded-md bg-surface-2 px-2 py-1 text-amber-300 border border-amber-500/20">
                               <Calendar className="h-3 w-3" />
-                              Last Date: {new Date(v.application_last_date).toLocaleDateString()}
+                              Last Date: {formatLastDate(v.application_last_date)}
                             </span>
                           )}
                         </div>

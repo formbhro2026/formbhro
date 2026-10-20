@@ -28,7 +28,8 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { useTeamStore } from "@/lib/team-store";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, formatLastDate } from "@/lib/utils";
+import { FormattedNewsDescription } from "@/components/news/FormattedNewsDescription";
 import * as notificationsApi from "@/lib/api/notifications";
 import {
   JOB_GROUPS,
@@ -673,9 +674,11 @@ function TeamJobGroups() {
                     </h2>
 
                     {/* Post Description */}
-                    <p className="text-xs text-text-secondary leading-relaxed mb-3 line-clamp-3">
-                      {post.description}
-                    </p>
+                    {post.description && (
+                      <div className="mb-3 rounded-xl border border-border-subtle/60 bg-surface-2/40 p-3">
+                        <FormattedNewsDescription description={post.description} />
+                      </div>
+                    )}
 
                     {/* Key Details Grid */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 rounded-xl bg-surface-2 p-2.5 text-xs mb-3 border border-border-subtle">
@@ -700,7 +703,7 @@ function TeamJobGroups() {
                           Last Date
                         </span>
                         <span className="font-semibold text-brand-light mt-0.5 block truncate">
-                          {post.application_last_date || "Open"}
+                          {formatLastDate(post.application_last_date)}
                         </span>
                       </div>
                       <div>
@@ -914,11 +917,11 @@ function TeamJobGroups() {
                   </label>
                   <textarea
                     required
-                    rows={3}
+                    rows={6}
                     value={form.description}
                     onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-                    placeholder="Enter eligibility, selection process, fee details, and important notes..."
-                    className="w-full rounded-xl border border-border-subtle bg-surface-2 p-3 text-xs text-white placeholder:text-text-muted focus:border-brand/50 outline-none resize-none"
+                    placeholder="Enter eligibility, selection process, fee details, and important notes (supports paragraphs and line breaks)..."
+                    className="w-full rounded-xl border border-border-subtle bg-surface-2 p-3 text-xs text-white placeholder:text-text-muted focus:border-brand/50 outline-none resize-y min-h-[120px]"
                   />
                 </div>
 

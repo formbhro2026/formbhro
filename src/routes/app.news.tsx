@@ -24,7 +24,8 @@ import { UserHeader } from "@/components/layout/UserHeader";
 import { EmptyState } from "@/components/common/EmptyState";
 import { useUserStore } from "@/lib/user-store";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, formatLastDate } from "@/lib/utils";
+import { FormattedNewsDescription } from "@/components/news/FormattedNewsDescription";
 import type { NewsItem } from "@/data/user-module";
 
 export const Route = createFileRoute("/app/news")({
@@ -266,7 +267,7 @@ function NewsUpdates() {
   const handleShare = async (item: NewsItem) => {
     const url = typeof window !== "undefined" ? window.location.href : "https://formbhro.com/app/news";
     const shareText = `📢 *${item.title}*\n${item.organization ? `🏢 Department: ${item.organization}\n` : ""}${
-      item.application_last_date ? `⏰ Last Date: ${item.application_last_date}\n` : ""
+      item.application_last_date ? `⏰ Last Date: ${formatLastDate(item.application_last_date)}\n` : ""
     }\n${item.description}\n\nApply or get help with Formbhro: ${url}`;
 
     if (typeof navigator !== "undefined" && navigator.share) {
@@ -562,13 +563,15 @@ function NewsUpdates() {
                   </div>
 
                   {/* Title & Description */}
-                  <div className="mt-3">
-                    <h2 className="text-base sm:text-lg font-bold text-text tracking-tight">
+                  <div className="mt-3.5 space-y-2.5">
+                    <h2 className="text-base sm:text-lg font-bold text-text tracking-tight leading-snug">
                       {item.title}
                     </h2>
-                    <p className="mt-1.5 text-xs sm:text-sm text-text-secondary leading-relaxed line-clamp-3">
-                      {item.description}
-                    </p>
+                    {item.description && (
+                      <div className="rounded-xl border border-border-subtle/60 bg-surface-2/40 p-3 sm:p-3.5">
+                        <FormattedNewsDescription description={item.description} />
+                      </div>
+                    )}
                   </div>
 
                   {/* Key Metadata Grid */}
@@ -622,7 +625,7 @@ function NewsUpdates() {
                               : "text-text",
                         )}
                       >
-                        {item.application_last_date || "Check notice"}
+                        {formatLastDate(item.application_last_date)}
                       </p>
                     </div>
                   </div>

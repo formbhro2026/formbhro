@@ -27,6 +27,7 @@ import { resolveImageUrl, uploadNewsBanner } from "@/lib/api/admin.functions";
 import { DEFAULT_QUALIFICATIONS, JOB_GROUPS } from "@/data/vacancy-groups";
 import { QualificationMultiSelect } from "@/components/common/QualificationMultiSelect";
 import { toast } from "sonner";
+import { formatLastDate } from "@/lib/utils";
 
 export const Route = createFileRoute("/admin/_shell/news")({ component: AdminNews });
 
@@ -917,14 +918,14 @@ function AdminNews() {
                       {nAny.application_last_date && (
                         <span className="flex items-center gap-1 text-amber-300">
                           <Calendar className="h-3 w-3" /> Last Date:{" "}
-                          {new Date(nAny.application_last_date).toLocaleDateString()}
+                          {formatLastDate(nAny.application_last_date)}
                         </span>
                       )}
                     </div>
                   </div>
                 </div>
 
-                <p className="line-clamp-2 text-[11px] text-text-secondary leading-relaxed">
+                <p className="whitespace-pre-wrap break-words text-[11px] text-text-secondary leading-relaxed">
                   {n.description}
                 </p>
 
