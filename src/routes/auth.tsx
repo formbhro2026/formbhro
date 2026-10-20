@@ -59,30 +59,43 @@ function AuthPage() {
     const refreshToken =
       params.get("refresh_token") || new URLSearchParams(query).get("refresh_token");
 
-    // Only route to native deep link if explicitly requested from an external browser intent
-    // and NOT when running inside the Capacitor WebView itself
+    // Detect if running on mobile Android outside Capacitor (e.g. Chrome Custom Tabs / external browser)
     const isInsideApp = isCapacitor();
+    const isAndroidDevice =
+      typeof navigator !== "undefined" && /android/i.test(navigator.userAgent);
     const isExplicitAppSource =
-      (search.source === "app" || query.includes("source=app") || hash.includes("source=app")) &&
-      !isInsideApp;
+      search.source === "app" || query.includes("source=app") || hash.includes("source=app");
+    const shouldHandoffToNativeApp = !isInsideApp && (isAndroidDevice || isExplicitAppSource);
 
-    const getReturnUrl = (at: string, rt: string) => {
+    const getIntentReturnUrl = (at: string, rt: string) => {
+      return `intent://oauth-callback#access_token=${encodeURIComponent(at)}&refresh_token=${encodeURIComponent(rt)}#Intent;scheme=com.formbhro.app;package=com.formbhro.app;S.access_token=${encodeURIComponent(at)};S.refresh_token=${encodeURIComponent(rt)};end`;
+    };
+
+    const getSchemeReturnUrl = (at: string, rt: string) => {
       return `com.formbhro.app://oauth-callback#access_token=${encodeURIComponent(at)}&refresh_token=${encodeURIComponent(rt)}`;
     };
 
     if (accessToken && refreshToken) {
       setProcessingOAuth(true);
 
-      if (isExplicitAppSource) {
-        const deepLink = getReturnUrl(accessToken, refreshToken);
-        setAppReturnUrl(deepLink);
+      if (shouldHandoffToNativeApp) {
+        const intentLink = getIntentReturnUrl(accessToken, refreshToken);
+        const schemeLink = getSchemeReturnUrl(accessToken, refreshToken);
+        setAppReturnUrl(intentLink);
 
         void supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken,
         });
 
-        window.location.href = deepLink;
+        // Trigger native intent switch
+        try {
+          window.location.href = intentLink;
+        } catch (_) {
+          try {
+            window.location.href = schemeLink;
+          } catch (__) {}
+        }
         setProcessingOAuth(false);
         return;
       }
@@ -129,10 +142,17 @@ function AuthPage() {
         })
         .then(({ data }) => {
           if (data?.session) {
-            if (isExplicitAppSource) {
-              const deepLink = getReturnUrl(data.session.access_token, data.session.refresh_token);
-              setAppReturnUrl(deepLink);
-              window.location.href = deepLink;
+            if (shouldHandoffToNativeApp) {
+              const intentLink = getIntentReturnUrl(data.session.access_token, data.session.refresh_token);
+              const schemeLink = getSchemeReturnUrl(data.session.access_token, data.session.refresh_token);
+              setAppReturnUrl(intentLink);
+              try {
+                window.location.href = intentLink;
+              } catch (_) {
+                try {
+                  window.location.href = schemeLink;
+                } catch (__) {}
+              }
               return;
             }
 
@@ -162,10 +182,17 @@ function AuthPage() {
             return;
           }
           if (data?.session) {
-            if (isExplicitAppSource) {
-              const deepLink = getReturnUrl(data.session.access_token, data.session.refresh_token);
-              setAppReturnUrl(deepLink);
-              window.location.href = deepLink;
+            if (shouldHandoffToNativeApp) {
+              const intentLink = getIntentReturnUrl(data.session.access_token, data.session.refresh_token);
+              const schemeLink = getSchemeReturnUrl(data.session.access_token, data.session.refresh_token);
+              setAppReturnUrl(intentLink);
+              try {
+                window.location.href = intentLink;
+              } catch (_) {
+                try {
+                  window.location.href = schemeLink;
+                } catch (__) {}
+              }
               return;
             }
 

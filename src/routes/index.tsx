@@ -35,6 +35,21 @@ function Index() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // If arriving on root route with OAuth tokens or code, forward to /auth so handoff to APK occurs
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash || "";
+      const search = window.location.search || "";
+      if (
+        hash.includes("access_token=") ||
+        search.includes("access_token=") ||
+        hash.includes("code=") ||
+        search.includes("code=")
+      ) {
+        window.location.href = `/auth${search}${hash}`;
+        return;
+      }
+    }
+
     const lastWorkspace =
       typeof window !== "undefined" ? localStorage.getItem("formbhro:last_workspace") : null;
     let target = "/app";
