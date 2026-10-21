@@ -21,10 +21,10 @@ export async function signInWithGoogle(redirectPath: string = "/app") {
       ? window.location.origin
       : "https://formbhro-main.vercel.app";
 
-  // For Capacitor Android, route via /auth?source=app so Supabase (which whitelists Vercel domain)
-  // completes auth and redirects back to /auth, which immediately dispatches the native Intent to Formbhro APK
+  // For Capacitor Android, redirect to com.formbhro.app://oauth-callback so Android OS intercepts the redirect
+  // and immediately brings the native Formbhro APK to foreground rather than stranding the user on the Vercel URL
   const redirectUri = isAndroid
-    ? "https://formbhro-main.vercel.app/auth?source=app"
+    ? "com.formbhro.app://oauth-callback"
     : `${origin}/auth`;
 
   const { data, error } = await supabase.auth.signInWithOAuth({

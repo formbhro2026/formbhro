@@ -332,7 +332,7 @@ function TeamAdminChatPage() {
               if (window.history.length > 1) {
                 window.history.back();
               } else {
-                void navigate({ to: "/team/work" });
+                void navigate({ to: "/team" });
               }
             }}
             aria-label="Back to Team Home"

@@ -131,7 +131,6 @@ function WorkArea() {
   const {
     member,
     requests,
-    pool,
     requestsHasMore,
     requestsLoadingMore,
     loadMoreRequests,
@@ -149,7 +148,6 @@ function WorkArea() {
   const { height: viewportHeight } = useVisualViewport();
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [sheet, setSheet] = useState(false);
-  const [claimingId, setClaimingId] = useState<string | null>(null);
 
   const query = search.q ?? "";
   const state = (search.f as "pending" | "completed" | "waiting_documents" | "escalated" | undefined) ?? "all";
@@ -504,51 +502,6 @@ function matchesDateFilter(r: TeamRequest, range: string, custom: string) {
             selected ? "hidden lg:flex" : "flex",
           )}
         >
-          <div className="flex flex-col gap-4 border-b border-border-subtle bg-surface-2 p-3">
-            <h3 className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
-              Request Pool
-            </h3>
-            <div className="max-h-48 overflow-y-auto space-y-2">
-              {pool.length === 0 ? (
-                <p className="text-[10px] text-text-muted italic">No unassigned requests.</p>
-              ) : (
-                pool.map((r: TeamRequest) => (
-                  <div
-                    key={r.id}
-                    className="rounded-lg border border-border-subtle bg-surface-1 p-2"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="truncate text-[11px] font-semibold text-text">{r.title}</p>
-                      <button
-                        onClick={async () => {
-                          if (claimingId) return;
-                          setClaimingId(r.id);
-                          try {
-                            await assignToMe(r.id);
-                          } catch {
-                            // Handled by store toast
-                          } finally {
-                            setClaimingId(null);
-                          }
-                        }}
-                        disabled={claimingId !== null}
-                        className="shrink-0 rounded bg-brand/10 px-2 py-0.5 text-[9px] font-bold text-brand-light hover:bg-brand/20 disabled:opacity-50 inline-flex items-center gap-1"
-                      >
-                        {claimingId === r.id && (
-                          <div className="h-2 w-2 animate-spin rounded-full border border-brand-light border-t-transparent" />
-                        )}
-                        Claim
-                      </button>
-                    </div>
-                    <p className="mt-0.5 text-[9px] text-text-muted">
-                      {r.id} • {r.category}
-                    </p>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
           <WorkFilters
             values={{
               q: query,

@@ -16,7 +16,7 @@ function TeamLogin() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (hydrated && member) navigate({ to: "/team/work", replace: true });
+    if (hydrated && member) navigate({ to: "/team", replace: true });
   }, [hydrated, member, navigate]);
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -35,7 +35,7 @@ function TeamLogin() {
     }
     localStorage.setItem("formbhro:last_workspace", "team");
     setError(null);
-    navigate({ to: "/team/work", replace: true });
+    navigate({ to: "/team", replace: true });
   };
 
   return (

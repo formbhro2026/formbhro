@@ -12,7 +12,7 @@ export function TeamBottomNav() {
   const { totalUnread } = useTeamStore();
 
   const isActive = (to: string, exact: boolean) =>
-    exact ? pathname === to : pathname.startsWith(to);
+    exact ? pathname === to || pathname === `${to}/` : pathname.startsWith(to);
 
   // Hide the bottom nav on mobile when a work chat is open or inside admin-chat to give full screen space
   const isFullScreenChat =
@@ -28,6 +28,7 @@ export function TeamBottomNav() {
         {/* 1. Home */}
         <Link
           to="/team"
+          search={{}}
           aria-current={isActive("/team", true) ? "page" : undefined}
           className={cn(
             "flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-0.5 py-1 text-[9px] font-medium transition-colors duration-200",

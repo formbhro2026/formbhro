@@ -266,6 +266,10 @@ function RootComponent() {
           }
 
           if (data?.session) {
+            try {
+              const { Browser } = await import("@capacitor/browser");
+              await Browser.close();
+            } catch (_) {}
             localStorage.setItem("formbhro:last_workspace", "user");
             const redirectPath =
               localStorage.getItem("formbhro:redirect") ||
@@ -285,6 +289,10 @@ function RootComponent() {
           }
 
           if (data?.session) {
+            try {
+              const { Browser } = await import("@capacitor/browser");
+              await Browser.close();
+            } catch (_) {}
             localStorage.setItem("formbhro:last_workspace", "user");
             const redirectPath =
               localStorage.getItem("formbhro:redirect") ||

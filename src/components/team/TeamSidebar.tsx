@@ -37,7 +37,7 @@ export function TeamSidebar() {
   const { member, signOut, totalUnread, requests, unreadNotifications } = useTeamStore();
 
   const isActive = (to: string, exact: boolean) =>
-    exact ? pathname === to : pathname.startsWith(to);
+    exact ? pathname === to || pathname === `${to}/` : pathname.startsWith(to);
 
   const pending = requests.filter((r) => r.status === "pending").length;
   const waiting = requests.filter((r) => r.status === "waiting-user").length;
