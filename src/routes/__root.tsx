@@ -305,7 +305,15 @@ function RootComponent() {
         // Hardware back button handler for Android
         App.addListener("backButton", ({ canGoBack }) => {
           const path = window.location.pathname;
-          if (!canGoBack || path === "/app" || path === "/") {
+          if (path === "/app" || path === "/") {
+            App.exitApp();
+          } else if (path === "/admin/login" || path === "/team/login") {
+            if (canGoBack && window.history.length > 1) {
+              window.history.back();
+            } else {
+              void navigate({ to: "/" });
+            }
+          } else if (!canGoBack) {
             App.exitApp();
           } else {
             window.history.back();

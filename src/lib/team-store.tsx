@@ -746,26 +746,48 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         const { data: authData, error: authError } = await signInWithPassword(email, password);
         if (authError) throw authError;
 
-        // 2. Verify authorization code securely on the backend using the new session
-        const codeClean = code.trim().toUpperCase();
-        const res = await verifyTeamCode({ data: { code: codeClean } });
+        const user = authData.user;
+        if (!user) throw new Error("Authentication failed: No user returned.");
 
-        if (!res.ok) {
-          await apiSignOut();
-          throw new Error("Invalid team code or insufficient privileges.");
+        const codeClean = code.trim().toUpperCase();
+
+        // 2. Verify authorization & team code directly via Supabase client using active session
+        const [profile, { data: teamRow, error: teamErr }, { data: roleRows, error: roleErr }] =
+          await Promise.all([
+            getMyProfile(),
+            supabase.from("team_members").select("*").eq("id", user.id).maybeSingle(),
+            supabase.from("user_roles").select("role").eq("user_id", user.id),
+          ]);
+
+        if (teamErr) {
+          console.warn("[TeamAuth] team_members fetch error:", teamErr);
         }
 
-        const user = authData.user;
-        const profile = await getMyProfile();
-        const { data: teamRow } = await supabase
-          .from("team_members")
-          .select("*")
-          .eq("id", user!.id)
-          .maybeSingle();
+        if (!teamRow) {
+          await apiSignOut();
+          return { ok: false, error: "This account is not provisioned as a Team Member." };
+        }
+
+        if (!teamRow.is_active) {
+          await apiSignOut();
+          return { ok: false, error: "This team account has been suspended." };
+        }
+
+        const assignedCode = (teamRow.team_code || "").trim().toUpperCase();
+        if (assignedCode !== codeClean) {
+          await apiSignOut();
+          return { ok: false, error: "Invalid team access code." };
+        }
+
+        const roles = (roleRows ?? []).map((r: { role: string }) => r.role);
+        if (!roles.includes("team") && !roles.includes("admin")) {
+          await apiSignOut();
+          return { ok: false, error: "This account does not have team privileges." };
+        }
 
         const name = profile?.full_name || email.split("@")[0]!;
         const safe: TeamMember = {
-          id: user!.id,
+          id: user.id,
           name,
           initials: initialsOf(name),
           email: profile?.email || email.trim(),
@@ -780,7 +802,9 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         setLive(true);
         liveRef.current = true;
         persistSession(safe, remember, true);
-        window.location.href = "/team/work";
+        if (typeof window !== "undefined") {
+          localStorage.setItem("formbhro:last_workspace", "team");
+        }
         return { ok: true };
       } catch (err) {
         return {

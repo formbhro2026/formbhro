@@ -1,13 +1,20 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Eye, EyeOff, Info, Lock, ShieldCheck, User } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Lock, LogIn, ShieldCheck, User, Users } from "lucide-react";
 import logoAsset from "@/assets/logo.png.asset.json";
 import { useAdmin } from "@/lib/admin-store";
 import { Button, Field, inputClass } from "@/components/admin/AdminUI";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/admin/login")({
   ssr: false,
   component: AdminLogin,
+  head: () => ({
+    meta: [
+      { title: "Admin Console Sign In — Formbhro" },
+      { name: "robots", content: "noindex" },
+    ],
+  }),
 });
 
 function AdminLogin() {
@@ -22,6 +29,25 @@ function AdminLogin() {
   useEffect(() => {
     if (ready && authed) navigate({ to: "/admin", replace: true });
   }, [ready, authed, navigate]);
+
+  const handleBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      window.history.back();
+    } else {
+      void navigate({ to: "/" });
+    }
+  };
+
+  const handleClearSession = async () => {
+    try {
+      await supabase.auth.signOut();
+      localStorage.removeItem("formbhro:last_workspace");
+      localStorage.removeItem("formbhro:redirect");
+      sessionStorage.clear();
+    } catch (_) {}
+    setError(null);
+    void navigate({ to: "/auth" });
+  };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,8 +64,28 @@ function AdminLogin() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-bg px-4 py-10 text-white antialiased">
-      <div className="w-full max-w-sm">
+    <main className="relative flex min-h-screen items-center justify-center bg-bg px-4 py-10 text-white antialiased">
+      {/* Top Navigation */}
+      <div className="absolute top-5 left-4 right-4 max-w-sm mx-auto flex items-center justify-between">
+        <button
+          type="button"
+          onClick={handleBack}
+          className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-zinc-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+          aria-label="Go back"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span>Back</span>
+        </button>
+
+        <Link
+          to="/"
+          className="text-xs font-medium text-zinc-400 hover:text-white transition-colors"
+        >
+          Home
+        </Link>
+      </div>
+
+      <div className="w-full max-w-sm pt-6">
         <div className="flex justify-center">
           <img src={logoAsset.url} alt="Formbhro" width={140} height={40} className="h-8 w-auto" />
         </div>
@@ -112,6 +158,39 @@ function AdminLogin() {
               {busy ? "Signing in…" : "Sign in"}
             </Button>
           </form>
+
+          {/* Quick Portal Switcher */}
+          <div className="mt-6 border-t border-white/5 pt-5 space-y-2.5">
+            <div className="text-[11px] font-medium text-text-muted text-center">
+              Looking for a different portal?
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Link
+                to="/auth"
+                className="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-zinc-300 hover:border-brand/40 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <LogIn className="h-3.5 w-3.5 text-brand" />
+                User Login
+              </Link>
+              <Link
+                to="/team/login"
+                className="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-zinc-300 hover:border-[#ff7a00]/40 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <Users className="h-3.5 w-3.5 text-[#ff7a00]" />
+                Team Login
+              </Link>
+            </div>
+
+            <div className="pt-2 text-center">
+              <button
+                type="button"
+                onClick={() => void handleClearSession()}
+                className="text-[11px] text-zinc-500 hover:text-zinc-300 underline transition-colors cursor-pointer"
+              >
+                Reset session & switch account
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </main>

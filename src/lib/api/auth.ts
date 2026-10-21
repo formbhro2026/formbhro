@@ -1,13 +1,10 @@
 import { supabase } from "@/integrations/supabase/client";
 import { ApiError, type AppRole, type Profile } from "./types";
-import { GoogleAuth } from "@codetrix-studio/capacitor-google-auth";
 
 export const NO_PUBLIC_SIGNUP_MESSAGE =
   "Please contact the administrator for your login credentials.";
 
 import { isCapacitor, isCapacitorAndroid } from "../fcm";
-
-const GOOGLE_CLIENT_ID = "111790521008-kdr78o80m6h10voviku4r6uq9iq9nj2v.apps.googleusercontent.com";
 
 /** User module — Google login / signup. */
 export async function signInWithGoogle(redirectPath: string = "/app") {
@@ -18,66 +15,7 @@ export async function signInWithGoogle(redirectPath: string = "/app") {
 
   const isAndroid = isCapacitorAndroid();
 
-  // 1. Native Capacitor Google Sign-In (on Android native container)
-  if (isAndroid) {
-    console.log("[Auth] Attempting Capacitor Native Auth flow");
-    try {
-      const { GoogleAuth } = await import("@codetrix-studio/capacitor-google-auth");
-      await GoogleAuth.initialize({
-        clientId: GOOGLE_CLIENT_ID,
-        serverClientId: GOOGLE_CLIENT_ID,
-        scopes: ["profile", "email"],
-        grantOfflineAccess: false,
-      } as any);
-      console.log("[Auth] Calling GoogleAuth.signIn()...");
-      const googleUser = await GoogleAuth.signIn();
-      console.log(
-        "[Auth] GoogleAuth.signIn() returned user with id:",
-        googleUser?.id || (googleUser as any)?.email,
-      );
-
-      const idToken =
-        googleUser?.authentication?.idToken ||
-        (googleUser as any)?.idToken ||
-        (googleUser as any)?.authentication?.token;
-      const accessToken =
-        googleUser?.authentication?.accessToken ||
-        (googleUser as any)?.accessToken ||
-        (googleUser as any)?.authentication?.access_token;
-
-      if (idToken) {
-        console.log("[Auth] Exchanging idToken with Supabase (hasAccessToken:", Boolean(accessToken), ")");
-        const { data, error } = await supabase.auth.signInWithIdToken({
-          provider: "google",
-          token: idToken,
-          access_token: accessToken || undefined,
-        });
-        if (error) {
-          console.warn("[Auth] signInWithIdToken error:", error.message);
-          throw error;
-        }
-        if (typeof window !== "undefined") {
-          localStorage.setItem("formbhro:last_workspace", "user");
-        }
-        return data;
-      }
-      console.warn("[Auth] No idToken received from native auth, falling back to Web OAuth");
-    } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      if (
-        errMsg.includes("12501") ||
-        errMsg.toLowerCase().includes("canceled") ||
-        errMsg.toLowerCase().includes("cancelled")
-      ) {
-        console.log("[Auth] User canceled Google Sign-In.");
-        return null;
-      }
-      console.warn("[Auth] Capacitor Native Google Auth failed, falling back to OAuth:", err);
-      // Fall through to browser OAuth flow below instead of throwing unrecoverable error
-    }
-  }
-
-  // 2. OAuth flow (used on Web and as resilient fallback on Capacitor Android)
+  // OAuth flow (used on Web and Capacitor Android)
   const origin =
     typeof window !== "undefined" && window.location.origin
       ? window.location.origin

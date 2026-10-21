@@ -35,6 +35,7 @@ function TeamLogin() {
     }
     localStorage.setItem("formbhro:last_workspace", "team");
     setError(null);
+    navigate({ to: "/team/work", replace: true });
   };
 
   return (
