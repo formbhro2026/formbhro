@@ -108,9 +108,13 @@ export async function getOrCreateAdminTeamChat(
     }
   }
 
-  // Set assigned_team_id in memory if not present
-  if (!request.assigned_team_id) {
+  // Ensure assigned_team_id is persisted in database and memory
+  if (request.assigned_team_id !== teamMemberId) {
     request.assigned_team_id = teamMemberId;
+    void supabase
+      .from("requests")
+      .update({ assigned_team_id: teamMemberId })
+      .eq("id", request.id);
   }
 
   // 4. Ensure chat room exists

@@ -1218,107 +1218,110 @@ function Conversation({
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-border-subtle bg-surface-2 text-[11px] font-bold text-brand">
             {r.userInitials}
           </span>
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 overflow-hidden">
             <p className="truncate text-xs font-semibold text-text">{r.userName}</p>
             <p className="truncate text-[10px] text-text-muted">
               {r.id} • {r.category}
             </p>
           </div>
 
-          {/* In-chat Document Access — xl only */}
-          <div className="hidden items-center gap-1 rounded-xl bg-surface-2 p-1 xl:flex">
-            {documentsFor(r.id)
-              .slice(0, 3)
-              .map((doc) => (
+          {/* Action buttons group with shrink-0 protection */}
+          <div className="flex shrink-0 items-center gap-1 sm:gap-1.5 ml-auto">
+            {/* In-chat Document Access — xl only */}
+            <div className="hidden items-center gap-1 rounded-xl bg-surface-2 p-1 xl:flex shrink-0">
+              {documentsFor(r.id)
+                .slice(0, 3)
+                .map((doc) => (
+                  <button
+                    key={doc.id}
+                    onClick={() => onPreview(doc.id)}
+                    className="group relative flex h-8 w-8 items-center justify-center rounded-lg border border-border-subtle bg-surface-3 transition-all hover:bg-brand/20 hover:border-brand/40"
+                    title={doc.name}
+                  >
+                    <FileText className="h-3.5 w-3.5 text-text-muted group-hover:text-brand" />
+                  </button>
+                ))}
+              {docCount > 3 && (
                 <button
-                  key={doc.id}
-                  onClick={() => onPreview(doc.id)}
-                  className="group relative flex h-8 w-8 items-center justify-center rounded-lg border border-border-subtle bg-surface-3 transition-all hover:bg-brand/20 hover:border-brand/40"
-                  title={doc.name}
+                  onClick={() => onOpenSheet()}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-subtle bg-surface-3 text-[10px] font-bold text-text-muted hover:bg-surface-2"
                 >
-                  <FileText className="h-3.5 w-3.5 text-text-muted group-hover:text-brand" />
+                  +{docCount - 3}
                 </button>
-              ))}
-            {docCount > 3 && (
-              <button
-                onClick={() => onOpenSheet()}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-subtle bg-surface-3 text-[10px] font-bold text-text-muted hover:bg-surface-2"
-              >
-                +{docCount - 3}
-              </button>
-            )}
-          </div>
+              )}
+            </div>
 
-          {/* Call button — always visible */}
-          <button
-            type="button"
-            onClick={() => startCall("audio", r.requestUuid || r.id)}
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 hover:text-brand transition-colors"
-            title="Start Audio Call"
-          >
-            <Phone className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => startCall("video", r.requestUuid || r.id)}
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 hover:text-brand transition-colors"
-            title="Start Video Call"
-          >
-            <Video className="h-4 w-4" />
-          </button>
-          {canShareScreen() && (
+            {/* Call button — always visible */}
             <button
               type="button"
-              onClick={() => startCall("screen", r.requestUuid || r.id)}
-              className="hidden sm:inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 hover:text-brand transition-colors"
-              title="Share Screen"
+              onClick={() => startCall("audio", r.requestUuid || r.id)}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 hover:text-brand transition-colors"
+              title="Start Audio Call"
             >
-              <Monitor className="h-4 w-4" />
+              <Phone className="h-4 w-4" />
             </button>
-          )}
-
-          {/* Chat Tags Button on xl+ */}
-          <ChatTagButton
-            requestId={r.id}
-            currentTags={r.tags}
-            onTagsUpdated={(newTags) => updateTags(r.id, newTags)}
-            className="hidden xl:inline-flex"
-          />
-
-          {/* Search — always visible */}
-          <button
-            type="button"
-            onClick={() => {
-              setSearchOpen((o) => !o);
-              window.setTimeout(() => searchInputRef.current?.focus(), 0);
-            }}
-            aria-expanded={searchOpen}
-            aria-label="Search in this conversation"
-            className={cn(
-              "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-colors",
-              searchOpen
-                ? "border-brand/40 bg-brand/10 text-brand"
-                : "border-border-subtle bg-surface-2 text-text hover:bg-surface-3",
+            <button
+              type="button"
+              onClick={() => startCall("video", r.requestUuid || r.id)}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 hover:text-brand transition-colors"
+              title="Start Video Call"
+            >
+              <Video className="h-4 w-4" />
+            </button>
+            {canShareScreen() && (
+              <button
+                type="button"
+                onClick={() => startCall("screen", r.requestUuid || r.id)}
+                className="hidden sm:inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 hover:text-brand transition-colors"
+                title="Share Screen"
+              >
+                <Monitor className="h-4 w-4" />
+              </button>
             )}
-          >
-            <Search className="h-4 w-4" aria-hidden="true" />
-          </button>
 
-          {/* Info / sheet — always visible on all screen sizes */}
-          <button
-            type="button"
-            onClick={onOpenSheet}
-            aria-haspopup="dialog"
-            aria-label={`Request details, ${docCount} documents`}
-            className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 transition-colors"
-          >
-            <Info className="h-4 w-4" aria-hidden="true" />
-            {docCount > 0 && (
-              <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[9px] font-bold text-white">
-                {docCount}
-              </span>
-            )}
-          </button>
+            {/* Chat Tags Button on xl+ */}
+            <ChatTagButton
+              requestId={r.id}
+              currentTags={r.tags}
+              onTagsUpdated={(newTags) => updateTags(r.id, newTags)}
+              className="hidden xl:inline-flex shrink-0"
+            />
+
+            {/* Search — always visible */}
+            <button
+              type="button"
+              onClick={() => {
+                setSearchOpen((o) => !o);
+                window.setTimeout(() => searchInputRef.current?.focus(), 0);
+              }}
+              aria-expanded={searchOpen}
+              aria-label="Search in this conversation"
+              className={cn(
+                "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-colors",
+                searchOpen
+                  ? "border-brand/40 bg-brand/10 text-brand"
+                  : "border-border-subtle bg-surface-2 text-text hover:bg-surface-3",
+              )}
+            >
+              <Search className="h-4 w-4" aria-hidden="true" />
+            </button>
+
+            {/* Info / sheet — always visible on all screen sizes */}
+            <button
+              type="button"
+              onClick={onOpenSheet}
+              aria-haspopup="dialog"
+              aria-label={`Request details, ${docCount} documents`}
+              className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 transition-colors"
+            >
+              <Info className="h-4 w-4" aria-hidden="true" />
+              {docCount > 0 && (
+                <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[9px] font-bold text-white">
+                  {docCount}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Row 2: Secondary actions — wrap instead of overflow to allow dropdowns */}

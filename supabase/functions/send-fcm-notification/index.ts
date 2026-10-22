@@ -151,14 +151,10 @@ async function sendFCMMessage(
   const message: Record<string, unknown> = {
     message: {
       token: fcmToken,
-      ...(isCall
-        ? {}
-        : {
-            notification: {
-              title,
-              body,
-            },
-          }),
+      notification: {
+        title,
+        body,
+      },
       data: {
         ...data,
         title,
@@ -170,22 +166,18 @@ async function sendFCMMessage(
         ttl: "2419200s",
         // directBootOk: device lock screen pe bhi deliver hoga
         direct_boot_ok: true,
-        ...(isCall
-          ? {}
-          : {
-              notification: {
-                channel_id: channelId,
-                title,
-                body,
-                sound: "default",
-                default_sound: true,
-                default_vibrate_timings: true,
-                default_light_settings: true,
-                notification_priority: "PRIORITY_HIGH",
-                visibility: "PUBLIC",
-                tag: data.notificationId || undefined,
-              },
-            }),
+        notification: {
+          channel_id: channelId,
+          title,
+          body,
+          sound: "default",
+          default_sound: true,
+          default_vibrate_timings: true,
+          default_light_settings: true,
+          notification_priority: isCall ? "PRIORITY_MAX" : "PRIORITY_HIGH",
+          visibility: "PUBLIC",
+          tag: data.notificationId || undefined,
+        },
       },
       apns: {
         headers: {
@@ -453,7 +445,29 @@ Deno.serve(async (req) => {
     } else {
       // Non-support calls (e.g. Team -> Customer, Admin direct chat)
       if (!receiverId && reqRow && payload.caller_id) {
-        receiverId = payload.caller_id === reqRow.user_id ? reqRow.assigned_team_id : reqRow.user_id;
+        const isDirect = Boolean(
+          reqRow.category === "Team Direct Report" ||
+          (reqRow.reference && reqRow.reference.startsWith("ADM-TM")),
+        );
+        if (isDirect) {
+          if (payload.caller_id === reqRow.assigned_team_id) {
+            // Team member calling admin
+            receiverId = reqRow.user_id !== reqRow.assigned_team_id ? reqRow.user_id : null;
+            if (!receiverId) {
+              const { data: adminRows } = await sbAdmin
+                .from("user_roles")
+                .select("user_id")
+                .eq("role", "admin")
+                .limit(1);
+              receiverId = adminRows?.[0]?.user_id || null;
+            }
+          } else {
+            // Admin calling team member
+            receiverId = reqRow.assigned_team_id || reqRow.user_id;
+          }
+        } else {
+          receiverId = payload.caller_id === reqRow.user_id ? reqRow.assigned_team_id : reqRow.user_id;
+        }
       }
       if (receiverId) {
         targetUserIds = [receiverId];
@@ -492,10 +506,20 @@ Deno.serve(async (req) => {
       ? "Video"
       : "Voice";
     const refOrId = reqRow?.reference || reqRow?.id || payload.request_id;
+    const isDirectChat = Boolean(
+      reqRow?.category === "Team Direct Report" ||
+      (reqRow?.reference && reqRow.reference.startsWith("ADM-TM")),
+    );
+    const receiverRole = receiverId === reqRow?.user_id ? "user" : "team";
     const targetRoute =
       payload.route ||
-      (receiverId === reqRow?.user_id ? `/app/chats/${refOrId}` : `/team/work?r=${refOrId}`);
-    const receiverRole = receiverId === reqRow?.user_id ? "user" : "team";
+      (isDirectChat
+        ? receiverRole === "team"
+          ? "/team/admin-chat"
+          : `/admin/chats?type=team&teamMember=${receiverId}`
+        : receiverId === reqRow?.user_id
+          ? `/app/chats/${refOrId}`
+          : `/team/work?r=${refOrId}`);
 
     notification = {
       id: notifId,

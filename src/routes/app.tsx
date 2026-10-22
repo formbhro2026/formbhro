@@ -9,7 +9,6 @@ import { FillNowProvider } from "@/components/layout/FillNowProvider";
 import { UserSidebar } from "@/components/layout/UserSidebar";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { PolicyInterceptor } from "@/components/auth/PolicyInterceptor";
-import { GlobalCallProvider } from "@/lib/call-store";
 
 export const Route = createFileRoute("/app")({
   ssr: false,
@@ -108,24 +107,22 @@ function AppShell() {
   return (
     <StoreProvider key={user?.id ?? "demo"}>
       <FillNowProvider>
-        <GlobalCallProvider>
+        <div
+          className={cn("h-[100dvh] flex flex-col text-text antialiased bg-bg overflow-hidden")}
+        >
+          <UserSidebar />
           <div
-            className={cn("h-[100dvh] flex flex-col text-text antialiased bg-bg overflow-hidden")}
+            className={cn(
+              "flex-1 lg:pl-60",
+              isChatRoom
+                ? "flex flex-col min-h-0 overflow-hidden"
+                : "overflow-y-auto overflow-x-hidden",
+            )}
           >
-            <UserSidebar />
-            <div
-              className={cn(
-                "flex-1 lg:pl-60",
-                isChatRoom
-                  ? "flex flex-col min-h-0 overflow-hidden"
-                  : "overflow-y-auto overflow-x-hidden",
-              )}
-            >
-              <Outlet />
-            </div>
-            {!isChatRoom && <MobileBottomNav />}
+            <Outlet />
           </div>
-        </GlobalCallProvider>
+          {!isChatRoom && <MobileBottomNav />}
+        </div>
       </FillNowProvider>
     </StoreProvider>
   );

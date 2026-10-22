@@ -246,7 +246,7 @@ function ChatScreen() {
         <section className="flex min-h-0 min-w-0 flex-col">
           <ChatHeader
             request={request}
-            onOpenDetails={() => openSheet("documents")}
+            onOpenDetails={() => openSheet("details")}
             onOpenDocuments={() => openSheet("documents")}
             documentCount={documents.length}
             onStartCall={(type) => startCall(type, request.id)}

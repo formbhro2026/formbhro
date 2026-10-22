@@ -16,6 +16,7 @@ import { Toaster } from "../components/ui/sonner";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { SplashScreen } from "../components/common/SplashScreen";
 import { SessionProvider } from "../lib/session";
+import { GlobalCallProvider } from "../lib/call-store";
 
 import {
   onForegroundNotification,
@@ -420,17 +421,19 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <SessionProvider>
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <SplashScreen />
-        <Outlet />
-        <Toaster
-          position="top-center"
-          toastOptions={{
-            style: {
-              marginTop: "max(0.5rem, env(safe-area-inset-top))",
-            },
-          }}
-        />
+        <GlobalCallProvider>
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <SplashScreen />
+          <Outlet />
+          <Toaster
+            position="top-center"
+            toastOptions={{
+              style: {
+                marginTop: "max(0.5rem, env(safe-area-inset-top))",
+              },
+            }}
+          />
+        </GlobalCallProvider>
       </SessionProvider>
     </QueryClientProvider>
   );

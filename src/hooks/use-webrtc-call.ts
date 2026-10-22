@@ -80,21 +80,50 @@ export async function resolveCanonicalCallRoom(
         (reqData.reference && reqData.reference.startsWith("ADM-TM")),
       );
 
-      // Verify both directions:
-      // USER -> assigned TEAM MEMBER: receiverId = reqData.assigned_team_id
-      // TEAM MEMBER -> USER: receiverId = reqData.user_id
-      const receiverId = currentUserId
-        ? currentUserId === reqData.user_id
-          ? (reqData.assigned_team_id ?? undefined)
-          : (reqData.user_id ?? undefined)
-        : undefined;
+      let receiverId: string | undefined;
+      let targetRoute: string;
 
-      const targetRoute =
-        receiverId === reqData.user_id
-          ? `/app/chats/${reqData.reference || reqData.id}`
-          : isDirectAdminChat
-            ? `/team/admin-chat`
+      if (isDirectAdminChat) {
+        // Direct Admin Chat:
+        // One party is the team member (reqData.assigned_team_id or reqData.user_id).
+        // The other party is Admin.
+        const teamMemberId =
+          reqData.assigned_team_id ||
+          (reqData.user_id !== currentUserId ? reqData.user_id : undefined);
+
+        if (currentUserId === teamMemberId) {
+          // Team member is calling Admin
+          receiverId = reqData.user_id !== teamMemberId ? reqData.user_id : undefined;
+          if (!receiverId) {
+            const { data: adminRole } = await supabase
+              .from("user_roles")
+              .select("user_id")
+              .eq("role", "admin")
+              .limit(1)
+              .maybeSingle();
+            receiverId = adminRole?.user_id;
+          }
+          targetRoute = `/admin/chats?type=team&teamMember=${teamMemberId}`;
+        } else {
+          // Admin is calling Team member
+          receiverId = teamMemberId || reqData.user_id;
+          targetRoute = `/team/admin-chat`;
+        }
+      } else {
+        // Standard support request
+        // USER -> assigned TEAM MEMBER: receiverId = reqData.assigned_team_id
+        // TEAM MEMBER / ADMIN -> USER: receiverId = reqData.user_id
+        receiverId = currentUserId
+          ? currentUserId === reqData.user_id
+            ? (reqData.assigned_team_id ?? undefined)
+            : (reqData.user_id ?? undefined)
+          : undefined;
+
+        targetRoute =
+          receiverId === reqData.user_id
+            ? `/app/chats/${reqData.reference || reqData.id}`
             : `/team/work?r=${reqData.reference || reqData.id}`;
+      }
 
       const resolved: ResolvedCallRoom = {
         canonicalRoomId: reqData.id,
@@ -722,7 +751,10 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
             body: {
               receiver_id: targetUserId,
               notification_type: "call",
-              is_support_call: Boolean(user.id === resolved.requestUserId || !resolved.receiverId),
+              is_support_call: Boolean(
+                !resolved.isDirectAdminChat &&
+                  (user.id === resolved.requestUserId || !resolved.receiverId),
+              ),
               title: `Incoming ${type === "video" ? "Video" : "Voice"} Call`,
               body: "Tap to answer the call",
               request_id: resolved.requestUuid,

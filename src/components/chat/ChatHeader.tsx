@@ -39,14 +39,14 @@ export function ChatHeader({
               </svg>
             </div>
           </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1 overflow-hidden">
+            <div className="flex items-center gap-2 min-w-0">
               <h1 className="truncate text-[15px] font-bold text-text">{request.title}</h1>
-              <StatusBadge status={request.status} className="hidden sm:inline-flex py-0.5 text-[10px]" />
+              <StatusBadge status={request.status} className="hidden sm:inline-flex py-0.5 text-[10px] shrink-0" />
             </div>
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[10px] text-text-muted font-bold tracking-tight uppercase">
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[10px] text-text-muted font-bold tracking-tight uppercase min-w-0">
               <span className="truncate">{request.assigneeOnline ? "Online" : "Support Team"}</span>
-              <span className="sm:hidden">
+              <span className="sm:hidden shrink-0">
                 <StatusBadge status={request.status} className="py-0 px-2 text-[9px]" />
               </span>
             </div>
@@ -56,7 +56,7 @@ export function ChatHeader({
           <button
             type="button"
             onClick={() => onStartCall?.("audio")}
-            className="inline-flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 hover:text-brand"
+            className="inline-flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 hover:text-brand"
             title="Start Audio Call"
           >
             <Phone className="h-4 w-4" />
@@ -65,7 +65,7 @@ export function ChatHeader({
           <button
             type="button"
             onClick={() => onStartCall?.("video")}
-            className="inline-flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 hover:text-brand"
+            className="inline-flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 hover:text-brand"
             title="Start Video Call"
           >
             <Video className="h-4 w-4" />
@@ -75,7 +75,7 @@ export function ChatHeader({
             <button
               type="button"
               onClick={() => onStartCall?.("screen")}
-              className="inline-flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 hover:text-brand"
+              className="hidden sm:inline-flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 hover:text-brand"
               title="Share Screen"
             >
               <Monitor className="h-4 w-4" />
@@ -86,7 +86,7 @@ export function ChatHeader({
             <button
               type="button"
               onClick={onToggleSearch}
-              className={`inline-flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 hover:text-brand ${isSearching ? "bg-surface-2 text-brand" : ""}`}
+              className={`inline-flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 hover:text-brand ${isSearching ? "bg-surface-2 text-brand" : ""}`}
               title="Search in this conversation"
               aria-label="Search in this conversation"
             >
@@ -100,7 +100,7 @@ export function ChatHeader({
               onClick={onOpenDocuments}
               aria-label={`Documents in this request (${documentCount})`}
               aria-haspopup="dialog"
-              className="relative inline-flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 2xl:hidden"
+              className="relative hidden sm:inline-flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 2xl:hidden"
             >
               <FileText className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
               {documentCount > 0 && (
@@ -110,17 +110,18 @@ export function ChatHeader({
               )}
             </button>
           )}
+
           <button
             type="button"
             onClick={onOpenDetails}
             aria-label="Documents and details"
             title="Documents and Request Info"
             aria-haspopup="dialog"
-            className="relative inline-flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 2xl:hidden"
+            className="relative inline-flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 2xl:hidden"
           >
             <Info className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
-            {!onOpenDocuments && documentCount > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[9px] font-bold text-white shadow-sm">
+            {documentCount > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[9px] font-bold text-white shadow-sm sm:hidden">
                 {documentCount}
               </span>
             )}
