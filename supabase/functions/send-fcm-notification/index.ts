@@ -151,10 +151,16 @@ async function sendFCMMessage(
   const message: Record<string, unknown> = {
     message: {
       token: fcmToken,
-      notification: {
-        title,
-        body,
-      },
+      // For CALLS on Android: omit top-level notification block so Google Play Services
+      // delivers the high-priority payload directly to onMessageReceived in background/killed state
+      ...(isCall
+        ? {}
+        : {
+            notification: {
+              title,
+              body,
+            },
+          }),
       data: {
         ...data,
         title,
@@ -162,22 +168,26 @@ async function sendFCMMessage(
       },
       android: {
         priority: "HIGH",
-        // ttl: message 4 weeks tak valid rahega (app killed hone par bhi deliver hoga)
-        ttl: "2419200s",
-        // directBootOk: device lock screen pe bhi deliver hoga
+        // Calls expire after 2 minutes; general messages persist up to 4 weeks
+        ttl: isCall ? "120s" : "2419200s",
         direct_boot_ok: true,
-        notification: {
-          channel_id: channelId,
-          title,
-          body,
-          sound: "default",
-          default_sound: true,
-          default_vibrate_timings: true,
-          default_light_settings: true,
-          notification_priority: isCall ? "PRIORITY_MAX" : "PRIORITY_HIGH",
-          visibility: "PUBLIC",
-          tag: data.notificationId || undefined,
-        },
+        // For CALLS on Android: omit android.notification so native service handles ringing & full-screen UI
+        ...(isCall
+          ? {}
+          : {
+              notification: {
+                channel_id: channelId,
+                title,
+                body,
+                sound: "default",
+                default_sound: true,
+                default_vibrate_timings: true,
+                default_light_settings: true,
+                notification_priority: "PRIORITY_HIGH",
+                visibility: "PUBLIC",
+                tag: data.notificationId || undefined,
+              },
+            }),
       },
       apns: {
         headers: {

@@ -45,6 +45,7 @@ public class MainActivity extends BridgeActivity {
         }
         
         handleCallIntent(getIntent());
+        handleMessageIntent(getIntent());
         
         // Request runtime permissions for Android (Microphone, Camera, Audio, Notifications)
         java.util.List<String> permList = new java.util.ArrayList<>();
@@ -126,6 +127,45 @@ public class MainActivity extends BridgeActivity {
         super.onNewIntent(intent);
         setIntent(intent);
         handleCallIntent(intent);
+        handleMessageIntent(intent);
+    }
+
+    private void handleMessageIntent(Intent intent) {
+        if (intent == null) return;
+        String route = intent.getStringExtra("route");
+        if (route == null || route.trim().isEmpty()) {
+            String requestId = intent.getStringExtra("requestId");
+            if (requestId != null && !requestId.trim().isEmpty()) {
+                route = "/app/chats/" + requestId.trim();
+            }
+        }
+        if (route != null && !route.trim().isEmpty()) {
+            final String targetRoute = route.trim();
+            android.util.Log.i("MainActivity", "[MESSAGE][NAV] Handling message intent to route: " + targetRoute);
+            // Clear intent extras to avoid repeated navigation on configuration change
+            intent.removeExtra("route");
+            intent.removeExtra("requestId");
+
+            final String js = String.format(
+                "(function() {" +
+                "  var target = '%s';" +
+                "  if (window.location && window.location.pathname !== target) {" +
+                "    console.log('[NativeBridge] Navigating to ' + target);" +
+                "    window.location.href = target;" +
+                "  }" +
+                "})();",
+                escapeJs(targetRoute)
+            );
+
+            long[] delays = new long[]{300, 800, 1600, 3000};
+            for (long delay : delays) {
+                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                    if (MainActivity.this.bridge != null && MainActivity.this.bridge.getWebView() != null) {
+                        MainActivity.this.bridge.getWebView().evaluateJavascript(js, null);
+                    }
+                }, delay);
+            }
+        }
     }
 
     private void handleCallIntent(Intent intent) {
@@ -218,6 +258,12 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onPause() {
         super.onPause();
+        isAppInForeground = false;
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
         isAppInForeground = false;
     }
 

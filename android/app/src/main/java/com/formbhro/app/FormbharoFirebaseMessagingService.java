@@ -29,6 +29,15 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
     private static final String CHANNEL_ID_DEFAULT = "formbhro_default_v2";
 
     @Override
+    public void onCreate() {
+        super.onCreate();
+        NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (manager != null) {
+            ensureChannels(manager);
+        }
+    }
+
+    @Override
     public void onNewToken(@NonNull String token) {
         super.onNewToken(token);
         String prefix = token.length() > 10 ? token.substring(0, 10) + "..." : "";
@@ -138,42 +147,10 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
     }
 
     private void handleIncomingMessagePush(Map<String, String> data, RemoteMessage remoteMessage) {
-        // Primary foreground check: static flag set by MainActivity.onResume/onPause
+        // Foreground check strictly based on MainActivity lifecycle
         boolean isForeground = MainActivity.isAppInForeground;
-        if (!isForeground) {
-            // Secondary check via ActivityManager in case the static flag is stale
-            // (e.g. service running in same process but activity lifecycle events delayed)
-            try {
-                ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-                if (am != null) {
-                    List<ActivityManager.RunningAppProcessInfo> procs = am.getRunningAppProcesses();
-                    if (procs != null) {
-                        for (ActivityManager.RunningAppProcessInfo proc : procs) {
-                            if (proc.processName.equals(getPackageName()) &&
-                                proc.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
-                                isForeground = true; // BUG FIX: was re-reading same static variable
-                                break;
-                            }
-                        }
-                    }
-                }
-            } catch (Exception ignored) {}
-        }
-
         if (isForeground) {
             Log.i(TAG, "[MESSAGE][NATIVE] App is in FOREGROUND. Suppressing native system message notification.");
-            return;
-        }
-
-        // BUG 1 FIX: Double-notification guard.
-        // With a notification+data FCM payload, when app is BACKGROUND:
-        //   - FCM system automatically shows the notification from the `notification` block
-        //   - onMessageReceived() is also called (on some Android versions + SDK combos)
-        // If we also post a manual notification here, the user sees TWO notifications.
-        // Guard: if the FCM message already has a notification block, the system handles display.
-        // We only post manually for pure data-only messages (getNotification() == null).
-        if (remoteMessage.getNotification() != null) {
-            Log.i(TAG, "[MESSAGE][NATIVE] FCM notification block present — system handles display. Skipping manual post to avoid duplicate.");
             return;
         }
 
@@ -276,29 +253,8 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
                    " caller=" + callerName + " callerId=" + callerId + " type=" + callType + " route=" + route);
         Log.i("CALL_FORENSIC", "[CALL FORENSIC] role=TEAM event=FCM_RECEIVED messageId=" + remoteMessage.getMessageId() + " callSessionId=" + callSessionId + " requestId=" + requestId + " callType=" + callType + " timestamp=" + System.currentTimeMillis());
 
-        // Fix 3: Suppress native incoming call activity and ringtone if app is already active in foreground.
-        // React CallOverlay presents the incoming call and Web Audio plays the ringtone in the active WebView.
-        // Primary foreground check
+        // Foreground check strictly based on MainActivity lifecycle
         boolean isForeground = MainActivity.isAppInForeground;
-        if (!isForeground) {
-            // Secondary check via ActivityManager
-            try {
-                ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-                if (am != null) {
-                    List<ActivityManager.RunningAppProcessInfo> procs = am.getRunningAppProcesses();
-                    if (procs != null) {
-                        for (ActivityManager.RunningAppProcessInfo proc : procs) {
-                            if (proc.processName.equals(getPackageName()) &&
-                                proc.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
-                                isForeground = true; // BUG FIX: was re-reading same static variable
-                                break;
-                            }
-                        }
-                    }
-                }
-            } catch (Exception ignored) {}
-        }
-
         if (isForeground) {
             Log.i(TAG, "[CALL][NATIVE] App is in FOREGROUND. React CallOverlay handles presentation. Suppressing native IncomingCallActivity & ringtone.");
             Log.i("CALL_FORENSIC", "[CALL FORENSIC] role=TEAM event=FCM_FOREGROUND_SUPPRESSED callSessionId=" + callSessionId + " requestId=" + requestId + " timestamp=" + System.currentTimeMillis());
