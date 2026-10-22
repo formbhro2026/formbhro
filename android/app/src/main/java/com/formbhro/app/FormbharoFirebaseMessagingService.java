@@ -40,6 +40,7 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
     @Override
     public void onNewToken(@NonNull String token) {
         super.onNewToken(token);
+        MainActivity.sLatestFcmToken = token;
         String prefix = token.length() > 10 ? token.substring(0, 10) + "..." : "";
         Log.i(TAG, "[CALL][FCM] onNewToken received: " + prefix);
         try {

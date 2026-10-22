@@ -197,6 +197,22 @@ function SessionProviderInner({ children }: { children: ReactNode }) {
             setUser(session.user);
             lastHandledUserIdRef.current = session.user.id;
             // Strict account isolation: Only hydrate cache if it matches the current user
+            const ensureUserFCMToken = (uid: string) => {
+              void initializeFCM(uid).then((success) => {
+                if (success) {
+                  fcmInitializedUserIdRef.current = uid;
+                } else {
+                  setTimeout(() => {
+                    if (lastHandledUserIdRef.current === uid && fcmInitializedUserIdRef.current !== uid) {
+                      void initializeFCM(uid).then((retrySuccess) => {
+                        if (retrySuccess) fcmInitializedUserIdRef.current = uid;
+                      });
+                    }
+                  }, 2500);
+                }
+              });
+            };
+
             const cached = getCachedSession();
             if (cached && cached.userId === session.user.id) {
               console.log("[PERF][SESSION] Instant cache hit: unblocking UI immediately");
@@ -206,16 +222,14 @@ function SessionProviderInner({ children }: { children: ReactNode }) {
               setLoading(false);
               setInitialized(true);
               if (fcmInitializedUserIdRef.current !== session.user.id) {
-                fcmInitializedUserIdRef.current = session.user.id;
-                void initializeFCM(session.user.id);
+                ensureUserFCMToken(session.user.id);
               }
               // Background sync fresh data
               void load(session.user);
               return;
             } else {
               if (fcmInitializedUserIdRef.current !== session.user.id) {
-                fcmInitializedUserIdRef.current = session.user.id;
-                void initializeFCM(session.user.id);
+                ensureUserFCMToken(session.user.id);
               }
               await load(session.user);
             }
@@ -237,6 +251,15 @@ function SessionProviderInner({ children }: { children: ReactNode }) {
       }
     };
     init();
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible" && lastHandledUserIdRef.current) {
+        void initializeFCM(lastHandledUserIdRef.current).then((success) => {
+          if (success) fcmInitializedUserIdRef.current = lastHandledUserIdRef.current;
+        });
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!active) return;
@@ -264,13 +287,15 @@ function SessionProviderInner({ children }: { children: ReactNode }) {
 
       // Initialize FCM token registration and notification channels idempotently
       if (session.user && fcmInitializedUserIdRef.current !== session.user.id) {
-        fcmInitializedUserIdRef.current = session.user.id;
-        void initializeFCM(session.user.id);
+        void initializeFCM(session.user.id).then((success) => {
+          if (success) fcmInitializedUserIdRef.current = session.user.id;
+        });
       }
     });
 
     return () => {
       active = false;
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       sub.subscription.unsubscribe();
     };
   }, [load]);

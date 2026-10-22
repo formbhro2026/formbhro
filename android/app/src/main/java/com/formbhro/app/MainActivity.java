@@ -13,6 +13,7 @@ import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
     public static volatile boolean isAppInForeground = false;
+    public static volatile String sLatestFcmToken = null;
     private String pendingCallAnswerJs = null;
     private String pendingCallAnswerJson = null;
 
@@ -29,11 +30,29 @@ public class MainActivity extends BridgeActivity {
             pendingCallAnswerJson = null;
             pendingCallAnswerJs = null;
         }
+
+        @android.webkit.JavascriptInterface
+        public String getFcmToken() {
+            android.util.Log.i("MainActivity", "[FCM][BRIDGE] Native bridge getFcmToken called: " + (sLatestFcmToken != null ? "present" : "null"));
+            return sLatestFcmToken != null ? sLatestFcmToken : "";
+        }
     }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        try {
+            com.google.firebase.messaging.FirebaseMessaging.getInstance().getToken()
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful() && task.getResult() != null) {
+                        sLatestFcmToken = task.getResult();
+                        android.util.Log.i("MainActivity", "[FCM] Got native FCM token on launch: " + (sLatestFcmToken.length() > 10 ? sLatestFcmToken.substring(0, 10) + "..." : ""));
+                    }
+                });
+        } catch (Throwable t) {
+            android.util.Log.w("MainActivity", "[FCM] Failed to query native FCM token: " + t.getMessage());
+        }
         
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true);

@@ -241,22 +241,47 @@ export function showSystemNotification(
  * Returns null on web or if not available.
  */
 export async function getFCMToken(): Promise<string | null> {
-  const result = await getMessagingPlugin();
-  if (!result) return null;
-
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  // 1. First check FormbharoNativeBridge (instant, synchronous Android Java access)
+  if (typeof window !== "undefined") {
     try {
-      const { token } = await result.plugin.getToken({});
-      if (token && token.trim().length > 0) {
-        return token;
+      const nativeToken = (window as any).FormbharoNativeBridge?.getFcmToken?.();
+      if (nativeToken && typeof nativeToken === "string" && nativeToken.trim().length > 0) {
+        console.log("[FCM] Obtained token from FormbharoNativeBridge:", nativeToken.substring(0, 10) + "...");
+        return nativeToken.trim();
       }
     } catch (e) {
-      console.warn(`[FCM] getToken attempt ${attempt} error:`, e);
-    }
-    if (attempt < 3) {
-      await new Promise((resolve) => setTimeout(resolve, 600));
+      console.warn("[FCM] FormbharoNativeBridge getFcmToken error:", e);
     }
   }
+
+  // 2. Query @capacitor-firebase/messaging plugin with retries
+  const result = await getMessagingPlugin();
+  if (result) {
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      try {
+        const { token } = await result.plugin.getToken({});
+        if (token && token.trim().length > 0) {
+          return token.trim();
+        }
+      } catch (e) {
+        console.warn(`[FCM] getToken attempt ${attempt} error:`, e);
+      }
+      if (attempt < 5) {
+        await new Promise((resolve) => setTimeout(resolve, 600));
+      }
+    }
+  }
+
+  // 3. Fallback: Re-check bridge after delay in case Firebase async task just completed
+  if (typeof window !== "undefined") {
+    try {
+      const nativeToken = (window as any).FormbharoNativeBridge?.getFcmToken?.();
+      if (nativeToken && typeof nativeToken === "string" && nativeToken.trim().length > 0) {
+        return nativeToken.trim();
+      }
+    } catch {}
+  }
+
   return null;
 }
 
@@ -473,23 +498,29 @@ export async function initializeFCM(userId: string): Promise<boolean> {
   fcmInitializingPromise = (async () => {
     try {
       // 1. Setup Android Notification Channels with High Importance
-      await setupAndroidNotificationChannels();
-
-      // 2. Request permission
-      const granted = await requestNotificationPermission();
-      if (!granted) {
-        console.info("[FCM] Notification permission not granted.");
-        return false;
+      try {
+        await setupAndroidNotificationChannels();
+      } catch (e) {
+        console.warn("[FCM] Channel setup error:", e);
       }
 
-      // 3. Retrieve and save token
+      // 2. Request permission asynchronously (do not block token retrieval)
+      try {
+        void requestNotificationPermission();
+      } catch (e) {
+        console.warn("[FCM] Permission request error:", e);
+      }
+
+      // 3. Retrieve and save token ALWAYS (FCM token generation does not require notification permission)
       const token = await getFCMToken();
       if (!token) {
-        console.error("[FCM] Could not retrieve FCM token.");
+        console.warn("[FCM] Could not retrieve FCM token on this attempt.");
         return false;
       }
 
       await saveFCMToken(userId, token);
+      fcmInitializedUserId = userId;
+      console.log("[FCM] Successfully saved FCM token for user:", userId);
 
       // 4. Listen for token refresh events and persist automatically
       try {
