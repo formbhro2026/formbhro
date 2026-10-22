@@ -245,6 +245,11 @@ public class IncomingCallActivity extends Activity {
 
     public static synchronized void startRingtoneAndVibration(Context context) {
         try {
+            if (sRingtone != null && sRingtone.isPlaying()) {
+                Log.i(TAG, "[CALL][NATIVE] Ringtone already playing. Skipping duplicate start.");
+                return;
+            }
+
             if (sRingtone == null) {
                 Uri ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
                 if (ringtoneUri != null) {
@@ -257,10 +262,10 @@ public class IncomingCallActivity extends Activity {
                                 .build()
                         );
                     }
-                    if (sRingtone != null) {
-                        sRingtone.play();
-                    }
                 }
+            }
+            if (sRingtone != null && !sRingtone.isPlaying()) {
+                sRingtone.play();
             }
 
             if (sVibrator == null) {
@@ -281,6 +286,7 @@ public class IncomingCallActivity extends Activity {
             }
         } catch (Exception e) {
             // Ignore ringtone playback failures
+            Log.w(TAG, "[CALL][NATIVE] Ringtone start error: " + e.getMessage());
         }
     }
 

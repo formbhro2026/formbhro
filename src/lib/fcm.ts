@@ -277,8 +277,18 @@ export async function requestNotificationPermission(): Promise<boolean> {
   return false;
 }
 
+export function requestNativeNotificationPermission(): void {
+  if (typeof window === "undefined") return;
+  try {
+    (window as any).FormbharoNativeBridge?.requestNotificationPermission?.();
+  } catch (e) {
+    console.warn("[FCM] requestNativeNotificationPermission error:", e);
+  }
+}
+
 /**
- * Displays a system top notification using Web Notification API if permitted.
+ * Displays a system top notification in the Android notification bar (via native bridge)
+ * or falls back to Web Notification API on desktop browser if permitted.
  */
 export function showSystemNotification(
   title: string,
@@ -288,6 +298,24 @@ export function showSystemNotification(
     onClick?: () => void;
   },
 ): void {
+  // 1. Android Capacitor: invoke native bridge to post directly into the Android notification bar!
+  if (typeof window !== "undefined" && (window as any).FormbharoNativeBridge?.postSystemNotification) {
+    try {
+      const route = options?.data?.route || (options?.data?.requestId ? `/app/chats/${options.data.requestId}` : "");
+      const requestId = options?.data?.requestId || "";
+      (window as any).FormbharoNativeBridge.postSystemNotification(
+        title,
+        body,
+        route,
+        requestId,
+      );
+      return;
+    } catch (e) {
+      console.warn("[FCM] Native bridge postSystemNotification error:", e);
+    }
+  }
+
+  // 2. Web browser fallback
   if (typeof window === "undefined" || !("Notification" in window)) return;
   if (Notification.permission !== "granted") return;
 

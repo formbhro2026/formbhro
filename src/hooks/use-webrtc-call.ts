@@ -751,10 +751,8 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
             body: {
               receiver_id: targetUserId,
               notification_type: "call",
-              is_support_call: Boolean(
-                !resolved.isDirectAdminChat &&
-                  (user.id === resolved.requestUserId || !resolved.receiverId),
-              ),
+              is_group_call: false,
+              is_support_call: false,
               title: `Incoming ${type === "video" ? "Video" : "Voice"} Call`,
               body: "Tap to answer the call",
               request_id: resolved.requestUuid,

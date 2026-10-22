@@ -28,6 +28,9 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
     private static final String CHANNEL_ID_MESSAGES = "formbhro_messages_v3";
     private static final String CHANNEL_ID_DEFAULT = "formbhro_default_v3";
 
+    private static final Map<String, Long> sRecentMessageIds = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Map<String, Long> sRecentCallSessions = new java.util.concurrent.ConcurrentHashMap<>();
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -102,9 +105,7 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .setUsage(AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT)
                 .build();
-            Uri msgSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
-
-            // Calls channels
+            Uri msgSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);            // Calls channels
             for (String chId : new String[]{CHANNEL_ID_CALLS, "formbhro_calls_v2"}) {
                 if (manager.getNotificationChannel(chId) == null) {
                     NotificationChannel callChannel = new NotificationChannel(
@@ -118,9 +119,8 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
                     callChannel.enableLights(true);
                     callChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
                     callChannel.setBypassDnd(true);
-                    if (ringtoneUri != null) {
-                        callChannel.setSound(ringtoneUri, callAudioAttributes);
-                    }
+                    // Ringer audio is exclusively handled by IncomingCallActivity.startRingtoneAndVibration
+                    callChannel.setSound(null, null);
                     manager.createNotificationChannel(callChannel);
                     Log.i(TAG, "[CALL][NATIVE] Created channel: " + chId);
                 }
@@ -146,7 +146,7 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
                 }
             }
 
-            // Default channels
+            // Default fallback channel
             for (String chId : new String[]{CHANNEL_ID_DEFAULT, "formbhro_default_v2"}) {
                 if (manager.getNotificationChannel(chId) == null) {
                     NotificationChannel defChannel = new NotificationChannel(
@@ -166,16 +166,39 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
     }
 
     private void handleIncomingMessagePush(Map<String, String> data, RemoteMessage remoteMessage) {
-        // Foreground check strictly based on MainActivity lifecycle
-        boolean isForeground = MainActivity.isAppInForeground;
-        if (isForeground) {
-            Log.i(TAG, "[MESSAGE][NATIVE] App is in FOREGROUND. Suppressing native system message notification.");
-            return;
-        }
-
         NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager != null) {
             ensureChannels(manager);
+        }
+
+        // Deduplication: prevent duplicate push notification within 30 seconds
+        String msgDedupKey = data.get("notificationId");
+        if (msgDedupKey == null || msgDedupKey.isEmpty()) {
+            msgDedupKey = data.get("messageId");
+        }
+        if (msgDedupKey == null || msgDedupKey.isEmpty()) {
+            String cId = data.get("chatRoomId");
+            String rId = data.get("requestId");
+            String b = data.get("body");
+            if (b != null && (cId != null || rId != null)) {
+                msgDedupKey = (cId != null ? cId : rId) + ":" + b.trim();
+            }
+        }
+        if (msgDedupKey == null || msgDedupKey.isEmpty()) {
+            msgDedupKey = remoteMessage.getMessageId();
+        }
+
+        if (msgDedupKey != null && !msgDedupKey.isEmpty()) {
+            long now = System.currentTimeMillis();
+            Long lastSeen = sRecentMessageIds.get(msgDedupKey);
+            if (lastSeen != null && (now - lastSeen) < 30000) {
+                Log.i(TAG, "[MESSAGE][NATIVE] Duplicate message push notification suppressed for key: " + msgDedupKey);
+                return;
+            }
+            sRecentMessageIds.put(msgDedupKey, now);
+            if (sRecentMessageIds.size() > 200) {
+                sRecentMessageIds.entrySet().removeIf(e -> (now - e.getValue()) > 60000);
+            }
         }
 
         String title = data.get("title");
@@ -201,7 +224,8 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
         String chatRoomId = data.get("chatRoomId");
         String route = data.get("route");
 
-        int notificationId = (int) (System.currentTimeMillis() & 0xfffffff);
+        String tag = "msg_" + (msgDedupKey != null ? msgDedupKey : "general");
+        int notificationId = Math.abs(tag.hashCode());
 
         Intent intent = new Intent(this, MainActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -227,6 +251,17 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
             flags
         );
 
+        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        if (pm != null) {
+            try {
+                PowerManager.WakeLock wakeLock = pm.newWakeLock(
+                    PowerManager.PARTIAL_WAKE_LOCK,
+                    "Formbharo:MessagePushWakeLock"
+                );
+                wakeLock.acquire(3000);
+            } catch (Throwable ignored) {}
+        }
+
         Uri defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID_MESSAGES)
@@ -241,12 +276,11 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
             .setSound(defaultSoundUri)
             .setVibrate(new long[]{0, 500, 200, 500})
             .setLights(Color.parseColor("#FF8A1F"), 1000, 1000)
-            .setDefaults(NotificationCompat.DEFAULT_ALL)
             .setContentIntent(pendingIntent);
 
         if (manager != null) {
-            manager.notify(notificationId, builder.build());
-            Log.i(TAG, "[MESSAGE][NATIVE] Message notification posted: id=" + notificationId);
+            manager.notify(tag, notificationId, builder.build());
+            Log.i(TAG, "[MESSAGE][NATIVE] Message notification posted: tag=" + tag + " id=" + notificationId);
         }
     }
 
@@ -256,6 +290,21 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
         String chatRoomId = data.get("chatRoomId");
         String callerName = data.get("callerName");
         String callerId = data.get("callerId");
+
+        // Idempotency: prevent processing the same call session multiple times within 30 seconds
+        if (callSessionId != null && !callSessionId.isEmpty()) {
+            long now = System.currentTimeMillis();
+            Long lastSeen = sRecentCallSessions.get(callSessionId);
+            if (lastSeen != null && (now - lastSeen) < 30000) {
+                Log.i(TAG, "[CALL][NATIVE] Duplicate incoming call push suppressed for session: " + callSessionId);
+                return;
+            }
+            sRecentCallSessions.put(callSessionId, now);
+            if (sRecentCallSessions.size() > 100) {
+                sRecentCallSessions.entrySet().removeIf(e -> (now - e.getValue()) > 60000);
+            }
+        }
+
         if (callerName == null || callerName.trim().isEmpty()) {
             RemoteMessage.Notification notif = remoteMessage.getNotification();
             if (notif != null && notif.getTitle() != null) {
@@ -347,8 +396,6 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
 
         String callTypeTitle = callType.equalsIgnoreCase("video") ? "Incoming Video Call" : "Incoming Voice Call";
 
-        Uri ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
-
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID_CALLS)
             .setSmallIcon(R.drawable.ic_stat_notification)
             .setContentTitle(callerName)
@@ -359,8 +406,6 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
             .setAutoCancel(true)
             .setOngoing(true)
             .setColor(Color.parseColor("#FF8A1F"))
-            .setSound(ringtoneUri)
-            .setVibrate(new long[]{0, 1000, 500, 1000, 500, 1000})
             .setFullScreenIntent(fullScreenPendingIntent, true)
             .setContentIntent(fullScreenPendingIntent)
             .addAction(0, "Decline", declinePendingIntent)

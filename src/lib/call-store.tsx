@@ -130,14 +130,13 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
           };
 
           if (notif.type === "call" && notif.request_id) {
-            const sid = (notif as any).call_session_id;
-            if (sid && isCallSessionAlreadyHandled(sid)) {
+            const sid = (notif as any).call_session_id || `req_call_${notif.request_id}`;
+            if (isCallSessionAlreadyHandled(sid) || isCallSessionAlreadyHandled(`req_call_${notif.request_id}`)) {
               console.log("[GlobalCall] Skipping already handled call session from notification:", sid);
               return;
             }
-            if (sid) {
-              markCallSessionHandled(sid);
-            }
+            markCallSessionHandled(sid);
+            markCallSessionHandled(`req_call_${notif.request_id}`);
 
             console.log(
               "[GlobalCall] Incoming call notification received for request:",
@@ -174,10 +173,12 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const onRemoteOffer = (e: Event) => {
       const detail = (e as CustomEvent).detail;
-      const sid = detail?.callSessionId || detail?.sessionId;
+      const rawSid = detail?.callSessionId || detail?.sessionId;
+      const reqId = detail?.requestId || callRoomId;
+      const sid = rawSid || (reqId ? `req_call_${reqId}` : null);
       if (!sid) return;
 
-      if (isCallSessionAlreadyHandled(sid)) {
+      if (isCallSessionAlreadyHandled(sid) || (reqId && isCallSessionAlreadyHandled(`req_call_${reqId}`))) {
         console.log("[GlobalCall] Skipping duplicate incoming offer for session:", sid);
         return;
       }
@@ -188,6 +189,7 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
       }
 
       markCallSessionHandled(sid);
+      if (reqId) markCallSessionHandled(`req_call_${reqId}`);
 
       console.log("[GlobalCall] Incoming offer received from WebRTC for session:", sid);
       const callType: "audio" | "video" = detail.callType === "video" ? "video" : "audio";

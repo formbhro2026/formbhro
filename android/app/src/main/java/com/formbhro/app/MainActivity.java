@@ -8,6 +8,7 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import android.content.pm.PackageManager;
 import android.Manifest;
+import android.app.PendingIntent;
 import android.content.Intent;
 import com.getcapacitor.BridgeActivity;
 
@@ -92,6 +93,57 @@ public class MainActivity extends BridgeActivity {
                 startActivity(intent);
             } catch (Throwable t) {
                 android.util.Log.w("MainActivity", "Failed to open notification settings: " + t.getMessage());
+            }
+        }
+
+        @android.webkit.JavascriptInterface
+        public void requestNotificationPermission() {
+            if (android.os.Build.VERSION.SDK_INT >= 33) {
+                if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, 1002);
+                }
+            }
+        }
+
+        @android.webkit.JavascriptInterface
+        public void postSystemNotification(String title, String body, String route, String requestId) {
+            try {
+                android.app.NotificationManager manager = (android.app.NotificationManager) getSystemService(android.content.Context.NOTIFICATION_SERVICE);
+                if (manager == null) return;
+
+                int notificationId = (int) (System.currentTimeMillis() & 0xfffffff);
+                Intent intent = new Intent(MainActivity.this, MainActivity.class);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                if (route != null && !route.isEmpty()) intent.putExtra("route", route);
+                if (requestId != null && !requestId.isEmpty()) intent.putExtra("requestId", requestId);
+
+                int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                    flags |= PendingIntent.FLAG_IMMUTABLE;
+                }
+                PendingIntent pendingIntent = PendingIntent.getActivity(MainActivity.this, notificationId, intent, flags);
+
+                android.net.Uri defaultSoundUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION);
+
+                androidx.core.app.NotificationCompat.Builder builder = new androidx.core.app.NotificationCompat.Builder(MainActivity.this, "formbhro_messages_v3")
+                    .setSmallIcon(R.drawable.ic_stat_notification)
+                    .setContentTitle(title != null && !title.trim().isEmpty() ? title : "Formbhro")
+                    .setContentText(body != null && !body.trim().isEmpty() ? body : "New message received")
+                    .setPriority(androidx.core.app.NotificationCompat.PRIORITY_MAX)
+                    .setCategory(androidx.core.app.NotificationCompat.CATEGORY_MESSAGE)
+                    .setVisibility(androidx.core.app.NotificationCompat.VISIBILITY_PUBLIC)
+                    .setAutoCancel(true)
+                    .setColor(android.graphics.Color.parseColor("#FF8A1F"))
+                    .setSound(defaultSoundUri)
+                    .setVibrate(new long[]{0, 500, 200, 500})
+                    .setDefaults(androidx.core.app.NotificationCompat.DEFAULT_ALL)
+                    .setContentIntent(pendingIntent);
+
+                String tag = "inapp_" + (requestId != null && !requestId.isEmpty() ? requestId : (title != null ? title.hashCode() : "notif"));
+                manager.notify(tag, notificationId, builder.build());
+                android.util.Log.i("MainActivity", "[NOTIFICATION][BRIDGE] Posted notification to bar: " + title);
+            } catch (Throwable t) {
+                android.util.Log.w("MainActivity", "[NOTIFICATION][BRIDGE] Failed to post notification: " + t.getMessage());
             }
         }
     }
@@ -213,6 +265,12 @@ public class MainActivity extends BridgeActivity {
                 }
 
                 // High-importance Messages channels (_v3 and _v2)
+                android.media.AudioAttributes msgAudioAttributes = new android.media.AudioAttributes.Builder()
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT)
+                    .build();
+                android.net.Uri msgSoundUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION);
+
                 for (String chId : new String[]{"formbhro_messages_v3", "formbhro_messages_v2"}) {
                     if (manager.getNotificationChannel(chId) == null) {
                         android.app.NotificationChannel msgChannel = new android.app.NotificationChannel(
@@ -224,6 +282,9 @@ public class MainActivity extends BridgeActivity {
                         msgChannel.enableVibration(true);
                         msgChannel.enableLights(true);
                         msgChannel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
+                        if (msgSoundUri != null) {
+                            msgChannel.setSound(msgSoundUri, msgAudioAttributes);
+                        }
                         manager.createNotificationChannel(msgChannel);
                     }
                 }

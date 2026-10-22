@@ -34,11 +34,58 @@ export async function sendMessage(input: {
   const uid = userData.user?.id;
   if (!uid) throw new ApiError("Session expired. Please sign in again.", "unauthenticated");
 
+  // Resolve request whether input.requestId is a UUID, a reference string (e.g. FRM-...), or chatRoomId
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.requestId);
+  let resolvedRequestId = input.requestId;
+  let reqData: {
+    id: string;
+    user_id: string;
+    assigned_team_id: string | null;
+    reference: string | null;
+    category: string | null;
+  } | null = null;
+
+  if (isUuid) {
+    const { data: r } = await supabase
+      .from("requests")
+      .select("id, user_id, assigned_team_id, reference, category")
+      .eq("id", input.requestId)
+      .maybeSingle();
+    reqData = r;
+    if (r?.id) resolvedRequestId = r.id;
+  } else {
+    const { data: r } = await supabase
+      .from("requests")
+      .select("id, user_id, assigned_team_id, reference, category")
+      .eq("reference", input.requestId)
+      .maybeSingle();
+    reqData = r;
+    if (r?.id) resolvedRequestId = r.id;
+  }
+
+  // Fallback lookup via chat_room_id if reqData still not resolved
+  if (!reqData && input.chatRoomId) {
+    const { data: roomData } = await supabase
+      .from("chat_rooms")
+      .select("request_id")
+      .eq("id", input.chatRoomId)
+      .maybeSingle();
+    if (roomData?.request_id) {
+      const { data: r } = await supabase
+        .from("requests")
+        .select("id, user_id, assigned_team_id, reference, category")
+        .eq("id", roomData.request_id)
+        .maybeSingle();
+      reqData = r;
+      if (r?.id) resolvedRequestId = r.id;
+    }
+  }
+
   const { data, error } = await supabase
     .from("messages")
     .insert({
       chat_room_id: input.chatRoomId,
-      request_id: input.requestId,
+      request_id: resolvedRequestId,
       sender_id: uid,
       sender_role: input.senderRole,
       body: input.body ?? null,
@@ -57,112 +104,107 @@ export async function sendMessage(input: {
 
   // Dispatch high-priority FCM notification to guarantee instant delivery
   const preview = input.body || "Sent an attachment";
-  void supabase
-    .from("requests")
-    .select("id, user_id, assigned_team_id, reference, category")
-    .eq("id", input.requestId)
-    .maybeSingle()
-    .then(async ({ data: reqData }) => {
-      if (!reqData) return;
+  if (reqData) {
+    const isDirectAdminChat = Boolean(
+      reqData.category === "Team Direct Report" ||
+      (reqData.reference && reqData.reference.startsWith("ADM-TM")),
+    );
 
-      const isDirectAdminChat = Boolean(
-        reqData.category === "Team Direct Report" ||
-        (reqData.reference && reqData.reference.startsWith("ADM-TM")),
-      );
+    const targets: Array<{ receiverId: string; route: string; title: string }> = [];
 
-      const targets: Array<{ receiverId: string; route: string; title: string }> = [];
-
-      if (isDirectAdminChat) {
-        if (input.senderRole === "admin") {
-          // Admin sent message -> notify Team Member
-          const tmId =
-            reqData.assigned_team_id ||
-            (reqData.user_id !== uid ? reqData.user_id : null);
-          if (tmId) {
-            targets.push({
-              receiverId: tmId,
-              route: "/team/admin-chat",
-              title: "Admin Support",
-            });
-          }
-        } else {
-          // Team Member sent message -> notify Admin
-          let adminId =
-            reqData.user_id !== reqData.assigned_team_id ? reqData.user_id : null;
-          if (!adminId) {
-            const { data: adminRole } = await supabase
-              .from("user_roles")
-              .select("user_id")
-              .eq("role", "admin")
-              .limit(1)
-              .maybeSingle();
-            adminId = adminRole?.user_id || null;
-          }
-          if (adminId) {
-            targets.push({
-              receiverId: adminId,
-              route: `/admin/chats?type=team&teamMember=${reqData.assigned_team_id || reqData.user_id}`,
-              title: "Team Member Message",
-            });
-          }
+    if (isDirectAdminChat) {
+      if (input.senderRole === "admin") {
+        // Admin sent message -> notify Team Member
+        const tmId =
+          reqData.assigned_team_id ||
+          (reqData.user_id !== uid ? reqData.user_id : null);
+        if (tmId) {
+          targets.push({
+            receiverId: tmId,
+            route: "/team/admin-chat",
+            title: "Admin Support",
+          });
         }
       } else {
-        // Customer request
-        const refOrId = reqData.reference || reqData.id;
-        if (input.senderRole === "user") {
-          // Customer sent message -> notify assigned team member
-          if (reqData.assigned_team_id) {
-            targets.push({
-              receiverId: reqData.assigned_team_id,
-              route: `/team/work?r=${refOrId}`,
-              title: `New message on ${refOrId}`,
-            });
-          }
-        } else if (input.senderRole === "team") {
-          // Team member sent message -> notify customer
-          if (reqData.user_id) {
-            targets.push({
-              receiverId: reqData.user_id,
-              route: `/app/chats/${refOrId}`,
-              title: `New message on ${refOrId}`,
-            });
-          }
-        } else if (input.senderRole === "admin") {
-          // Admin sent message -> notify customer AND assigned team member
-          if (reqData.user_id) {
-            targets.push({
-              receiverId: reqData.user_id,
-              route: `/app/chats/${refOrId}`,
-              title: `New message from Support`,
-            });
-          }
-          if (reqData.assigned_team_id && reqData.assigned_team_id !== reqData.user_id) {
-            targets.push({
-              receiverId: reqData.assigned_team_id,
-              route: `/team/work?r=${refOrId}`,
-              title: `Admin message on ${refOrId}`,
-            });
-          }
+        // Team Member sent message -> notify Admin
+        let adminId =
+          reqData.user_id !== reqData.assigned_team_id ? reqData.user_id : null;
+        if (!adminId) {
+          const { data: adminRole } = await supabase
+            .from("user_roles")
+            .select("user_id")
+            .eq("role", "admin")
+            .limit(1)
+            .maybeSingle();
+          adminId = adminRole?.user_id || null;
+        }
+        if (adminId) {
+          targets.push({
+            receiverId: adminId,
+            route: `/admin/chats?type=team&teamMember=${reqData.assigned_team_id || reqData.user_id}`,
+            title: "Team Member Message",
+          });
         }
       }
-
-      for (const target of targets) {
-        if (!target.receiverId) continue;
-        void supabase.functions
-          .invoke("send-fcm-notification", {
-            body: {
-              receiver_id: target.receiverId,
-              title: target.title,
-              body: preview,
-              notification_type: "message",
-              request_id: input.requestId,
-              chat_room_id: input.chatRoomId,
-              route: target.route,
-            },
-          })
-          .catch((e) => console.warn("[FCM] Direct push invocation error:", e));
+    } else {
+      // Customer request
+      const refOrId = reqData.reference || reqData.id;
+      if (input.senderRole === "user") {
+        // Customer sent message -> notify assigned team member
+        if (reqData.assigned_team_id) {
+          targets.push({
+            receiverId: reqData.assigned_team_id,
+            route: `/team/work?r=${refOrId}`,
+            title: `New message on ${refOrId}`,
+          });
+        }
+      } else if (input.senderRole === "team") {
+        // Team member sent message -> notify customer
+        if (reqData.user_id) {
+          targets.push({
+            receiverId: reqData.user_id,
+            route: `/app/chats/${refOrId}`,
+            title: `New message on ${refOrId}`,
+          });
+        }
+      } else if (input.senderRole === "admin") {
+        // Admin sent message -> notify customer AND assigned team member
+        if (reqData.user_id) {
+          targets.push({
+            receiverId: reqData.user_id,
+            route: `/app/chats/${refOrId}`,
+            title: `New message from Support`,
+          });
+        }
+        if (reqData.assigned_team_id && reqData.assigned_team_id !== reqData.user_id) {
+          targets.push({
+            receiverId: reqData.assigned_team_id,
+            route: `/team/work?r=${refOrId}`,
+            title: `Admin message on ${refOrId}`,
+          });
+        }
       }
-    });
+    }
+
+    for (const target of targets) {
+      if (!target.receiverId) continue;
+      void supabase.functions
+        .invoke("send-fcm-notification", {
+          body: {
+            receiver_id: target.receiverId,
+            title: target.title,
+            body: preview,
+            notification_type: "message",
+            request_id: reqData.id,
+            chat_room_id: input.chatRoomId,
+            route: target.route,
+            notification_id: `msg:${data.id}`,
+            message_id: data.id,
+          },
+        })
+        .catch((e) => console.warn("[FCM] Direct push invocation error:", e));
+    }
+  }
 
   return data;
 }

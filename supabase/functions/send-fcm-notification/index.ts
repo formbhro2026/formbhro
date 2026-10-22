@@ -139,11 +139,11 @@ async function sendFCMMessage(
   const url = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
 
   // Select channel based on notification type for proper heads-up / ringtone routing
-  let channelId = "formbhro_default_v2";
+  let channelId = "formbhro_default_v3";
   if (data.type === "call") {
-    channelId = "formbhro_calls_v2";
+    channelId = "formbhro_calls_v3";
   } else if (data.type === "message") {
-    channelId = "formbhro_messages_v2";
+    channelId = "formbhro_messages_v3";
   }
 
   const isCall = data.type === "call";
@@ -165,6 +165,7 @@ async function sendFCMMessage(
         ...data,
         title,
         body,
+        notification_type: data.type || "message",
       },
       android: {
         priority: "HIGH",
@@ -179,11 +180,13 @@ async function sendFCMMessage(
                 channel_id: channelId,
                 title,
                 body,
+                icon: "ic_stat_notification",
+                color: "#FF8A1F",
                 sound: "default",
                 default_sound: true,
                 default_vibrate_timings: true,
                 default_light_settings: true,
-                notification_priority: "PRIORITY_HIGH",
+                notification_priority: "PRIORITY_MAX",
                 visibility: "PUBLIC",
                 tag: data.notificationId || undefined,
               },
@@ -303,6 +306,23 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Deduplicate messages across both DB trigger webhook and direct client invocation
+    if (notification.type === "message" && notification.receiver_id) {
+      const now = Date.now();
+      const msgSemanticKey = `msg:${notification.receiver_id}:${notification.chat_room_id || notification.request_id || ""}:${(notification.body || "").trim()}`;
+      const lastMsgSent = recentMessageDeliveries.get(msgSemanticKey);
+      if (lastMsgSent && now - lastMsgSent < 60000) {
+        console.info(
+          `[FCM] Idempotency: Message push for key ${msgSemanticKey} was already sent within 60s. Skipping duplicate.`,
+        );
+        return new Response(
+          JSON.stringify({ sent: 0, failed: 0, duplicate: true, message: "Duplicate message push suppressed" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      recentMessageDeliveries.set(msgSemanticKey, now);
+    }
+
     if (notification.receiver_id) {
       targetUserIds.push(notification.receiver_id);
     }
@@ -367,7 +387,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2. Resolve receiver and apply call routing policy
+    // 2. Resolve receiver and apply strict recipient scoping policy
     let receiverId = payload.receiver_id;
     let reqRow: any = null;
 
@@ -385,28 +405,44 @@ Deno.serve(async (req) => {
       reqRow = data;
     }
 
-    // Determine if this is a Customer -> Support call
-    const isCustomerCallingSupport = Boolean(
-      (reqRow && payload.caller_id === reqRow.user_id) ||
-      payload.is_support_call
-    );
+    const isGroupCall = payload.is_group_call === true;
 
-    if (isCustomerCallingSupport) {
-      const assignedId = reqRow?.assigned_team_id || receiverId;
+    if (!isGroupCall) {
+      // 1-TO-1 CALL: STRICT SINGLE RECIPIENT ROUTING.
+      // Pool broadcast to all team members is strictly forbidden for 1-to-1 calls.
+      let targetRecipient = payload.receiver_id || receiverId;
+      if (!targetRecipient && reqRow) {
+        if (payload.caller_id === reqRow.user_id) {
+          targetRecipient = reqRow.assigned_team_id;
+        } else if (payload.caller_id === reqRow.assigned_team_id) {
+          targetRecipient = reqRow.user_id;
+        } else {
+          targetRecipient = reqRow.assigned_team_id || reqRow.user_id;
+        }
+      }
 
-      if (assignedId && assignedId !== payload.caller_id) {
-        // Strict 1-to-1 routing: assigned team member or explicit receiverId exists.
-        // The ONLY permitted recipient is this assignedId.
-        // Even if the assigned member has zero device tokens, offline, or web-only,
-        // targetUserIds remains locked to [assignedId]. NEVER fall back to support pool.
-        receiverId = assignedId;
-        targetUserIds = [assignedId];
-        console.info(
-          `[CALL][FCM] Targeted assigned team member: ${assignedId.substring(0, 8)}... (strict 1-to-1 routing, pool fallback forbidden)`,
+      if (!targetRecipient || targetRecipient === payload.caller_id) {
+        console.warn(
+          `[CALL][FCM] 1-to-1 call rejected: No valid target recipient resolved. target=${targetRecipient} caller=${payload.caller_id}`,
         );
-      } else if (!reqRow?.assigned_team_id && !payload.receiver_id && !receiverId) {
-        // Support pool fallback executes ONLY when the request is genuinely unassigned:
-        // requests.assigned_team_id IS NULL AND there is no explicit receiverId
+        return new Response(
+          JSON.stringify({
+            error: "One-to-one calls must target a single specific recipient. Broadcast is forbidden.",
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      receiverId = targetRecipient;
+      targetUserIds = [targetRecipient];
+      console.info(
+        `[CALL][FCM] Strict 1-to-1 routing locked to single recipient: ${receiverId.substring(0, 8)}... (pool broadcast prohibited)`,
+      );
+    } else {
+      // GROUP CALL: Explicitly initiated group calling option
+      if (reqRow?.assigned_team_id) {
+        targetUserIds = [reqRow.assigned_team_id];
+      } else {
         const { data: activeTeamRows } = await sbAdmin
           .from("team_members")
           .select("id")
@@ -423,7 +459,6 @@ Deno.serve(async (req) => {
           new Set([...activeTeamIds, ...roleUserIds]),
         ).filter((id) => id && id !== payload.caller_id);
 
-        // Fetch tokens for eligible users ordered by most recent activity
         const { data: poolTokens } = await sbAdmin
           .from("device_tokens")
           .select("user_id, last_seen_at")
@@ -432,56 +467,13 @@ Deno.serve(async (req) => {
           .limit(10);
 
         if (poolTokens && poolTokens.length > 0) {
-          const activeUserIds = Array.from(new Set(poolTokens.map((t: any) => t.user_id)));
-          targetUserIds = activeUserIds;
-          receiverId = activeUserIds[0];
-          console.info(
-            `[CALL][FCM] Resolved unassigned call support pool: ${activeUserIds.length} members with active tokens.`,
-          );
-        } else if (eligibleUserIds.length > 0) {
-          targetUserIds = eligibleUserIds.slice(0, 5);
-          receiverId = eligibleUserIds[0];
-          console.info(
-            `[CALL][FCM] Fallback to unassigned eligible team members: ${targetUserIds.length} members.`,
-          );
-        }
-      } else {
-        // Assigned member is caller or invalid target -> do NOT fall back to pool
-        console.warn(
-          `[CALL][FCM] Cannot route call to assigned member: assignedId=${assignedId} caller=${payload.caller_id}`,
-        );
-        targetUserIds = [];
-      }
-    } else {
-      // Non-support calls (e.g. Team -> Customer, Admin direct chat)
-      if (!receiverId && reqRow && payload.caller_id) {
-        const isDirect = Boolean(
-          reqRow.category === "Team Direct Report" ||
-          (reqRow.reference && reqRow.reference.startsWith("ADM-TM")),
-        );
-        if (isDirect) {
-          if (payload.caller_id === reqRow.assigned_team_id) {
-            // Team member calling admin
-            receiverId = reqRow.user_id !== reqRow.assigned_team_id ? reqRow.user_id : null;
-            if (!receiverId) {
-              const { data: adminRows } = await sbAdmin
-                .from("user_roles")
-                .select("user_id")
-                .eq("role", "admin")
-                .limit(1);
-              receiverId = adminRows?.[0]?.user_id || null;
-            }
-          } else {
-            // Admin calling team member
-            receiverId = reqRow.assigned_team_id || reqRow.user_id;
-          }
+          targetUserIds = Array.from(new Set(poolTokens.map((t: any) => t.user_id)));
         } else {
-          receiverId = payload.caller_id === reqRow.user_id ? reqRow.assigned_team_id : reqRow.user_id;
+          targetUserIds = eligibleUserIds.slice(0, 5);
         }
       }
-      if (receiverId) {
-        targetUserIds = [receiverId];
-      }
+      receiverId = targetUserIds[0] || null;
+      console.info(`[CALL][FCM] Explicit group call fan-out to ${targetUserIds.length} members.`);
     }
 
     // Exclude caller_id so the caller never receives their own incoming call notification
@@ -591,6 +583,22 @@ Deno.serve(async (req) => {
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+
+    const notifType = payload.notification_type ?? "message";
+    const msgSemanticKey = `msg:${payload.receiver_id}:${payload.chat_room_id || payload.request_id || ""}:${(payload.body || "").trim()}`;
+    if (notifType === "message") {
+      const lastMsgSent = recentMessageDeliveries.get(msgSemanticKey);
+      if (lastMsgSent && now - lastMsgSent < 60000) {
+        console.info(
+          `[FCM] Idempotency: Direct message push for key ${msgSemanticKey} was already sent within 60s. Skipping duplicate.`,
+        );
+        return new Response(
+          JSON.stringify({ sent: 0, failed: 0, duplicate: true, message: "Duplicate message push suppressed" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      recentMessageDeliveries.set(msgSemanticKey, now);
+    }
     recentMessageDeliveries.set(notifId, now);
 
     notification = {
@@ -598,7 +606,7 @@ Deno.serve(async (req) => {
       receiver_id: payload.receiver_id,
       title: payload.title,
       body: payload.body ?? null,
-      type: payload.notification_type ?? "message",
+      type: notifType,
       request_id: payload.request_id ?? null,
       chat_room_id: payload.chat_room_id ?? null,
       route: payload.route,

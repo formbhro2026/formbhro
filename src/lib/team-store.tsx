@@ -1678,19 +1678,24 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
 
       const ref = row.reference || row.id;
       if (row.id) {
-        refByRequestId.current[row.id] = ref;
-        // Asynchronously register new chat room and bump version to attach realtime listener
-        if (!rooms.current[ref]?.chatRoomId || !rooms.current[row.id]?.chatRoomId) {
-          void requestsApi
-            .getOrCreateChatRoom(row.id)
-            .then((rm) => {
-              if (rm?.id) {
-                rooms.current[ref] = { requestId: row.id, chatRoomId: rm.id };
-                rooms.current[row.id] = { requestId: row.id, chatRoomId: rm.id };
-                setRoomsVersion((v) => v + 1);
-              }
-            })
-            .catch(() => undefined);
+        if (row.assigned_team_id !== null && row.assigned_team_id !== memberId) {
+          delete rooms.current[ref];
+          delete rooms.current[row.id];
+        } else {
+          refByRequestId.current[row.id] = ref;
+          // Asynchronously register new chat room and bump version to attach realtime listener
+          if (!rooms.current[ref]?.chatRoomId || !rooms.current[row.id]?.chatRoomId) {
+            void requestsApi
+              .getOrCreateChatRoom(row.id)
+              .then((rm) => {
+                if (rm?.id) {
+                  rooms.current[ref] = { requestId: row.id, chatRoomId: rm.id };
+                  rooms.current[row.id] = { requestId: row.id, chatRoomId: rm.id };
+                  setRoomsVersion((v) => v + 1);
+                }
+              })
+              .catch(() => undefined);
+          }
         }
       }
 
@@ -1753,35 +1758,6 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
             };
             return [updated, ...prev.filter((_, i) => i !== index)];
           });
-
-          // Push a bell notification for every new user message so the team
-          // member is alerted even when viewing another tab.
-          if (isUserMsg) {
-            const isChatOpen =
-              window.location.pathname.includes("/team/work") &&
-              new URLSearchParams(window.location.search).get("id") === reference;
-            if (!isChatOpen) {
-              const preview = row.body?.slice(0, 80) || "Attachment";
-              setNotifications((prev) => [
-                {
-                  id: `msg-notif-${row.id}`,
-                  type: "message" as const,
-                  text: `New message: ${preview}`,
-                  time: nowTime(),
-                  read: false,
-                  requestId: reference,
-                },
-                ...prev.filter((n) => n.id !== `msg-notif-${row.id}`),
-              ]);
-              // Browser push notification (if permission granted)
-              if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-                new Notification("New message", {
-                  body: preview,
-                  tag: `msg-${reference}`,
-                });
-              }
-            }
-          }
         },
         onMessageUpdate: (row) => {
           setMessages((prev) =>

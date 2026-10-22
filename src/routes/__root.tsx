@@ -27,6 +27,9 @@ import {
   isBatteryOptimizationIgnored,
   requestIgnoreBatteryOptimizations,
   showSystemNotification,
+  areNativeNotificationsEnabled,
+  openNativeNotificationSettings,
+  requestNativeNotificationPermission,
 } from "../lib/fcm";
 import { isChatActive, shouldDeliverNotification, getNotificationDedupKey } from "../lib/active-chat-tracker";
 import {
@@ -199,6 +202,27 @@ function RootComponent() {
     if (!isCapacitorAndroid()) return;
     const timer = setTimeout(() => {
       try {
+        // 1. Check if Android notification bar permissions are enabled (especially Android 13+)
+        if (!areNativeNotificationsEnabled()) {
+          toast("Enable Notification Bar Alerts", {
+            description:
+              "Notifications are disabled. Turn them on to see message alerts and calls in your notification bar even when the app is closed.",
+            duration: 15000,
+            action: {
+              label: "Turn On",
+              onClick: () => {
+                requestNativeNotificationPermission();
+                setTimeout(() => {
+                  if (!areNativeNotificationsEnabled()) {
+                    openNativeNotificationSettings();
+                  }
+                }, 800);
+              },
+            },
+          });
+        }
+
+        // 2. Background battery optimization exemption
         const hasPromptedBattery = localStorage.getItem("formbhro:battery_opt_prompted");
         if (!hasPromptedBattery && !isBatteryOptimizationIgnored()) {
           toast("Enable Background Alerts", {
@@ -215,7 +239,7 @@ function RootComponent() {
           });
         }
       } catch (_) {}
-    }, 3500);
+    }, 2000);
     return () => clearTimeout(timer);
   }, []);
 
