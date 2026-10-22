@@ -293,9 +293,19 @@ function SessionProviderInner({ children }: { children: ReactNode }) {
       }
     });
 
+    const onFcmTokenReady = () => {
+      if (lastHandledUserIdRef.current) {
+        void initializeFCM(lastHandledUserIdRef.current).then((success) => {
+          if (success) fcmInitializedUserIdRef.current = lastHandledUserIdRef.current;
+        });
+      }
+    };
+    window.addEventListener("formbhro:fcm_token_ready", onFcmTokenReady);
+
     return () => {
       active = false;
       document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("formbhro:fcm_token_ready", onFcmTokenReady);
       sub.subscription.unsubscribe();
     };
   }, [load]);

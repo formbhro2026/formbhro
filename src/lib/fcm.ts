@@ -122,8 +122,9 @@ export async function setupAndroidNotificationChannels(): Promise<void> {
   if (!result || typeof result.plugin.createChannel !== "function") return;
 
   const channels: NotificationChannelOptions[] = [
+    // v3 Channels (Primary)
     {
-      id: "formbhro_calls_v2",
+      id: "formbhro_calls_v3",
       name: "Incoming Calls",
       description: "Alerts for incoming audio and video calls",
       importance: 5, // IMPORTANCE_HIGH (pops on screen + rings)
@@ -134,7 +135,7 @@ export async function setupAndroidNotificationChannels(): Promise<void> {
       lightColor: "#FF8A1F",
     },
     {
-      id: "formbhro_messages_v2",
+      id: "formbhro_messages_v3",
       name: "Messages & Updates",
       description: "New message alerts from experts and team members",
       importance: 5, // IMPORTANCE_HIGH (heads-up banner)
@@ -145,8 +146,42 @@ export async function setupAndroidNotificationChannels(): Promise<void> {
       lightColor: "#FF8A1F",
     },
     {
-      id: "formbhro_default_v2",
+      id: "formbhro_default_v3",
       name: "General Notifications",
+      description: "General system and request updates",
+      importance: 5,
+      visibility: 1,
+      sound: "default",
+      vibration: true,
+      lights: true,
+      lightColor: "#FF8A1F",
+    },
+    // v2 Channels (Backward compatibility)
+    {
+      id: "formbhro_calls_v2",
+      name: "Incoming Calls Legacy",
+      description: "Alerts for incoming audio and video calls",
+      importance: 5,
+      visibility: 1,
+      sound: "default",
+      vibration: true,
+      lights: true,
+      lightColor: "#FF8A1F",
+    },
+    {
+      id: "formbhro_messages_v2",
+      name: "Messages & Updates Legacy",
+      description: "New message alerts from experts and team members",
+      importance: 5,
+      visibility: 1,
+      sound: "default",
+      vibration: true,
+      lights: true,
+      lightColor: "#FF8A1F",
+    },
+    {
+      id: "formbhro_default_v2",
+      name: "General Notifications Legacy",
       description: "General system and request updates",
       importance: 5,
       visibility: 1,
@@ -164,6 +199,46 @@ export async function setupAndroidNotificationChannels(): Promise<void> {
     } catch (e) {
       console.warn(`[FCM] Could not create channel '${ch.id}':`, e);
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Native Bridge Battery & Notification Helpers
+// ---------------------------------------------------------------------------
+
+export function isBatteryOptimizationIgnored(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    return (window as any).FormbharoNativeBridge?.isBatteryOptimizationIgnored?.() ?? true;
+  } catch {
+    return true;
+  }
+}
+
+export function requestIgnoreBatteryOptimizations(): void {
+  if (typeof window === "undefined") return;
+  try {
+    (window as any).FormbharoNativeBridge?.requestIgnoreBatteryOptimizations?.();
+  } catch (e) {
+    console.warn("[FCM] requestIgnoreBatteryOptimizations error:", e);
+  }
+}
+
+export function areNativeNotificationsEnabled(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    return (window as any).FormbharoNativeBridge?.areNotificationsEnabled?.() ?? true;
+  } catch {
+    return true;
+  }
+}
+
+export function openNativeNotificationSettings(): void {
+  if (typeof window === "undefined") return;
+  try {
+    (window as any).FormbharoNativeBridge?.openNotificationSettings?.();
+  } catch (e) {
+    console.warn("[FCM] openNotificationSettings error:", e);
   }
 }
 
@@ -241,11 +316,20 @@ export function showSystemNotification(
  * Returns null on web or if not available.
  */
 export async function getFCMToken(): Promise<string | null> {
-  // 1. First check FormbharoNativeBridge (instant, synchronous Android Java access)
+  // 1. Check in-memory global token from native bridge broadcast
+  if (typeof window !== "undefined") {
+    const winToken = (window as any).__FORMBHARO_FCM_TOKEN__;
+    if (winToken && typeof winToken === "string" && winToken.trim().length > 0) {
+      return winToken.trim();
+    }
+  }
+
+  // 2. First check FormbharoNativeBridge (instant, synchronous Android Java access)
   if (typeof window !== "undefined") {
     try {
       const nativeToken = (window as any).FormbharoNativeBridge?.getFcmToken?.();
       if (nativeToken && typeof nativeToken === "string" && nativeToken.trim().length > 0) {
+        (window as any).__FORMBHARO_FCM_TOKEN__ = nativeToken.trim();
         console.log("[FCM] Obtained token from FormbharoNativeBridge:", nativeToken.substring(0, 10) + "...");
         return nativeToken.trim();
       }
@@ -254,13 +338,16 @@ export async function getFCMToken(): Promise<string | null> {
     }
   }
 
-  // 2. Query @capacitor-firebase/messaging plugin with retries
+  // 3. Query @capacitor-firebase/messaging plugin with retries
   const result = await getMessagingPlugin();
   if (result) {
     for (let attempt = 1; attempt <= 5; attempt++) {
       try {
         const { token } = await result.plugin.getToken({});
         if (token && token.trim().length > 0) {
+          if (typeof window !== "undefined") {
+            (window as any).__FORMBHARO_FCM_TOKEN__ = token.trim();
+          }
           return token.trim();
         }
       } catch (e) {
@@ -272,11 +359,12 @@ export async function getFCMToken(): Promise<string | null> {
     }
   }
 
-  // 3. Fallback: Re-check bridge after delay in case Firebase async task just completed
+  // 4. Fallback: Re-check bridge after delay in case Firebase async task just completed
   if (typeof window !== "undefined") {
     try {
       const nativeToken = (window as any).FormbharoNativeBridge?.getFcmToken?.();
       if (nativeToken && typeof nativeToken === "string" && nativeToken.trim().length > 0) {
+        (window as any).__FORMBHARO_FCM_TOKEN__ = nativeToken.trim();
         return nativeToken.trim();
       }
     } catch {}
@@ -307,24 +395,37 @@ function getDeviceId(): string {
  * Called after login and whenever the token refreshes.
  */
 export async function saveFCMToken(userId: string, token: string): Promise<void> {
+  if (!userId || !token) return;
   const deviceId = getDeviceId();
   const platform = isCapacitorAndroid() ? "android" : "web";
 
-  const { error } = await supabase.from("device_tokens").upsert(
-    {
-      user_id: userId,
-      device_id: deviceId,
-      platform,
-      fcm_token: token,
-      last_seen_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id,device_id" },
-  );
+  let attempts = 3;
+  while (attempts > 0) {
+    const { error } = await supabase.from("device_tokens").upsert(
+      {
+        user_id: userId,
+        device_id: deviceId,
+        platform,
+        fcm_token: token,
+        last_seen_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,device_id" },
+    );
 
-  if (error) {
-    console.error("[FCM] Failed to save token:", error.message);
-  } else {
-    console.log("[FCM] Token saved for device:", deviceId);
+    if (!error) {
+      console.log("[FCM] Token saved for device:", deviceId);
+      try {
+        localStorage.setItem("formbhro:fcm_saved_token", token);
+        localStorage.setItem("formbhro:fcm_saved_user", userId);
+      } catch {}
+      return;
+    }
+
+    console.warn(`[FCM] Failed to save token (attempt ${4 - attempts}):`, error.message);
+    attempts--;
+    if (attempts > 0) {
+      await new Promise((r) => setTimeout(r, 800));
+    }
   }
 }
 
@@ -511,10 +612,33 @@ export async function initializeFCM(userId: string): Promise<boolean> {
         console.warn("[FCM] Permission request error:", e);
       }
 
-      // 3. Retrieve and save token ALWAYS (FCM token generation does not require notification permission)
-      const token = await getFCMToken();
+      // 3. Attach native event listener so any subsequent token ready broadcast persists immediately
+      if (typeof window !== "undefined") {
+        const onTokenReady = (evt: Event) => {
+          const readyToken = (evt as CustomEvent)?.detail?.token;
+          if (readyToken && typeof readyToken === "string" && readyToken.trim().length > 0) {
+            void saveFCMToken(userId, readyToken.trim());
+          }
+        };
+        window.addEventListener("formbhro:fcm_token_ready", onTokenReady);
+      }
+
+      // 4. Retrieve and save token ALWAYS (FCM token generation does not require notification permission)
+      let token = await getFCMToken();
       if (!token) {
-        console.warn("[FCM] Could not retrieve FCM token on this attempt.");
+        // Asynchronous poll for up to 10 seconds in background
+        setTimeout(async () => {
+          for (let i = 0; i < 10; i++) {
+            await new Promise((r) => setTimeout(r, 1000));
+            const retryToken = await getFCMToken();
+            if (retryToken) {
+              await saveFCMToken(userId, retryToken);
+              fcmInitializedUserId = userId;
+              console.log("[FCM] Delayed background token acquisition successful for:", userId);
+              break;
+            }
+          }
+        }, 500);
         return false;
       }
 
@@ -522,7 +646,7 @@ export async function initializeFCM(userId: string): Promise<boolean> {
       fcmInitializedUserId = userId;
       console.log("[FCM] Successfully saved FCM token for user:", userId);
 
-      // 4. Listen for token refresh events and persist automatically
+      // 5. Listen for token refresh events and persist automatically
       try {
         const result = await getMessagingPlugin();
         if (result && (result.plugin as any).addListener) {

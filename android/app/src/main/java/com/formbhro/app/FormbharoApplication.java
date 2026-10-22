@@ -13,6 +13,10 @@ import android.util.Log;
 public class FormbharoApplication extends Application {
     private static final String TAG = "FormbharoApp";
 
+    public static final String CHANNEL_ID_CALLS_V3 = "formbhro_calls_v3";
+    public static final String CHANNEL_ID_MESSAGES_V3 = "formbhro_messages_v3";
+    public static final String CHANNEL_ID_DEFAULT_V3 = "formbhro_default_v3";
+
     public static final String CHANNEL_ID_CALLS = "formbhro_calls_v2";
     public static final String CHANNEL_ID_MESSAGES = "formbhro_messages_v2";
     public static final String CHANNEL_ID_DEFAULT = "formbhro_default_v2";
@@ -28,69 +32,79 @@ public class FormbharoApplication extends Application {
             NotificationManager manager = getSystemService(NotificationManager.class);
             if (manager == null) return;
 
-            // 1. High-importance Incoming Calls channel (heads-up popup + sound + vibration)
-            if (manager.getNotificationChannel(CHANNEL_ID_CALLS) == null) {
-                NotificationChannel callChannel = new NotificationChannel(
-                    CHANNEL_ID_CALLS,
-                    "Incoming Calls",
-                    NotificationManager.IMPORTANCE_HIGH
-                );
-                callChannel.setDescription("Alerts for incoming audio and video calls");
-                callChannel.enableVibration(true);
-                callChannel.setVibrationPattern(new long[]{0, 1000, 500, 1000, 500, 1000});
-                callChannel.enableLights(true);
-                callChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
-                callChannel.setBypassDnd(true);
+            // Audio & Ringtone URIs
+            AudioAttributes callAudioAttributes = new AudioAttributes.Builder()
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                .build();
+            Uri ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
 
-                AudioAttributes audioAttributes = new AudioAttributes.Builder()
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
-                    .build();
-                Uri ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
-                if (ringtoneUri != null) {
-                    callChannel.setSound(ringtoneUri, audioAttributes);
+            AudioAttributes msgAudioAttributes = new AudioAttributes.Builder()
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT)
+                .build();
+            Uri msgSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+
+            // 1. High-importance Incoming Calls channels (_v3 and _v2)
+            String[] callChannelIds = new String[]{CHANNEL_ID_CALLS_V3, CHANNEL_ID_CALLS};
+            for (String chId : callChannelIds) {
+                if (manager.getNotificationChannel(chId) == null) {
+                    NotificationChannel callChannel = new NotificationChannel(
+                        chId,
+                        "Incoming Calls",
+                        NotificationManager.IMPORTANCE_HIGH
+                    );
+                    callChannel.setDescription("Alerts for incoming audio and video calls");
+                    callChannel.enableVibration(true);
+                    callChannel.setVibrationPattern(new long[]{0, 1000, 500, 1000, 500, 1000});
+                    callChannel.enableLights(true);
+                    callChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+                    callChannel.setBypassDnd(true);
+                    if (ringtoneUri != null) {
+                        callChannel.setSound(ringtoneUri, callAudioAttributes);
+                    }
+                    manager.createNotificationChannel(callChannel);
+                    Log.i(TAG, "Notification channel created: " + chId);
                 }
-                manager.createNotificationChannel(callChannel);
-                Log.i(TAG, "Notification channel created: " + CHANNEL_ID_CALLS);
             }
 
-            // 2. High-importance Messages channel (heads-up banner + message sound)
-            if (manager.getNotificationChannel(CHANNEL_ID_MESSAGES) == null) {
-                NotificationChannel msgChannel = new NotificationChannel(
-                    CHANNEL_ID_MESSAGES,
-                    "Messages & Updates",
-                    NotificationManager.IMPORTANCE_HIGH
-                );
-                msgChannel.setDescription("New message alerts from experts and team members");
-                msgChannel.enableVibration(true);
-                msgChannel.enableLights(true);
-                msgChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
-
-                AudioAttributes msgAudioAttributes = new AudioAttributes.Builder()
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .setUsage(AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT)
-                    .build();
-                Uri msgSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
-                if (msgSoundUri != null) {
-                    msgChannel.setSound(msgSoundUri, msgAudioAttributes);
+            // 2. High-importance Messages channels (_v3 and _v2)
+            String[] msgChannelIds = new String[]{CHANNEL_ID_MESSAGES_V3, CHANNEL_ID_MESSAGES};
+            for (String chId : msgChannelIds) {
+                if (manager.getNotificationChannel(chId) == null) {
+                    NotificationChannel msgChannel = new NotificationChannel(
+                        chId,
+                        "Messages & Updates",
+                        NotificationManager.IMPORTANCE_HIGH
+                    );
+                    msgChannel.setDescription("New message alerts from experts and team members");
+                    msgChannel.enableVibration(true);
+                    msgChannel.enableLights(true);
+                    msgChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+                    if (msgSoundUri != null) {
+                        msgChannel.setSound(msgSoundUri, msgAudioAttributes);
+                    }
+                    manager.createNotificationChannel(msgChannel);
+                    Log.i(TAG, "Notification channel created: " + chId);
                 }
-                manager.createNotificationChannel(msgChannel);
-                Log.i(TAG, "Notification channel created: " + CHANNEL_ID_MESSAGES);
             }
 
-            // 3. High-importance Default Notification channel
-            if (manager.getNotificationChannel(CHANNEL_ID_DEFAULT) == null) {
-                NotificationChannel defChannel = new NotificationChannel(
-                    CHANNEL_ID_DEFAULT,
-                    "General Notifications",
-                    NotificationManager.IMPORTANCE_HIGH
-                );
-                defChannel.setDescription("General system and request updates");
-                defChannel.enableVibration(true);
-                defChannel.enableLights(true);
-                defChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
-                manager.createNotificationChannel(defChannel);
-                Log.i(TAG, "Notification channel created: " + CHANNEL_ID_DEFAULT);
+            // 3. High-importance Default Notification channels (_v3 and _v2)
+            String[] defChannelIds = new String[]{CHANNEL_ID_DEFAULT_V3, CHANNEL_ID_DEFAULT};
+            for (String chId : defChannelIds) {
+                if (manager.getNotificationChannel(chId) == null) {
+                    NotificationChannel defChannel = new NotificationChannel(
+                        chId,
+                        "General Notifications",
+                        NotificationManager.IMPORTANCE_HIGH
+                    );
+                    defChannel.setDescription("General system and request updates");
+                    defChannel.enableVibration(true);
+                    defChannel.enableLights(true);
+                    defChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+                    manager.createNotificationChannel(defChannel);
+                    Log.i(TAG, "Notification channel created: " + chId);
+                }
             }
         }
     }

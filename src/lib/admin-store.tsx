@@ -15,6 +15,7 @@ import {
   getAdminAnalytics,
   type AdminAnalyticsStats,
 } from "@/lib/api/admin.functions";
+import { initializeFCM } from "@/lib/fcm";
 import type { Tables } from "@/integrations/supabase/types";
 
 export type ProfileRow = Tables<"profiles">;
@@ -293,7 +294,13 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     const { data: rpc } = await supabase.rpc("is_admin");
     const ok = rpc === true;
     setAuthed(ok);
-    if (ok) await refresh();
+    if (ok) {
+      const { data } = await supabase.auth.getSession();
+      if (data?.session?.user?.id) {
+        void initializeFCM(data.session.user.id);
+      }
+      await refresh();
+    }
     setReady(true);
     return ok;
   }, [refresh]);

@@ -12,6 +12,7 @@ import android.content.Intent;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
+    public static volatile MainActivity sInstance = null;
     public static volatile boolean isAppInForeground = false;
     public static volatile String sLatestFcmToken = null;
     private String pendingCallAnswerJs = null;
@@ -33,20 +34,114 @@ public class MainActivity extends BridgeActivity {
 
         @android.webkit.JavascriptInterface
         public String getFcmToken() {
+            if (sLatestFcmToken == null || sLatestFcmToken.trim().isEmpty()) {
+                try {
+                    sLatestFcmToken = getSharedPreferences("formbhro_prefs", android.content.Context.MODE_PRIVATE)
+                        .getString("fcm_token", null);
+                } catch (Throwable ignored) {}
+            }
             android.util.Log.i("MainActivity", "[FCM][BRIDGE] Native bridge getFcmToken called: " + (sLatestFcmToken != null ? "present" : "null"));
             return sLatestFcmToken != null ? sLatestFcmToken : "";
+        }
+
+        @android.webkit.JavascriptInterface
+        public boolean isBatteryOptimizationIgnored() {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                android.os.PowerManager pm = (android.os.PowerManager) getSystemService(android.content.Context.POWER_SERVICE);
+                return pm != null && pm.isIgnoringBatteryOptimizations(getPackageName());
+            }
+            return true;
+        }
+
+        @android.webkit.JavascriptInterface
+        public void requestIgnoreBatteryOptimizations() {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                try {
+                    android.os.PowerManager pm = (android.os.PowerManager) getSystemService(android.content.Context.POWER_SERVICE);
+                    if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
+                        Intent intent = new Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                        intent.setData(android.net.Uri.parse("package:" + getPackageName()));
+                        startActivity(intent);
+                    }
+                } catch (Throwable t) {
+                    android.util.Log.w("MainActivity", "Failed to launch battery optimization request: " + t.getMessage());
+                }
+            }
+        }
+
+        @android.webkit.JavascriptInterface
+        public boolean areNotificationsEnabled() {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                return ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
+            }
+            androidx.core.app.NotificationManagerCompat nm = androidx.core.app.NotificationManagerCompat.from(MainActivity.this);
+            return nm.areNotificationsEnabled();
+        }
+
+        @android.webkit.JavascriptInterface
+        public void openNotificationSettings() {
+            try {
+                Intent intent = new Intent();
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    intent.setAction(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+                    intent.putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, getPackageName());
+                } else {
+                    intent.setAction(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                    intent.setData(android.net.Uri.parse("package:" + getPackageName()));
+                }
+                startActivity(intent);
+            } catch (Throwable t) {
+                android.util.Log.w("MainActivity", "Failed to open notification settings: " + t.getMessage());
+            }
+        }
+    }
+
+    public static void broadcastFcmToken(android.content.Context context, String token) {
+        if (token == null || token.trim().isEmpty()) return;
+        sLatestFcmToken = token;
+        try {
+            if (context != null) {
+                context.getSharedPreferences("formbhro_prefs", android.content.Context.MODE_PRIVATE)
+                    .edit().putString("fcm_token", token).apply();
+            }
+        } catch (Throwable ignored) {}
+
+        if (sInstance != null && sInstance.bridge != null && sInstance.bridge.getWebView() != null) {
+            sInstance.runOnUiThread(() -> {
+                try {
+                    String safeToken = token.replace("'", "\\'");
+                    String js = String.format(
+                        "(function() {" +
+                        "  window.__FORMBHARO_FCM_TOKEN__ = '%s';" +
+                        "  window.dispatchEvent(new CustomEvent('formbhro:fcm_token_ready', { detail: { token: '%s' } }));" +
+                        "})();",
+                        safeToken, safeToken
+                    );
+                    sInstance.bridge.getWebView().evaluateJavascript(js, null);
+                } catch (Throwable ignored) {}
+            });
         }
     }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        sInstance = this;
+
+        // Restore cached token immediately
+        try {
+            String cached = getSharedPreferences("formbhro_prefs", android.content.Context.MODE_PRIVATE)
+                .getString("fcm_token", null);
+            if (cached != null && !cached.isEmpty()) {
+                sLatestFcmToken = cached;
+            }
+        } catch (Throwable ignored) {}
 
         try {
             com.google.firebase.messaging.FirebaseMessaging.getInstance().getToken()
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful() && task.getResult() != null) {
-                        sLatestFcmToken = task.getResult();
+                        broadcastFcmToken(this, task.getResult());
                         android.util.Log.i("MainActivity", "[FCM] Got native FCM token on launch: " + (sLatestFcmToken.length() > 10 ? sLatestFcmToken.substring(0, 10) + "..." : ""));
                     }
                 });
@@ -90,53 +185,64 @@ public class MainActivity extends BridgeActivity {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             android.app.NotificationManager manager = getSystemService(android.app.NotificationManager.class);
             if (manager != null) {
-                // High-importance Incoming Calls channel (heads-up popup + sound + vibration)
-                android.app.NotificationChannel callChannel = new android.app.NotificationChannel(
-                    "formbhro_calls_v2",
-                    "Incoming Calls",
-                    android.app.NotificationManager.IMPORTANCE_HIGH
-                );
-                callChannel.setDescription("Alerts for incoming audio and video calls");
-                callChannel.enableVibration(true);
-                callChannel.setVibrationPattern(new long[]{0, 1000, 500, 1000, 500, 1000});
-                callChannel.enableLights(true);
-                callChannel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
-                callChannel.setBypassDnd(true);
-
                 android.media.AudioAttributes audioAttributes = new android.media.AudioAttributes.Builder()
                     .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
                     .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
                     .build();
                 android.net.Uri ringtoneUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_RINGTONE);
-                if (ringtoneUri != null) {
-                    callChannel.setSound(ringtoneUri, audioAttributes);
+
+                // High-importance Incoming Calls channels (_v3 and _v2)
+                for (String chId : new String[]{"formbhro_calls_v3", "formbhro_calls_v2"}) {
+                    if (manager.getNotificationChannel(chId) == null) {
+                        android.app.NotificationChannel callChannel = new android.app.NotificationChannel(
+                            chId,
+                            "Incoming Calls",
+                            android.app.NotificationManager.IMPORTANCE_HIGH
+                        );
+                        callChannel.setDescription("Alerts for incoming audio and video calls");
+                        callChannel.enableVibration(true);
+                        callChannel.setVibrationPattern(new long[]{0, 1000, 500, 1000, 500, 1000});
+                        callChannel.enableLights(true);
+                        callChannel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
+                        callChannel.setBypassDnd(true);
+                        if (ringtoneUri != null) {
+                            callChannel.setSound(ringtoneUri, audioAttributes);
+                        }
+                        manager.createNotificationChannel(callChannel);
+                    }
                 }
 
-                manager.createNotificationChannel(callChannel);
+                // High-importance Messages channels (_v3 and _v2)
+                for (String chId : new String[]{"formbhro_messages_v3", "formbhro_messages_v2"}) {
+                    if (manager.getNotificationChannel(chId) == null) {
+                        android.app.NotificationChannel msgChannel = new android.app.NotificationChannel(
+                            chId,
+                            "Messages & Updates",
+                            android.app.NotificationManager.IMPORTANCE_HIGH
+                        );
+                        msgChannel.setDescription("New message alerts from experts and team members");
+                        msgChannel.enableVibration(true);
+                        msgChannel.enableLights(true);
+                        msgChannel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
+                        manager.createNotificationChannel(msgChannel);
+                    }
+                }
 
-                // High-importance Messages channel
-                android.app.NotificationChannel msgChannel = new android.app.NotificationChannel(
-                    "formbhro_messages_v2",
-                    "Messages & Updates",
-                    android.app.NotificationManager.IMPORTANCE_HIGH
-                );
-                msgChannel.setDescription("New message alerts from experts and team members");
-                msgChannel.enableVibration(true);
-                msgChannel.enableLights(true);
-                msgChannel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
-                manager.createNotificationChannel(msgChannel);
-
-                // Default Notification channel
-                android.app.NotificationChannel defChannel = new android.app.NotificationChannel(
-                    "formbhro_default_v2",
-                    "General Notifications",
-                    android.app.NotificationManager.IMPORTANCE_HIGH
-                );
-                defChannel.setDescription("General system and request updates");
-                defChannel.enableVibration(true);
-                defChannel.enableLights(true);
-                defChannel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
-                manager.createNotificationChannel(defChannel);
+                // Default Notification channels (_v3 and _v2)
+                for (String chId : new String[]{"formbhro_default_v3", "formbhro_default_v2"}) {
+                    if (manager.getNotificationChannel(chId) == null) {
+                        android.app.NotificationChannel defChannel = new android.app.NotificationChannel(
+                            chId,
+                            "General Notifications",
+                            android.app.NotificationManager.IMPORTANCE_HIGH
+                        );
+                        defChannel.setDescription("General system and request updates");
+                        defChannel.enableVibration(true);
+                        defChannel.enableLights(true);
+                        defChannel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
+                        manager.createNotificationChannel(defChannel);
+                    }
+                }
             }
         }
     }
@@ -238,6 +344,29 @@ public class MainActivity extends BridgeActivity {
             );
 
             deliverJsToWebView(js);
+        } else if (intent.getStringExtra("callSessionId") != null && !intent.getStringExtra("callSessionId").trim().isEmpty()) {
+            final String callSessionId = intent.getStringExtra("callSessionId");
+            final String requestId = intent.getStringExtra("requestId");
+            final String chatRoomId = intent.getStringExtra("chatRoomId");
+            final String callerName = intent.getStringExtra("callerName");
+            final String callerId = intent.getStringExtra("callerId");
+            final String callType = intent.getStringExtra("callType");
+            final String route = intent.getStringExtra("route");
+
+            intent.removeExtra("callSessionId");
+            setIntent(new Intent());
+
+            android.util.Log.i("MainActivity", "[CALL][BRIDGE] Opening IncomingCallActivity from notification tap: session=" + callSessionId);
+            Intent callUiIntent = new Intent(this, IncomingCallActivity.class);
+            callUiIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            callUiIntent.putExtra("callSessionId", callSessionId);
+            callUiIntent.putExtra("requestId", requestId);
+            callUiIntent.putExtra("chatRoomId", chatRoomId);
+            callUiIntent.putExtra("callerName", callerName);
+            callUiIntent.putExtra("callerId", callerId);
+            callUiIntent.putExtra("callType", callType);
+            callUiIntent.putExtra("route", route);
+            startActivity(callUiIntent);
         }
     }
 
@@ -290,5 +419,8 @@ public class MainActivity extends BridgeActivity {
     public void onDestroy() {
         super.onDestroy();
         isAppInForeground = false;
+        if (sInstance == this) {
+            sInstance = null;
+        }
     }
 }

@@ -23,6 +23,9 @@ import {
   onNotificationTap,
   cleanupFCMListeners,
   isCapacitor,
+  isCapacitorAndroid,
+  isBatteryOptimizationIgnored,
+  requestIgnoreBatteryOptimizations,
   showSystemNotification,
 } from "../lib/fcm";
 import { isChatActive, shouldDeliverNotification, getNotificationDedupKey } from "../lib/active-chat-tracker";
@@ -190,6 +193,30 @@ function RootComponent() {
 
   useEffect(() => {
     applyTheme(getInitialTheme());
+  }, []);
+
+  useEffect(() => {
+    if (!isCapacitorAndroid()) return;
+    const timer = setTimeout(() => {
+      try {
+        const hasPromptedBattery = localStorage.getItem("formbhro:battery_opt_prompted");
+        if (!hasPromptedBattery && !isBatteryOptimizationIgnored()) {
+          toast("Enable Background Alerts", {
+            description:
+              "Allow Formbhro to run in the background so you receive call and message alerts even when the app is closed.",
+            duration: 12000,
+            action: {
+              label: "Allow",
+              onClick: () => {
+                localStorage.setItem("formbhro:battery_opt_prompted", "1");
+                requestIgnoreBatteryOptimizations();
+              },
+            },
+          });
+        }
+      } catch (_) {}
+    }, 3500);
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {

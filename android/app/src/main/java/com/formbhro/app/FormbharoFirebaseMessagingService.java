@@ -24,9 +24,9 @@ import java.util.Map;
 
 public class FormbharoFirebaseMessagingService extends FirebaseMessagingService {
     private static final String TAG = "FormbharoFCM";
-    private static final String CHANNEL_ID_CALLS = "formbhro_calls_v2";
-    private static final String CHANNEL_ID_MESSAGES = "formbhro_messages_v2";
-    private static final String CHANNEL_ID_DEFAULT = "formbhro_default_v2";
+    private static final String CHANNEL_ID_CALLS = "formbhro_calls_v3";
+    private static final String CHANNEL_ID_MESSAGES = "formbhro_messages_v3";
+    private static final String CHANNEL_ID_DEFAULT = "formbhro_default_v3";
 
     @Override
     public void onCreate() {
@@ -40,7 +40,7 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
     @Override
     public void onNewToken(@NonNull String token) {
         super.onNewToken(token);
-        MainActivity.sLatestFcmToken = token;
+        MainActivity.broadcastFcmToken(this, token);
         String prefix = token.length() > 10 ? token.substring(0, 10) + "..." : "";
         Log.i(TAG, "[CALL][FCM] onNewToken received: " + prefix);
         try {
@@ -92,57 +92,75 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
 
     private void ensureChannels(NotificationManager manager) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && manager != null) {
-            if (manager.getNotificationChannel(CHANNEL_ID_CALLS) == null) {
-                NotificationChannel callChannel = new NotificationChannel(
-                    CHANNEL_ID_CALLS,
-                    "Incoming Calls",
-                    NotificationManager.IMPORTANCE_HIGH
-                );
-                callChannel.setDescription("Alerts for incoming audio and video calls");
-                callChannel.enableVibration(true);
-                callChannel.setVibrationPattern(new long[]{0, 1000, 500, 1000, 500, 1000});
-                callChannel.enableLights(true);
-                callChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
-                callChannel.setBypassDnd(true);
+            AudioAttributes callAudioAttributes = new AudioAttributes.Builder()
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                .build();
+            Uri ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
 
-                AudioAttributes audioAttributes = new AudioAttributes.Builder()
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
-                    .build();
-                Uri ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
-                if (ringtoneUri != null) {
-                    callChannel.setSound(ringtoneUri, audioAttributes);
+            AudioAttributes msgAudioAttributes = new AudioAttributes.Builder()
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT)
+                .build();
+            Uri msgSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+
+            // Calls channels
+            for (String chId : new String[]{CHANNEL_ID_CALLS, "formbhro_calls_v2"}) {
+                if (manager.getNotificationChannel(chId) == null) {
+                    NotificationChannel callChannel = new NotificationChannel(
+                        chId,
+                        "Incoming Calls",
+                        NotificationManager.IMPORTANCE_HIGH
+                    );
+                    callChannel.setDescription("Alerts for incoming audio and video calls");
+                    callChannel.enableVibration(true);
+                    callChannel.setVibrationPattern(new long[]{0, 1000, 500, 1000, 500, 1000});
+                    callChannel.enableLights(true);
+                    callChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+                    callChannel.setBypassDnd(true);
+                    if (ringtoneUri != null) {
+                        callChannel.setSound(ringtoneUri, callAudioAttributes);
+                    }
+                    manager.createNotificationChannel(callChannel);
+                    Log.i(TAG, "[CALL][NATIVE] Created channel: " + chId);
                 }
-                manager.createNotificationChannel(callChannel);
-                Log.i(TAG, "[CALL][NATIVE] Created channel: " + CHANNEL_ID_CALLS);
             }
 
-            if (manager.getNotificationChannel(CHANNEL_ID_MESSAGES) == null) {
-                NotificationChannel msgChannel = new NotificationChannel(
-                    CHANNEL_ID_MESSAGES,
-                    "Messages & Updates",
-                    NotificationManager.IMPORTANCE_HIGH
-                );
-                msgChannel.setDescription("New message alerts from experts and team members");
-                msgChannel.enableVibration(true);
-                msgChannel.enableLights(true);
-                msgChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
-                manager.createNotificationChannel(msgChannel);
-                Log.i(TAG, "[MESSAGE][NATIVE] Created channel: " + CHANNEL_ID_MESSAGES);
+            // Messages channels
+            for (String chId : new String[]{CHANNEL_ID_MESSAGES, "formbhro_messages_v2"}) {
+                if (manager.getNotificationChannel(chId) == null) {
+                    NotificationChannel msgChannel = new NotificationChannel(
+                        chId,
+                        "Messages & Updates",
+                        NotificationManager.IMPORTANCE_HIGH
+                    );
+                    msgChannel.setDescription("New message alerts from experts and team members");
+                    msgChannel.enableVibration(true);
+                    msgChannel.enableLights(true);
+                    msgChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+                    if (msgSoundUri != null) {
+                        msgChannel.setSound(msgSoundUri, msgAudioAttributes);
+                    }
+                    manager.createNotificationChannel(msgChannel);
+                    Log.i(TAG, "[MESSAGE][NATIVE] Created channel: " + chId);
+                }
             }
 
-            if (manager.getNotificationChannel(CHANNEL_ID_DEFAULT) == null) {
-                NotificationChannel defChannel = new NotificationChannel(
-                    CHANNEL_ID_DEFAULT,
-                    "General Notifications",
-                    NotificationManager.IMPORTANCE_HIGH
-                );
-                defChannel.setDescription("General system and request updates");
-                defChannel.enableVibration(true);
-                defChannel.enableLights(true);
-                defChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
-                manager.createNotificationChannel(defChannel);
-                Log.i(TAG, "[MESSAGE][NATIVE] Created channel: " + CHANNEL_ID_DEFAULT);
+            // Default channels
+            for (String chId : new String[]{CHANNEL_ID_DEFAULT, "formbhro_default_v2"}) {
+                if (manager.getNotificationChannel(chId) == null) {
+                    NotificationChannel defChannel = new NotificationChannel(
+                        chId,
+                        "General Notifications",
+                        NotificationManager.IMPORTANCE_HIGH
+                    );
+                    defChannel.setDescription("General system and request updates");
+                    defChannel.enableVibration(true);
+                    defChannel.enableLights(true);
+                    defChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+                    manager.createNotificationChannel(defChannel);
+                    Log.i(TAG, "[MESSAGE][NATIVE] Created channel: " + chId);
+                }
             }
         }
     }
@@ -159,7 +177,6 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
         if (manager != null) {
             ensureChannels(manager);
         }
-
 
         String title = data.get("title");
         String body = data.get("body");
@@ -216,11 +233,14 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
             .setSmallIcon(R.drawable.ic_stat_notification)
             .setContentTitle(title)
             .setContentText(body)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setAutoCancel(true)
             .setColor(Color.parseColor("#FF8A1F"))
             .setSound(defaultSoundUri)
+            .setVibrate(new long[]{0, 500, 200, 500})
+            .setLights(Color.parseColor("#FF8A1F"), 1000, 1000)
             .setDefaults(NotificationCompat.DEFAULT_ALL)
             .setContentIntent(pendingIntent);
 

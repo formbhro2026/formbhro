@@ -24,7 +24,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { playMessageNotificationSound } from "@/lib/audio-notifications";
-import { showSystemNotification } from "@/lib/fcm";
+import { showSystemNotification, initializeFCM, deleteFCMToken, resetFCMInitialization } from "@/lib/fcm";
 import { isChatActive, getActiveChat, onActiveChatChange, shouldDeliverNotification, getNotificationDedupKey } from "@/lib/active-chat-tracker";
 import { signInWithPassword, getMyRole, getMyProfile, signOut as apiSignOut } from "@/lib/api/auth";
 import { markMessagesSeen } from "./api/messages";
@@ -584,6 +584,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     if (live && member?.id) {
       void hydrateLive(member, requestsRef.current.length > 0);
       fetchAnalytics();
+      void initializeFCM(member.id);
       // Request browser notification permission so new-message alerts can fire
       if (typeof Notification !== "undefined" && Notification.permission === "default") {
         void Notification.requestPermission();
@@ -802,6 +803,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         setLive(true);
         liveRef.current = true;
         persistSession(safe, remember, true);
+        void initializeFCM(safe.id);
         if (typeof window !== "undefined") {
           localStorage.setItem("formbhro:last_workspace", "team");
         }
@@ -823,6 +825,8 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         .update({ availability_status: "offline", last_seen_at: new Date().toISOString() })
         .eq("id", memberRef.current.id);
       void apiSignOut().catch(() => undefined);
+      void deleteFCMToken();
+      resetFCMInitialization();
     }
     setMember(null);
     setLive(false);
