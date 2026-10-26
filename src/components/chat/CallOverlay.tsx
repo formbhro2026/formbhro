@@ -44,7 +44,7 @@ export function CallOverlay({
   }, [session.remoteStream, session.callType]);
 
   useEffect(() => {
-    if (audioRef.current && session.remoteStream && session.callType === "audio") {
+    if (audioRef.current && session.remoteStream) {
       audioRef.current.srcObject = session.remoteStream;
       audioRef.current
         .play()
@@ -55,7 +55,7 @@ export function CallOverlay({
           );
         })
         .catch((err) => {
-          console.error(
+          console.warn(
             "[WEBRTC][AUDIO] Audio autoplay failed:",
             err?.name || err,
             err?.message || "",
@@ -233,6 +233,9 @@ export function CallOverlay({
           </div>
         )}
       </div>
+
+      {/* Hidden audio element to guarantee remote audio playback for calls */}
+      <audio ref={audioRef} autoPlay playsInline className="hidden" aria-hidden="true" />
 
       <style>{`
         .mirror {

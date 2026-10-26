@@ -524,9 +524,27 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
 
     return realtimeApi.subscribeToRoom(chatRoomId, {
       onMessage: (row) => {
-        setMessages((prev) =>
-          prev.some((m) => m.id === row.id) ? prev : [...prev, mapMessage(row, reference)],
-        );
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === row.id)) return prev;
+
+          // Match and replace any optimistic message with same body and role
+          const optIdx = prev.findIndex(
+            (m) =>
+              m.state === "sending" &&
+              m.author === (row.sender_role === "user" ? "user" : "support") &&
+              (m.text || "").trim() === (row.body || "").trim() &&
+              (m.requestId === reference || m.requestId === row.request_id),
+          );
+
+          const mapped = mapMessage(row, reference);
+          if (optIdx >= 0) {
+            const copy = [...prev];
+            copy[optIdx] = mapped;
+            return copy;
+          }
+
+          return [...prev, mapped];
+        });
         // Synchronize request state immediately
         setRequests((prev) =>
           prev.map((r) =>

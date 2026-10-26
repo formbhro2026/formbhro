@@ -197,7 +197,7 @@ function UserJobGroups() {
 
       // If no relevant chat exists, create a new chat
       const title = `Apply for: ${itemTitle}`;
-      const category = "Job Application";
+      const category = "Govt jobs Form";
 
       const vacancyDetailsMessage = [
         `📋 *Job Application Request*`,
@@ -343,7 +343,7 @@ function UserJobGroups() {
   const handleShare = async (item: NewsItem) => {
     const text = `📢 ${item.title}\n\nOrganization: ${item.organization || "Govt"}\nQualification: ${
       item.qualification || "Check notification"
-    }\nLast Date: ${item.application_last_date || "Open"}\n\nCheck on Formbhro: https://formbhro-main.vercel.app/app/groups?groupId=${activeGroupId}`;
+    }\nLast Date: ${item.application_last_date || "Open"}\n\nCheck on Formbhro: https://formbhro.com/app/groups?groupId=${activeGroupId}`;
     if (navigator.clipboard) {
       await navigator.clipboard.writeText(text);
       setCopiedId(item.id);
@@ -354,7 +354,7 @@ function UserJobGroups() {
 
   const handleShareGroup = async () => {
     if (!activeGroup) return;
-    const url = `https://formbhro-main.vercel.app/app/groups?groupId=${activeGroup.id}`;
+    const url = `https://formbhro.com/app/groups?groupId=${activeGroup.id}`;
     if (navigator.clipboard) {
       await navigator.clipboard.writeText(
         `Join the "${activeGroup.name}" group on Formbhro for daily verified vacancies:\n${url}`,

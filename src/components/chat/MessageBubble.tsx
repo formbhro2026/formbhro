@@ -3,6 +3,7 @@ import { DocumentMessage } from "@/components/chat/DocumentMessage";
 import { CallEventBubble } from "@/components/chat/CallEventBubble";
 import { cn } from "@/lib/utils";
 import type { ChatMessage } from "@/data/user-module";
+import { extractQuickReplyImage } from "@/lib/api/notifications";
 
 export function MessageBubble({
   message,
@@ -65,7 +66,24 @@ export function MessageBubble({
           </div>
         ) : (
           <div className="flex flex-col">
-            <span className="whitespace-pre-wrap break-words">{message.text}</span>
+            {(() => {
+              const { imageUrl, cleanBody } = extractQuickReplyImage(message.text || "");
+              return (
+                <>
+                  {imageUrl && (
+                    <div className="mb-2 overflow-hidden rounded-xl border border-white/10 bg-black/20">
+                      <img
+                        src={imageUrl}
+                        alt="Attachment"
+                        className="max-h-60 w-auto max-w-full rounded-xl object-contain cursor-pointer hover:opacity-95 transition-opacity"
+                        onClick={() => window.open(imageUrl, "_blank")}
+                      />
+                    </div>
+                  )}
+                  {cleanBody && <span className="whitespace-pre-wrap break-words">{cleanBody}</span>}
+                </>
+              );
+            })()}
             <div className="flex items-center justify-end gap-1 mt-0.5 ml-8 self-end">
               <span className="text-[10px] text-chat-meta font-medium leading-none">
                 {message.time}

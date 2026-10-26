@@ -166,6 +166,16 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
     }
 
     private void handleIncomingMessagePush(Map<String, String> data, RemoteMessage remoteMessage) {
+        if (MainActivity.isAppInForeground) {
+            Log.i(TAG, "[MESSAGE][NATIVE] App is in foreground, suppressing notification tray alert.");
+            return;
+        }
+
+        if (remoteMessage != null && remoteMessage.getNotification() != null) {
+            Log.i(TAG, "[MESSAGE][NATIVE] Notification already posted by Android Google Play Services, skipping manual notification.");
+            return;
+        }
+
         NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager != null) {
             ensureChannels(manager);

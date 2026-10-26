@@ -845,3 +845,243 @@ export const uploadNewsBanner = createServerFn({ method: "POST" })
     return { url: publicData.publicUrl };
   });
 
+/**
+ * Delete a category. Admin only.
+ */
+export const deleteCategory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }: any) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: cat } = await supabaseAdmin
+      .from("categories")
+      .select("name")
+      .eq("id", data.id)
+      .maybeSingle();
+
+    const { error } = await supabaseAdmin.from("categories").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+
+    await supabaseAdmin.from("activity_logs").insert({
+      actor_id: context.userId,
+      actor_role: "admin",
+      action: "category_deleted",
+      label: `Category deleted: ${cat?.name || data.id}`,
+    });
+
+    return { ok: true as const };
+  });
+
+/**
+ * Mark a form request as Completed. Team members & Admins permitted.
+ */
+export const markRequestCompletedServer = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) => z.object({ request_id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }: any) => {
+    await assertTeamOrAdmin(context as Parameters<typeof assertTeamOrAdmin>[0]);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const now = new Date().toISOString();
+    const { data: req, error: fetchErr } = await supabaseAdmin
+      .from("requests")
+      .select("id, reference, user_id, title")
+      .eq("id", data.request_id)
+      .single();
+
+    if (fetchErr || !req) throw new Error("Request not found");
+
+    const { error } = await supabaseAdmin
+      .from("requests")
+      .update({
+        status: "completed",
+        progress: 100,
+        completed_at: now,
+        last_activity_at: now,
+      })
+      .eq("id", data.request_id);
+
+    if (error) throw new Error(error.message);
+
+    // Notify user that form is completed
+    if (req.user_id) {
+      await supabaseAdmin.from("notifications").insert({
+        receiver_id: req.user_id,
+        role: "user",
+        type: "status",
+        title: "Form Request Completed",
+        body: `Your request "${req.title || req.reference || 'Form Assistance'}" has been marked as Completed!`,
+        request_id: req.id,
+      });
+    }
+
+    // Activity log
+    await supabaseAdmin.from("activity_logs").insert({
+      request_id: req.id,
+      actor_id: context.userId,
+      actor_role: context.role || "team",
+      action: "request_completed",
+      label: `Request marked completed: ${req.reference || req.id}`,
+    });
+
+    return { ok: true as const, completed_at: now };
+  });
+
+/**
+ * Update payment status of a form request. Team & Admin permitted.
+ */
+export const updateRequestPaymentStatusServer = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator(
+    (input: unknown) =>
+      z
+        .object({
+          request_id: z.string().uuid(),
+          payment_status: z.enum(["pending", "paid", "unpaid", "waived", "failed"]),
+          payment_note: z.string().optional(),
+        })
+        .parse(input),
+  )
+  .handler(async ({ data, context }: any) => {
+    await assertTeamOrAdmin(context as Parameters<typeof assertTeamOrAdmin>[0]);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: req, error: fetchErr } = await supabaseAdmin
+      .from("requests")
+      .select("id, tags, reference, user_id, title")
+      .eq("id", data.request_id)
+      .single();
+
+    if (fetchErr || !req) throw new Error("Request not found");
+
+    // Clean old payment tags and append new ones
+    const currentTags: string[] = Array.isArray(req.tags) ? req.tags : [];
+    const cleanTags = currentTags.filter((t) => !t.startsWith("payment:") && !t.startsWith("pnote:"));
+    const updatedTags = [...cleanTags, `payment:${data.payment_status}`];
+    if (data.payment_note !== undefined && data.payment_note.trim()) {
+      updatedTags.push(`pnote:${encodeURIComponent(data.payment_note.trim())}`);
+    }
+
+    // Attempt to update payment_status and payment_notes directly, plus updatedTags
+    let updatePayload: Record<string, any> = {
+      tags: updatedTags,
+      payment_status: data.payment_status,
+      payment_notes: data.payment_note !== undefined ? data.payment_note.trim() : undefined,
+      last_activity_at: new Date().toISOString(),
+    };
+
+    let { error } = await supabaseAdmin
+      .from("requests")
+      .update(updatePayload)
+      .eq("id", data.request_id);
+
+    // If payment_notes or payment_status column does not exist, retry with tags fallback
+    if (error && (error.message.includes("column \"payment_notes\"") || error.message.includes("column \"payment_status\""))) {
+      delete updatePayload.payment_notes;
+      const retry = await supabaseAdmin
+        .from("requests")
+        .update(updatePayload)
+        .eq("id", data.request_id);
+      error = retry.error;
+
+      if (error && error.message.includes("column \"payment_status\"")) {
+        delete updatePayload.payment_status;
+        const tagFallback = await supabaseAdmin
+          .from("requests")
+          .update(updatePayload)
+          .eq("id", data.request_id);
+        error = tagFallback.error;
+      }
+    }
+
+    if (error) throw new Error(error.message);
+
+    const noteText = data.payment_note ? ` (Note: ${data.payment_note})` : "";
+    await supabaseAdmin.from("activity_logs").insert({
+      request_id: req.id,
+      actor_id: context.userId,
+      actor_role: context.role || "team",
+      action: "payment_status_updated",
+      label: `Payment status set to "${data.payment_status}"${noteText} for ${req.reference || req.id}`,
+      meta: { payment_status: data.payment_status, payment_note: data.payment_note },
+    });
+
+    return { ok: true as const, payment_status: data.payment_status, payment_note: data.payment_note, tags: updatedTags };
+  });
+
+/**
+ * Privileged News / Vacancy operations for Team and Admins
+ */
+export const createNewsItemServer = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) => z.record(z.any()).parse(input))
+  .handler(async ({ data, context }: any) => {
+    await assertTeamOrAdmin(context as Parameters<typeof assertTeamOrAdmin>[0]);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const cleanData = { ...data };
+    delete cleanData.auth_token;
+
+    const payload: Record<string, any> = {
+      ...cleanData,
+      created_by: context?.userId || cleanData.created_by,
+      published_at: cleanData.published_at || new Date().toISOString(),
+    };
+
+    let { data: inserted, error } = await supabaseAdmin
+      .from("news")
+      .insert(payload as any)
+      .select()
+      .single();
+
+    if (error && error.message.includes("created_by")) {
+      delete payload.created_by;
+      const retry = await supabaseAdmin
+        .from("news")
+        .insert(payload as any)
+        .select()
+        .single();
+      inserted = retry.data;
+      error = retry.error;
+    }
+
+    if (error) throw new Error(error.message);
+    return inserted;
+  });
+
+export const updateNewsItemServer = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) => z.object({ id: z.string().uuid(), patch: z.record(z.any()) }).parse(input))
+  .handler(async ({ data, context }: any) => {
+    await assertTeamOrAdmin(context as Parameters<typeof assertTeamOrAdmin>[0]);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const cleanPatch = { ...data.patch };
+    delete cleanPatch.auth_token;
+
+    const { data: updated, error } = await supabaseAdmin
+      .from("news")
+      .update(cleanPatch as any)
+      .eq("id", data.id)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return updated;
+  });
+
+export const deleteNewsItemServer = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }: any) => {
+    await assertTeamOrAdmin(context as Parameters<typeof assertTeamOrAdmin>[0]);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { error } = await supabaseAdmin.from("news").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true as const };
+  });
+
+

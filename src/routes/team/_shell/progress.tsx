@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { BarChart3, Calendar, CheckCircle2, Clock } from "lucide-react";
 import { TeamHeader } from "@/components/team/TeamHeader";
 import { TeamStatusBadge, PriorityBadge } from "@/components/team/TeamStatusBadge";
+import { PaymentStatusBadge } from "@/components/team/PaymentStatusSelect";
 import { StatusSelect } from "@/components/team/StatusSelect";
 import { EmptyState } from "@/components/common/EmptyState";
 import { useTeamStore } from "@/lib/team-store";
@@ -313,7 +314,10 @@ function TeamProgress() {
                   </div>
 
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                    <TeamStatusBadge status={r.status} />
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <TeamStatusBadge status={r.status} />
+                      <PaymentStatusBadge status={r.paymentStatus} />
+                    </div>
                     <span className="text-[10px] text-text-muted">Updated {r.lastUpdated}</span>
                   </div>
 

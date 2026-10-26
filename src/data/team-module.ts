@@ -25,6 +25,46 @@ export const PRIORITY_META: Record<Priority, { label: string; className: string 
   high: { label: "High", className: "border-red-400/30 bg-red-400/10 text-red-300" },
 };
 
+export type PaymentStatus = "pending" | "paid" | "unpaid" | "waived" | "failed" | "ready";
+
+export const PAYMENT_STATUS_META: Record<
+  PaymentStatus,
+  { label: string; badgeClass: string; tone: "amber" | "green" | "red" | "blue" | "neutral" }
+> = {
+  ready: {
+    label: "Ready",
+    badgeClass: "bg-brand/15 text-brand-light border-brand/30",
+    tone: "neutral",
+  },
+  pending: {
+    label: "Payment Pending",
+    badgeClass: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+    tone: "amber",
+  },
+  paid: {
+    label: "Paid",
+    badgeClass: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+    tone: "green",
+  },
+  unpaid: {
+    label: "Unpaid",
+    badgeClass: "bg-red-500/15 text-red-400 border-red-500/30",
+    tone: "red",
+  },
+  waived: {
+    label: "Waived",
+    badgeClass: "bg-blue-500/15 text-blue-400 border-blue-500/30",
+    tone: "blue",
+  },
+  failed: {
+    label: "Failed",
+    badgeClass: "bg-rose-500/15 text-rose-400 border-rose-500/30",
+    tone: "red",
+  },
+};
+
+export const PAYMENT_STATUS_ORDER: PaymentStatus[] = ["ready", "paid", "pending", "unpaid", "waived", "failed"];
+
 export type TeamFileKind = "pdf" | "image" | "doc" | "html";
 
 export type TeamDocument = {
@@ -136,6 +176,12 @@ export type TeamRequest = {
   completedAt?: string | null;
   /** Exact ISO creation timestamp from database created_at */
   createdAt?: string;
+  /** Payment status of the request (pending, paid, unpaid, waived, failed) */
+  paymentStatus?: PaymentStatus;
+  /** Notes/remarks related to the payment (transaction ref, cash note, amount, etc.) */
+  paymentNote?: string;
+  /** Reason or note written by team member when escalating to admin */
+  escalationReason?: string;
 };
 
 export type TeamNotification = {

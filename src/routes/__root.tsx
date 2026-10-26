@@ -158,7 +158,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
       { name: "apple-mobile-web-app-title", content: "Formbhro" },
-      { name: "theme-color", content: "#050505" },
+      { name: "theme-color", content: "#f8fafc" },
     ],
     links: [
       {
@@ -178,11 +178,28 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className="light-theme">
       <head>
         <HeadContent />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){
+              try {
+                var stored = localStorage.getItem('formbhro-theme-preference');
+                var theme = stored === 'dark' ? 'dark' : 'light';
+                if (theme === 'dark') {
+                  document.documentElement.classList.add('dark-theme');
+                  document.documentElement.classList.remove('light-theme');
+                } else {
+                  document.documentElement.classList.add('light-theme');
+                  document.documentElement.classList.remove('dark-theme');
+                }
+              } catch(e) {}
+            })();`,
+          }}
+        />
       </head>
-      <body>
+      <body className="light-theme">
         {children}
         <Scripts />
       </body>

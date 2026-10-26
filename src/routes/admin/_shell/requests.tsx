@@ -15,8 +15,9 @@ import {
 import { STATUS_LABEL, type DbRequestStatus } from "@/lib/api/types";
 import { assignRequestToTeam, takeoverRequest } from "@/lib/api/admin.functions";
 import * as requestsApi from "@/lib/api/requests";
-import { Clock, AlertTriangle } from "lucide-react";
+import { Clock, AlertTriangle, FileText, CreditCard, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 function PriorityPill({ priority }: { priority: "high" | "medium" | "low" }) {
   const tones = { high: "bad", medium: "warn", low: "neutral" } as const;
@@ -69,6 +70,39 @@ function AdminRequests() {
   const list = requestsPage;
   const totalPages = Math.max(1, Math.ceil(requestsTotal / pageSize));
   const detail = requestsPage.find((r) => r.id === open) ?? null;
+
+  const detailPaymentStatus = useMemo(() => {
+    if (!detail) return "ready";
+    if ((detail as any).payment_status) return (detail as any).payment_status;
+    if (Array.isArray((detail as any).tags)) {
+      const match = (detail as any).tags.find((t: string) => t.startsWith("payment:"));
+      if (match) return match.slice(8);
+    }
+    return "ready";
+  }, [detail]);
+
+  const detailPaymentNote = useMemo(() => {
+    if (!detail) return "";
+    if ((detail as any).payment_notes) return (detail as any).payment_notes;
+    if (Array.isArray((detail as any).tags)) {
+      const match = (detail as any).tags.find((t: string) => t.startsWith("pnote:"));
+      if (match) {
+        try {
+          return decodeURIComponent(match.slice(6));
+        } catch {
+          return match.slice(6);
+        }
+      }
+    }
+    return "";
+  }, [detail]);
+
+  const [adminReqNoteDraft, setAdminReqNoteDraft] = useState("");
+  const [savingReqNote, setSavingReqNote] = useState(false);
+
+  useEffect(() => {
+    setAdminReqNoteDraft(detailPaymentNote);
+  }, [detailPaymentNote]);
 
   const act = async (fn: () => Promise<unknown>) => {
     setBusy(true);
@@ -149,35 +183,62 @@ function AdminRequests() {
                       Workflow Control
                     </h4>
 
-                    {detail?.is_escalated && (
-                      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 flex flex-col gap-3">
-                        <div className="flex items-start gap-2 text-amber-500">
-                          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-                          <div className="text-xs">
-                            <p className="font-bold">Escalated Request</p>
-                            <p className="text-amber-500/80 mt-0.5">
-                              This request has been flagged by the assigned team member for admin
-                              intervention.
-                            </p>
+                    {detail?.is_escalated && (() => {
+                      const escReason =
+                        (detail as any).escalation_reason ||
+                        (() => {
+                          if (Array.isArray((detail as any).tags)) {
+                            const match = (detail as any).tags.find((t: string) =>
+                              t.startsWith("esc_note:"),
+                            );
+                            if (match) {
+                              try {
+                                return decodeURIComponent(match.slice(9));
+                              } catch {
+                                return match.slice(9);
+                              }
+                            }
+                          }
+                          return "";
+                        })();
+                      return (
+                        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 flex flex-col gap-3">
+                          <div className="flex items-start gap-2 text-amber-500">
+                            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                            <div className="text-xs space-y-1 w-full">
+                              <p className="font-bold">Escalated Request</p>
+                              <p className="text-amber-500/80">
+                                This request has been flagged by the assigned team member for admin
+                                intervention.
+                              </p>
+                              <div className="mt-2 rounded-lg border border-amber-500/25 bg-black/40 p-2 text-xs">
+                                <span className="font-bold text-[10px] text-amber-400 uppercase tracking-wider block mb-1">
+                                  Escalation Note / Reason:
+                                </span>
+                                <p className="text-amber-100 whitespace-pre-wrap font-medium">
+                                  {escReason || "No specific note provided."}
+                                </p>
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                        <Button
-                          className="w-full bg-amber-500 text-black hover:bg-amber-400 border-none font-bold text-xs h-9 rounded-xl"
-                          disabled={busy}
-                          onClick={async () => {
-                            if (
-                              !confirm(
-                                "Are you sure you want to take over this request? You will become the assigned team member and it will be de-escalated.",
+                          <Button
+                            className="w-full bg-amber-500 text-black hover:bg-amber-400 border-none font-bold text-xs h-9 rounded-xl"
+                            disabled={busy}
+                            onClick={async () => {
+                              if (
+                                !confirm(
+                                  "Are you sure you want to take over this request? You will become the assigned team member and it will be de-escalated.",
+                                )
                               )
-                            )
-                              return;
-                            await act(() => takeoverRequest({ data: { request_id: detail.id } }));
-                          }}
-                        >
-                          Take Over Request
-                        </Button>
-                      </div>
-                    )}
+                                return;
+                              await act(() => takeoverRequest({ data: { request_id: detail.id } }));
+                            }}
+                          >
+                            Take Over Request
+                          </Button>
+                        </div>
+                      );
+                    })()}
 
                     <div className="grid gap-4">
                       <Field label="Current Status">
@@ -256,6 +317,79 @@ function AdminRequests() {
                               </option>
                             ))}
                           </select>
+                        </div>
+                      </Field>
+
+                      <Field label="Payment Status">
+                        <select
+                          className={cn(
+                            inputClass,
+                            "mt-1 border-border-strong bg-surface-3 h-10 text-xs font-medium capitalize",
+                          )}
+                          value={detailPaymentStatus}
+                          disabled={busy}
+                          onChange={async (e) => {
+                            const newStatus = e.target.value as any;
+                            await act(() =>
+                              requestsApi.updatePaymentStatus(
+                                detail!.id,
+                                newStatus,
+                                adminReqNoteDraft || undefined,
+                              ),
+                            );
+                            toast.success(`Payment status set to ${newStatus}`);
+                          }}
+                        >
+                          <option value="ready">Ready</option>
+                          <option value="pending">Pending</option>
+                          <option value="paid">Paid</option>
+                          <option value="waived">Waived</option>
+                          <option value="unpaid">Unpaid</option>
+                          <option value="failed">Failed</option>
+                        </select>
+                      </Field>
+
+                      <Field label="Payment Note & Remarks">
+                        <div className="mt-1 space-y-1.5">
+                          <textarea
+                            rows={2}
+                            placeholder="Add transaction ID, UPI ref, cash notes..."
+                            value={adminReqNoteDraft}
+                            onChange={(e) => setAdminReqNoteDraft(e.target.value)}
+                            className={cn(
+                              inputClass,
+                              "border-border-strong bg-surface-3 text-xs py-2 resize-none",
+                            )}
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            disabled={savingReqNote || busy}
+                            onClick={async () => {
+                              setSavingReqNote(true);
+                              try {
+                                await requestsApi.updatePaymentStatus(
+                                  detail!.id,
+                                  detailPaymentStatus as any,
+                                  adminReqNoteDraft,
+                                );
+                                toast.success("Payment note saved");
+                                await refresh();
+                              } catch (err: any) {
+                                toast.error(err?.message || "Failed to save note");
+                              } finally {
+                                setSavingReqNote(false);
+                              }
+                            }}
+                            className="w-full text-xs font-semibold h-8"
+                          >
+                            {savingReqNote ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                            ) : (
+                              <FileText className="h-3.5 w-3.5 mr-1" />
+                            )}
+                            Save Payment Note
+                          </Button>
                         </div>
                       </Field>
                     </div>

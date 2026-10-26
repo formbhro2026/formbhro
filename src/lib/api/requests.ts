@@ -10,6 +10,11 @@ import {
   type StatusHistoryRow,
 } from "./types";
 import { getMyRole } from "./auth";
+import {
+  markRequestCompletedServer,
+  updateRequestPaymentStatusServer,
+} from "./admin.functions";
+import type { PaymentStatus } from "@/data/team-module";
 
 export type RequestWithRoom = RequestRow & {
   chat_rooms: Pick<ChatRoomRow, "id" | "last_message_at">[];
@@ -58,11 +63,15 @@ export async function createNewRequest(input?: {
   // Sanitize category against active categories in database
   const rawCat = (input?.category || "").trim();
   const knownActive = [
+    "Govt jobs Form",
+    "Govt jobs",
+    "Private jobs Form",
     "Government Form",
     "Job Application",
     "Student Scholarship",
     "Other",
     "Team Direct Report",
+    "MDU Ree",
     "Ssc",
     "SSC",
     "Railways",
@@ -76,20 +85,42 @@ export async function createNewRequest(input?: {
 
   let safeCategory =
     knownActive.find((c) => c.toLowerCase() === rawCat.toLowerCase()) ||
-    (rawCat ? "Job Application" : "Government Form");
+    (rawCat ? "Govt jobs Form" : "Govt jobs Form");
 
   // Attempt dynamic case-insensitive lookup from database active categories
+  let firstActiveDbCat: string | null = null;
   try {
     const { data: dbCats } = await supabase
       .from("categories")
       .select("name")
       .eq("is_active", true);
     if (dbCats && dbCats.length > 0) {
-      const match = dbCats.find(
+      firstActiveDbCat = dbCats[0].name;
+      // 1. Exact match
+      const exactMatch = dbCats.find(
         (c) => c.name.trim().toLowerCase() === rawCat.toLowerCase(),
       );
-      if (match) {
-        safeCategory = match.name;
+      if (exactMatch) {
+        safeCategory = exactMatch.name;
+      } else {
+        // 2. Govt / Job semantic match for "government jobs", "Govt jobs", "Job Application"
+        const lowerRaw = rawCat.toLowerCase();
+        const govtMatch = dbCats.find((c) => {
+          const lowerName = c.name.toLowerCase();
+          if (
+            (lowerRaw.includes("govt") || lowerRaw.includes("government") || lowerRaw.includes("job")) &&
+            (lowerName.includes("govt") || lowerName.includes("job"))
+          ) {
+            return true;
+          }
+          return lowerRaw.includes(lowerName) || lowerName.includes(lowerRaw);
+        });
+        if (govtMatch) {
+          safeCategory = govtMatch.name;
+        } else if (!dbCats.some((c) => c.name === safeCategory)) {
+          // If safeCategory is not in active dbCats, fallback to first active or 'Other'
+          safeCategory = dbCats.find((c) => c.name.toLowerCase().includes("govt"))?.name || firstActiveDbCat || "Other";
+        }
       }
     }
   } catch (_) {}
@@ -100,11 +131,12 @@ export async function createNewRequest(input?: {
     p_priority: input?.priority ?? "medium",
   });
 
-  // If DB rejected category due to constraint or trigger, retry with guaranteed default
+  // If DB rejected category due to constraint or trigger, retry with guaranteed active category
   if (error && error.message.includes("Invalid or inactive category")) {
+    const fallback = firstActiveDbCat || "Govt jobs Form";
     const retry = await supabase.rpc("create_new_request_with_limit", {
       p_title: title,
-      p_category: "Government Form",
+      p_category: fallback,
       p_priority: input?.priority ?? "medium",
     });
     data = retry.data;
@@ -299,7 +331,11 @@ export async function updateRequestStatus(
   requestId: string,
   status: DbRequestStatus,
   progress?: number,
-) {
+): Promise<any> {
+  if (status === "completed") {
+    return markRequestCompleted(requestId);
+  }
+
   // Fetch current DB status so we can step through required intermediate
   // transitions enforced by the state machine trigger.
   const { data: current } = await supabase
@@ -389,8 +425,52 @@ export async function updateRequestStatus(
   return data;
 }
 
-export async function markRequestCompleted(requestId: string) {
-  return updateRequestStatus(requestId, "completed", 100);
+export async function markRequestCompleted(requestId: string): Promise<void> {
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId);
+  let resolvedUuid = requestId;
+  if (!isUuid) {
+    const { data: row } = await supabase
+      .from("requests")
+      .select("id")
+      .eq("reference", requestId)
+      .maybeSingle();
+    if (row?.id) resolvedUuid = row.id;
+  }
+
+  // 1. Try server function first for clean privileged completion without trigger conflicts
+  try {
+    await markRequestCompletedServer({ data: { request_id: resolvedUuid } });
+    return;
+  } catch (err) {
+    console.warn("[Requests] markRequestCompletedServer fallback:", err);
+  }
+
+  // 2. Direct database update fallback
+  const now = new Date().toISOString();
+  let { error } = await supabase
+    .from("requests")
+    .update({
+      status: "completed",
+      progress: 100,
+      completed_at: now,
+      last_activity_at: now,
+    })
+    .eq("id", resolvedUuid);
+
+  if (error) {
+    // If trigger blocked direct jump to completed, step through in_progress first then completed
+    await supabase.from("requests").update({ status: "in_progress" }).eq("id", resolvedUuid);
+    const retry = await supabase
+      .from("requests")
+      .update({
+        status: "completed",
+        progress: 100,
+        completed_at: now,
+        last_activity_at: now,
+      })
+      .eq("id", resolvedUuid);
+    if (retry.error) throw new ApiError(retry.error.message, retry.error.code);
+  }
 }
 
 /** Admin only (RLS blocks team members from assigning). */
@@ -558,6 +638,71 @@ export async function updateRequestPriority(
   if (error) throw new ApiError(error.message, error.code);
 }
 
+/** Updates the payment status on a request (Team/Admin workflow) */
+export async function updatePaymentStatus(
+  requestId: string,
+  paymentStatus: PaymentStatus,
+  note?: string,
+): Promise<void> {
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId);
+  let resolvedUuid = requestId;
+  if (!isUuid) {
+    const { data: row } = await supabase
+      .from("requests")
+      .select("id")
+      .eq("reference", requestId)
+      .maybeSingle();
+    if (row?.id) resolvedUuid = row.id;
+  }
+
+  // 1. Try server function first
+  try {
+    await updateRequestPaymentStatusServer({
+      data: { request_id: resolvedUuid, payment_status: paymentStatus, payment_note: note },
+    });
+    return;
+  } catch (err) {
+    console.warn("[Requests] updateRequestPaymentStatusServer fallback:", err);
+  }
+
+  // 2. Client-side fallback: fetch existing tags, append payment tag and note, try column update
+  const { data: existing } = await (supabase as any)
+    .from("requests")
+    .select("tags")
+    .eq("id", resolvedUuid)
+    .single();
+
+  const currentTags: string[] = Array.isArray(existing?.tags) ? (existing?.tags as string[]) : [];
+  const cleanTags = currentTags.filter((t) => !t.startsWith("payment:") && !t.startsWith("pnote:"));
+  const updatedTags = [...cleanTags, `payment:${paymentStatus}`];
+  if (note !== undefined && note.trim()) {
+    updatedTags.push(`pnote:${encodeURIComponent(note.trim())}`);
+  }
+
+  let { error } = await (supabase as any)
+    .from("requests")
+    .update({
+      payment_status: paymentStatus,
+      payment_notes: note !== undefined ? note.trim() : undefined,
+      tags: updatedTags,
+      last_activity_at: new Date().toISOString(),
+    })
+    .eq("id", resolvedUuid);
+
+  if (error && (error.message.includes("column \"payment_notes\"") || error.message.includes("column \"payment_status\""))) {
+    const tagRes = await (supabase as any)
+      .from("requests")
+      .update({
+        tags: updatedTags,
+        last_activity_at: new Date().toISOString(),
+      })
+      .eq("id", resolvedUuid);
+    error = tagRes.error;
+  }
+
+  if (error) throw new ApiError(error.message, error.code);
+}
+
 /** Escalate a request to admin with a mandatory reason */
 export async function escalateRequestWithReason(
   requestId: string,
@@ -574,23 +719,49 @@ export async function escalateRequestWithReason(
     if (row?.id) resolvedUuid = row.id;
   }
 
+  let rpcSuccess = false;
   try {
-    const { data, error } = await (supabase as any).rpc("escalate_conversation", {
+    const { error } = await (supabase as any).rpc("escalate_conversation", {
       p_request_id: resolvedUuid,
       p_reason: reason,
     });
-    if (!error) return;
+    if (!error) rpcSuccess = true;
   } catch (_) {}
 
-  // Fallback direct update
-  const { error } = await supabase
+  // Always ensure requests table has escalation_reason, is_escalated = true, and activity log recorded
+  const now = new Date().toISOString();
+  let { error } = await (supabase as any)
     .from("requests")
     .update({
       is_escalated: true,
-      last_activity_at: new Date().toISOString(),
+      escalation_reason: reason,
+      escalated_at: now,
+      last_activity_at: now,
     })
     .eq("id", resolvedUuid);
-  if (error) throw new ApiError(error.message, error.code);
+
+  if (error && error.message.includes("column \"escalation_reason\"")) {
+    const { data: reqData } = await (supabase as any).from("requests").select("tags").eq("id", resolvedUuid).maybeSingle();
+    const tags = Array.isArray(reqData?.tags) ? reqData.tags.filter((t: string) => !t.startsWith("esc_note:")) : [];
+    tags.push(`esc_note:${encodeURIComponent(reason)}`);
+    const fallback = await (supabase as any).from("requests").update({ is_escalated: true, tags, last_activity_at: now }).eq("id", resolvedUuid);
+    error = fallback.error;
+  }
+
+  // Also log to activity_logs
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    await (supabase as any).from("activity_logs").insert({
+      request_id: resolvedUuid,
+      actor_id: userData.user?.id,
+      actor_role: "team",
+      action: "request_escalated",
+      label: `Escalated to Admin: ${reason}`,
+      meta: { reason },
+    });
+  } catch (_) {}
+
+  if (error && !rpcSuccess) throw new ApiError(error.message, error.code);
 }
 
 /** Resolve or change status of an escalated request */

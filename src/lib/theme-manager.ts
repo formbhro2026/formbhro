@@ -5,10 +5,10 @@ export type ThemeMode = "dark" | "light";
 const THEME_STORAGE_KEY = "formbhro-theme-preference";
 
 export function getInitialTheme(): ThemeMode {
-  if (typeof window === "undefined") return "dark";
+  if (typeof window === "undefined") return "light";
   const stored = localStorage.getItem(THEME_STORAGE_KEY);
   if (stored === "light" || stored === "dark") return stored;
-  return "dark";
+  return "light";
 }
 
 export function applyTheme(theme: ThemeMode) {
@@ -22,12 +22,20 @@ export function applyTheme(theme: ThemeMode) {
       body.classList.add("light-theme");
       body.classList.remove("dark-theme");
     }
+    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    if (metaThemeColor) {
+      metaThemeColor.setAttribute("content", "#f8fafc");
+    }
   } else {
     root.classList.add("dark-theme");
     root.classList.remove("light-theme");
     if (body) {
       body.classList.add("dark-theme");
       body.classList.remove("light-theme");
+    }
+    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    if (metaThemeColor) {
+      metaThemeColor.setAttribute("content", "#050505");
     }
   }
   localStorage.setItem(THEME_STORAGE_KEY, theme);

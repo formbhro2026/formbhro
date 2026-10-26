@@ -3,7 +3,10 @@ import type { Tables, Enums } from "@/integrations/supabase/types";
 export type Profile = Tables<"profiles">;
 export type UserRoleRow = Tables<"user_roles">;
 export type TeamMemberRow = Tables<"team_members">;
-export type RequestRow = Tables<"requests"> & { tags?: string[] | null };
+export type RequestRow = Tables<"requests"> & {
+  tags?: string[] | null;
+  payment_status?: "pending" | "paid" | "unpaid" | "waived" | "failed" | null;
+};
 export type ChatRoomRow = Tables<"chat_rooms">;
 export type MessageRow = Tables<"messages">;
 export type DocumentRow = Tables<"documents">;

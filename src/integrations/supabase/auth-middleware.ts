@@ -31,7 +31,21 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
   };
 }
 
-export const requireSupabaseAuth = createMiddleware({ type: "function" }).server(
+import { supabase as clientSupabase } from "./client";
+
+export const requireSupabaseAuth = createMiddleware({ type: "function" })
+  .client(async ({ next }: any) => {
+    try {
+      const { data } = await clientSupabase.auth.getSession();
+      const token = data.session?.access_token;
+      return next({
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+    } catch (_) {
+      return next();
+    }
+  })
+  .server(
   async ({ next }: any) => {
     const SUPABASE_URL = process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"];
     const SUPABASE_PUBLISHABLE_KEY =
@@ -53,17 +67,26 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
       throw new Error("Unauthorized: No request headers available");
     }
 
-    const authHeader = request.headers.get("authorization");
+    let authHeader = request.headers.get("authorization") || request.headers.get("x-authorization");
+
+    // Also check query param fallback if available
+    if (!authHeader && request.url) {
+      try {
+        const u = new URL(request.url, "http://localhost");
+        const qToken = u.searchParams.get("auth_token") || u.searchParams.get("token");
+        if (qToken) authHeader = `Bearer ${qToken}`;
+      } catch (_) {}
+    }
 
     if (!authHeader) {
       throw new Error("Unauthorized: No authorization header provided");
     }
 
     if (!authHeader.startsWith("Bearer ")) {
-      throw new Error("Unauthorized: Only Bearer tokens are supported");
+      authHeader = `Bearer ${authHeader.trim()}`;
     }
 
-    const token = authHeader.replace("Bearer ", "");
+    const token = authHeader.replace("Bearer ", "").trim();
     if (!token) {
       throw new Error("Unauthorized: No token provided");
     }

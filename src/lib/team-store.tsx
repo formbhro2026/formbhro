@@ -20,6 +20,7 @@ import {
   type TeamReaction,
   type TeamReadReceipt,
   type Priority,
+  type PaymentStatus,
 } from "@/data/team-module";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -194,6 +195,10 @@ type TeamStore = {
   openAdminChat: () => Promise<string | null>;
   /** Update tags on a request in local store */
   updateTags: (requestId: string, tags: string[]) => void;
+  /** Update payment status on a request */
+  updatePaymentStatus: (requestId: string, paymentStatus: PaymentStatus, note?: string) => void;
+  /** Update payment note on a request */
+  updatePaymentNote?: (requestId: string, note: string) => Promise<void>;
   pool: TeamRequest[];
   loading: boolean;
 };
@@ -254,6 +259,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
+  const sendMessageRef = useRef<((requestId: string, text: string) => void) | null>(null);
   const typingToken = useRef<Record<string, number>>({});
 
   const startTyping = useCallback((requestId: string, duration: number) => {
@@ -1229,8 +1235,23 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
 
         await requestsApi.escalateRequestWithReason(dbUuid, reason);
         setRequests((prev) =>
-          prev.map((r) => (r.id === requestId ? { ...r, isEscalated: true } : r)),
+          prev.map((r) =>
+            r.id === requestId || r.id.toLowerCase() === requestId.toLowerCase()
+              ? {
+                  ...r,
+                  isEscalated: true,
+                  escalationReason: reason,
+                  tags: [
+                    ...(r.tags || []).filter((t) => !t.startsWith("esc_note:")),
+                    `esc_note:${encodeURIComponent(reason.trim())}`,
+                  ],
+                }
+              : r,
+          ),
         );
+        try {
+          sendMessageRef.current?.(requestId, `🚨 [Escalated to Admin] Note: ${reason}`);
+        } catch (_) {}
         toast.success("Conversation escalated to Admin");
       } catch (err) {
         console.error("Failed to escalate chat:", err);
@@ -1313,6 +1334,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     },
     [member, assignToMe, sendMessageApi, touch],
   );
+  sendMessageRef.current = sendMessage;
 
   const attachDocument = useCallback(
     (
@@ -1738,7 +1760,23 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           const isUserMsg = row.sender_role === "user";
           setMessages((prev) => {
             if (prev.some((m) => m.id === row.id)) return prev;
-            return [...prev, mapTeamMessage(row, reference, memberName)];
+
+            const optIdx = prev.findIndex(
+              (m) =>
+                m.delivery === "sending" &&
+                m.author === (row.sender_role === "user" ? "user" : "team") &&
+                (m.text || "").trim() === (row.body || "").trim() &&
+                (m.requestId === reference || m.requestId === row.request_id),
+            );
+
+            const mapped = mapTeamMessage(row, reference, memberName);
+            if (optIdx >= 0) {
+              const copy = [...prev];
+              copy[optIdx] = mapped;
+              return copy;
+            }
+
+            return [...prev, mapped];
           });
 
           // Synchronize requests list in real time
@@ -1854,20 +1892,35 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           void loadDocumentsForRequest(actualRequestId, reqObj?.userId);
         }
 
-        unsubActive = subscribeToRoom(roomId, {
-          onMessage: (row) => {
-            setMessages((prev) => {
-              if (prev.some((m) => m.id === row.id)) return prev;
-              return [...prev, mapTeamMessage(row, ref || target, memberRef.current?.name ?? "Team Member")];
-            });
-          },
-          onMessageUpdate: (row) => {
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === row.id ? { ...m, ...mapTeamMessage(row, ref || target, memberRef.current?.name ?? "Team Member") } : m,
-              ),
-            );
-          },
+        const isAlreadySubscribed = Object.values(rooms.current).some((r) => r.chatRoomId === roomId);
+        if (!isAlreadySubscribed) {
+          unsubActive = subscribeToRoom(roomId, {
+            onMessage: (row) => {
+              setMessages((prev) => {
+                if (prev.some((m) => m.id === row.id)) return prev;
+                const optIdx = prev.findIndex(
+                  (m) =>
+                    m.delivery === "sending" &&
+                    m.author === (row.sender_role === "user" ? "user" : "team") &&
+                    (m.text || "").trim() === (row.body || "").trim() &&
+                    (m.requestId === ref || m.requestId === row.request_id),
+                );
+                const mapped = mapTeamMessage(row, ref || target, memberRef.current?.name ?? "Team Member");
+                if (optIdx >= 0) {
+                  const copy = [...prev];
+                  copy[optIdx] = mapped;
+                  return copy;
+                }
+                return [...prev, mapped];
+              });
+            },
+            onMessageUpdate: (row) => {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === row.id ? { ...m, ...mapTeamMessage(row, ref || target, memberRef.current?.name ?? "Team Member") } : m,
+                ),
+              );
+            },
           onDocument: (row) => {
             setDocuments((prev) =>
               prev.some((d) => d.id === row.id)
@@ -1879,6 +1932,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
             if (payload.typing) startTyping(ref || target, 2500);
           },
         });
+        }
       }
     };
 
@@ -1988,6 +2042,76 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  const updatePaymentStatus = useCallback(
+    (requestId: string, paymentStatus: PaymentStatus, note?: string) => {
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === requestId || r.id.toLowerCase() === requestId.toLowerCase()
+            ? {
+                ...r,
+                paymentStatus,
+                ...(note !== undefined ? { paymentNote: note } : {}),
+                tags: [
+                  ...(r.tags || []).filter(
+                    (t) => !t.startsWith("payment:") && (note !== undefined ? !t.startsWith("pnote:") : true),
+                  ),
+                  `payment:${paymentStatus}`,
+                  ...(note !== undefined && note.trim()
+                    ? [`pnote:${encodeURIComponent(note.trim())}`]
+                    : []),
+                ],
+              }
+            : r,
+        ),
+      );
+
+      void requestsApi
+        .updatePaymentStatus(requestId, paymentStatus, note)
+        .then(() => {
+          toast.success(`Payment status updated to "${paymentStatus}"`);
+        })
+        .catch((err) => {
+          console.error("Failed to update payment status:", err);
+          toast.error(
+            "Failed to update payment status: " +
+              (err instanceof Error ? err.message : "Please try again."),
+          );
+        });
+    },
+    [],
+  );
+
+  const updatePaymentNote = useCallback(
+    async (requestId: string, note: string) => {
+      const target = requests.find(
+        (r) => r.id === requestId || r.id.toLowerCase() === requestId.toLowerCase(),
+      );
+      const currentStatus = target?.paymentStatus || "ready";
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === requestId || r.id.toLowerCase() === requestId.toLowerCase()
+            ? {
+                ...r,
+                paymentNote: note,
+                tags: [
+                  ...(r.tags || []).filter((t) => !t.startsWith("pnote:")),
+                  ...(note.trim() ? [`pnote:${encodeURIComponent(note.trim())}`] : []),
+                ],
+              }
+            : r,
+        ),
+      );
+      try {
+        await requestsApi.updatePaymentStatus(requestId, currentStatus, note);
+        toast.success("Payment note saved");
+      } catch (err) {
+        console.error("Failed to save payment note:", err);
+        toast.error("Failed to save payment note");
+      }
+    },
+    [requests],
+  );
+
   const unreadNotifications = useMemo(
     () => notifications.filter((n) => !n.read).length,
     [notifications],
@@ -2043,6 +2167,8 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       markNotificationUnread,
       clearNotifications,
       updateTags,
+      updatePaymentStatus,
+      updatePaymentNote,
       unreadNotifications,
       assignToMe,
       transferChat,
@@ -2103,6 +2229,8 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       markNotificationUnread,
       clearNotifications,
       updateTags,
+      updatePaymentStatus,
+      updatePaymentNote,
       unreadNotifications,
       assignToMe,
       transferChat,

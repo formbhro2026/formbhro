@@ -23,6 +23,8 @@ import {
   ShieldCheck,
   Search,
   Filter,
+  Edit3,
+  Megaphone,
 } from "lucide-react";
 import { TeamHeader } from "@/components/team/TeamHeader";
 import { EmptyState } from "@/components/common/EmptyState";
@@ -102,6 +104,7 @@ function TeamNewsAndVacancies() {
 
   // Post Vacancy Modal
   const [showVacancyModal, setShowVacancyModal] = useState(false);
+  const [editingVacancyId, setEditingVacancyId] = useState<string | null>(null);
   const [publishingVacancy, setPublishingVacancy] = useState(false);
   const [customFields, setCustomFields] = useState<notificationsApi.CustomFieldRow[]>([]);
   const vacancyFileRef = useRef<HTMLInputElement>(null);
@@ -212,7 +215,7 @@ function TeamNewsAndVacancies() {
         const groupId = (item.custom_fields as any)?.group_id;
 
         if (vacancyGroupFilter === "jobs_updates") {
-          if (cat.startsWith("group:") || target === "group" || groupId) return false;
+          if (cat.startsWith("group:") || target === "group" || groupId || cat.includes("announcement") || cat.includes("notice") || target === "announcements") return false;
         } else if (vacancyGroupFilter === "jobs-update") {
           const match =
             cat === "group: jobs-update" ||
@@ -227,6 +230,12 @@ function TeamNewsAndVacancies() {
             cat.includes("hidden") ||
             (target === "group" && groupId === "hidden-jobs-update") ||
             groupId === "hidden-jobs-update";
+          if (!match) return false;
+        } else if (vacancyGroupFilter === "announcements") {
+          const match =
+            cat.includes("announcement") ||
+            cat.includes("notice") ||
+            target === "announcements";
           if (!match) return false;
         }
       }
@@ -345,42 +354,57 @@ function TeamNewsAndVacancies() {
       return;
     }
 
-    // 2. Mandatory Qualification
-    if (!vacancyForm.qualification.trim()) {
-      toast.error("Mandatory: Please select the required Qualification (e.g. 10th, 12th, Graduation).");
-      return;
-    }
+    const isVacancyCat =
+      vacancyForm.category === "Jobs Update" ||
+      vacancyForm.category === "Group: jobs-update" ||
+      vacancyForm.category === "Group: hidden-jobs-update" ||
+      vacancyForm.category.toLowerCase().includes("job") ||
+      vacancyForm.category.toLowerCase().includes("vacancy");
 
-    // 3. Mandatory Age Limit
-    if (!vacancyForm.min_age || !vacancyForm.max_age) {
-      toast.error("Mandatory: Please enter valid Age Limit criteria (Min & Max Age).");
-      return;
-    }
-    const minAge = parseInt(vacancyForm.min_age, 10);
-    const maxAge = parseInt(vacancyForm.max_age, 10);
-    if (isNaN(minAge) || isNaN(maxAge) || minAge > maxAge) {
-      toast.error("Please enter a valid age range (e.g. 18 to 45).");
-      return;
-    }
+    let minAge: number | null = null;
+    let maxAge: number | null = null;
 
-    // 4. Mandatory Vacancy Status
-    if (!vacancyForm.vacancy_status) {
-      toast.error("Mandatory: Please specify Vacancy Status (Live or Closed).");
-      return;
-    }
-
-    // 5. Mandatory Application Last Date
-    if (!vacancyForm.application_last_date) {
-      toast.error("Mandatory: Please specify the Application Last Date deadline.");
-      return;
-    }
-
-    // 6. Check required custom filters
-    for (const cf of customFields) {
-      if (cf.is_required && !vacancyForm.custom_fields[cf.field_name]) {
-        toast.error(`Mandatory: Please fill in required filter "${cf.field_label}".`);
+    if (isVacancyCat) {
+      // 2. Mandatory Qualification
+      if (!vacancyForm.qualification.trim()) {
+        toast.error("Mandatory: Please select the required Qualification (e.g. 10th, 12th, Graduation).");
         return;
       }
+
+      // 3. Mandatory Age Limit
+      if (!vacancyForm.min_age || !vacancyForm.max_age) {
+        toast.error("Mandatory: Please enter valid Age Limit criteria (Min & Max Age).");
+        return;
+      }
+      minAge = parseInt(vacancyForm.min_age, 10);
+      maxAge = parseInt(vacancyForm.max_age, 10);
+      if (isNaN(minAge) || isNaN(maxAge) || minAge > maxAge) {
+        toast.error("Please enter a valid age range (e.g. 18 to 45).");
+        return;
+      }
+
+      // 4. Mandatory Vacancy Status
+      if (!vacancyForm.vacancy_status) {
+        toast.error("Mandatory: Please specify Vacancy Status (Live or Closed).");
+        return;
+      }
+
+      // 5. Mandatory Application Last Date
+      if (!vacancyForm.application_last_date) {
+        toast.error("Mandatory: Please specify the Application Last Date deadline.");
+        return;
+      }
+
+      // 6. Check required custom filters
+      for (const cf of customFields) {
+        if (cf.is_required && !vacancyForm.custom_fields[cf.field_name]) {
+          toast.error(`Mandatory: Please fill in required filter "${cf.field_label}".`);
+          return;
+        }
+      }
+    } else {
+      if (vacancyForm.min_age) minAge = parseInt(vacancyForm.min_age, 10);
+      if (vacancyForm.max_age) maxAge = parseInt(vacancyForm.max_age, 10);
     }
 
     setPublishingVacancy(true);
@@ -394,6 +418,8 @@ function TeamNewsAndVacancies() {
       } else if (vacancyForm.category === "Group: hidden-jobs-update") {
         target = "group";
         groupId = "hidden-jobs-update";
+      } else if (vacancyForm.category === "Service Announcement" || vacancyForm.category === "General Notice") {
+        target = "announcements";
       }
 
       const customPayload = {
@@ -402,26 +428,34 @@ function TeamNewsAndVacancies() {
         ...(groupId ? { group_id: groupId } : {}),
       };
 
-      await notificationsApi.createNews({
+      const payload = {
         title: vacancyForm.title.trim(),
         description: vacancyForm.description.trim(),
         category: vacancyForm.category,
         published: true,
         featured: false,
         organization: vacancyForm.organization.trim() || undefined,
-        qualification: vacancyForm.qualification.trim(),
+        qualification: isVacancyCat ? vacancyForm.qualification.trim() : (vacancyForm.qualification?.trim() || undefined),
         min_age: minAge,
         max_age: maxAge,
-        vacancy_status: vacancyForm.vacancy_status,
-        application_last_date: vacancyForm.application_last_date,
+        vacancy_status: isVacancyCat ? vacancyForm.vacancy_status : (vacancyForm.vacancy_status || "live"),
+        application_last_date: vacancyForm.application_last_date || null,
         total_vacancies: vacancyForm.vacancies_count ? parseInt(vacancyForm.vacancies_count, 10) : null,
         apply_url: vacancyForm.application_url.trim() || undefined,
         image_url: vacancyForm.image_url.trim() || undefined,
         custom_fields: customPayload,
-      });
+      };
 
-      toast.success(`Published to "${vacancyForm.category}"! It will appear exclusively in that channel.`);
+      if (editingVacancyId) {
+        await notificationsApi.updateNews(editingVacancyId, payload);
+        toast.success(`Updated post "${vacancyForm.title}"!`);
+      } else {
+        await notificationsApi.createNews(payload);
+        toast.success(`Published to "${vacancyForm.category}"! Visible in selected channel.`);
+      }
+
       setShowVacancyModal(false);
+      setEditingVacancyId(null);
       setVacancyForm({
         category: "Jobs Update",
         title: "",
@@ -442,6 +476,37 @@ function TeamNewsAndVacancies() {
       toast.error(err instanceof Error ? err.message : "Failed to publish vacancy.");
     } finally {
       setPublishingVacancy(false);
+    }
+  };
+
+  const handleEditVacancy = (v: PublicVacancyItem) => {
+    setEditingVacancyId(v.id);
+    setVacancyForm({
+      category: v.category || "Jobs Update",
+      title: v.title || "",
+      description: v.description || "",
+      organization: v.organization || "",
+      qualification: v.qualification || "Graduation",
+      min_age: v.min_age ? String(v.min_age) : "18",
+      max_age: v.max_age ? String(v.max_age) : "45",
+      vacancy_status: ((v.vacancy_status as any) || "live").toLowerCase() === "closed" ? "closed" : "live",
+      application_last_date: v.application_last_date || "",
+      vacancies_count: v.vacancies_count ? String(v.vacancies_count) : "",
+      application_url: v.application_url || "",
+      image_url: v.image_url || "",
+      custom_fields: v.custom_fields || {},
+    });
+    setShowVacancyModal(true);
+  };
+
+  const handleDeleteVacancy = async (v: PublicVacancyItem) => {
+    if (!confirm(`Are you sure you want to permanently delete "${v.title}"?`)) return;
+    try {
+      await notificationsApi.deleteNews(v.id);
+      setVacancies((prev) => prev.filter((item) => item.id !== v.id));
+      toast.success("Vacancy removed successfully.");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to delete vacancy.");
     }
   };
 
@@ -545,7 +610,25 @@ function TeamNewsAndVacancies() {
             {activeTab === "vacancies" ? (
               <button
                 disabled={!canPostVacancies}
-                onClick={() => setShowVacancyModal(true)}
+                onClick={() => {
+                  setEditingVacancyId(null);
+                  setVacancyForm({
+                    category: "Jobs Update",
+                    title: "",
+                    description: "",
+                    organization: "",
+                    qualification: "Graduation",
+                    min_age: "18",
+                    max_age: "45",
+                    vacancy_status: "live",
+                    application_last_date: "",
+                    vacancies_count: "",
+                    application_url: "",
+                    image_url: "",
+                    custom_fields: {},
+                  });
+                  setShowVacancyModal(true);
+                }}
                 className="inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2 text-xs font-bold text-black hover:bg-brand-light transition-all shadow-lg shadow-brand/20 disabled:opacity-50"
                 title={canPostVacancies ? "Post new vacancy" : "Posting disabled by Admin"}
               >
@@ -618,6 +701,7 @@ function TeamNewsAndVacancies() {
                 <option value="jobs_updates">Jobs Updates Section (/app/news)</option>
                 <option value="jobs-update">Jobs Update Group (/app/groups)</option>
                 <option value="hidden-jobs-update">Hidden Jobs Update Group (/app/groups)</option>
+                <option value="announcements">Service Announcements & Notices</option>
               </select>
 
               {/* Qualification filter */}
@@ -733,9 +817,31 @@ function TeamNewsAndVacancies() {
 
                       {/* Footer Actions */}
                       <div className="flex items-center justify-between pt-2 border-t border-border-subtle text-[11px] text-text-muted">
-                        <span>
-                          {v.published_at ? new Date(v.published_at).toLocaleDateString() : "Active"}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span>
+                            {v.published_at ? new Date(v.published_at).toLocaleDateString() : "Active"}
+                          </span>
+                          {canPostVacancies && (
+                            <div className="flex items-center gap-1 border-l border-border-subtle pl-2">
+                              <button
+                                type="button"
+                                onClick={() => handleEditVacancy(v)}
+                                className="rounded p-1 text-text-muted hover:text-white hover:bg-surface-2 transition-colors"
+                                title="Edit Vacancy Update"
+                              >
+                                <Edit3 className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteVacancy(v)}
+                                className="rounded p-1 text-text-muted hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                                title="Delete Vacancy Update"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
                         {v.application_url && (
                           <a
                             href={v.application_url}
@@ -865,11 +971,13 @@ function TeamNewsAndVacancies() {
               <div className="flex items-center justify-between border-b border-border-subtle pb-3">
                 <div>
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Briefcase className="h-4 w-4 text-brand" />
-                    Post Vacancy to Job Group
+                    <Megaphone className="h-4 w-4 text-brand" />
+                    {editingVacancyId ? "Edit Announcement / Vacancy" : "Post Announcement / Vacancy"}
                   </h3>
                   <p className="text-[11px] text-text-muted mt-0.5">
-                    Enter mandatory qualification, age, status, and deadline before publishing.
+                    {vacancyForm.category === "Service Announcement" || vacancyForm.category === "General Notice"
+                      ? "Publish official announcements and notices to user applications."
+                      : "Enter mandatory qualification, age, status, and deadline before publishing."}
                   </p>
                 </div>
                 <button
@@ -895,12 +1003,16 @@ function TeamNewsAndVacancies() {
                     <option value="Jobs Update">Jobs Updates Section (Public Vacancies Feed - /app/news)</option>
                     <option value="Group: jobs-update">Jobs Update Group (Dedicated Group Feed Only - /app/groups)</option>
                     <option value="Group: hidden-jobs-update">Hidden Jobs Update Group (Dedicated Group Feed Only - /app/groups)</option>
+                    <option value="Service Announcement">Service Announcement (Public)</option>
+                    <option value="General Notice">General Notice (Public)</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-text-secondary mb-1">
-                    Vacancy Title *
+                    {vacancyForm.category === "Service Announcement" || vacancyForm.category === "General Notice"
+                      ? "Announcement Title *"
+                      : "Vacancy Title *"}
                   </label>
                   <input
                     required
@@ -926,7 +1038,12 @@ function TeamNewsAndVacancies() {
                   />
                 </div>
 
-                {/* Mandatory Vacancy Fields Box (Requirement 6B) */}
+                {/* Mandatory Vacancy Fields Box (Requirement 6B) - Only for Vacancy categories */}
+                {(vacancyForm.category === "Jobs Update" ||
+                  vacancyForm.category === "Group: jobs-update" ||
+                  vacancyForm.category === "Group: hidden-jobs-update" ||
+                  vacancyForm.category.toLowerCase().includes("job") ||
+                  vacancyForm.category.toLowerCase().includes("vacancy")) && (
                 <div className="rounded-xl border border-brand/20 bg-brand/5 p-3.5 space-y-3">
                   <div className="flex items-center justify-between pb-1 border-b border-brand/10">
                     <span className="text-xs font-bold text-white flex items-center gap-1.5">
@@ -1119,6 +1236,7 @@ function TeamNewsAndVacancies() {
                     </div>
                   )}
                 </div>
+              )}
 
                 {/* Banner Image */}
                 <div>
@@ -1181,7 +1299,11 @@ function TeamNewsAndVacancies() {
                     className="inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-2 text-xs font-bold text-black hover:bg-brand-light disabled:opacity-50 shadow-lg shadow-brand/20"
                   >
                     {publishingVacancy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                    Publish Vacancy Update
+                    {publishingVacancy
+                      ? "Saving..."
+                      : editingVacancyId
+                        ? "Save Changes"
+                        : "Publish Vacancy Update"}
                   </button>
                 </div>
               </form>

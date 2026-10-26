@@ -12,6 +12,8 @@ import {
   ArrowRight,
   MessageSquare,
   Newspaper,
+  Megaphone,
+  Users,
 } from "lucide-react";
 import logoAsset from "@/assets/logo.png.asset.json";
 import { cn } from "@/lib/utils";
@@ -25,7 +27,8 @@ export const TEAM_NAV = [
   { label: "Home", to: "/team", icon: Home, exact: true },
   { label: "Work Area", to: "/team/work", icon: Briefcase, exact: false },
   { label: "Admin Chat", to: "/team/admin-chat", icon: MessageSquare, exact: true },
-  { label: "Internal News", to: "/team/news", icon: Newspaper, exact: false },
+  { label: "Announcements", to: "/team/news", icon: Megaphone, exact: false },
+  { label: "Job Groups", to: "/team/groups", icon: Users, exact: false },
   { label: "Documents", to: "/team/documents", icon: FileText, exact: false },
   { label: "Progress", to: "/team/progress", icon: BarChart3, exact: false },
   { label: "Notifications", to: "/team/notifications", icon: Bell, exact: false },

@@ -31,9 +31,40 @@ interface ActiveCallDetails {
   logged: boolean;
 }
 
-const ICE_SERVERS = {
-  iceServers: [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }],
-};
+const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
+  { urls: "stun:stun.l.google.com:19302" },
+  { urls: "stun:stun1.l.google.com:19302" },
+  { urls: "stun:stun2.l.google.com:19302" },
+  { urls: "stun:stun3.l.google.com:19302" },
+  { urls: "stun:stun4.l.google.com:19302" },
+  { urls: "stun:stun.cloudflare.com:3478" },
+  { urls: "stun:global.stun.twilio.com:3478" },
+  { urls: "stun:stun.services.mozilla.com" },
+  { urls: "stun:stun.nextcloud.com:443" },
+];
+
+function getRtcConfiguration(): RTCConfiguration {
+  const turnUrl = import.meta.env.VITE_WEBRTC_TURN_URL;
+  const turnUser = import.meta.env.VITE_WEBRTC_TURN_USERNAME;
+  const turnCred = import.meta.env.VITE_WEBRTC_TURN_CREDENTIAL;
+
+  const iceServers: RTCIceServer[] = [...DEFAULT_ICE_SERVERS];
+
+  if (turnUrl) {
+    iceServers.push({
+      urls: turnUrl,
+      ...(turnUser ? { username: turnUser } : {}),
+      ...(turnCred ? { credential: turnCred } : {}),
+    });
+  }
+
+  return {
+    iceServers,
+    iceCandidatePoolSize: 10,
+  };
+}
+
+const ICE_SERVERS: RTCConfiguration = getRtcConfiguration();
 
 export interface ResolvedCallRoom {
   canonicalRoomId: string;
@@ -262,10 +293,18 @@ const requestMediaPermissions = async (
           audio: true,
         });
       } catch {
-        return await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true,
-        });
+        try {
+          return await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: true,
+          });
+        } catch (videoErr) {
+          console.warn("Camera unavailable, falling back to audio-only stream:", videoErr);
+          return await navigator.mediaDevices.getUserMedia({
+            video: false,
+            audio: true,
+          });
+        }
       }
     }
   }

@@ -19,7 +19,7 @@ export async function signInWithGoogle(redirectPath: string = "/app") {
   const origin =
     typeof window !== "undefined" && window.location.origin
       ? window.location.origin
-      : "https://formbhro-main.vercel.app";
+      : "https://formbhro.com";
 
   // For Capacitor Android, redirect to com.formbhro.app://oauth-callback so Android OS intercepts the redirect
   // and immediately brings the native Formbhro APK to foreground rather than stranding the user on the Vercel URL

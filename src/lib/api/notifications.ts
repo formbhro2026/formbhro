@@ -6,6 +6,11 @@ import {
   type QuickReplyRow,
   type UserSettingsRow,
 } from "./types";
+import {
+  createNewsItemServer,
+  updateNewsItemServer,
+  deleteNewsItemServer,
+} from "./admin.functions";
 
 /* ---------------- Notifications ---------------- */
 
@@ -219,11 +224,24 @@ export function mapNewsRowToVacancy(item: any): any {
 }
 
 /** Admin and authorized team publishing. */
+/** Admin and authorized team publishing. */
 export async function createNews(input: VacancyInput) {
   const payload = toDbNewsPayload(input);
   if (!payload.published_at) {
     payload.published_at = new Date().toISOString();
   }
+
+  // 1. Try server function first for team & admin privilege bypass of client RLS
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    const res = await createNewsItemServer({ data: { ...payload, auth_token: token } });
+    if (res) return mapNewsRowToVacancy(res);
+  } catch (err: any) {
+    console.warn("[Notifications] createNewsItemServer fallback:", err?.message);
+  }
+
+  // 2. Direct client fallback
   const { data, error } = await supabase.from("news").insert(payload as any).select().single();
   if (error) throw new ApiError(error.message, error.code);
   return mapNewsRowToVacancy(data);
@@ -231,12 +249,33 @@ export async function createNews(input: VacancyInput) {
 
 export async function updateNews(id: string, patch: Partial<VacancyInput>) {
   const payload = toDbNewsPayload(patch);
+
+  // 1. Try server function first
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    const res = await updateNewsItemServer({ data: { id, patch: { ...payload, auth_token: token } } });
+    if (res) return mapNewsRowToVacancy(res);
+  } catch (err: any) {
+    console.warn("[Notifications] updateNewsItemServer fallback:", err?.message);
+  }
+
+  // 2. Direct client fallback
   const { data, error } = await supabase.from("news").update(payload as any).eq("id", id).select().single();
   if (error) throw new ApiError(error.message, error.code);
   return mapNewsRowToVacancy(data);
 }
 
 export async function deleteNews(id: string) {
+  // 1. Try server function first
+  try {
+    await deleteNewsItemServer({ data: { id } });
+    return;
+  } catch (err: any) {
+    console.warn("[Notifications] deleteNewsItemServer fallback:", err?.message);
+  }
+
+  // 2. Direct client fallback
   const { error } = await supabase.from("news").delete().eq("id", id);
   if (error) throw new ApiError(error.message, error.code);
 }
@@ -299,29 +338,57 @@ export async function deleteCustomField(id: string) {
 
 /* ---------------- Quick replies ---------------- */
 
+export function extractQuickReplyImage(body: string): { imageUrl: string | null; cleanBody: string } {
+  if (!body) return { imageUrl: null, cleanBody: "" };
+  const imgTagMatch = body.match(/^\[IMAGE:\s*([^\s\]]+)\]\s*/i);
+  if (imgTagMatch) {
+    return {
+      imageUrl: imgTagMatch[1],
+      cleanBody: body.slice(imgTagMatch[0].length).trim(),
+    };
+  }
+  const mdMatch = body.match(/^!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)\s*/i);
+  if (mdMatch) {
+    return {
+      imageUrl: mdMatch[1],
+      cleanBody: body.slice(mdMatch[0].length).trim(),
+    };
+  }
+  return { imageUrl: null, cleanBody: body };
+}
+
+export function formatQuickReplyBody(cleanBody: string, imageUrl?: string | null): string {
+  const trimmedUrl = (imageUrl || "").trim();
+  const trimmedBody = (cleanBody || "").trim();
+  if (!trimmedUrl) return trimmedBody;
+  return `[IMAGE: ${trimmedUrl}]\n${trimmedBody}`;
+}
+
 export async function listQuickReplies(): Promise<QuickReplyRow[]> {
   const { data, error } = await supabase.from("quick_replies").select("*").order("created_at");
   if (error) throw new ApiError(error.message, error.code);
   return data ?? [];
 }
 
-export async function createQuickReply(title: string, body: string) {
+export async function createQuickReply(title: string, body: string, imageUrl?: string | null) {
   const { data: userData } = await supabase.auth.getUser();
   const uid = userData.user?.id;
   if (!uid) throw new ApiError("Session expired.", "unauthenticated");
+  const finalBody = formatQuickReplyBody(body, imageUrl);
   const { data, error } = await supabase
     .from("quick_replies")
-    .insert({ owner_id: uid, title, body })
+    .insert({ owner_id: uid, title, body: finalBody })
     .select()
     .single();
   if (error) throw new ApiError(error.message, error.code);
   return data;
 }
 
-export async function updateQuickReply(id: string, title: string, body: string) {
+export async function updateQuickReply(id: string, title: string, body: string, imageUrl?: string | null) {
+  const finalBody = formatQuickReplyBody(body, imageUrl);
   const { data, error } = await supabase
     .from("quick_replies")
-    .update({ title, body })
+    .update({ title, body: finalBody })
     .eq("id", id)
     .select()
     .single();

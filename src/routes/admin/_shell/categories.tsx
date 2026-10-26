@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Plus, Tag, CheckCircle } from "lucide-react";
+import { Loader2, Plus, Tag, CheckCircle, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Database } from "@/integrations/supabase/types";
+import { deleteCategory } from "@/lib/api/admin.functions";
 
 export const Route = createFileRoute("/admin/_shell/categories")({
   component: CategoriesPage,
@@ -69,6 +70,25 @@ function CategoriesPage() {
     },
     onError: (err: Error) => {
       toast.error(err.message || "Failed to update category");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      try {
+        await deleteCategory({ data: { id } });
+      } catch (err) {
+        // Fallback to direct client delete if server function fails
+        const { error } = await supabase.from("categories").delete().eq("id", id);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin_categories"] });
+      toast.success("Category deleted successfully");
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to delete category");
     },
   });
 
@@ -194,9 +214,23 @@ function CategoriesPage() {
                     onCheckedChange={(checked) =>
                       toggleActiveMutation.mutate({ id: category.id, is_active: checked })
                     }
-                    disabled={toggleActiveMutation.isPending}
+                    disabled={toggleActiveMutation.isPending || deleteMutation.isPending}
                     aria-label="Toggle active status"
                   />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm(`Are you sure you want to delete category "${category.name}"?`)) {
+                        deleteMutation.mutate(category.id);
+                      }
+                    }}
+                    disabled={deleteMutation.isPending}
+                    title="Delete Category"
+                    aria-label={`Delete ${category.name} category`}
+                    className="p-1.5 rounded-lg text-text-muted hover:text-red-400 hover:bg-red-500/10 transition-colors border border-transparent hover:border-red-500/20 disabled:opacity-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
             </div>

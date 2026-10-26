@@ -25,6 +25,10 @@ import {
   X,
   ExternalLink,
   CheckCircle2,
+  FileText,
+  CreditCard,
+  BadgeIndianRupee,
+  Image as ImageIcon,
 } from "lucide-react";
 import { PresenceDot } from "@/components/team/PresenceDot";
 import { downloadCsv } from "@/lib/csv-export";
@@ -177,36 +181,116 @@ function AdminChats() {
     setSearchedUserRequests([]);
 
     try {
-      // 1. Fetch user profile
-      let profile = profiles.find((p) => p.id === raw);
-      if (!profile) {
-        const { data: profData } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", raw)
-          .maybeSingle();
-        profile = profData ?? undefined;
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const hex32Regex = /^[0-9a-f]{32}$/i;
+
+      let formattedUid: string | null = null;
+      if (uuidRegex.test(raw)) {
+        formattedUid = raw.toLowerCase();
+      } else if (hex32Regex.test(raw)) {
+        formattedUid = `${raw.slice(0, 8)}-${raw.slice(8, 12)}-${raw.slice(12, 16)}-${raw.slice(16, 20)}-${raw.slice(20)}`.toLowerCase();
       }
-      if (!profile) {
-        const { data: profData } = await supabase
-          .from("profiles")
+
+      let profile: any = undefined;
+      let reqs: any[] | null = null;
+
+      // 1. Direct search if formattedUid is a valid UUID
+      if (formattedUid) {
+        profile = profiles.find((p) => p.id.toLowerCase() === formattedUid);
+        if (!profile) {
+          const { data: profData } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", formattedUid)
+            .maybeSingle();
+          profile = profData ?? undefined;
+        }
+
+        const { data: userReqs, error: reqErr } = await supabase
+          .from("requests")
           .select("*")
-          .ilike("id", `%${raw}%`)
+          .eq("user_id", formattedUid)
+          .order("created_at", { ascending: false });
+
+        if (!reqErr && userReqs) {
+          reqs = userReqs;
+        }
+      }
+
+      // 2. If not found yet, check if input matches a Chat Reference ID or title
+      if (!profile && (!reqs || reqs.length === 0)) {
+        const { data: chatData } = await supabase
+          .from("requests")
+          .select("*, profiles:user_id(*)")
+          .or(`reference.eq.${raw},reference.ilike.%${raw}%`)
           .limit(1)
           .maybeSingle();
-        profile = profData ?? undefined;
+
+        if (chatData?.user_id) {
+          formattedUid = chatData.user_id;
+          profile = (chatData as any).profiles ?? undefined;
+          const { data: userReqs } = await supabase
+            .from("requests")
+            .select("*")
+            .eq("user_id", formattedUid)
+            .order("created_at", { ascending: false });
+          reqs = userReqs ?? [chatData];
+        }
       }
 
-      const effectiveUid = profile?.id || raw;
+      // 3. Fallback: search profile by email, phone, or name
+      if (!profile && (!reqs || reqs.length === 0)) {
+        const { data: profByQuery } = await supabase
+          .from("profiles")
+          .select("*")
+          .or(`email.ilike.%${raw}%,phone.ilike.%${raw}%,full_name.ilike.%${raw}%`)
+          .limit(1)
+          .maybeSingle();
 
-      // 2. Fetch all historical requests & chats for this user
-      const { data: reqs, error: reqErr } = await supabase
-        .from("requests")
-        .select("*")
-        .eq("user_id", effectiveUid)
-        .order("created_at", { ascending: false });
+        if (profByQuery) {
+          profile = profByQuery;
+          formattedUid = profByQuery.id;
+          const { data: userReqs } = await supabase
+            .from("requests")
+            .select("*")
+            .eq("user_id", profByQuery.id)
+            .order("created_at", { ascending: false });
+          reqs = userReqs ?? [];
+        }
+      }
 
-      if (reqErr) throw reqErr;
+      // 4. In-memory check across cached profiles
+      if (!profile && (!reqs || reqs.length === 0)) {
+        const memProfile = profiles.find(
+          (p) =>
+            p.id.toLowerCase() === raw.toLowerCase() ||
+            p.id.replace(/-/g, "").toLowerCase() === raw.toLowerCase() ||
+            p.email?.toLowerCase().includes(raw.toLowerCase()) ||
+            p.full_name?.toLowerCase().includes(raw.toLowerCase()),
+        );
+        if (memProfile) {
+          profile = memProfile;
+          formattedUid = memProfile.id;
+          const { data: userReqs } = await supabase
+            .from("requests")
+            .select("*")
+            .eq("user_id", memProfile.id)
+            .order("created_at", { ascending: false });
+          reqs = userReqs ?? [];
+        }
+      }
+
+      // If profile was found and we still need to load requests
+      if (profile?.id && !reqs) {
+        const { data: userReqs } = await supabase
+          .from("requests")
+          .select("*")
+          .eq("user_id", profile.id)
+          .order("created_at", { ascending: false });
+        reqs = userReqs ?? [];
+      }
+
+      const effectiveUid = profile?.id || formattedUid || raw;
 
       if (!profile && (!reqs || reqs.length === 0)) {
         setUserSearchError(`No user profile or request history found for User ID "${raw}".`);
@@ -224,6 +308,7 @@ function AdminChats() {
         toast.success(`Found ${reqs?.length || 0} service requests for user`);
       }
     } catch (err: any) {
+      console.error("User search error:", err);
       const msg = err?.message || "Failed to search user history";
       setUserSearchError(msg);
       toast.error(msg);
@@ -403,6 +488,76 @@ function AdminChats() {
       setActiveRoomId(active.id);
     }
   }, [active?.id, setActiveRoomId]);
+
+  const [activeEscalationNote, setActiveEscalationNote] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!active?.id || !active.is_escalated) {
+      setActiveEscalationNote(null);
+      return;
+    }
+    let note = (active as any).escalation_reason || "";
+    if (!note && Array.isArray((active as any).tags)) {
+      const match = (active as any).tags.find((t: string) => t.startsWith("esc_note:"));
+      if (match) {
+        try {
+          note = decodeURIComponent(match.slice(9));
+        } catch {
+          note = match.slice(9);
+        }
+      }
+    }
+    if (note) {
+      setActiveEscalationNote(note);
+      return;
+    }
+    // Fallback: check chat_escalations table
+    void (async () => {
+      try {
+        const { data } = await (supabase as any)
+          .from("chat_escalations")
+          .select("reason")
+          .eq("request_id", active.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (data?.reason) {
+          setActiveEscalationNote(data.reason);
+        }
+      } catch (_) {}
+    })();
+  }, [active?.id, (active as any)?.is_escalated, (active as any)?.escalation_reason, (active as any)?.tags]);
+
+  const activePaymentStatus = useMemo(() => {
+    if (!active) return "pending";
+    if ((active as any).payment_status) return (active as any).payment_status;
+    if (Array.isArray((active as any).tags)) {
+      const pTag = (active as any).tags.find((t: string) => t.startsWith("payment:"));
+      if (pTag) return pTag.slice(8);
+    }
+    return "pending";
+  }, [active]);
+
+  const activePaymentNote = useMemo(() => {
+    if (!active) return "";
+    if ((active as any).payment_notes) return (active as any).payment_notes;
+    if (Array.isArray((active as any).tags)) {
+      const pTag = (active as any).tags.find((t: string) => t.startsWith("pnote:"));
+      if (pTag) {
+        try {
+          return decodeURIComponent(pTag.slice(6));
+        } catch {
+          return pTag.slice(6);
+        }
+      }
+    }
+    return "";
+  }, [active]);
+
+  const [adminPaymentNoteInput, setAdminPaymentNoteInput] = useState("");
+  useEffect(() => {
+    setAdminPaymentNoteInput(activePaymentNote);
+  }, [activePaymentNote]);
 
   // Debounce search
   useEffect(() => {
@@ -1470,33 +1625,70 @@ function AdminChats() {
             {active ? (
               <div className="flex flex-1 gap-4 overflow-hidden">
                 <div className="flex-1 flex flex-col min-w-0">
-                  {active.is_escalated && (
-                    <div className="mb-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 flex items-center justify-between gap-3 shrink-0">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
-                        <div className="text-xs">
-                          <span className="font-bold text-amber-300">Escalated to Admin</span>
-                          <span className="text-text-muted ml-1.5 hidden sm:inline">Requires supervisor review & resolution</span>
+                  {active.is_escalated && (() => {
+                    const escNote =
+                      (active as any).escalation_reason ||
+                      activeEscalationNote ||
+                      (() => {
+                        if (Array.isArray((active as any).tags)) {
+                          const match = (active as any).tags.find((t: string) =>
+                            t.startsWith("esc_note:"),
+                          );
+                          if (match) {
+                            try {
+                              return decodeURIComponent(match.slice(9));
+                            } catch {
+                              return match.slice(9);
+                            }
+                          }
+                        }
+                        return "";
+                      })();
+                    return (
+                      <div className="mb-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 space-y-2.5 shrink-0 shadow-lg shadow-amber-950/20">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-amber-500/20 text-amber-400">
+                              <AlertTriangle className="h-4 w-4" />
+                            </span>
+                            <div className="text-xs">
+                              <span className="font-bold text-amber-300">Escalated to Admin</span>
+                              <span className="text-text-muted ml-1.5 hidden sm:inline">
+                                Requires supervisor review & resolution
+                              </span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                await requestsApi.resolveEscalation(active.id, "resolved");
+                                toast.success("Escalation marked as resolved");
+                                void fetchRequestsPage(page);
+                                refresh();
+                              } catch (err: any) {
+                                toast.error(err?.message || "Failed to resolve escalation");
+                              }
+                            }}
+                            className="rounded-lg bg-amber-500 px-2.5 py-1 text-[11px] font-bold text-black hover:bg-amber-400 transition-colors shrink-0 shadow-xs"
+                          >
+                            Resolve Escalation
+                          </button>
+                        </div>
+
+                        {/* Prominently render the team member's escalation note */}
+                        <div className="rounded-lg border border-amber-500/25 bg-black/40 p-2.5 text-xs">
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-400 mb-1">
+                            <FileText className="h-3 w-3" />
+                            <span>Escalation Note / Reason:</span>
+                          </div>
+                          <p className="text-amber-100 whitespace-pre-wrap font-medium leading-relaxed">
+                            {escNote || "No specific note provided with this escalation."}
+                          </p>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          try {
-                            await requestsApi.resolveEscalation(active.id, "resolved");
-                            toast.success("Escalation marked as resolved");
-                            void fetchRequestsPage(page);
-                            refresh();
-                          } catch (err: any) {
-                            toast.error(err?.message || "Failed to resolve escalation");
-                          }
-                        }}
-                        className="rounded-lg bg-amber-500 px-2.5 py-1 text-[11px] font-bold text-black hover:bg-amber-400 transition-colors shrink-0"
-                      >
-                        Resolve Escalation
-                      </button>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   <div
                     ref={scrollContainerRef}
@@ -1568,11 +1760,28 @@ function AdminChats() {
                                 </div>
                               </div>
                             )}
-                            {m.body && (
-                              <p className="whitespace-pre-wrap break-words leading-relaxed">
-                                {m.body}
-                              </p>
-                            )}
+                            {m.body && (() => {
+                              const { imageUrl, cleanBody } = notificationsApi.extractQuickReplyImage(m.body);
+                              return (
+                                <div className="space-y-2">
+                                  {imageUrl && (
+                                    <div className="overflow-hidden rounded-xl border border-white/10 bg-black/20">
+                                      <img
+                                        src={imageUrl}
+                                        alt="Attachment"
+                                        className="max-h-60 w-auto max-w-full rounded-xl object-contain cursor-pointer hover:opacity-95 transition-opacity"
+                                        onClick={() => window.open(imageUrl, "_blank")}
+                                      />
+                                    </div>
+                                  )}
+                                  {cleanBody && (
+                                    <p className="whitespace-pre-wrap break-words leading-relaxed">
+                                      {cleanBody}
+                                    </p>
+                                  )}
+                                </div>
+                              );
+                            })()}
                             {m.attachment && (
                               <MessageAttachment
                                 document={{
@@ -1632,7 +1841,7 @@ function AdminChats() {
                   <div className="mt-auto border-t border-border-subtle pt-4 bg-surface-1/50 -mx-4 px-4 pb-2 relative">
                     {/* Quick Replies Popup on '/' shortcut */}
                     {(showQuickReplies || draft.startsWith("/")) && quickReplies.length > 0 && (
-                      <div className="absolute bottom-full left-4 mb-2 w-[min(20rem,calc(100vw-3rem))] max-h-64 overflow-y-auto rounded-2xl border border-border-subtle bg-surface-1 p-2 shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                      <div className="absolute bottom-full left-4 mb-2 w-[min(20rem,calc(100vw-3rem))] max-h-72 overflow-y-auto rounded-2xl border border-border-subtle bg-surface-1 p-2 shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
                         <div className="mb-2 px-2 pb-2 pt-1 text-[11px] font-semibold text-text-muted border-b border-border-subtle flex items-center justify-between">
                           <span className="flex items-center gap-1.5 font-bold text-white">
                             <Zap className="h-3.5 w-3.5 text-brand" /> Quick Replies
@@ -1659,24 +1868,41 @@ function AdminChats() {
                             );
                           }
 
-                          return filtered.map((qr) => (
-                            <button
-                              key={qr.id}
-                              type="button"
-                              className="w-full text-left rounded-xl px-3 py-2 text-sm text-text hover:bg-surface-2 transition-colors mb-1 group"
-                              onClick={() => {
-                                setDraft(qr.body);
-                                setShowQuickReplies(false);
-                              }}
-                            >
-                              <div className="font-semibold truncate text-xs text-white group-hover:text-brand transition-colors">
-                                {qr.title}
-                              </div>
-                              <div className="text-[11px] text-text-muted truncate mt-0.5 leading-tight">
-                                {qr.body}
-                              </div>
-                            </button>
-                          ));
+                          return filtered.map((qr) => {
+                            const { imageUrl, cleanBody } = notificationsApi.extractQuickReplyImage(qr.body);
+                            return (
+                              <button
+                                key={qr.id}
+                                type="button"
+                                className="w-full text-left rounded-xl px-2.5 py-2 text-sm text-text hover:bg-surface-2 transition-colors mb-1 group flex items-start gap-2.5"
+                                onClick={() => {
+                                  setDraft(qr.body);
+                                  setShowQuickReplies(false);
+                                }}
+                              >
+                                {imageUrl && (
+                                  <img
+                                    src={imageUrl}
+                                    alt=""
+                                    className="h-10 w-10 shrink-0 rounded-md object-cover border border-white/10 bg-black/40 mt-0.5"
+                                  />
+                                )}
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-semibold truncate text-xs text-white group-hover:text-brand transition-colors flex items-center gap-1.5">
+                                    <span className="truncate">{qr.title}</span>
+                                    {imageUrl && (
+                                      <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-brand bg-brand/10 px-1 py-0.2 rounded shrink-0">
+                                        <ImageIcon className="h-2.5 w-2.5" /> Image
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-[11px] text-text-muted truncate mt-0.5 leading-tight">
+                                    {cleanBody}
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          });
                         })()}
                       </div>
                     )}
@@ -1814,6 +2040,70 @@ function AdminChats() {
                                 <option value="high">High Priority</option>
                               </select>
                             </div>
+
+                            <div className="p-3 rounded-xl bg-surface-2 border border-border-subtle space-y-2">
+                              <div className="flex items-center justify-between">
+                                <p className="text-[10px] text-text-muted uppercase font-bold flex items-center gap-1">
+                                  <CreditCard className="h-3 w-3 text-brand" /> Payment Status
+                                </p>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-brand-light">
+                                  {activePaymentStatus}
+                                </span>
+                              </div>
+                              <select
+                                className={`${inputClass} h-8 text-[11px] capitalize`}
+                                value={activePaymentStatus}
+                                onChange={(e) => {
+                                  const ps = e.target.value as any;
+                                  void requestsApi
+                                    .updatePaymentStatus(active.id, ps, activePaymentNote || undefined)
+                                    .then(() => {
+                                      toast.success(`Payment status updated to ${ps}`);
+                                      refresh();
+                                    });
+                                }}
+                              >
+                                <option value="ready">Ready</option>
+                                <option value="pending">Pending</option>
+                                <option value="paid">Paid</option>
+                                <option value="waived">Waived</option>
+                                <option value="unpaid">Unpaid</option>
+                                <option value="failed">Failed</option>
+                              </select>
+
+                              <div className="pt-2 border-t border-white/5 space-y-1.5">
+                                <p className="text-[10px] text-text-muted uppercase font-bold flex items-center gap-1">
+                                  <FileText className="h-3 w-3" /> Payment Notes
+                                </p>
+                                <textarea
+                                  rows={2}
+                                  placeholder="Add transaction ID, UPI ref, cash notes..."
+                                  value={adminPaymentNoteInput}
+                                  onChange={(e) => setAdminPaymentNoteInput(e.target.value)}
+                                  className={`${inputClass} text-xs py-1.5 resize-none`}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    try {
+                                      await requestsApi.updatePaymentStatus(
+                                        active.id,
+                                        activePaymentStatus as any,
+                                        adminPaymentNoteInput,
+                                      );
+                                      toast.success("Payment note saved");
+                                      refresh();
+                                    } catch (err: any) {
+                                      toast.error(err?.message || "Failed to save payment note");
+                                    }
+                                  }}
+                                  className="w-full rounded-lg bg-surface-3 px-2 py-1 text-[11px] font-bold text-white hover:bg-surface-4 transition-colors border border-white/10"
+                                >
+                                  Save Payment Note
+                                </button>
+                              </div>
+                            </div>
+
                             <div className="p-3 rounded-xl bg-surface-2 border border-border-subtle space-y-2">
                               <div>
                                 <p className="text-[10px] text-text-muted uppercase font-bold">

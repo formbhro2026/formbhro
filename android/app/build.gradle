@@ -7,8 +7,8 @@ android {
         applicationId "com.formbhro.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 123
-        versionName "1.2.3"
+        versionCode 129
+        versionName "1.2.9"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
     androidResources {
@@ -22,6 +22,8 @@ android {
                 storePassword System.getenv('FORMBHRO_KEYSTORE_PASSWORD') ?: 'FormbhroProd2026@'
                 keyAlias System.getenv('FORMBHRO_KEY_ALIAS') ?: 'formbhroupload'
                 keyPassword System.getenv('FORMBHRO_KEY_PASSWORD') ?: (System.getenv('FORMBHRO_KEYSTORE_PASSWORD') ?: 'FormbhroProd2026@')
+                v1SigningEnabled true
+                v2SigningEnabled true
             }
         }
     }

@@ -24,6 +24,13 @@ public class FormbharoApplication extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
+        Thread.UncaughtExceptionHandler defaultHandler = Thread.getDefaultUncaughtExceptionHandler();
+        Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
+            Log.e(TAG, "FATAL UNCAUGHT EXCEPTION on thread " + thread.getName(), throwable);
+            if (defaultHandler != null) {
+                defaultHandler.uncaughtException(thread, throwable);
+            }
+        });
         createNotificationChannels();
     }
 

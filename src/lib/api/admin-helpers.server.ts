@@ -13,12 +13,29 @@ export async function assertAdmin(context: {
  */
 export async function assertTeamOrAdmin(context: {
   supabase: { rpc: (fn: "is_admin" | "is_team") => PromiseLike<{ data: unknown }> };
+  userId?: string;
 }) {
-  const [{ data: isAdmin }, { data: isTeam }] = await Promise.all([
-    context.supabase.rpc("is_admin"),
-    context.supabase.rpc("is_team"),
-  ]);
-  if (isAdmin !== true && isTeam !== true) throw new Error("Forbidden");
+  try {
+    const [{ data: isAdmin }, { data: isTeam }] = await Promise.all([
+      Promise.resolve(context.supabase.rpc("is_admin")).catch(() => ({ data: false })),
+      Promise.resolve(context.supabase.rpc("is_team")).catch(() => ({ data: false })),
+    ]);
+    if (isAdmin === true || isTeam === true) return;
+  } catch (_) {}
+
+  if (context.userId) {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const [{ data: roleRows }, { data: teamMember }] = await Promise.all([
+      supabaseAdmin.from("user_roles").select("role").eq("user_id", context.userId),
+      supabaseAdmin.from("team_members").select("is_active").eq("id", context.userId).maybeSingle(),
+    ]);
+    const roles = (roleRows || []).map((r: any) => r.role);
+    if (roles.includes("admin") || roles.includes("team") || teamMember?.is_active) {
+      return;
+    }
+  }
+
+  throw new Error("Forbidden");
 }
 
 /**

@@ -65,33 +65,51 @@ export function mapTeamRequest(
   userName: string,
   chatRoomId?: string | null,
 ): TeamRequest {
-  return {
-    id: row.reference || row.id,
-    requestUuid: row.id,
-    chatRoomId: chatRoomId ?? null,
-    title: row.title,
-    category: row.category ?? "Government Form",
-    userName,
-    userInitials: initialsOf(userName),
-    userId: row.user_id,
-    status: DB_TO_TEAM_STATUS[row.status] ?? "pending",
-    priority: (row.priority ?? "medium") as Priority,
-    createdOn: dayLabel(row.created_at),
-    assignedAt: stamp(row.assigned_at ?? row.created_at),
-    lastUpdated: stamp(row.last_activity_at ?? row.created_at),
-    lastMessage: row.last_message ?? "No messages yet.",
-    unread: 0,
-    progress: row.progress ?? 0,
-    assigneeId: row.assigned_team_id || "",
-    timeline: [{ label: "Request created", time: stamp(row.created_at) }],
-    isEscalated: row.is_escalated ?? false,
-    tags: Array.isArray(row.tags) ? row.tags : [],
-    assignedAtRaw: row.assigned_at ?? row.created_at ?? null,
-    lastActivityAt: row.last_activity_at ?? row.created_at ?? null,
-    completedAt: row.completed_at ?? null,
-    createdAt: row.created_at,
-  };
-}
+    const paymentFromTag = Array.isArray(row.tags)
+      ? (row.tags.find((t) => t.startsWith("payment:"))?.replace("payment:", "") as any)
+      : undefined;
+    const paymentStatus = (row.payment_status || paymentFromTag || "pending");
+
+    const paymentNoteFromTag = Array.isArray(row.tags)
+      ? row.tags.find((t) => t.startsWith("pnote:"))?.slice(6)
+      : undefined;
+    const paymentNote = (row as any).payment_notes || (paymentNoteFromTag ? decodeURIComponent(paymentNoteFromTag) : "");
+
+    const escFromTag = Array.isArray(row.tags)
+      ? row.tags.find((t) => t.startsWith("esc_note:"))?.slice(9)
+      : undefined;
+    const escalationReason = (row as any).escalation_reason || (escFromTag ? decodeURIComponent(escFromTag) : "");
+
+    return {
+      id: row.reference || row.id,
+      requestUuid: row.id,
+      chatRoomId: chatRoomId ?? null,
+      title: row.title,
+      category: row.category ?? "Government Form",
+      userName,
+      userInitials: initialsOf(userName),
+      userId: row.user_id,
+      status: DB_TO_TEAM_STATUS[row.status] ?? "pending",
+      priority: (row.priority ?? "medium") as Priority,
+      paymentStatus: paymentStatus as any,
+      paymentNote,
+      escalationReason,
+      createdOn: dayLabel(row.created_at),
+      assignedAt: stamp(row.assigned_at ?? row.created_at),
+      lastUpdated: stamp(row.last_activity_at ?? row.created_at),
+      lastMessage: row.last_message ?? "No messages yet.",
+      unread: 0,
+      progress: row.progress ?? 0,
+      assigneeId: row.assigned_team_id || "",
+      timeline: [{ label: "Request created", time: stamp(row.created_at) }],
+      isEscalated: row.is_escalated ?? false,
+      tags: Array.isArray(row.tags) ? row.tags : [],
+      assignedAtRaw: row.assigned_at ?? row.created_at ?? null,
+      lastActivityAt: row.last_activity_at ?? row.created_at ?? null,
+      completedAt: row.completed_at ?? null,
+      createdAt: row.created_at,
+    };
+  }
 
 export function mapTeamMessage(
   row: MessageRow & { attachment?: DocumentRow | null },

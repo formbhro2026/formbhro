@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   Check,
   CheckCheck,
+  CheckCircle,
   Clock3,
   Info,
   Eye,
@@ -47,11 +48,17 @@ import { CallEventBubble } from "@/components/chat/CallEventBubble";
 import { EmptyState } from "@/components/common/EmptyState";
 import { useTeamStore } from "@/lib/team-store";
 import { setActiveChat } from "@/lib/active-chat-tracker";
-import type { TeamDelivery, Priority, TeamMessage } from "@/data/team-module";
+import type { TeamDelivery, Priority, TeamMessage, PaymentStatus } from "@/data/team-module";
 import { WorkFilters, type WorkFilterValues } from "@/components/team/WorkFilters";
 import { MessageAttachment } from "@/components/team/MessageAttachment";
 import { TransferButton, EscalateButton } from "@/components/team/TransferModal";
 import { ChatTagButton, ChatTagBadges } from "@/components/team/ChatTagModal";
+import {
+  PaymentStatusSelect,
+  PaymentStatusBadge,
+  PaymentNoteButton,
+  CompletionPaymentModal,
+} from "@/components/team/PaymentStatusSelect";
 
 import { useVisualViewport } from "@/lib/use-visual-viewport";
 import { useChatScroll } from "@/lib/use-chat-scroll";
@@ -60,9 +67,9 @@ import { formatBytes, kindFromFile } from "@/lib/team-files";
 import type { TeamRequest } from "@/data/team-module";
 import { cn } from "@/lib/utils";
 import { useGlobalCall } from "@/lib/call-store";
-import { listQuickReplies } from "@/lib/api/notifications";
+import { listQuickReplies, extractQuickReplyImage } from "@/lib/api/notifications";
 import type { QuickReplyRow } from "@/lib/api/types";
-import { Zap } from "lucide-react";
+import { Zap, Image as ImageIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 type WorkSearch = {
@@ -144,10 +151,29 @@ function WorkArea() {
     setStatus,
     markRead,
     assignToMe,
+    updatePaymentStatus,
   } = useTeamStore();
   const { height: viewportHeight } = useVisualViewport();
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [sheet, setSheet] = useState(false);
+  const [completionTarget, setCompletionTarget] = useState<{
+    requestId: string;
+    currentPaymentStatus: PaymentStatus;
+    currentNote?: string;
+  } | null>(null);
+
+  const handleStatusUpdate = (requestId: string, s: TeamRequest["status"]) => {
+    if (s === "completed") {
+      const targetReq = requests.find((req) => req.id === requestId);
+      setCompletionTarget({
+        requestId,
+        currentPaymentStatus: targetReq?.paymentStatus || "paid",
+        currentNote: targetReq?.paymentNote || "",
+      });
+      return;
+    }
+    setStatus(requestId, s);
+  };
 
   const query = search.q ?? "";
   const state = (search.f as "pending" | "completed" | "waiting_documents" | "escalated" | undefined) ?? "all";
@@ -339,14 +365,23 @@ function matchesDateFilter(r: TeamRequest, range: string, custom: string) {
     let active = true;
     (async () => {
       try {
-        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(searchR);
-        let q = supabase.from("requests").select("*, profiles:user_id(full_name, email)");
-        if (isUuid) {
-          q = q.or(`id.eq.${searchR},user_id.eq.${searchR}`);
-        } else {
-          q = q.or(`reference.ilike.%${searchR}%,title.ilike.%${searchR}%`);
+        const raw = searchR.trim();
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const hex32Regex = /^[0-9a-f]{32}$/i;
+        let cleanUuid: string | null = null;
+        if (uuidRegex.test(raw)) {
+          cleanUuid = raw.toLowerCase();
+        } else if (hex32Regex.test(raw)) {
+          cleanUuid = `${raw.slice(0, 8)}-${raw.slice(8, 12)}-${raw.slice(12, 16)}-${raw.slice(16, 20)}-${raw.slice(20)}`.toLowerCase();
         }
-        const { data } = await q.limit(1).maybeSingle();
+
+        let q = supabase.from("requests").select("*, profiles:user_id(full_name, email)");
+        if (cleanUuid) {
+          q = q.or(`id.eq.${cleanUuid},user_id.eq.${cleanUuid}`);
+        } else {
+          q = q.or(`reference.ilike.%${raw}%,title.ilike.%${raw}%`);
+        }
+        const { data } = await q.order("created_at", { ascending: false }).limit(1).maybeSingle();
         if (active && data) {
           const profile = (data as any).profiles;
           const mapped: TeamRequest = {
@@ -389,14 +424,60 @@ function matchesDateFilter(r: TeamRequest, range: string, custom: string) {
     if (!s) return;
     setDirectSearching(true);
     try {
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
-      let q = supabase.from("requests").select("*, profiles:user_id(full_name, email)");
-      if (isUuid) {
-        q = q.or(`id.eq.${s},user_id.eq.${s}`);
-      } else {
-        q = q.or(`reference.ilike.%${s}%,title.ilike.%${s}%`);
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const hex32Regex = /^[0-9a-f]{32}$/i;
+      let cleanUuid: string | null = null;
+      if (uuidRegex.test(s)) {
+        cleanUuid = s.toLowerCase();
+      } else if (hex32Regex.test(s)) {
+        cleanUuid = `${s.slice(0, 8)}-${s.slice(8, 12)}-${s.slice(12, 16)}-${s.slice(16, 20)}-${s.slice(20)}`.toLowerCase();
       }
-      const { data } = await q.limit(1).maybeSingle();
+
+      let data: any = null;
+      if (cleanUuid) {
+        const { data: found } = await supabase
+          .from("requests")
+          .select("*, profiles:user_id(full_name, email)")
+          .or(`id.eq.${cleanUuid},user_id.eq.${cleanUuid}`)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        data = found;
+      }
+
+      if (!data) {
+        // Try searching requests by reference or title
+        const { data: found } = await supabase
+          .from("requests")
+          .select("*, profiles:user_id(full_name, email)")
+          .or(`reference.ilike.%${s}%,title.ilike.%${s}%`)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        data = found;
+      }
+
+      if (!data) {
+        // Fallback: check profile by email, phone, name to find user_id
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("id")
+          .or(`email.ilike.%${s}%,phone.ilike.%${s}%,full_name.ilike.%${s}%`)
+          .limit(1)
+          .maybeSingle();
+
+        if (prof?.id) {
+          const { data: userReq } = await supabase
+            .from("requests")
+            .select("*, profiles:user_id(full_name, email)")
+            .eq("user_id", prof.id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          data = userReq;
+        }
+      }
+
       if (data) {
         const isMine = data.assigned_team_id === member?.id;
         const isPool = !data.assigned_team_id;
@@ -626,7 +707,7 @@ function matchesDateFilter(r: TeamRequest, range: string, custom: string) {
               messages={messagesFor(selected.id)}
               onSend={(t) => sendMessage(selected.id, t)}
               onAttach={(f) => attachDocument(selected.id, f)}
-              onStatus={(s) => setStatus(selected.id, s)}
+              onStatus={(s) => handleStatusUpdate(selected.id, s)}
               onOpenSheet={() => setSheet(true)}
               onPreview={setPreviewId}
               docCount={documentsFor(selected.id).length}
@@ -659,7 +740,7 @@ function matchesDateFilter(r: TeamRequest, range: string, custom: string) {
             <RequestPanel
               request={selected}
               onPreview={(id) => setPreviewId(id)}
-              onStatus={(s) => setStatus(selected.id, s)}
+              onStatus={(s) => handleStatusUpdate(selected.id, s)}
               onSend={sendMessage}
             />
           ) : search.r ? (
@@ -675,7 +756,7 @@ function matchesDateFilter(r: TeamRequest, range: string, custom: string) {
           request={selected}
           onClose={() => setSheet(false)}
           onPreview={setPreviewId}
-          onStatus={(s) => setStatus(selected.id, s)}
+          onStatus={(s) => handleStatusUpdate(selected.id, s)}
           onSend={sendMessage}
         />
       )}
@@ -684,6 +765,20 @@ function matchesDateFilter(r: TeamRequest, range: string, custom: string) {
           document={preview}
           onClose={() => setPreviewId(null)}
           onDelete={() => void deleteDocument(preview.id, preview.storagePath)}
+        />
+      )}
+      {completionTarget && (
+        <CompletionPaymentModal
+          open={!!completionTarget}
+          requestId={completionTarget.requestId}
+          currentStatus={completionTarget.currentPaymentStatus}
+          currentNote={completionTarget.currentNote}
+          onClose={() => setCompletionTarget(null)}
+          onConfirm={(ps, note) => {
+            setStatus(completionTarget.requestId, "completed");
+            updatePaymentStatus(completionTarget.requestId, ps, note);
+            setCompletionTarget(null);
+          }}
         />
       )}
     </>
@@ -727,6 +822,7 @@ function ConversationCard({ request: r, active }: { request: TeamRequest; active
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           <TeamStatusBadge status={r.status} />
           <PriorityBadge priority={r.priority} />
+          <PaymentStatusBadge status={r.paymentStatus} />
         </div>
         {r.tags && r.tags.length > 0 && <ChatTagBadges tags={r.tags} className="mt-1.5" />}
         <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-text-muted">
@@ -1001,6 +1097,7 @@ function Conversation({
     pinnedFor,
     assignToMe,
     updateTags,
+    updatePaymentStatus,
   } = useTeamStore();
 
   const { member } = useTeamStore();
@@ -1344,9 +1441,24 @@ function Conversation({
               {unreadCount} unread
             </button>
           )}
-          <div className="min-w-[7.5rem] flex-1">
+          <div className="flex flex-wrap items-center gap-1.5 min-w-[220px] flex-1">
             <StatusSelect requestId={r.id} status={r.status} onChange={onStatus} />
+            <PaymentStatusSelect
+              requestId={r.id}
+              status={r.paymentStatus}
+              onChange={(ps) => updatePaymentStatus(r.id, ps)}
+            />
           </div>
+          {r.status !== "completed" && (
+            <button
+              type="button"
+              onClick={() => onStatus("completed")}
+              className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-2.5 text-[11px] font-bold text-emerald-400 hover:bg-emerald-500/20 whitespace-nowrap shadow-xs"
+            >
+              <CheckCircle className="h-3.5 w-3.5" />
+              Complete
+            </button>
+          )}
         </div>
 
         {/* Row 2 desktop: status, transfer, escalate in header row (xl+) */}
@@ -1355,6 +1467,21 @@ function Conversation({
             <div className="w-56">
               <StatusSelect requestId={r.id} status={r.status} onChange={onStatus} />
             </div>
+            <PaymentStatusSelect
+              requestId={r.id}
+              status={r.paymentStatus}
+              onChange={(ps) => updatePaymentStatus(r.id, ps)}
+            />
+            {r.status !== "completed" && (
+              <button
+                type="button"
+                onClick={() => onStatus("completed")}
+                className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-3 text-xs font-bold text-emerald-400 hover:bg-emerald-500/25 shadow-xs transition-colors"
+              >
+                <CheckCircle className="h-3.5 w-3.5" />
+                Mark Completed
+              </button>
+            )}
             {unreadCount > 0 && (
               <button
                 type="button"
@@ -1496,6 +1623,20 @@ function Conversation({
             <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
             Retry all
           </button>
+        </div>
+      )}
+
+      {r.isEscalated && (
+        <div className="flex items-center gap-2.5 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-xs text-amber-200">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
+          <div className="min-w-0 flex-1">
+            <span className="font-bold text-amber-300">Escalated to Admin</span>
+            {r.escalationReason && (
+              <span className="ml-1.5 text-amber-100/90 font-medium">
+                — Note: {r.escalationReason}
+              </span>
+            )}
+          </div>
         </div>
       )}
 
@@ -1677,11 +1818,28 @@ function Conversation({
                       </div>
                     </div>
                   ) : (
-                    m.text && (
-                      <p className="whitespace-pre-wrap break-words">
-                        <Highlighted text={m.text} query={query} active={activeMatchId === m.id} />
-                      </p>
-                    )
+                    m.text && (() => {
+                      const { imageUrl, cleanBody } = extractQuickReplyImage(m.text);
+                      return (
+                        <div className="space-y-2">
+                          {imageUrl && (
+                            <div className="overflow-hidden rounded-xl border border-white/10 bg-black/20">
+                              <img
+                                src={imageUrl}
+                                alt="Attachment"
+                                className="max-h-60 w-auto max-w-full rounded-xl object-contain cursor-pointer hover:opacity-95 transition-opacity"
+                                onClick={() => window.open(imageUrl, "_blank")}
+                              />
+                            </div>
+                          )}
+                          {cleanBody && (
+                            <p className="whitespace-pre-wrap break-words">
+                              <Highlighted text={cleanBody} query={query} active={activeMatchId === m.id} />
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()
                   )}
                   {doc && (
                     <MessageAttachment
@@ -1944,16 +2102,30 @@ function Conversation({
               <Zap className="h-4 w-4" aria-hidden="true" />
             </button>
             {(showQuickReplies || text.startsWith("/")) && quickReplies.length > 0 && (
-              <div className="absolute bottom-full left-0 mb-2 w-[min(18rem,calc(100vw-3rem))] max-h-64 overflow-y-auto rounded-xl border border-border-subtle bg-surface-1 p-2 shadow-2xl z-50">
+              <div className="absolute bottom-full left-0 mb-2 w-[min(20rem,calc(100vw-3rem))] max-h-72 overflow-y-auto rounded-xl border border-border-subtle bg-surface-1 p-2 shadow-2xl z-50">
                 <div className="mb-2 px-2 pb-2 pt-1 text-[11px] font-semibold text-text-muted border-b border-border-subtle flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <Zap className="h-3 w-3 text-brand" /> Quick Replies
+                  <span className="flex items-center gap-1.5 font-bold text-white">
+                    <Zap className="h-3.5 w-3.5 text-brand" /> Quick Replies
                   </span>
-                  {text.startsWith("/") && (
-                    <span className="text-[10px] text-brand-light font-mono">
-                      Type to filter
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {text.startsWith("/") && (
+                      <span className="text-[10px] text-brand-light font-mono">
+                        Type to filter
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowQuickReplies(false);
+                        fileRef.current?.click();
+                      }}
+                      className="inline-flex items-center gap-1 rounded bg-brand/10 hover:bg-brand/20 text-brand text-[10px] px-1.5 py-0.5 font-medium transition-colors"
+                      title="Send / attach image"
+                    >
+                      <ImageIcon className="h-3 w-3" />
+                      <span>+ Image</span>
+                    </button>
+                  </div>
                 </div>
                 {(() => {
                   const query = text.startsWith("/") ? text.slice(1).trim().toLowerCase() : "";
@@ -1973,25 +2145,42 @@ function Conversation({
                     );
                   }
 
-                  return filtered.map((qr) => (
-                    <button
-                      key={qr.id}
-                      type="button"
-                      className="w-full text-left rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-2 transition-colors mb-1 group"
-                      onClick={() => {
-                        setText(qr.body);
-                        setShowQuickReplies(false);
-                        document.getElementById("team-composer")?.focus();
-                      }}
-                    >
-                      <div className="font-medium truncate text-xs text-white group-hover:text-brand transition-colors">
-                        {qr.title}
-                      </div>
-                      <div className="text-[11px] text-text-muted truncate mt-0.5 leading-tight">
-                        {qr.body}
-                      </div>
-                    </button>
-                  ));
+                  return filtered.map((qr) => {
+                    const { imageUrl, cleanBody } = extractQuickReplyImage(qr.body);
+                    return (
+                      <button
+                        key={qr.id}
+                        type="button"
+                        className="w-full text-left rounded-lg px-2.5 py-2 text-sm text-text hover:bg-surface-2 transition-colors mb-1 group flex items-start gap-2.5"
+                        onClick={() => {
+                          setText(qr.body);
+                          setShowQuickReplies(false);
+                          document.getElementById("team-composer")?.focus();
+                        }}
+                      >
+                        {imageUrl && (
+                          <img
+                            src={imageUrl}
+                            alt=""
+                            className="h-10 w-10 shrink-0 rounded-md object-cover border border-white/10 bg-black/40 mt-0.5"
+                          />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium truncate text-xs text-white group-hover:text-brand transition-colors flex items-center gap-1.5">
+                            <span className="truncate">{qr.title}</span>
+                            {imageUrl && (
+                              <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-brand bg-brand/10 px-1 py-0.2 rounded shrink-0">
+                                <ImageIcon className="h-2.5 w-2.5" /> Image
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-text-muted truncate mt-0.5 leading-tight">
+                            {cleanBody}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  });
                 })()}
               </div>
             )}
@@ -2063,7 +2252,14 @@ function RequestPanel({
   onStatus: (s: TeamRequest["status"]) => void;
   onSend: (requestId: string, text: string) => void;
 }) {
-  const { documentsFor, documentsForUser, loadDocumentsForRequest, deleteDocument, updatePriority } = useTeamStore();
+  const {
+    documentsFor,
+    documentsForUser,
+    loadDocumentsForRequest,
+    deleteDocument,
+    updatePriority,
+    updatePaymentStatus,
+  } = useTeamStore();
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [docTab, setDocTab] = useState<"this_request" | "all_user">("this_request");
 
@@ -2089,6 +2285,7 @@ function RequestPanel({
     { label: "Request ID", value: r.id },
     { label: "Created On", value: r.createdOn },
     { label: "Current Status", value: null as string | null },
+    { label: "Payment Status", value: null as string | null },
     { label: "Priority", value: null as string | null },
     { label: "Category", value: r.category },
     {
@@ -2105,9 +2302,15 @@ function RequestPanel({
         {rows.map((row) => (
           <div key={row.label} className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3">
             <dt className="text-[11px] text-text-muted">{row.label}</dt>
-            <dd className="min-w-0 text-right text-[11px] font-semibold text-text">
+            <dd className="min-w-0 text-right text-[11px] font-semibold text-text flex justify-end">
               {row.label === "Current Status" ? (
                 <TeamStatusBadge status={r.status} />
+              ) : row.label === "Payment Status" ? (
+                <PaymentStatusSelect
+                  requestId={r.id}
+                  status={r.paymentStatus}
+                  onChange={(ps) => updatePaymentStatus(r.id, ps)}
+                />
               ) : row.label === "Priority" ? (
                 <PrioritySelect
                   requestId={r.id}
@@ -2123,6 +2326,24 @@ function RequestPanel({
             </dd>
           </div>
         ))}
+
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3 pt-2 border-t border-white/5">
+          <dt className="text-[11px] text-text-muted pt-0.5">Payment Note</dt>
+          <dd className="min-w-0 text-right text-[11px] flex flex-col items-end gap-1">
+            {r.paymentNote ? (
+              <span className="text-[11px] text-amber-200 bg-amber-500/10 border border-amber-500/20 rounded-lg px-2 py-1 max-w-full text-left break-words">
+                {r.paymentNote}
+              </span>
+            ) : (
+              <span className="text-[11px] text-text-muted italic">No payment note</span>
+            )}
+            <PaymentNoteButton
+              requestId={r.id}
+              currentNote={r.paymentNote}
+              paymentStatus={r.paymentStatus}
+            />
+          </dd>
+        </div>
       </dl>
 
       <div className="mt-4 flex flex-col gap-2">

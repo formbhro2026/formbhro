@@ -19,10 +19,11 @@ export function getTagStyle(tag: string) {
 }
 
 export function ChatTagBadges({ tags, className }: { tags?: string[]; className?: string }) {
-  if (!tags || tags.length === 0) return null;
+  const visibleTags = (tags || []).filter((t) => !t.startsWith("payment:"));
+  if (visibleTags.length === 0) return null;
   return (
     <div className={cn("flex flex-wrap gap-1", className)}>
-      {tags.map((t) => (
+      {visibleTags.map((t) => (
         <span
           key={t}
           className={cn(

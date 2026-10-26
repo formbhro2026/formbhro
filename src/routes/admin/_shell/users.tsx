@@ -12,6 +12,7 @@ import {
   formatDate,
 } from "@/components/admin/AdminUI";
 import { getAdminUsers, setUserActive, type AdminUserRow } from "@/lib/api/admin.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/admin/_shell/users")({ component: AdminUsers });
 
@@ -42,12 +43,30 @@ function AdminUsers() {
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
-  // The requestsPage only holds requests visible on the admin dashboard,
-  // so this isn't a true full history, but it matches the previous behavior.
+  // Fetch full request history for the selected user on demand
+  const { data: userRequests = [], isLoading: loadingUserRequests } = useQuery({
+    queryKey: ["admin-user-requests", selected?.id],
+    queryFn: async () => {
+      if (!selected?.id) return [];
+      const { data, error } = await supabase
+        .from("requests")
+        .select("*")
+        .eq("user_id", selected.id)
+        .order("created_at", { ascending: false });
+      if (error) {
+        console.error("Failed to fetch user requests:", error);
+        return [];
+      }
+      return data ?? [];
+    },
+    enabled: !!selected?.id,
+  });
+
   const detailRequests = useMemo(() => {
     if (!selected) return [];
+    if (userRequests.length > 0) return userRequests;
     return requestsPage.filter((r) => r.user_id === selected.id);
-  }, [selected, requestsPage]);
+  }, [selected, userRequests, requestsPage]);
 
   const toggleActive = async (id: string, active: boolean) => {
     setBusy(id);
@@ -292,7 +311,7 @@ function AdminUsers() {
                   ))}
                   {!detailRequests.length && (
                     <li className="py-6 text-center text-xs text-text-muted">
-                      No recent requests on page.
+                      {loadingUserRequests ? "Loading user requests..." : "No requests found for this user."}
                     </li>
                   )}
                 </ul>

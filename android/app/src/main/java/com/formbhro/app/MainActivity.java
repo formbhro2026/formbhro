@@ -202,35 +202,42 @@ public class MainActivity extends BridgeActivity {
         }
         
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1) {
-            setShowWhenLocked(true);
-            setTurnScreenOn(true);
+            try {
+                setShowWhenLocked(true);
+                setTurnScreenOn(true);
+            } catch (Throwable ignored) {}
         }
 
-        if (this.bridge != null && this.bridge.getWebView() != null) {
-            this.bridge.getWebView().addJavascriptInterface(new FormbharoNativeBridge(), "FormbharoNativeBridge");
+        setupWebView();
+        
+        try {
+            handleCallIntent(getIntent());
+            handleMessageIntent(getIntent());
+        } catch (Throwable t) {
+            android.util.Log.w("MainActivity", "Error handling intent: " + t.getMessage());
         }
         
-        handleCallIntent(getIntent());
-        handleMessageIntent(getIntent());
-        
-        // Request runtime permissions for Android (Microphone, Camera, Audio, Notifications)
-        java.util.List<String> permList = new java.util.ArrayList<>();
-        permList.add(Manifest.permission.RECORD_AUDIO);
-        permList.add(Manifest.permission.CAMERA);
-        permList.add(Manifest.permission.MODIFY_AUDIO_SETTINGS);
-        if (android.os.Build.VERSION.SDK_INT >= 33) {
-            permList.add(Manifest.permission.POST_NOTIFICATIONS);
-        }
-
-        java.util.List<String> needed = new java.util.ArrayList<>();
-        for (String perm : permList) {
-            if (ContextCompat.checkSelfPermission(this, perm) != PackageManager.PERMISSION_GRANTED) {
-                needed.add(perm);
+        // Request runtime permissions for Android (Microphone, Camera, Notifications)
+        try {
+            java.util.List<String> permList = new java.util.ArrayList<>();
+            permList.add(Manifest.permission.RECORD_AUDIO);
+            permList.add(Manifest.permission.CAMERA);
+            if (android.os.Build.VERSION.SDK_INT >= 33) {
+                permList.add(Manifest.permission.POST_NOTIFICATIONS);
             }
-        }
 
-        if (!needed.isEmpty()) {
-            ActivityCompat.requestPermissions(this, needed.toArray(new String[0]), 1001);
+            java.util.List<String> needed = new java.util.ArrayList<>();
+            for (String perm : permList) {
+                if (ContextCompat.checkSelfPermission(this, perm) != PackageManager.PERMISSION_GRANTED) {
+                    needed.add(perm);
+                }
+            }
+
+            if (!needed.isEmpty()) {
+                ActivityCompat.requestPermissions(this, needed.toArray(new String[0]), 1001);
+            }
+        } catch (Throwable t) {
+            android.util.Log.w("MainActivity", "Error requesting permissions: " + t.getMessage());
         }
 
         // Create high-importance notification channels for incoming calls & messages (Android 8.0+)
@@ -449,18 +456,33 @@ public class MainActivity extends BridgeActivity {
         return str.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "");
     }
 
+    private void setupWebView() {
+        try {
+            if (this.bridge != null && this.bridge.getWebView() != null) {
+                WebView webView = this.bridge.getWebView();
+                webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
+                webView.getSettings().setJavaScriptCanOpenWindowsAutomatically(true);
+                webView.addJavascriptInterface(new FormbharoNativeBridge(), "FormbharoNativeBridge");
+            }
+        } catch (Throwable t) {
+            android.util.Log.w("MainActivity", "[SETUP] Error in setupWebView: " + t.getMessage());
+        }
+    }
+
     @Override
     public void onResume() {
         super.onResume();
         isAppInForeground = true;
-        if (this.bridge != null && this.bridge.getWebView() != null) {
-            WebView webView = this.bridge.getWebView();
-            webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
-            webView.addJavascriptInterface(new FormbharoNativeBridge(), "FormbharoNativeBridge");
-            
-            if (pendingCallAnswerJs != null) {
-                webView.evaluateJavascript(pendingCallAnswerJs, null);
+        try {
+            setupWebView();
+            if (this.bridge != null && this.bridge.getWebView() != null) {
+                WebView webView = this.bridge.getWebView();
+                if (pendingCallAnswerJs != null) {
+                    webView.evaluateJavascript(pendingCallAnswerJs, null);
+                }
             }
+        } catch (Throwable t) {
+            android.util.Log.w("MainActivity", "[RESUME] Error in onResume: " + t.getMessage());
         }
     }
 

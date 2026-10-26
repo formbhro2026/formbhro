@@ -42,6 +42,7 @@ android/app/build/
 android/.gradle/
 android/build/
 android/capacitor-cordova-android-plugins/build/
+release-builds/
 
 # NEVER commit google-services.json (contains Firebase project config)
 # Place it manually in android/app/ after downloading from Firebase Console

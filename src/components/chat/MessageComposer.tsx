@@ -5,6 +5,7 @@ import {
   File,
   FileImage,
   FileText,
+  Image as ImageIcon,
   Plus,
   RotateCcw,
   Send,
@@ -14,7 +15,7 @@ import {
 import { toast } from "sonner";
 import { AttachmentMenu, type PickKind } from "@/components/chat/AttachmentMenu";
 import { buildFilePreview, type FilePreview } from "@/lib/file-preview";
-import { listQuickReplies } from "@/lib/api/notifications";
+import { listQuickReplies, extractQuickReplyImage } from "@/lib/api/notifications";
 import type { QuickReplyRow } from "@/lib/api/types";
 
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -363,15 +364,31 @@ export function MessageComposer({
         {(showQuickReplies || text.startsWith("/")) && quickReplies.length > 0 && (
           <div
             ref={quickRepliesRef}
-            className="absolute bottom-full left-0 mb-2 w-[min(20rem,calc(100vw-3rem))] max-h-64 overflow-y-auto rounded-2xl border border-border-subtle bg-surface-1 p-2 shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-2 duration-150"
+            className="absolute bottom-full left-0 mb-2 w-[min(20rem,calc(100vw-3rem))] max-h-72 overflow-y-auto rounded-2xl border border-border-subtle bg-surface-1 p-2 shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-2 duration-150"
           >
             <div className="mb-2 px-2 pb-2 pt-1 text-[11px] font-semibold text-text-muted border-b border-border-subtle flex items-center justify-between">
               <span className="flex items-center gap-1.5 font-bold text-white">
                 <Zap className="h-3.5 w-3.5 text-brand" /> Quick Replies
               </span>
-              <span className="text-[10px] text-brand-light font-mono">
-                Type to filter
-              </span>
+              <div className="flex items-center gap-2">
+                {text.startsWith("/") && (
+                  <span className="text-[10px] text-brand-light font-mono">
+                    Type to filter
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowQuickReplies(false);
+                    fileInputRef.current?.click();
+                  }}
+                  className="inline-flex items-center gap-1 rounded bg-brand/10 hover:bg-brand/20 text-brand text-[10px] px-1.5 py-0.5 font-medium transition-colors"
+                  title="Send / attach image"
+                >
+                  <ImageIcon className="h-3 w-3" />
+                  <span>+ Image</span>
+                </button>
+              </div>
             </div>
             {(() => {
               const query = text.startsWith("/") ? text.slice(1).trim().toLowerCase() : "";
@@ -391,25 +408,42 @@ export function MessageComposer({
                 );
               }
 
-              return filtered.map((qr) => (
-                <button
-                  key={qr.id}
-                  type="button"
-                  className="w-full text-left rounded-xl px-3 py-2 text-sm text-text hover:bg-surface-2 transition-colors mb-1 group"
-                  onClick={() => {
-                    setText(qr.body);
-                    setShowQuickReplies(false);
-                    inputRef.current?.focus();
-                  }}
-                >
-                  <div className="font-semibold truncate text-xs text-white group-hover:text-brand transition-colors">
-                    {qr.title}
-                  </div>
-                  <div className="text-[11px] text-text-muted truncate mt-0.5 leading-tight">
-                    {qr.body}
-                  </div>
-                </button>
-              ));
+              return filtered.map((qr) => {
+                const { imageUrl, cleanBody } = extractQuickReplyImage(qr.body);
+                return (
+                  <button
+                    key={qr.id}
+                    type="button"
+                    className="w-full text-left rounded-xl px-2.5 py-2 text-sm text-text hover:bg-surface-2 transition-colors mb-1 group flex items-start gap-2.5"
+                    onClick={() => {
+                      setText(qr.body);
+                      setShowQuickReplies(false);
+                      inputRef.current?.focus();
+                    }}
+                  >
+                    {imageUrl && (
+                      <img
+                        src={imageUrl}
+                        alt=""
+                        className="h-10 w-10 shrink-0 rounded-md object-cover border border-white/10 bg-black/40 mt-0.5"
+                      />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="font-semibold truncate text-xs text-white group-hover:text-brand transition-colors flex items-center gap-1.5">
+                        <span className="truncate">{qr.title}</span>
+                        {imageUrl && (
+                          <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-brand bg-brand/10 px-1 py-0.2 rounded shrink-0">
+                            <ImageIcon className="h-2.5 w-2.5" /> Image
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-text-muted truncate mt-0.5 leading-tight">
+                        {cleanBody}
+                      </div>
+                    </div>
+                  </button>
+                );
+              });
             })()}
           </div>
         )}
