@@ -364,6 +364,8 @@ export function formatQuickReplyBody(cleanBody: string, imageUrl?: string | null
   return `[IMAGE: ${trimmedUrl}]\n${trimmedBody}`;
 }
 
+export const formatQuickReplyWithImage = formatQuickReplyBody;
+
 export async function listQuickReplies(): Promise<QuickReplyRow[]> {
   const { data, error } = await supabase.from("quick_replies").select("*").order("created_at");
   if (error) throw new ApiError(error.message, error.code);

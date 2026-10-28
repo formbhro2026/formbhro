@@ -67,7 +67,7 @@ import { formatBytes, kindFromFile } from "@/lib/team-files";
 import type { TeamRequest } from "@/data/team-module";
 import { cn } from "@/lib/utils";
 import { useGlobalCall } from "@/lib/call-store";
-import { listQuickReplies, extractQuickReplyImage } from "@/lib/api/notifications";
+import { listQuickReplies, extractQuickReplyImage, formatQuickReplyWithImage } from "@/lib/api/notifications";
 import type { QuickReplyRow } from "@/lib/api/types";
 import { Zap, Image as ImageIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -1135,6 +1135,50 @@ function Conversation({
   const [quickReplies, setQuickReplies] = useState<QuickReplyRow[]>([]);
   const [showQuickReplies, setShowQuickReplies] = useState(false);
   const quickRepliesRef = useRef<HTMLDivElement>(null);
+  const [uploadingQuickImage, setUploadingQuickImage] = useState(false);
+  const quickImageFileRef = useRef<HTMLInputElement>(null);
+
+  const sendQuickReplyDirect = (body: string) => {
+    if (!body.trim()) return;
+    onSend(body.trim());
+    setShowQuickReplies(false);
+    setText("");
+    toast.success("Quick reply sent");
+  };
+
+  const handleSendQuickImage = async (file: File) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file (PNG, JPG, WebP)");
+      return;
+    }
+    setUploadingQuickImage(true);
+    try {
+      const storagePath = `quick_replies/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+      const { error: uploadError } = await supabase.storage.from("avatars").upload(storagePath, file, {
+        upsert: true,
+        contentType: file.type,
+      });
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from("avatars").getPublicUrl(storagePath);
+      if (data?.publicUrl) {
+        const bodyWithImage = formatQuickReplyWithImage(
+          text.startsWith("/") ? "" : text.trim(),
+          data.publicUrl,
+        );
+        onSend(bodyWithImage);
+        setShowQuickReplies(false);
+        setText("");
+        toast.success("Image sent via Quick Replies");
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to upload and send image");
+    } finally {
+      setUploadingQuickImage(false);
+      if (quickImageFileRef.current) quickImageFileRef.current.value = "";
+    }
+  };
 
   useEffect(() => {
     setDividerId(messages.find((m) => m.author === "user" && !m.read)?.id ?? null);
@@ -2102,29 +2146,43 @@ function Conversation({
               <Zap className="h-4 w-4" aria-hidden="true" />
             </button>
             {(showQuickReplies || text.startsWith("/")) && quickReplies.length > 0 && (
-              <div className="absolute bottom-full left-0 mb-2 w-[min(20rem,calc(100vw-3rem))] max-h-72 overflow-y-auto rounded-xl border border-border-subtle bg-surface-1 p-2 shadow-2xl z-50">
-                <div className="mb-2 px-2 pb-2 pt-1 text-[11px] font-semibold text-text-muted border-b border-border-subtle flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 font-bold text-white">
+              <div className="absolute bottom-full left-0 mb-2 w-[min(22rem,calc(100vw-3rem))] max-h-72 overflow-y-auto rounded-xl border border-border-subtle bg-surface-1 p-2 shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                <div className="mb-2 px-2 pb-2 pt-1 text-[11px] font-semibold text-text-muted border-b border-border-subtle flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 font-bold text-white shrink-0">
                     <Zap className="h-3.5 w-3.5 text-brand" /> Quick Replies
                   </span>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     {text.startsWith("/") && (
-                      <span className="text-[10px] text-brand-light font-mono">
+                      <span className="text-[10px] text-brand-light font-mono hidden sm:inline">
                         Type to filter
                       </span>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowQuickReplies(false);
-                        fileRef.current?.click();
-                      }}
-                      className="inline-flex items-center gap-1 rounded bg-brand/10 hover:bg-brand/20 text-brand text-[10px] px-1.5 py-0.5 font-medium transition-colors"
-                      title="Send / attach image"
+                    <label
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-lg bg-brand/15 hover:bg-brand text-brand hover:text-black border border-brand/30 text-[10px] px-2 py-0.5 font-bold transition-all cursor-pointer shadow-xs",
+                        uploadingQuickImage && "opacity-50 cursor-not-allowed",
+                      )}
+                      title="Upload and send image directly through Quick Replies"
                     >
-                      <ImageIcon className="h-3 w-3" />
-                      <span>+ Image</span>
-                    </button>
+                      {uploadingQuickImage ? (
+                        <Loader2 className="h-3 w-3 animate-spin text-brand" />
+                      ) : (
+                        <ImageIcon className="h-3 w-3" />
+                      )}
+                      <span>{uploadingQuickImage ? "Sending…" : "Send Image"}</span>
+                      <input
+                        ref={quickImageFileRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        disabled={uploadingQuickImage}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) void handleSendQuickImage(f);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
                   </div>
                 </div>
                 {(() => {
@@ -2148,10 +2206,9 @@ function Conversation({
                   return filtered.map((qr) => {
                     const { imageUrl, cleanBody } = extractQuickReplyImage(qr.body);
                     return (
-                      <button
+                      <div
                         key={qr.id}
-                        type="button"
-                        className="w-full text-left rounded-lg px-2.5 py-2 text-sm text-text hover:bg-surface-2 transition-colors mb-1 group flex items-start gap-2.5"
+                        className="w-full text-left rounded-lg px-2.5 py-2 text-sm text-text hover:bg-surface-2 transition-colors mb-1 group flex items-start gap-2.5 cursor-pointer"
                         onClick={() => {
                           setText(qr.body);
                           setShowQuickReplies(false);
@@ -2166,19 +2223,28 @@ function Conversation({
                           />
                         )}
                         <div className="min-w-0 flex-1">
-                          <div className="font-medium truncate text-xs text-white group-hover:text-brand transition-colors flex items-center gap-1.5">
+                          <div className="font-medium truncate text-xs text-white group-hover:text-brand transition-colors flex items-center justify-between gap-1.5">
                             <span className="truncate">{qr.title}</span>
                             {imageUrl && (
-                              <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-brand bg-brand/10 px-1 py-0.2 rounded shrink-0">
-                                <ImageIcon className="h-2.5 w-2.5" /> Image
-                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  sendQuickReplyDirect(qr.body);
+                                }}
+                                className="inline-flex items-center gap-1 rounded bg-brand/20 hover:bg-brand text-brand hover:text-black border border-brand/40 px-2 py-0.5 text-[10px] font-bold transition-all shrink-0"
+                                title="Send image immediately to chat"
+                              >
+                                <Send className="h-2.5 w-2.5" />
+                                <span>Send Image</span>
+                              </button>
                             )}
                           </div>
                           <div className="text-[11px] text-text-muted truncate mt-0.5 leading-tight">
                             {cleanBody}
                           </div>
                         </div>
-                      </button>
+                      </div>
                     );
                   });
                 })()}

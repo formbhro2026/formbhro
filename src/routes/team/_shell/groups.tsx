@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import {
   Users,
   Briefcase,
@@ -22,6 +22,8 @@ import {
   Loader2,
   ShieldCheck,
   Share2,
+  AlertCircle,
+  Upload,
 } from "lucide-react";
 import { TeamHeader } from "@/components/team/TeamHeader";
 import { EmptyState } from "@/components/common/EmptyState";
@@ -38,7 +40,7 @@ import {
   type JobGroupId,
 } from "@/data/vacancy-groups";
 import { QualificationMultiSelect } from "@/components/common/QualificationMultiSelect";
-import { uploadNewsBanner } from "@/lib/api/admin.functions";
+import { uploadNewsBanner, resolveImageUrl } from "@/lib/api/admin.functions";
 
 export const Route = createFileRoute("/team/_shell/groups")({
   ssr: false,
@@ -73,6 +75,7 @@ interface GroupPostItem {
   notification_url?: string;
   image_url?: string | null;
   published: boolean;
+  featured?: boolean;
   published_at: string;
   author_name?: string;
   custom_fields?: any;
@@ -103,6 +106,10 @@ function TeamJobGroups() {
   // Post Vacancy Modal state
   const [showModal, setShowModal] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [resolvingUrl, setResolvingUrl] = useState(false);
+  const [previewError, setPreviewError] = useState(false);
+  const [customFields, setCustomFields] = useState<notificationsApi.CustomFilterField[]>([]);
+  const bannerFileRef = useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
 
@@ -113,12 +120,15 @@ function TeamJobGroups() {
     qualification: "Graduation",
     min_age: "18",
     max_age: "45",
-    vacancy_status: "Live",
+    vacancy_status: "live",
     application_last_date: "",
     vacancies_count: "",
     application_url: "",
     notification_url: "",
     image_url: "",
+    published: true,
+    featured: false,
+    custom_fields: {} as Record<string, any>,
   });
 
   // Check permission
@@ -186,6 +196,10 @@ function TeamJobGroups() {
     }
   }, [activeGroupId]);
 
+  useEffect(() => {
+    void notificationsApi.listCustomFields().then((f) => setCustomFields(f || []));
+  }, []);
+
   const handleOpenGroup = (groupId: JobGroupId) => {
     setSearchQuery("");
     setSelectedQualification("All");
@@ -204,11 +218,49 @@ function TeamJobGroups() {
     });
   };
 
+  const handleUrlChange = async (urlVal: string) => {
+    let finalUrl = urlVal;
+
+    const gDriveMatch = finalUrl.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (gDriveMatch) {
+      finalUrl = `https://lh3.googleusercontent.com/d/${gDriveMatch[1]}`;
+    } else if (finalUrl.includes("dropbox.com")) {
+      finalUrl =
+        finalUrl.replace(/[?&]dl=0/, "").replace(/[?&]raw=1/, "") +
+        (finalUrl.includes("?") ? "&raw=1" : "?raw=1");
+    } else {
+      const imgurMatch = finalUrl.match(/imgur\.com\/(?:a\/|gallery\/)?([a-zA-Z0-9]+)$/);
+      if (imgurMatch) finalUrl = `https://i.imgur.com/${imgurMatch[1]}.jpg`;
+    }
+
+    setForm((prev) => ({ ...prev, image_url: finalUrl }));
+    setPreviewError(false);
+
+    if (finalUrl.includes("ibb.co/") && !finalUrl.includes("i.ibb.co/")) {
+      setResolvingUrl(true);
+      try {
+        const resolved = await resolveImageUrl({ data: { url: finalUrl } });
+        if (resolved?.url && resolved.url !== finalUrl) {
+          setForm((prev) => ({ ...prev, image_url: resolved.url }));
+          setPreviewError(false);
+        }
+      } catch (e) {
+        // keep original url
+      } finally {
+        setResolvingUrl(false);
+      }
+    }
+  };
+
   // Handle Banner Upload
   const handleBannerUpload = async (file: File) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
       toast.error("Please select a valid image file.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Image file size must be less than 10MB.");
       return;
     }
     setUploadingBanner(true);
@@ -251,6 +303,7 @@ function TeamJobGroups() {
 
       if (publicUrl) {
         setForm((prev) => ({ ...prev, image_url: publicUrl }));
+        setPreviewError(false);
         toast.success("Banner image attached!");
       }
     } catch (_) {
@@ -263,6 +316,7 @@ function TeamJobGroups() {
   // Open Create Modal
   const handleOpenCreate = () => {
     setEditingPostId(null);
+    setPreviewError(false);
     setForm({
       title: "",
       description: "",
@@ -270,12 +324,15 @@ function TeamJobGroups() {
       qualification: "Graduation",
       min_age: "18",
       max_age: "45",
-      vacancy_status: "Live",
+      vacancy_status: "live",
       application_last_date: "",
       vacancies_count: "",
       application_url: "",
       notification_url: "",
       image_url: "",
+      published: true,
+      featured: false,
+      custom_fields: {},
     });
     setShowModal(true);
   };
@@ -283,6 +340,7 @@ function TeamJobGroups() {
   // Open Edit Modal
   const handleOpenEdit = (post: GroupPostItem) => {
     setEditingPostId(post.id);
+    setPreviewError(false);
     setForm({
       title: post.title,
       description: post.description,
@@ -290,12 +348,15 @@ function TeamJobGroups() {
       qualification: post.qualification || "Graduation",
       min_age: post.min_age ? String(post.min_age) : "18",
       max_age: post.max_age ? String(post.max_age) : "45",
-      vacancy_status: post.vacancy_status || "Live",
-      application_last_date: post.application_last_date || "",
+      vacancy_status: post.vacancy_status?.toLowerCase() === "closed" ? "closed" : "live",
+      application_last_date: post.application_last_date ? post.application_last_date.split("T")[0] : "",
       vacancies_count: post.total_vacancies ? String(post.total_vacancies) : "",
       application_url: post.apply_url || "",
       notification_url: post.notification_url || "",
       image_url: post.image_url || "",
+      published: post.published ?? true,
+      featured: post.featured ?? false,
+      custom_fields: post.custom_fields || {},
     });
     setShowModal(true);
   };
@@ -340,6 +401,7 @@ function TeamJobGroups() {
     try {
       const authorName = member?.name || "Formbhro Team";
       const customPayload = {
+        ...(form.custom_fields || {}),
         target: "group",
         group_id: activeGroupId,
         author_name: authorName,
@@ -351,14 +413,14 @@ function TeamJobGroups() {
         title: form.title.trim(),
         description: form.description.trim(),
         category: `Group: ${activeGroupId}`,
-        published: true,
-        featured: false,
+        published: form.published,
+        featured: form.featured,
         organization: form.organization.trim() || undefined,
         qualification: form.qualification.trim(),
         min_age: minAge,
         max_age: maxAge,
         vacancy_status: form.vacancy_status as any,
-        application_last_date: form.application_last_date,
+        application_last_date: form.application_last_date || null,
         total_vacancies: form.vacancies_count ? parseInt(form.vacancies_count, 10) : null,
         apply_url: form.application_url.trim() || undefined,
         notification_url: form.notification_url.trim() || undefined,
@@ -804,31 +866,17 @@ function TeamJobGroups() {
                   />
                 </div>
 
-                {/* Organization & Total Posts */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-[10px] font-semibold text-text-muted mb-1">
-                      Organization / Dept
-                    </label>
-                    <input
-                      value={form.organization}
-                      onChange={(e) => setForm((p) => ({ ...p, organization: e.target.value }))}
-                      placeholder="e.g. Staff Selection Commission"
-                      className="h-9 w-full rounded-xl border border-border-subtle bg-surface-2 px-3 text-xs text-white placeholder:text-text-muted focus:border-brand/50 outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-semibold text-text-muted mb-1">
-                      Total Posts
-                    </label>
-                    <input
-                      type="number"
-                      value={form.vacancies_count}
-                      onChange={(e) => setForm((p) => ({ ...p, vacancies_count: e.target.value }))}
-                      placeholder="e.g. 14500"
-                      className="h-9 w-full rounded-xl border border-border-subtle bg-surface-2 px-3 text-xs text-white placeholder:text-text-muted focus:border-brand/50 outline-none"
-                    />
-                  </div>
+                {/* Organization */}
+                <div>
+                  <label className="block text-[10px] font-semibold text-text-muted mb-1">
+                    Organization / Dept
+                  </label>
+                  <input
+                    value={form.organization}
+                    onChange={(e) => setForm((p) => ({ ...p, organization: e.target.value }))}
+                    placeholder="e.g. Staff Selection Commission / Railway Recruitment Board"
+                    className="h-9 w-full rounded-xl border border-border-subtle bg-surface-2 px-3 text-xs text-white placeholder:text-text-muted focus:border-brand/50 outline-none"
+                  />
                 </div>
 
                 {/* Qualification & Status */}
@@ -848,8 +896,8 @@ function TeamJobGroups() {
                       onChange={(e) => setForm((p) => ({ ...p, vacancy_status: e.target.value }))}
                       className="h-9 w-full rounded-xl border border-border-subtle bg-surface-2 px-2 text-xs text-text focus:border-brand/50 outline-none"
                     >
-                      <option value="Live">Live Vacancy</option>
-                      <option value="Closed">Closed / Expired</option>
+                      <option value="live">Live Now / Open</option>
+                      <option value="closed">Closed / Expired</option>
                     </select>
                   </div>
                 </div>
@@ -858,10 +906,13 @@ function TeamJobGroups() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[10px] font-semibold text-text-muted mb-1">
-                      Min Age
+                      Min Age <span className="text-red-400">*</span>
                     </label>
                     <input
                       type="number"
+                      required
+                      min="14"
+                      max="65"
                       value={form.min_age}
                       onChange={(e) => setForm((p) => ({ ...p, min_age: e.target.value }))}
                       placeholder="18"
@@ -870,14 +921,46 @@ function TeamJobGroups() {
                   </div>
                   <div>
                     <label className="block text-[10px] font-semibold text-text-muted mb-1">
-                      Max Age
+                      Max Age <span className="text-red-400">*</span>
                     </label>
                     <input
                       type="number"
+                      required
+                      min="14"
+                      max="65"
                       value={form.max_age}
                       onChange={(e) => setForm((p) => ({ ...p, max_age: e.target.value }))}
                       placeholder="45"
                       className="h-9 w-full rounded-xl border border-border-subtle bg-surface-2 px-3 text-xs text-white focus:border-brand/50 outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Last Date to Apply & Total Vacancies */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-semibold text-text-muted mb-1">
+                      Last Date to Apply <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={form.application_last_date}
+                      onChange={(e) => setForm((p) => ({ ...p, application_last_date: e.target.value }))}
+                      className="h-9 w-full rounded-xl border border-border-subtle bg-surface-2 px-3 text-xs text-white focus:border-brand/50 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-text-muted mb-1">
+                      Total Vacancies (Count)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={form.vacancies_count}
+                      onChange={(e) => setForm((p) => ({ ...p, vacancies_count: e.target.value }))}
+                      placeholder="e.g. 14500"
+                      className="h-9 w-full rounded-xl border border-border-subtle bg-surface-2 px-3 text-xs text-white placeholder:text-text-muted focus:border-brand/50 outline-none"
                     />
                   </div>
                 </div>
@@ -910,6 +993,64 @@ function TeamJobGroups() {
                   </div>
                 </div>
 
+                {/* Dynamic Custom Filters from Admin */}
+                {customFields.length > 0 && (
+                  <div className="pt-2 border-t border-brand/10 space-y-2">
+                    <p className="text-[11px] font-semibold text-text-secondary flex items-center gap-1">
+                      <SlidersHorizontal className="h-3 w-3 text-brand" /> Additional Vacancy Filters
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {customFields.map((cf) => (
+                        <div key={cf.id}>
+                          <label className="block text-[10px] font-semibold text-text-muted mb-1">
+                            {cf.field_label} {cf.is_required ? "*" : ""}
+                          </label>
+                          {cf.field_type === "dropdown" ? (
+                            <select
+                              required={cf.is_required}
+                              value={form.custom_fields?.[cf.field_name] || ""}
+                              onChange={(e) =>
+                                setForm((p) => ({
+                                  ...p,
+                                  custom_fields: {
+                                    ...p.custom_fields,
+                                    [cf.field_name]: e.target.value,
+                                  },
+                                }))
+                              }
+                              className="h-9 w-full rounded-xl border border-border-subtle bg-surface-2 px-2 text-xs text-text focus:border-brand/50 outline-none"
+                            >
+                              <option value="">Select {cf.field_label}…</option>
+                              {(cf.options || []).map((opt) => (
+                                <option key={opt} value={opt}>
+                                  {opt}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              type={cf.field_type === "number" ? "number" : "text"}
+                              required={cf.is_required}
+                              value={form.custom_fields?.[cf.field_name] || ""}
+                              onChange={(e) =>
+                                setForm((p) => ({
+                                  ...p,
+                                  custom_fields: {
+                                    ...p.custom_fields,
+                                    [cf.field_name]: e.target.value,
+                                  },
+                                }))
+                              }
+                              placeholder={`Enter ${cf.field_label}…`}
+                              className="h-9 w-full rounded-xl border border-border-subtle bg-surface-2 px-3 text-xs text-white focus:border-brand/50 outline-none"
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Description */}
                 <div>
                   <label className="block text-[11px] font-bold text-white mb-1">
@@ -917,42 +1058,135 @@ function TeamJobGroups() {
                   </label>
                   <textarea
                     required
-                    rows={6}
+                    rows={5}
                     value={form.description}
                     onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
                     placeholder="Enter eligibility, selection process, fee details, and important notes (supports paragraphs and line breaks)..."
-                    className="w-full rounded-xl border border-border-subtle bg-surface-2 p-3 text-xs text-white placeholder:text-text-muted focus:border-brand/50 outline-none resize-y min-h-[120px]"
+                    className="w-full rounded-xl border border-border-subtle bg-surface-2 p-3 text-xs text-white placeholder:text-text-muted focus:border-brand/50 outline-none resize-y min-h-[100px]"
                   />
                 </div>
 
                 {/* Banner Upload */}
                 <div>
                   <label className="block text-[10px] font-semibold text-text-muted mb-1">
-                    Banner Image (Optional)
+                    Banner Image (Shows on Mobile Banners)
                   </label>
-                  <div className="flex items-center gap-2">
-                    <label className="inline-flex items-center gap-1.5 rounded-xl border border-border-subtle bg-surface-2 px-3 py-1.5 text-xs font-semibold text-text-secondary hover:text-white cursor-pointer">
-                      <ImageIcon className="h-4 w-4" />
-                      <span>{uploadingBanner ? "Uploading..." : "Upload File"}</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        disabled={uploadingBanner}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) void handleBannerUpload(file);
-                        }}
-                        className="hidden"
-                      />
-                    </label>
+                  <div className="flex items-center gap-2 mb-2">
+                    <input
+                      type="file"
+                      ref={bannerFileRef}
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) void handleBannerUpload(file);
+                        e.target.value = "";
+                      }}
+                    />
+                    <button
+                      type="button"
+                      disabled={uploadingBanner || resolvingUrl || submitting}
+                      onClick={() => bannerFileRef.current?.click()}
+                      className="rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs font-semibold text-white hover:bg-surface-3 transition-colors flex items-center gap-1.5"
+                    >
+                      {uploadingBanner ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-brand" />
+                          <span>Uploading…</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-3.5 w-3.5 text-brand" />
+                          <span>Upload Banner</span>
+                        </>
+                      )}
+                    </button>
+                    <span className="text-[11px] text-text-muted">or paste direct image link</span>
+                  </div>
+                  <div className="relative">
                     <input
                       type="url"
                       value={form.image_url}
-                      onChange={(e) => setForm((p) => ({ ...p, image_url: e.target.value }))}
-                      placeholder="Or paste banner image URL..."
-                      className="h-9 flex-1 rounded-xl border border-border-subtle bg-surface-2 px-3 text-xs text-white placeholder:text-text-muted focus:border-brand/50 outline-none"
+                      onChange={(e) => void handleUrlChange(e.target.value)}
+                      placeholder="https://example.com/banner.jpg"
+                      className="h-9 w-full rounded-xl border border-border-subtle bg-surface-2 px-3 pr-8 text-xs text-white placeholder:text-text-muted focus:border-brand/50 outline-none"
                     />
+                    {resolvingUrl && (
+                      <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-brand" />
+                      </div>
+                    )}
+                    {form.image_url && !resolvingUrl && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setForm((prev) => ({ ...prev, image_url: "" }));
+                          setPreviewError(false);
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-white p-1"
+                        title="Clear URL"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
+                </div>
+
+                {form.image_url.trim() && (
+                  <div className="rounded-xl border border-border-subtle bg-surface-2 p-2.5 overflow-hidden">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-text-muted flex items-center gap-1.5">
+                        <ImageIcon className="h-3.5 w-3.5 text-brand" /> Live Preview
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setForm((prev) => ({ ...prev, image_url: "" }));
+                          setPreviewError(false);
+                        }}
+                        className="text-[10px] text-danger hover:underline flex items-center gap-1"
+                      >
+                        <Trash2 className="h-3 w-3" /> Remove
+                      </button>
+                    </div>
+                    {previewError ? (
+                      <div className="rounded-lg bg-danger/10 border border-danger/20 p-2.5 text-[11px] text-danger space-y-1">
+                        <div className="flex items-center gap-2 font-medium">
+                          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                          <span>Unable to load image from this URL.</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="relative rounded-lg overflow-hidden border border-border-subtle bg-black/40 max-h-48">
+                        <img
+                          src={form.image_url.trim()}
+                          alt="Preview"
+                          className="w-full h-40 object-cover"
+                          onError={() => setPreviewError(true)}
+                          onLoad={() => setPreviewError(false)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex gap-4 text-[11px] text-text-secondary pt-1">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.published}
+                      onChange={(e) => setForm((p) => ({ ...p, published: e.target.checked }))}
+                    />{" "}
+                    Published to group
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.featured}
+                      onChange={(e) => setForm((p) => ({ ...p, featured: e.target.checked }))}
+                    />{" "}
+                    Pin to top of group
+                  </label>
                 </div>
 
                 {/* Submit Actions */}

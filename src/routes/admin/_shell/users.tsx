@@ -113,7 +113,7 @@ function AdminUsers() {
             value={q}
             onChange={setQ}
             label="Search users"
-            placeholder="Name, email, phone..."
+            placeholder="Search by User ID, Name, email, phone..."
           />
         </div>
 
@@ -139,10 +139,13 @@ function AdminUsers() {
                       <button
                         type="button"
                         onClick={() => setSelected(p)}
-                        className="text-left text-xs font-semibold text-white hover:text-brand-light"
+                        className="text-left text-xs font-semibold text-white hover:text-brand-light block"
                       >
                         {p.full_name || "Unnamed"}
                       </button>
+                      <div className="font-mono text-[10px] text-text-muted select-all truncate max-w-[180px]" title={p.id}>
+                        {p.id}
+                      </div>
                     </td>
                     <td className="px-3 py-2.5 text-text-secondary">
                       <div className="truncate font-mono text-brand-light">{p.email}</div>

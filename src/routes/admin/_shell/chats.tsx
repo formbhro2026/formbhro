@@ -29,6 +29,7 @@ import {
   CreditCard,
   BadgeIndianRupee,
   Image as ImageIcon,
+  Loader2,
 } from "lucide-react";
 import { PresenceDot } from "@/components/team/PresenceDot";
 import { downloadCsv } from "@/lib/csv-export";
@@ -48,6 +49,7 @@ import { MessageAttachment } from "@/components/team/MessageAttachment";
 import { ChatTagButton, ChatTagBadges } from "@/components/team/ChatTagModal";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { adminSearchUser } from "@/lib/api/admin.functions";
 
 export const Route = createFileRoute("/admin/_shell/chats")({
   component: AdminChats,
@@ -181,6 +183,20 @@ function AdminChats() {
     setSearchedUserRequests([]);
 
     try {
+      // 1. Try server-side privileged user search first (handles full UUID, 32-hex, partial UUID, email, phone, reference)
+      const res = await adminSearchUser({ data: { query: raw } }).catch((err) => {
+        console.warn("[AdminChats] adminSearchUser error:", err);
+        return null;
+      });
+
+      if (res?.user) {
+        setSearchedUser(res.user);
+        setSearchedUserRequests(res.requests || []);
+        toast.success(`Found ${res.requests?.length || 0} service requests for user`);
+        return;
+      }
+
+      // 2. Client-side fallback if serverfn returned nothing
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       const hex32Regex = /^[0-9a-f]{32}$/i;
 
@@ -194,7 +210,7 @@ function AdminChats() {
       let profile: any = undefined;
       let reqs: any[] | null = null;
 
-      // 1. Direct search if formattedUid is a valid UUID
+      // 2a. Direct search if formattedUid is a valid UUID
       if (formattedUid) {
         profile = profiles.find((p) => p.id.toLowerCase() === formattedUid);
         if (!profile) {
@@ -217,7 +233,7 @@ function AdminChats() {
         }
       }
 
-      // 2. If not found yet, check if input matches a Chat Reference ID or title
+      // 2b. If not found yet, check if input matches a Chat Reference ID or title
       if (!profile && (!reqs || reqs.length === 0)) {
         const { data: chatData } = await supabase
           .from("requests")
@@ -238,7 +254,7 @@ function AdminChats() {
         }
       }
 
-      // 3. Fallback: search profile by email, phone, or name
+      // 2c. Fallback: search profile by email, phone, or name
       if (!profile && (!reqs || reqs.length === 0)) {
         const { data: profByQuery } = await supabase
           .from("profiles")
@@ -259,12 +275,12 @@ function AdminChats() {
         }
       }
 
-      // 4. In-memory check across cached profiles
+      // 2d. In-memory check across cached profiles
       if (!profile && (!reqs || reqs.length === 0)) {
         const memProfile = profiles.find(
           (p) =>
-            p.id.toLowerCase() === raw.toLowerCase() ||
-            p.id.replace(/-/g, "").toLowerCase() === raw.toLowerCase() ||
+            p.id.toLowerCase().includes(raw.toLowerCase()) ||
+            p.id.replace(/-/g, "").toLowerCase().includes(raw.toLowerCase()) ||
             p.email?.toLowerCase().includes(raw.toLowerCase()) ||
             p.full_name?.toLowerCase().includes(raw.toLowerCase()),
         );
@@ -836,6 +852,70 @@ function AdminChats() {
       toast.error(err instanceof Error ? err.message : "Failed to send message");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const [uploadingQuickImage, setUploadingQuickImage] = useState(false);
+  const quickImageFileRef = useRef<HTMLInputElement>(null);
+
+  const sendQuickReplyDirect = async (body: string) => {
+    if (!room || !active || !body.trim()) return;
+    setBusy(true);
+    try {
+      await messagesApi.sendMessage({
+        chatRoomId: room.id,
+        requestId: active.id,
+        body: body.trim(),
+        senderRole: "admin",
+      });
+      setShowQuickReplies(false);
+      setDraft("");
+      scrollToBottom("smooth");
+      toast.success("Quick reply sent");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to send quick reply");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSendQuickImage = async (file: File) => {
+    if (!file || !room || !active) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file (PNG, JPG, WebP)");
+      return;
+    }
+    setUploadingQuickImage(true);
+    try {
+      const storagePath = `quick_replies/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+      const { error: uploadError } = await supabase.storage.from("avatars").upload(storagePath, file, {
+        upsert: true,
+        contentType: file.type,
+      });
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from("avatars").getPublicUrl(storagePath);
+      if (data?.publicUrl) {
+        const bodyWithImage = notificationsApi.formatQuickReplyWithImage(
+          draft.startsWith("/") ? "" : draft.trim(),
+          data.publicUrl,
+        );
+        await messagesApi.sendMessage({
+          chatRoomId: room.id,
+          requestId: active.id,
+          body: bodyWithImage,
+          senderRole: "admin",
+        });
+        setShowQuickReplies(false);
+        setDraft("");
+        scrollToBottom("smooth");
+        toast.success("Image sent via Quick Replies");
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to upload and send image");
+    } finally {
+      setUploadingQuickImage(false);
+      if (quickImageFileRef.current) quickImageFileRef.current.value = "";
     }
   };
 
@@ -1841,14 +1921,44 @@ function AdminChats() {
                   <div className="mt-auto border-t border-border-subtle pt-4 bg-surface-1/50 -mx-4 px-4 pb-2 relative">
                     {/* Quick Replies Popup on '/' shortcut */}
                     {(showQuickReplies || draft.startsWith("/")) && quickReplies.length > 0 && (
-                      <div className="absolute bottom-full left-4 mb-2 w-[min(20rem,calc(100vw-3rem))] max-h-72 overflow-y-auto rounded-2xl border border-border-subtle bg-surface-1 p-2 shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
-                        <div className="mb-2 px-2 pb-2 pt-1 text-[11px] font-semibold text-text-muted border-b border-border-subtle flex items-center justify-between">
-                          <span className="flex items-center gap-1.5 font-bold text-white">
+                      <div className="absolute bottom-full left-4 mb-2 w-[min(22rem,calc(100vw-3rem))] max-h-72 overflow-y-auto rounded-2xl border border-border-subtle bg-surface-1 p-2 shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                        <div className="mb-2 px-2 pb-2 pt-1 text-[11px] font-semibold text-text-muted border-b border-border-subtle flex items-center justify-between gap-2">
+                          <span className="flex items-center gap-1.5 font-bold text-white shrink-0">
                             <Zap className="h-3.5 w-3.5 text-brand" /> Quick Replies
                           </span>
-                          <span className="text-[10px] text-brand-light font-mono">
-                            Type to filter
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {draft.startsWith("/") && (
+                              <span className="text-[10px] text-brand-light font-mono hidden sm:inline">
+                                Type to filter
+                              </span>
+                            )}
+                            <label
+                              className={cn(
+                                "inline-flex items-center gap-1 rounded-lg bg-brand/15 hover:bg-brand text-brand hover:text-black border border-brand/30 text-[10px] px-2 py-0.5 font-bold transition-all cursor-pointer shadow-xs",
+                                uploadingQuickImage && "opacity-50 cursor-not-allowed",
+                              )}
+                              title="Upload and send image directly through Quick Replies"
+                            >
+                              {uploadingQuickImage ? (
+                                <Loader2 className="h-3 w-3 animate-spin text-brand" />
+                              ) : (
+                                <ImageIcon className="h-3 w-3" />
+                              )}
+                              <span>{uploadingQuickImage ? "Sending…" : "Send Image"}</span>
+                              <input
+                                ref={quickImageFileRef}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                disabled={uploadingQuickImage}
+                                onChange={(e) => {
+                                  const f = e.target.files?.[0];
+                                  if (f) void handleSendQuickImage(f);
+                                  e.target.value = "";
+                                }}
+                              />
+                            </label>
+                          </div>
                         </div>
                         {(() => {
                           const query = draft.startsWith("/") ? draft.slice(1).trim().toLowerCase() : "";
@@ -1871,10 +1981,9 @@ function AdminChats() {
                           return filtered.map((qr) => {
                             const { imageUrl, cleanBody } = notificationsApi.extractQuickReplyImage(qr.body);
                             return (
-                              <button
+                              <div
                                 key={qr.id}
-                                type="button"
-                                className="w-full text-left rounded-xl px-2.5 py-2 text-sm text-text hover:bg-surface-2 transition-colors mb-1 group flex items-start gap-2.5"
+                                className="w-full text-left rounded-xl px-2.5 py-2 text-sm text-text hover:bg-surface-2 transition-colors mb-1 group flex items-start gap-2.5 cursor-pointer"
                                 onClick={() => {
                                   setDraft(qr.body);
                                   setShowQuickReplies(false);
@@ -1888,19 +1997,28 @@ function AdminChats() {
                                   />
                                 )}
                                 <div className="min-w-0 flex-1">
-                                  <div className="font-semibold truncate text-xs text-white group-hover:text-brand transition-colors flex items-center gap-1.5">
+                                  <div className="font-semibold truncate text-xs text-white group-hover:text-brand transition-colors flex items-center justify-between gap-1.5">
                                     <span className="truncate">{qr.title}</span>
                                     {imageUrl && (
-                                      <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-brand bg-brand/10 px-1 py-0.2 rounded shrink-0">
-                                        <ImageIcon className="h-2.5 w-2.5" /> Image
-                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          void sendQuickReplyDirect(qr.body);
+                                        }}
+                                        className="inline-flex items-center gap-1 rounded bg-brand/20 hover:bg-brand text-brand hover:text-black border border-brand/40 px-2 py-0.5 text-[10px] font-bold transition-all shrink-0"
+                                        title="Send image immediately to chat"
+                                      >
+                                        <Send className="h-2.5 w-2.5" />
+                                        <span>Send Image</span>
+                                      </button>
                                     )}
                                   </div>
                                   <div className="text-[11px] text-text-muted truncate mt-0.5 leading-tight">
                                     {cleanBody}
                                   </div>
                                 </div>
-                              </button>
+                              </div>
                             );
                           });
                         })()}

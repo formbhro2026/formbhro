@@ -747,9 +747,173 @@ export const getAdminUsers = createServerFn({ method: "POST" })
 
     if (error) throw new Error(error.message);
 
+    let users = (rows ?? []) as AdminUserRow[];
+    let total = rows?.[0]?.total_count ?? 0;
+
+    // Fallback: if search was passed and no users were found via RPC, check if search is a User ID / UUID
+    if (users.length === 0 && data.search?.trim()) {
+      const raw = data.search.trim().toLowerCase();
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const hex32Regex = /^[0-9a-f]{32}$/i;
+
+      let targetUid: string | null = null;
+      if (uuidRegex.test(raw)) {
+        targetUid = raw;
+      } else if (hex32Regex.test(raw)) {
+        targetUid = `${raw.slice(0, 8)}-${raw.slice(8, 12)}-${raw.slice(12, 16)}-${raw.slice(16, 20)}-${raw.slice(20)}`;
+      }
+
+      let matchedProfile: any = null;
+      if (targetUid) {
+        const { data: p } = await supabaseAdmin
+          .from("profiles")
+          .select("id, full_name, email, phone, avatar_url, is_active, created_at")
+          .eq("id", targetUid)
+          .maybeSingle();
+        matchedProfile = p;
+      } else if (raw.length >= 4) {
+        const { data: allP } = await supabaseAdmin
+          .from("profiles")
+          .select("id, full_name, email, phone, avatar_url, is_active, created_at")
+          .order("created_at", { ascending: false })
+          .limit(100);
+        matchedProfile = allP?.find(
+          (p) =>
+            p.id.toLowerCase().includes(raw) ||
+            p.id.replace(/-/g, "").toLowerCase().includes(raw),
+        );
+      }
+
+      if (matchedProfile) {
+        const { count } = await supabaseAdmin
+          .from("requests")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", matchedProfile.id);
+
+        users = [
+          {
+            id: matchedProfile.id,
+            full_name: matchedProfile.full_name,
+            email: matchedProfile.email,
+            phone: matchedProfile.phone,
+            avatar_url: matchedProfile.avatar_url,
+            is_active: matchedProfile.is_active ?? true,
+            created_at: matchedProfile.created_at,
+            total_count: 1,
+            requests_count: count ?? 0,
+          },
+        ];
+        total = 1;
+      }
+    }
+
     return {
-      users: (rows ?? []) as AdminUserRow[],
-      total: rows?.[0]?.total_count ?? 0,
+      users,
+      total,
+    };
+  });
+
+/**
+ * Dedicated server function to search user by User ID, partial UUID, email, phone, or request reference.
+ * Returns user profile and all their service requests.
+ */
+export const adminSearchUser = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) =>
+    z.object({ query: z.string().min(1) }).parse(input),
+  )
+  .handler(async ({ data, context }: any) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const raw = data.query.trim();
+
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const hex32Regex = /^[0-9a-f]{32}$/i;
+
+    let targetUid: string | null = null;
+    if (uuidRegex.test(raw)) {
+      targetUid = raw.toLowerCase();
+    } else if (hex32Regex.test(raw)) {
+      targetUid = `${raw.slice(0, 8)}-${raw.slice(8, 12)}-${raw.slice(12, 16)}-${raw.slice(16, 20)}-${raw.slice(20)}`.toLowerCase();
+    }
+
+    let profile: any = null;
+
+    // 1. Direct search by UUID
+    if (targetUid) {
+      const { data: p } = await supabaseAdmin
+        .from("profiles")
+        .select("*")
+        .eq("id", targetUid)
+        .maybeSingle();
+      if (p) profile = p;
+    }
+
+    // 2. Search by Chat / Request reference or ID
+    if (!profile) {
+      let reqQuery = supabaseAdmin.from("requests").select("*, profiles:user_id(*)");
+      if (targetUid) {
+        reqQuery = reqQuery.or(`id.eq.${targetUid},reference.eq.${raw},reference.ilike.%${raw}%`);
+      } else {
+        reqQuery = reqQuery.or(`reference.eq.${raw},reference.ilike.%${raw}%`);
+      }
+      const { data: reqMatch } = await reqQuery.limit(1).maybeSingle();
+      if (reqMatch?.user_id) {
+        targetUid = reqMatch.user_id;
+        profile = (reqMatch as any).profiles;
+        if (!profile) {
+          const { data: p } = await supabaseAdmin.from("profiles").select("*").eq("id", reqMatch.user_id).maybeSingle();
+          profile = p;
+        }
+      }
+    }
+
+    // 3. Search profile by email, phone, or name
+    if (!profile) {
+      const { data: profs } = await supabaseAdmin
+        .from("profiles")
+        .select("*")
+        .or(`email.ilike.%${raw}%,phone.ilike.%${raw}%,full_name.ilike.%${raw}%`)
+        .limit(1);
+      if (profs && profs.length > 0) {
+        profile = profs[0];
+        targetUid = profile.id;
+      }
+    }
+
+    // 4. Search by partial UUID / ID prefix
+    if (!profile && raw.length >= 3) {
+      const { data: allP } = await supabaseAdmin
+        .from("profiles")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(200);
+      const match = allP?.find(
+        (p) =>
+          p.id.toLowerCase().includes(raw.toLowerCase()) ||
+          p.id.replace(/-/g, "").toLowerCase().includes(raw.toLowerCase()),
+      );
+      if (match) {
+        profile = match;
+        targetUid = match.id;
+      }
+    }
+
+    // Load full service requests for this user
+    let requests: any[] = [];
+    const effectiveUid = profile?.id || targetUid;
+    if (effectiveUid) {
+      const { data: reqs } = await supabaseAdmin
+        .from("requests")
+        .select("*")
+        .eq("user_id", effectiveUid)
+        .order("created_at", { ascending: false });
+      requests = reqs || [];
+    }
+
+    return {
+      user: profile || (targetUid ? { id: targetUid, full_name: "User Record", email: "—", phone: "—" } : null),
+      requests,
     };
   });
 

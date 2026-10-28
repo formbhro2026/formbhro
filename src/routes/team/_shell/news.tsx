@@ -25,6 +25,8 @@ import {
   Filter,
   Edit3,
   Megaphone,
+  AlertCircle,
+  Upload,
 } from "lucide-react";
 import { TeamHeader } from "@/components/team/TeamHeader";
 import { EmptyState } from "@/components/common/EmptyState";
@@ -35,7 +37,7 @@ import { cn, formatLastDate } from "@/lib/utils";
 import * as notificationsApi from "@/lib/api/notifications";
 import { DEFAULT_QUALIFICATIONS, JOB_GROUPS, isVacancyLive } from "@/data/vacancy-groups";
 import { QualificationMultiSelect } from "@/components/common/QualificationMultiSelect";
-import { uploadNewsBanner } from "@/lib/api/admin.functions";
+import { uploadNewsBanner, resolveImageUrl } from "@/lib/api/admin.functions";
 
 export const Route = createFileRoute("/team/_shell/news")({
   ssr: false,
@@ -124,8 +126,12 @@ function TeamNewsAndVacancies() {
     vacancies_count: "",
     application_url: "",
     image_url: "",
+    published: true,
+    featured: false,
     custom_fields: {} as Record<string, any>,
   });
+  const [previewError, setPreviewError] = useState(false);
+  const [resolvingUrl, setResolvingUrl] = useState(false);
 
   // Post Internal Bulletin Modal
   const [showInternalModal, setShowInternalModal] = useState(false);
@@ -326,12 +332,47 @@ function TeamNewsAndVacancies() {
 
       if (publicUrl) {
         setVacancyForm((prev) => ({ ...prev, image_url: publicUrl }));
+        setPreviewError(false);
         toast.success("Banner image attached!");
       }
     } catch (err) {
       toast.error("Failed to upload banner image. Please try again or paste image link.");
     } finally {
       setUploadingVacancyBanner(false);
+    }
+  };
+
+  const handleUrlChange = async (urlVal: string) => {
+    let finalUrl = urlVal;
+
+    const gDriveMatch = finalUrl.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (gDriveMatch) {
+      finalUrl = `https://lh3.googleusercontent.com/d/${gDriveMatch[1]}`;
+    } else if (finalUrl.includes("dropbox.com")) {
+      finalUrl =
+        finalUrl.replace(/[?&]dl=0/, "").replace(/[?&]raw=1/, "") +
+        (finalUrl.includes("?") ? "&raw=1" : "?raw=1");
+    } else {
+      const imgurMatch = finalUrl.match(/imgur\.com\/(?:a\/|gallery\/)?([a-zA-Z0-9]+)$/);
+      if (imgurMatch) finalUrl = `https://i.imgur.com/${imgurMatch[1]}.jpg`;
+    }
+
+    setVacancyForm((prev) => ({ ...prev, image_url: finalUrl }));
+    setPreviewError(false);
+
+    if (finalUrl.includes("ibb.co/") && !finalUrl.includes("i.ibb.co/")) {
+      setResolvingUrl(true);
+      try {
+        const resolved = await resolveImageUrl({ data: { url: finalUrl } });
+        if (resolved?.url && resolved.url !== finalUrl) {
+          setVacancyForm((prev) => ({ ...prev, image_url: resolved.url }));
+          setPreviewError(false);
+        }
+      } catch (e) {
+        console.warn("[TeamNews] Error resolving URL:", e);
+      } finally {
+        setResolvingUrl(false);
+      }
     }
   };
 
@@ -432,8 +473,8 @@ function TeamNewsAndVacancies() {
         title: vacancyForm.title.trim(),
         description: vacancyForm.description.trim(),
         category: vacancyForm.category,
-        published: true,
-        featured: false,
+        published: vacancyForm.published,
+        featured: vacancyForm.featured,
         organization: vacancyForm.organization.trim() || undefined,
         qualification: isVacancyCat ? vacancyForm.qualification.trim() : (vacancyForm.qualification?.trim() || undefined),
         min_age: minAge,
@@ -469,8 +510,12 @@ function TeamNewsAndVacancies() {
         vacancies_count: "",
         application_url: "",
         image_url: "",
+        published: true,
+        featured: false,
         custom_fields: {},
       });
+      setPreviewError(false);
+      setResolvingUrl(false);
       await fetchVacancies();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to publish vacancy.");
@@ -494,8 +539,12 @@ function TeamNewsAndVacancies() {
       vacancies_count: v.vacancies_count ? String(v.vacancies_count) : "",
       application_url: v.application_url || "",
       image_url: v.image_url || "",
+      published: v.published ?? true,
+      featured: v.featured ?? false,
       custom_fields: v.custom_fields || {},
     });
+    setPreviewError(false);
+    setResolvingUrl(false);
     setShowVacancyModal(true);
   };
 
@@ -1257,7 +1306,7 @@ function TeamNewsAndVacancies() {
                     />
                     <button
                       type="button"
-                      disabled={uploadingVacancyBanner}
+                      disabled={uploadingVacancyBanner || resolvingUrl || publishingVacancy}
                       onClick={() => vacancyFileRef.current?.click()}
                       className="rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs font-semibold text-white hover:bg-surface-3 transition-colors flex items-center gap-1.5"
                     >
@@ -1268,20 +1317,101 @@ function TeamNewsAndVacancies() {
                         </>
                       ) : (
                         <>
-                          <ImageIcon className="h-3.5 w-3.5 text-brand" />
+                          <Upload className="h-3.5 w-3.5 text-brand" />
                           <span>Upload Banner</span>
                         </>
                       )}
                     </button>
                     <span className="text-[11px] text-text-muted">or paste image link</span>
                   </div>
-                  <input
-                    type="url"
-                    value={vacancyForm.image_url}
-                    onChange={(e) => setVacancyForm({ ...vacancyForm, image_url: e.target.value })}
-                    placeholder="https://example.com/banner.jpg"
-                    className="w-full rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 text-xs text-white outline-none focus:border-brand/40"
-                  />
+                  <div className="relative">
+                    <input
+                      type="url"
+                      value={vacancyForm.image_url}
+                      onChange={(e) => void handleUrlChange(e.target.value)}
+                      placeholder="https://example.com/banner.jpg"
+                      className="w-full rounded-xl border border-border-subtle bg-surface-2 px-3 py-2 pr-8 text-xs text-white outline-none focus:border-brand/40"
+                    />
+                    {resolvingUrl && (
+                      <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-brand" />
+                      </div>
+                    )}
+                    {vacancyForm.image_url && !resolvingUrl && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setVacancyForm((prev) => ({ ...prev, image_url: "" }));
+                          setPreviewError(false);
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-white p-1"
+                        title="Clear URL"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {vacancyForm.image_url.trim() && (
+                  <div className="rounded-xl border border-border-subtle bg-surface-2 p-2.5 overflow-hidden">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-text-muted flex items-center gap-1.5">
+                        <ImageIcon className="h-3.5 w-3.5 text-brand" /> Live Preview
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setVacancyForm((prev) => ({ ...prev, image_url: "" }));
+                          setPreviewError(false);
+                        }}
+                        className="text-[10px] text-danger hover:underline flex items-center gap-1"
+                      >
+                        <Trash2 className="h-3 w-3" /> Remove
+                      </button>
+                    </div>
+                    {previewError ? (
+                      <div className="rounded-lg bg-danger/10 border border-danger/20 p-2.5 text-[11px] text-danger space-y-1">
+                        <div className="flex items-center gap-2 font-medium">
+                          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                          <span>Unable to load image from this URL.</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="relative rounded-lg overflow-hidden border border-border-subtle bg-black/40 max-h-48">
+                        <img
+                          src={vacancyForm.image_url.trim()}
+                          alt="Preview"
+                          className="w-full h-40 object-cover"
+                          onError={() => setPreviewError(true)}
+                          onLoad={() => setPreviewError(false)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex gap-4 text-[11px] text-text-secondary pt-1">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={vacancyForm.published}
+                      onChange={(e) =>
+                        setVacancyForm({ ...vacancyForm, published: e.target.checked })
+                      }
+                    />{" "}
+                    Published
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={vacancyForm.featured}
+                      onChange={(e) =>
+                        setVacancyForm({ ...vacancyForm, featured: e.target.checked })
+                      }
+                    />{" "}
+                    Pinned to top
+                  </label>
                 </div>
 
                 <div className="flex justify-end gap-2 pt-3 border-t border-border-subtle">
