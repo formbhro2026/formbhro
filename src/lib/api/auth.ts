@@ -17,95 +17,121 @@ export async function signInWithGoogle(redirectPath: string = "/app") {
 
   const isAndroid = isCapacitorAndroid();
 
-  // 1. Native Capacitor Google Sign-In on Android
-  // Displays the native Android Google Account Chooser bottom sheet with device accounts
-  // so the user selects their account with one tap, without opening a web browser.
+  // 1. Try Native Google Sign-In ONLY if the plugin is explicitly available and implemented
   if (isAndroid) {
-    console.log("[Auth] Starting native Android Google Sign-In...");
-    try {
-      const { GoogleAuth } = await import("@codetrix-studio/capacitor-google-auth");
+    const cap = typeof window !== "undefined" ? (window as any).Capacitor : null;
+    const hasNativeGoogleAuth = Boolean(
+      cap && typeof cap.isPluginAvailable === "function" && cap.isPluginAvailable("GoogleAuth")
+    );
+
+    if (hasNativeGoogleAuth) {
       try {
-        await GoogleAuth.initialize({
-          clientId: GOOGLE_CLIENT_ID,
-          serverClientId: GOOGLE_CLIENT_ID,
-          scopes: ["profile", "email"],
-          grantOfflineAccess: false,
-        } as any);
-      } catch (initErr) {
-        console.warn("[Auth] GoogleAuth.initialize warning (continuing):", initErr);
+        console.log("[Auth] Starting native Android Google Sign-In...");
+        const { GoogleAuth } = await import("@codetrix-studio/capacitor-google-auth");
+        try {
+          await GoogleAuth.initialize({
+            clientId: GOOGLE_CLIENT_ID,
+            serverClientId: GOOGLE_CLIENT_ID,
+            scopes: ["profile", "email"],
+            grantOfflineAccess: false,
+          } as any);
+        } catch (_) {}
+        const googleUser = await GoogleAuth.signIn();
+        console.log("[Auth] Native account selected:", googleUser?.email || googleUser?.id);
+
+        const idToken =
+          googleUser?.authentication?.idToken ||
+          (googleUser as any)?.idToken ||
+          (googleUser as any)?.authentication?.token;
+        const accessToken =
+          googleUser?.authentication?.accessToken ||
+          (googleUser as any)?.accessToken ||
+          (googleUser as any)?.authentication?.access_token;
+
+        if (idToken) {
+          console.log("[Auth] Exchanging native idToken with Supabase...");
+          const { data: authData, error: authError } = await supabase.auth.signInWithIdToken({
+            provider: "google",
+            token: idToken,
+            access_token: accessToken || undefined,
+          });
+
+          if (authError) throw authError;
+
+          if (typeof window !== "undefined") {
+            localStorage.setItem("formbhro:last_workspace", "user");
+          }
+          return authData;
+        }
+      } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        console.warn("[Auth] Native Google Auth result/error:", errMsg);
+
+        // Handle user cancellation (12501 or user dismissed account chooser)
+        if (
+          errMsg.includes("12501") ||
+          errMsg.toLowerCase().includes("canceled") ||
+          errMsg.toLowerCase().includes("cancelled") ||
+          errMsg.toLowerCase().includes("closed")
+        ) {
+          console.log("[Auth] User canceled Google account selection.");
+          return null;
+        }
+
+        console.warn("[Auth] Native Google Sign-In failed, falling back to In-App Browser OAuth:", errMsg);
       }
-
-      console.log("[Auth] Launching native Google account picker dialog...");
-      const googleUser = await GoogleAuth.signIn();
-      console.log("[Auth] Native account selected:", googleUser?.email || googleUser?.id);
-
-      const idToken =
-        googleUser?.authentication?.idToken ||
-        (googleUser as any)?.idToken ||
-        (googleUser as any)?.authentication?.token;
-      const accessToken =
-        googleUser?.authentication?.accessToken ||
-        (googleUser as any)?.accessToken ||
-        (googleUser as any)?.authentication?.access_token;
-
-      if (!idToken) {
-        throw new Error("No ID token returned by native Google Sign-In");
-      }
-
-      console.log("[Auth] Exchanging native idToken with Supabase...");
-      const { data: authData, error: authError } = await supabase.auth.signInWithIdToken({
-        provider: "google",
-        token: idToken,
-        access_token: accessToken || undefined,
-      });
-
-      if (authError) {
-        console.error("[Auth] Supabase signInWithIdToken error:", authError.message);
-        throw authError;
-      }
-
-      if (typeof window !== "undefined") {
-        localStorage.setItem("formbhro:last_workspace", "user");
-      }
-      return authData;
-    } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      console.warn("[Auth] Native Google Auth result/error:", errMsg);
-
-      // Handle user cancellation (12501 or user dismissed account chooser)
-      if (
-        errMsg.includes("12501") ||
-        errMsg.toLowerCase().includes("canceled") ||
-        errMsg.toLowerCase().includes("cancelled") ||
-        errMsg.toLowerCase().includes("closed")
-      ) {
-        console.log("[Auth] User canceled Google account selection.");
-        return null;
-      }
-
-      // Re-throw so the UI displays the error rather than launching a broken web browser
-      throw new ApiError(errMsg || "Google Sign-In failed. Please try again.");
     }
   }
 
-  // 2. Web browser OAuth flow (used on Web desktop/mobile browsers)
+  // 2. Reliable OAuth flow via In-App Browser (Custom Tabs) on Android and Web
   const origin =
     typeof window !== "undefined" && window.location.origin
       ? window.location.origin
       : "https://formbhro.com";
 
-  const redirectUri = `${origin}/auth`;
+  // For Capacitor Android, redirect to com.formbhro.app://oauth-callback so Android OS intercepts the redirect
+  // and immediately brings the native Formbhro APK to foreground rather than stranding the user on the Vercel URL
+  const redirectUri = isAndroid
+    ? "com.formbhro.app://oauth-callback"
+    : `${origin}/auth`;
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
       redirectTo: redirectUri,
+      skipBrowserRedirect: isAndroid,
       queryParams: {
         prompt: "select_account",
       },
     },
   });
   if (error) throw new ApiError(error.message);
+
+  // If running inside Capacitor, open the OAuth URL in In-App Browser (Custom Tabs)
+  if (isAndroid && data?.url) {
+    try {
+      const { Browser } = await import("@capacitor/browser");
+      try {
+        const finishSub = await Browser.addListener("browserFinished", async () => {
+          try {
+            finishSub.remove();
+          } catch (_) {}
+          const { data: sessData } = await supabase.auth.getSession();
+          if (sessData?.session) {
+            localStorage.setItem("formbhro:last_workspace", "user");
+            window.location.href = "/app";
+          }
+        });
+      } catch (_) {}
+      await Browser.open({ url: data.url, presentationStyle: "fullscreen" });
+    } catch (browserErr) {
+      console.warn("[Auth] Browser plugin open failed, falling back to window.location:", browserErr);
+      if (typeof window !== "undefined") {
+        window.location.href = data.url;
+      }
+    }
+  }
+
   return data;
 }
 

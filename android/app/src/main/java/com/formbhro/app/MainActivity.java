@@ -11,6 +11,7 @@ import android.Manifest;
 import android.app.PendingIntent;
 import android.content.Intent;
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.WebViewListener;
 
 public class MainActivity extends BridgeActivity {
     public static volatile MainActivity sInstance = null;
@@ -456,6 +457,8 @@ public class MainActivity extends BridgeActivity {
         return str.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "");
     }
 
+    private boolean webViewListenerAdded = false;
+
     private void setupWebView() {
         try {
             if (this.bridge != null && this.bridge.getWebView() != null) {
@@ -463,6 +466,49 @@ public class MainActivity extends BridgeActivity {
                 webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
                 webView.getSettings().setJavaScriptCanOpenWindowsAutomatically(true);
                 webView.addJavascriptInterface(new FormbharoNativeBridge(), "FormbharoNativeBridge");
+
+                if (!webViewListenerAdded) {
+                    webViewListenerAdded = true;
+                    this.bridge.addWebViewListener(new WebViewListener() {
+                        private void injectGoogleAuthHeader(WebView view) {
+                            if (view == null) return;
+                            String js = "(function(){\n" +
+                                "  try {\n" +
+                                "    window.Capacitor = window.Capacitor || {};\n" +
+                                "    window.Capacitor.PluginHeaders = window.Capacitor.PluginHeaders || [];\n" +
+                                "    var found = false;\n" +
+                                "    for (var i = 0; i < window.Capacitor.PluginHeaders.length; i++) {\n" +
+                                "      if (window.Capacitor.PluginHeaders[i] && window.Capacitor.PluginHeaders[i].name === 'GoogleAuth') {\n" +
+                                "        found = true; break;\n" +
+                                "      }\n" +
+                                "    }\n" +
+                                "    if (!found) {\n" +
+                                "      window.Capacitor.PluginHeaders.push({\n" +
+                                "        name: 'GoogleAuth',\n" +
+                                "        methods: [\n" +
+                                "          { name: 'signIn', rtype: 'promise' },\n" +
+                                "          { name: 'refresh', rtype: 'promise' },\n" +
+                                "          { name: 'signOut', rtype: 'promise' },\n" +
+                                "          { name: 'initialize', rtype: 'promise' }\n" +
+                                "        ]\n" +
+                                "      });\n" +
+                                "    }\n" +
+                                "  } catch(e) {}\n" +
+                                "})();";
+                            view.evaluateJavascript(js, null);
+                        }
+
+                        @Override
+                        public void onPageStarted(WebView webView) {
+                            injectGoogleAuthHeader(webView);
+                        }
+
+                        @Override
+                        public void onPageLoaded(WebView webView) {
+                            injectGoogleAuthHeader(webView);
+                        }
+                    });
+                }
             }
         } catch (Throwable t) {
             android.util.Log.w("MainActivity", "[SETUP] Error in setupWebView: " + t.getMessage());

@@ -30,7 +30,6 @@ export function isCapacitorAndroid(): boolean {
     }
   ).Capacitor;
   if (cap?.getPlatform?.() === "android") return true;
-  if (cap?.isPluginAvailable?.("GoogleAuth")) return true;
   if (isCapacitor() && /android/i.test(navigator.userAgent)) return true;
   return false;
 }
