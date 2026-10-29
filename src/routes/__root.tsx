@@ -402,6 +402,13 @@ function RootComponent() {
           if (data?.url) void handleOAuthDeepLink(data.url);
         });
 
+        // Window custom event listener dispatched from MainActivity
+        const onCustomAppUrl = (e: Event) => {
+          const detail = (e as CustomEvent)?.detail;
+          if (detail?.url) void handleOAuthDeepLink(detail.url);
+        };
+        window.addEventListener("appUrlOpen", onCustomAppUrl);
+
         // Cold Start listener
         App.getLaunchUrl()
           .then((launchUrl) => {

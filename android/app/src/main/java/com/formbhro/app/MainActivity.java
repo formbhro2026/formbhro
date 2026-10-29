@@ -214,6 +214,7 @@ public class MainActivity extends BridgeActivity {
         try {
             handleCallIntent(getIntent());
             handleMessageIntent(getIntent());
+            handleOAuthIntent(getIntent());
         } catch (Throwable t) {
             android.util.Log.w("MainActivity", "Error handling intent: " + t.getMessage());
         }
@@ -322,6 +323,7 @@ public class MainActivity extends BridgeActivity {
         setIntent(intent);
         handleCallIntent(intent);
         handleMessageIntent(intent);
+        handleOAuthIntent(intent);
     }
 
     private void handleMessageIntent(Intent intent) {
@@ -359,6 +361,44 @@ public class MainActivity extends BridgeActivity {
                     }
                 }, delay);
             }
+        }
+    }
+
+    private void handleOAuthIntent(Intent intent) {
+        if (intent == null) return;
+        try {
+            String dataStr = intent.getDataString();
+            String accessToken = intent.getStringExtra("access_token");
+            String refreshToken = intent.getStringExtra("refresh_token");
+
+            String urlToSend = null;
+            if (dataStr != null && (dataStr.contains("oauth-callback") || dataStr.contains("access_token") || dataStr.contains("code="))) {
+                urlToSend = dataStr;
+            } else if (accessToken != null && refreshToken != null) {
+                urlToSend = "com.formbhro.app://oauth-callback#access_token=" + accessToken + "&refresh_token=" + refreshToken;
+            }
+
+            if (urlToSend != null && this.bridge != null && this.bridge.getWebView() != null) {
+                final String safeUrl = escapeJs(urlToSend);
+                android.util.Log.i("MainActivity", "[AUTH] Dispatching OAuth URL to WebView: " + safeUrl);
+                long[] delays = new long[]{100, 500, 1500};
+                for (long delay : delays) {
+                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                        if (MainActivity.this.bridge != null && MainActivity.this.bridge.getWebView() != null) {
+                            String js = "(function() {" +
+                                "  var url = '" + safeUrl + "';" +
+                                "  window.dispatchEvent(new CustomEvent('appUrlOpen', { detail: { url: url } }));" +
+                                "  if (window.Capacitor && window.Capacitor.triggerEvent) {" +
+                                "    window.Capacitor.triggerEvent('appUrlOpen', 'app', { url: url });" +
+                                "  }" +
+                                "})();";
+                            MainActivity.this.bridge.getWebView().evaluateJavascript(js, null);
+                        }
+                    }, delay);
+                }
+            }
+        } catch (Throwable t) {
+            android.util.Log.w("MainActivity", "[AUTH] Error handling OAuth intent: " + t.getMessage());
         }
     }
 

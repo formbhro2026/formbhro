@@ -89,10 +89,10 @@ export async function signInWithGoogle(redirectPath: string = "/app") {
       ? window.location.origin
       : "https://formbhro.com";
 
-  // For Capacitor Android, redirect to com.formbhro.app://oauth-callback so Android OS intercepts the redirect
-  // and immediately brings the native Formbhro APK to foreground rather than stranding the user on the Vercel URL
+  // For Capacitor Android, route via /auth?source=app so Supabase (which whitelists formbhro.com)
+  // completes auth and redirects back to /auth, which immediately dispatches the native Intent to Formbhro APK
   const redirectUri = isAndroid
-    ? "com.formbhro.app://oauth-callback"
+    ? `${origin}/auth?source=app`
     : `${origin}/auth`;
 
   const { data, error } = await supabase.auth.signInWithOAuth({
@@ -100,9 +100,6 @@ export async function signInWithGoogle(redirectPath: string = "/app") {
     options: {
       redirectTo: redirectUri,
       skipBrowserRedirect: isAndroid,
-      queryParams: {
-        prompt: "select_account",
-      },
     },
   });
   if (error) throw new ApiError(error.message);
@@ -116,10 +113,14 @@ export async function signInWithGoogle(redirectPath: string = "/app") {
           try {
             finishSub.remove();
           } catch (_) {}
-          const { data: sessData } = await supabase.auth.getSession();
-          if (sessData?.session) {
-            localStorage.setItem("formbhro:last_workspace", "user");
-            window.location.href = "/app";
+          for (let i = 0; i < 3; i++) {
+            const { data: sessData } = await supabase.auth.getSession();
+            if (sessData?.session) {
+              localStorage.setItem("formbhro:last_workspace", "user");
+              window.location.href = "/app";
+              break;
+            }
+            await new Promise((r) => setTimeout(r, 400));
           }
         });
       } catch (_) {}

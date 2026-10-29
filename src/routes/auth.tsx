@@ -81,7 +81,7 @@ function AuthPage() {
       if (shouldHandoffToNativeApp) {
         const intentLink = getIntentReturnUrl(accessToken, refreshToken);
         const schemeLink = getSchemeReturnUrl(accessToken, refreshToken);
-        setAppReturnUrl(schemeLink);
+        setAppReturnUrl(intentLink);
 
         void supabase.auth.setSession({
           access_token: accessToken,
@@ -90,13 +90,17 @@ function AuthPage() {
 
         // Trigger native intent switch immediately
         try {
-          window.location.replace(schemeLink);
-        } catch (_) {}
+          window.location.replace(intentLink);
+        } catch (_) {
+          try {
+            window.location.replace(schemeLink);
+          } catch (__) {}
+        }
         setTimeout(() => {
           try {
-            window.location.replace(intentLink);
+            window.location.replace(schemeLink);
           } catch (_) {}
-        }, 250);
+        }, 300);
         setProcessingOAuth(false);
         return;
       }
@@ -146,15 +150,19 @@ function AuthPage() {
             if (shouldHandoffToNativeApp) {
               const intentLink = getIntentReturnUrl(data.session.access_token, data.session.refresh_token);
               const schemeLink = getSchemeReturnUrl(data.session.access_token, data.session.refresh_token);
-              setAppReturnUrl(schemeLink);
+              setAppReturnUrl(intentLink);
               try {
-                window.location.replace(schemeLink);
-              } catch (_) {}
+                window.location.replace(intentLink);
+              } catch (_) {
+                try {
+                  window.location.replace(schemeLink);
+                } catch (__) {}
+              }
               setTimeout(() => {
                 try {
-                  window.location.replace(intentLink);
+                  window.location.replace(schemeLink);
                 } catch (_) {}
-              }, 250);
+              }, 300);
               return;
             }
 
