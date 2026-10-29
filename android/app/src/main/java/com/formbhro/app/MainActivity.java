@@ -12,6 +12,13 @@ import android.app.PendingIntent;
 import android.content.Intent;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.WebViewListener;
+import android.widget.Toast;
+import com.google.android.gms.auth.api.signin.GoogleSignIn;
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
+import com.google.android.gms.auth.api.signin.GoogleSignInClient;
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
+import com.google.android.gms.common.api.ApiException;
+import com.google.android.gms.tasks.Task;
 
 public class MainActivity extends BridgeActivity {
     public static volatile MainActivity sInstance = null;
@@ -146,6 +153,119 @@ public class MainActivity extends BridgeActivity {
             } catch (Throwable t) {
                 android.util.Log.w("MainActivity", "[NOTIFICATION][BRIDGE] Failed to post notification: " + t.getMessage());
             }
+        }
+
+        @android.webkit.JavascriptInterface
+        public void startGoogleSignIn() {
+            android.util.Log.i("MainActivity", "[AUTH][BRIDGE] Native bridge startGoogleSignIn invoked");
+            launchNativeGoogleSignIn();
+        }
+
+        @android.webkit.JavascriptInterface
+        public String getReleaseKeystoreSha1() {
+            return "E7:F5:23:9D:E3:E5:39:6D:D9:C0:ED:19:DD:5E:B0:03:EF:D5:37:66";
+        }
+    }
+
+    private static final int RC_GOOGLE_SIGN_IN = 9001;
+    private static final String GOOGLE_SERVER_CLIENT_ID = "111790521008-kdr78o80m6h10voviku4r6uq9iq9nj2v.apps.googleusercontent.com";
+
+    public void launchNativeGoogleSignIn() {
+        runOnUiThread(() -> {
+            try {
+                GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                        .requestIdToken(GOOGLE_SERVER_CLIENT_ID)
+                        .requestEmail()
+                        .requestProfile()
+                        .build();
+
+                GoogleSignInClient client = GoogleSignIn.getClient(MainActivity.this, gso);
+                client.signOut().addOnCompleteListener(task -> {
+                    try {
+                        Intent signInIntent = client.getSignInIntent();
+                        startActivityForResult(signInIntent, RC_GOOGLE_SIGN_IN);
+                        android.util.Log.i("MainActivity", "[AUTH] Launched GoogleSignIn intent");
+                    } catch (Throwable t) {
+                        android.util.Log.e("MainActivity", "[AUTH] Failed to start signInIntent: " + t.getMessage(), t);
+                        dispatchGoogleAuthError(-1, "Failed to open account picker: " + t.getMessage());
+                    }
+                });
+            } catch (Throwable t) {
+                android.util.Log.e("MainActivity", "[AUTH] Failed to initialize GoogleSignIn: " + t.getMessage(), t);
+                dispatchGoogleAuthError(-1, "Failed to initialize Google Sign-In: " + t.getMessage());
+            }
+        });
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == RC_GOOGLE_SIGN_IN) {
+            Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(data);
+            try {
+                GoogleSignInAccount account = task.getResult(ApiException.class);
+                if (account != null) {
+                    String idToken = account.getIdToken() != null ? account.getIdToken() : "";
+                    String email = account.getEmail() != null ? account.getEmail() : "";
+                    String name = account.getDisplayName() != null ? account.getDisplayName() : "";
+                    String serverAuthCode = account.getServerAuthCode() != null ? account.getServerAuthCode() : "";
+                    android.util.Log.i("MainActivity", "[AUTH] Native Google Sign-In success: " + email + ", hasIdToken=" + (!idToken.isEmpty()));
+                    dispatchGoogleAuthSuccess(idToken, email, name, serverAuthCode);
+                } else {
+                    android.util.Log.w("MainActivity", "[AUTH] GoogleSignInAccount was null");
+                    dispatchGoogleAuthError(-1, "Google account was null");
+                }
+            } catch (ApiException e) {
+                int code = e.getStatusCode();
+                android.util.Log.w("MainActivity", "[AUTH] Google Sign-In ApiException (status=" + code + "): " + e.getMessage());
+                if (code == 12501) {
+                    dispatchGoogleAuthCancel();
+                } else if (code == 10) {
+                    final String sha1 = "E7:F5:23:9D:E3:E5:39:6D:D9:C0:ED:19:DD:5E:B0:03:EF:D5:37:66";
+                    final String msg = "Developer Error (10): Keystore SHA-1 (" + sha1 + ") is missing in Google Cloud Console OAuth 2.0 Android Client ID for com.formbhro.app";
+                    Toast.makeText(MainActivity.this, msg, Toast.LENGTH_LONG).show();
+                    dispatchGoogleAuthError(10, msg);
+                } else {
+                    dispatchGoogleAuthError(code, "Google Sign-In failed (" + code + "): " + e.getMessage());
+                }
+            } catch (Throwable t) {
+                android.util.Log.e("MainActivity", "[AUTH] Unexpected error in onActivityResult: " + t.getMessage(), t);
+                dispatchGoogleAuthError(-1, t.getMessage());
+            }
+        }
+    }
+
+    private void dispatchGoogleAuthSuccess(String idToken, String email, String name, String authCode) {
+        if (this.bridge != null && this.bridge.getWebView() != null) {
+            final String js = String.format(
+                    "(function() {" +
+                    "  var detail = { idToken: '%s', email: '%s', name: '%s', serverAuthCode: '%s' };" +
+                    "  window.__FORMBHARO_LAST_GOOGLE_AUTH__ = detail;" +
+                    "  window.dispatchEvent(new CustomEvent('nativeGoogleAuthSuccess', { detail: detail }));" +
+                    "})();",
+                    escapeJs(idToken), escapeJs(email), escapeJs(name), escapeJs(authCode)
+            );
+            runOnUiThread(() -> this.bridge.getWebView().evaluateJavascript(js, null));
+        }
+    }
+
+    private void dispatchGoogleAuthError(int code, String message) {
+        if (this.bridge != null && this.bridge.getWebView() != null) {
+            final String js = String.format(
+                    "(function() {" +
+                    "  var detail = { code: %d, message: '%s' };" +
+                    "  window.dispatchEvent(new CustomEvent('nativeGoogleAuthError', { detail: detail }));" +
+                    "})();",
+                    code, escapeJs(message)
+            );
+            runOnUiThread(() -> this.bridge.getWebView().evaluateJavascript(js, null));
+        }
+    }
+
+    private void dispatchGoogleAuthCancel() {
+        if (this.bridge != null && this.bridge.getWebView() != null) {
+            final String js = "(function() { window.dispatchEvent(new CustomEvent('nativeGoogleAuthCancel')); })();";
+            runOnUiThread(() -> this.bridge.getWebView().evaluateJavascript(js, null));
         }
     }
 
