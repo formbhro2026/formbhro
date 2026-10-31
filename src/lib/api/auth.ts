@@ -6,7 +6,7 @@ export const NO_PUBLIC_SIGNUP_MESSAGE =
 
 import { isCapacitor, isCapacitorAndroid } from "../fcm";
 
-const GOOGLE_CLIENT_ID = "111790521008-kdr78o80m6h10voviku4r6uq9iq9nj2v.apps.googleusercontent.com";
+const GOOGLE_CLIENT_ID = "968890483464-hc7metveqh08o27mur4kbjp44j1aii9v.apps.googleusercontent.com";
 
 /** User module — Google login / signup. */
 export async function signInWithGoogle(redirectPath: string = "/app") {
@@ -149,7 +149,7 @@ export async function signInWithGoogle(redirectPath: string = "/app") {
         const finishSub = await Browser.addListener("browserFinished", async () => {
           try {
             finishSub.remove();
-          } catch (_) {}
+          } catch (_) { }
           for (let i = 0; i < 3; i++) {
             const { data: sessData } = await supabase.auth.getSession();
             if (sessData?.session) {
@@ -160,7 +160,7 @@ export async function signInWithGoogle(redirectPath: string = "/app") {
             await new Promise((r) => setTimeout(r, 400));
           }
         });
-      } catch (_) {}
+      } catch (_) { }
       await Browser.open({ url: data.url, presentationStyle: "fullscreen" });
     } catch (browserErr) {
       console.warn("[Auth] Browser plugin open failed, falling back to window.location:", browserErr);

@@ -30,7 +30,8 @@ public class MainActivity extends BridgeActivity {
     public class FormbharoNativeBridge {
         @android.webkit.JavascriptInterface
         public String getPendingCallAnswer() {
-            android.util.Log.i("MainActivity", "[CALL][BRIDGE] Native bridge getPendingCallAnswer: " + pendingCallAnswerJson);
+            android.util.Log.i("MainActivity",
+                    "[CALL][BRIDGE] Native bridge getPendingCallAnswer: " + pendingCallAnswerJson);
             return pendingCallAnswerJson != null ? pendingCallAnswerJson : "";
         }
 
@@ -46,17 +47,20 @@ public class MainActivity extends BridgeActivity {
             if (sLatestFcmToken == null || sLatestFcmToken.trim().isEmpty()) {
                 try {
                     sLatestFcmToken = getSharedPreferences("formbhro_prefs", android.content.Context.MODE_PRIVATE)
-                        .getString("fcm_token", null);
-                } catch (Throwable ignored) {}
+                            .getString("fcm_token", null);
+                } catch (Throwable ignored) {
+                }
             }
-            android.util.Log.i("MainActivity", "[FCM][BRIDGE] Native bridge getFcmToken called: " + (sLatestFcmToken != null ? "present" : "null"));
+            android.util.Log.i("MainActivity", "[FCM][BRIDGE] Native bridge getFcmToken called: "
+                    + (sLatestFcmToken != null ? "present" : "null"));
             return sLatestFcmToken != null ? sLatestFcmToken : "";
         }
 
         @android.webkit.JavascriptInterface
         public boolean isBatteryOptimizationIgnored() {
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-                android.os.PowerManager pm = (android.os.PowerManager) getSystemService(android.content.Context.POWER_SERVICE);
+                android.os.PowerManager pm = (android.os.PowerManager) getSystemService(
+                        android.content.Context.POWER_SERVICE);
                 return pm != null && pm.isIgnoringBatteryOptimizations(getPackageName());
             }
             return true;
@@ -66,14 +70,17 @@ public class MainActivity extends BridgeActivity {
         public void requestIgnoreBatteryOptimizations() {
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
                 try {
-                    android.os.PowerManager pm = (android.os.PowerManager) getSystemService(android.content.Context.POWER_SERVICE);
+                    android.os.PowerManager pm = (android.os.PowerManager) getSystemService(
+                            android.content.Context.POWER_SERVICE);
                     if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
-                        Intent intent = new Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                        Intent intent = new Intent(
+                                android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
                         intent.setData(android.net.Uri.parse("package:" + getPackageName()));
                         startActivity(intent);
                     }
                 } catch (Throwable t) {
-                    android.util.Log.w("MainActivity", "Failed to launch battery optimization request: " + t.getMessage());
+                    android.util.Log.w("MainActivity",
+                            "Failed to launch battery optimization request: " + t.getMessage());
                 }
             }
         }
@@ -81,9 +88,11 @@ public class MainActivity extends BridgeActivity {
         @android.webkit.JavascriptInterface
         public boolean areNotificationsEnabled() {
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                return ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
+                return ContextCompat.checkSelfPermission(MainActivity.this,
+                        Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
             }
-            androidx.core.app.NotificationManagerCompat nm = androidx.core.app.NotificationManagerCompat.from(MainActivity.this);
+            androidx.core.app.NotificationManagerCompat nm = androidx.core.app.NotificationManagerCompat
+                    .from(MainActivity.this);
             return nm.areNotificationsEnabled();
         }
 
@@ -107,8 +116,10 @@ public class MainActivity extends BridgeActivity {
         @android.webkit.JavascriptInterface
         public void requestNotificationPermission() {
             if (android.os.Build.VERSION.SDK_INT >= 33) {
-                if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                    ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, 1002);
+                if (ContextCompat.checkSelfPermission(MainActivity.this,
+                        Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    ActivityCompat.requestPermissions(MainActivity.this,
+                            new String[] { Manifest.permission.POST_NOTIFICATIONS }, 1002);
                 }
             }
         }
@@ -116,42 +127,51 @@ public class MainActivity extends BridgeActivity {
         @android.webkit.JavascriptInterface
         public void postSystemNotification(String title, String body, String route, String requestId) {
             try {
-                android.app.NotificationManager manager = (android.app.NotificationManager) getSystemService(android.content.Context.NOTIFICATION_SERVICE);
-                if (manager == null) return;
+                android.app.NotificationManager manager = (android.app.NotificationManager) getSystemService(
+                        android.content.Context.NOTIFICATION_SERVICE);
+                if (manager == null)
+                    return;
 
                 int notificationId = (int) (System.currentTimeMillis() & 0xfffffff);
                 Intent intent = new Intent(MainActivity.this, MainActivity.class);
                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                if (route != null && !route.isEmpty()) intent.putExtra("route", route);
-                if (requestId != null && !requestId.isEmpty()) intent.putExtra("requestId", requestId);
+                if (route != null && !route.isEmpty())
+                    intent.putExtra("route", route);
+                if (requestId != null && !requestId.isEmpty())
+                    intent.putExtra("requestId", requestId);
 
                 int flags = PendingIntent.FLAG_UPDATE_CURRENT;
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
                     flags |= PendingIntent.FLAG_IMMUTABLE;
                 }
-                PendingIntent pendingIntent = PendingIntent.getActivity(MainActivity.this, notificationId, intent, flags);
+                PendingIntent pendingIntent = PendingIntent.getActivity(MainActivity.this, notificationId, intent,
+                        flags);
 
-                android.net.Uri defaultSoundUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION);
+                android.net.Uri defaultSoundUri = android.media.RingtoneManager
+                        .getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION);
 
-                androidx.core.app.NotificationCompat.Builder builder = new androidx.core.app.NotificationCompat.Builder(MainActivity.this, "formbhro_messages_v3")
-                    .setSmallIcon(R.drawable.ic_stat_notification)
-                    .setContentTitle(title != null && !title.trim().isEmpty() ? title : "Formbhro")
-                    .setContentText(body != null && !body.trim().isEmpty() ? body : "New message received")
-                    .setPriority(androidx.core.app.NotificationCompat.PRIORITY_MAX)
-                    .setCategory(androidx.core.app.NotificationCompat.CATEGORY_MESSAGE)
-                    .setVisibility(androidx.core.app.NotificationCompat.VISIBILITY_PUBLIC)
-                    .setAutoCancel(true)
-                    .setColor(android.graphics.Color.parseColor("#FF8A1F"))
-                    .setSound(defaultSoundUri)
-                    .setVibrate(new long[]{0, 500, 200, 500})
-                    .setDefaults(androidx.core.app.NotificationCompat.DEFAULT_ALL)
-                    .setContentIntent(pendingIntent);
+                androidx.core.app.NotificationCompat.Builder builder = new androidx.core.app.NotificationCompat.Builder(
+                        MainActivity.this, "formbhro_messages_v3")
+                        .setSmallIcon(R.drawable.ic_stat_notification)
+                        .setContentTitle(title != null && !title.trim().isEmpty() ? title : "Formbhro")
+                        .setContentText(body != null && !body.trim().isEmpty() ? body : "New message received")
+                        .setPriority(androidx.core.app.NotificationCompat.PRIORITY_MAX)
+                        .setCategory(androidx.core.app.NotificationCompat.CATEGORY_MESSAGE)
+                        .setVisibility(androidx.core.app.NotificationCompat.VISIBILITY_PUBLIC)
+                        .setAutoCancel(true)
+                        .setColor(android.graphics.Color.parseColor("#FF8A1F"))
+                        .setSound(defaultSoundUri)
+                        .setVibrate(new long[] { 0, 500, 200, 500 })
+                        .setDefaults(androidx.core.app.NotificationCompat.DEFAULT_ALL)
+                        .setContentIntent(pendingIntent);
 
-                String tag = "inapp_" + (requestId != null && !requestId.isEmpty() ? requestId : (title != null ? title.hashCode() : "notif"));
+                String tag = "inapp_" + (requestId != null && !requestId.isEmpty() ? requestId
+                        : (title != null ? title.hashCode() : "notif"));
                 manager.notify(tag, notificationId, builder.build());
                 android.util.Log.i("MainActivity", "[NOTIFICATION][BRIDGE] Posted notification to bar: " + title);
             } catch (Throwable t) {
-                android.util.Log.w("MainActivity", "[NOTIFICATION][BRIDGE] Failed to post notification: " + t.getMessage());
+                android.util.Log.w("MainActivity",
+                        "[NOTIFICATION][BRIDGE] Failed to post notification: " + t.getMessage());
             }
         }
 
@@ -168,7 +188,7 @@ public class MainActivity extends BridgeActivity {
     }
 
     private static final int RC_GOOGLE_SIGN_IN = 9001;
-    private static final String GOOGLE_SERVER_CLIENT_ID = "111790521008-kdr78o80m6h10voviku4r6uq9iq9nj2v.apps.googleusercontent.com";
+    private static final String GOOGLE_SERVER_CLIENT_ID = "968890483464-hc7metveqh08o27mur4kbjp44j1aii9v.apps.googleusercontent.com";
 
     public void launchNativeGoogleSignIn() {
         runOnUiThread(() -> {
@@ -209,7 +229,8 @@ public class MainActivity extends BridgeActivity {
                     String email = account.getEmail() != null ? account.getEmail() : "";
                     String name = account.getDisplayName() != null ? account.getDisplayName() : "";
                     String serverAuthCode = account.getServerAuthCode() != null ? account.getServerAuthCode() : "";
-                    android.util.Log.i("MainActivity", "[AUTH] Native Google Sign-In success: " + email + ", hasIdToken=" + (!idToken.isEmpty()));
+                    android.util.Log.i("MainActivity",
+                            "[AUTH] Native Google Sign-In success: " + email + ", hasIdToken=" + (!idToken.isEmpty()));
                     dispatchGoogleAuthSuccess(idToken, email, name, serverAuthCode);
                 } else {
                     android.util.Log.w("MainActivity", "[AUTH] GoogleSignInAccount was null");
@@ -217,12 +238,14 @@ public class MainActivity extends BridgeActivity {
                 }
             } catch (ApiException e) {
                 int code = e.getStatusCode();
-                android.util.Log.w("MainActivity", "[AUTH] Google Sign-In ApiException (status=" + code + "): " + e.getMessage());
+                android.util.Log.w("MainActivity",
+                        "[AUTH] Google Sign-In ApiException (status=" + code + "): " + e.getMessage());
                 if (code == 12501) {
                     dispatchGoogleAuthCancel();
                 } else if (code == 10) {
                     final String sha1 = "E7:F5:23:9D:E3:E5:39:6D:D9:C0:ED:19:DD:5E:B0:03:EF:D5:37:66";
-                    final String msg = "Developer Error (10): Keystore SHA-1 (" + sha1 + ") is missing in Google Cloud Console OAuth 2.0 Android Client ID for com.formbhro.app";
+                    final String msg = "Developer Error (10): Keystore SHA-1 (" + sha1
+                            + ") is missing in Google Cloud Console OAuth 2.0 Android Client ID for com.formbhro.app";
                     Toast.makeText(MainActivity.this, msg, Toast.LENGTH_LONG).show();
                     dispatchGoogleAuthError(10, msg);
                 } else {
@@ -239,12 +262,11 @@ public class MainActivity extends BridgeActivity {
         if (this.bridge != null && this.bridge.getWebView() != null) {
             final String js = String.format(
                     "(function() {" +
-                    "  var detail = { idToken: '%s', email: '%s', name: '%s', serverAuthCode: '%s' };" +
-                    "  window.__FORMBHARO_LAST_GOOGLE_AUTH__ = detail;" +
-                    "  window.dispatchEvent(new CustomEvent('nativeGoogleAuthSuccess', { detail: detail }));" +
-                    "})();",
-                    escapeJs(idToken), escapeJs(email), escapeJs(name), escapeJs(authCode)
-            );
+                            "  var detail = { idToken: '%s', email: '%s', name: '%s', serverAuthCode: '%s' };" +
+                            "  window.__FORMBHARO_LAST_GOOGLE_AUTH__ = detail;" +
+                            "  window.dispatchEvent(new CustomEvent('nativeGoogleAuthSuccess', { detail: detail }));" +
+                            "})();",
+                    escapeJs(idToken), escapeJs(email), escapeJs(name), escapeJs(authCode));
             runOnUiThread(() -> this.bridge.getWebView().evaluateJavascript(js, null));
         }
     }
@@ -253,11 +275,10 @@ public class MainActivity extends BridgeActivity {
         if (this.bridge != null && this.bridge.getWebView() != null) {
             final String js = String.format(
                     "(function() {" +
-                    "  var detail = { code: %d, message: '%s' };" +
-                    "  window.dispatchEvent(new CustomEvent('nativeGoogleAuthError', { detail: detail }));" +
-                    "})();",
-                    code, escapeJs(message)
-            );
+                            "  var detail = { code: %d, message: '%s' };" +
+                            "  window.dispatchEvent(new CustomEvent('nativeGoogleAuthError', { detail: detail }));" +
+                            "})();",
+                    code, escapeJs(message));
             runOnUiThread(() -> this.bridge.getWebView().evaluateJavascript(js, null));
         }
     }
@@ -270,28 +291,31 @@ public class MainActivity extends BridgeActivity {
     }
 
     public static void broadcastFcmToken(android.content.Context context, String token) {
-        if (token == null || token.trim().isEmpty()) return;
+        if (token == null || token.trim().isEmpty())
+            return;
         sLatestFcmToken = token;
         try {
             if (context != null) {
                 context.getSharedPreferences("formbhro_prefs", android.content.Context.MODE_PRIVATE)
-                    .edit().putString("fcm_token", token).apply();
+                        .edit().putString("fcm_token", token).apply();
             }
-        } catch (Throwable ignored) {}
+        } catch (Throwable ignored) {
+        }
 
         if (sInstance != null && sInstance.bridge != null && sInstance.bridge.getWebView() != null) {
             sInstance.runOnUiThread(() -> {
                 try {
                     String safeToken = token.replace("'", "\\'");
                     String js = String.format(
-                        "(function() {" +
-                        "  window.__FORMBHARO_FCM_TOKEN__ = '%s';" +
-                        "  window.dispatchEvent(new CustomEvent('formbhro:fcm_token_ready', { detail: { token: '%s' } }));" +
-                        "})();",
-                        safeToken, safeToken
-                    );
+                            "(function() {" +
+                                    "  window.__FORMBHARO_FCM_TOKEN__ = '%s';" +
+                                    "  window.dispatchEvent(new CustomEvent('formbhro:fcm_token_ready', { detail: { token: '%s' } }));"
+                                    +
+                                    "})();",
+                            safeToken, safeToken);
                     sInstance.bridge.getWebView().evaluateJavascript(js, null);
-                } catch (Throwable ignored) {}
+                } catch (Throwable ignored) {
+                }
             });
         }
     }
@@ -304,33 +328,36 @@ public class MainActivity extends BridgeActivity {
         // Restore cached token immediately
         try {
             String cached = getSharedPreferences("formbhro_prefs", android.content.Context.MODE_PRIVATE)
-                .getString("fcm_token", null);
+                    .getString("fcm_token", null);
             if (cached != null && !cached.isEmpty()) {
                 sLatestFcmToken = cached;
             }
-        } catch (Throwable ignored) {}
+        } catch (Throwable ignored) {
+        }
 
         try {
             com.google.firebase.messaging.FirebaseMessaging.getInstance().getToken()
-                .addOnCompleteListener(task -> {
-                    if (task.isSuccessful() && task.getResult() != null) {
-                        broadcastFcmToken(this, task.getResult());
-                        android.util.Log.i("MainActivity", "[FCM] Got native FCM token on launch: " + (sLatestFcmToken.length() > 10 ? sLatestFcmToken.substring(0, 10) + "..." : ""));
-                    }
-                });
+                    .addOnCompleteListener(task -> {
+                        if (task.isSuccessful() && task.getResult() != null) {
+                            broadcastFcmToken(this, task.getResult());
+                            android.util.Log.i("MainActivity", "[FCM] Got native FCM token on launch: "
+                                    + (sLatestFcmToken.length() > 10 ? sLatestFcmToken.substring(0, 10) + "..." : ""));
+                        }
+                    });
         } catch (Throwable t) {
             android.util.Log.w("MainActivity", "[FCM] Failed to query native FCM token: " + t.getMessage());
         }
-        
+
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1) {
             try {
                 setShowWhenLocked(true);
                 setTurnScreenOn(true);
-            } catch (Throwable ignored) {}
+            } catch (Throwable ignored) {
+            }
         }
 
         setupWebView();
-        
+
         try {
             handleCallIntent(getIntent());
             handleMessageIntent(getIntent());
@@ -338,7 +365,7 @@ public class MainActivity extends BridgeActivity {
         } catch (Throwable t) {
             android.util.Log.w("MainActivity", "Error handling intent: " + t.getMessage());
         }
-        
+
         // Request runtime permissions for Android (Microphone, Camera, Notifications)
         try {
             java.util.List<String> permList = new java.util.ArrayList<>();
@@ -362,27 +389,28 @@ public class MainActivity extends BridgeActivity {
             android.util.Log.w("MainActivity", "Error requesting permissions: " + t.getMessage());
         }
 
-        // Create high-importance notification channels for incoming calls & messages (Android 8.0+)
+        // Create high-importance notification channels for incoming calls & messages
+        // (Android 8.0+)
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             android.app.NotificationManager manager = getSystemService(android.app.NotificationManager.class);
             if (manager != null) {
                 android.media.AudioAttributes audioAttributes = new android.media.AudioAttributes.Builder()
-                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
-                    .build();
-                android.net.Uri ringtoneUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_RINGTONE);
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                        .build();
+                android.net.Uri ringtoneUri = android.media.RingtoneManager
+                        .getDefaultUri(android.media.RingtoneManager.TYPE_RINGTONE);
 
                 // High-importance Incoming Calls channels (_v3 and _v2)
-                for (String chId : new String[]{"formbhro_calls_v3", "formbhro_calls_v2"}) {
+                for (String chId : new String[] { "formbhro_calls_v3", "formbhro_calls_v2" }) {
                     if (manager.getNotificationChannel(chId) == null) {
                         android.app.NotificationChannel callChannel = new android.app.NotificationChannel(
-                            chId,
-                            "Incoming Calls",
-                            android.app.NotificationManager.IMPORTANCE_HIGH
-                        );
+                                chId,
+                                "Incoming Calls",
+                                android.app.NotificationManager.IMPORTANCE_HIGH);
                         callChannel.setDescription("Alerts for incoming audio and video calls");
                         callChannel.enableVibration(true);
-                        callChannel.setVibrationPattern(new long[]{0, 1000, 500, 1000, 500, 1000});
+                        callChannel.setVibrationPattern(new long[] { 0, 1000, 500, 1000, 500, 1000 });
                         callChannel.enableLights(true);
                         callChannel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
                         callChannel.setBypassDnd(true);
@@ -395,18 +423,18 @@ public class MainActivity extends BridgeActivity {
 
                 // High-importance Messages channels (_v3 and _v2)
                 android.media.AudioAttributes msgAudioAttributes = new android.media.AudioAttributes.Builder()
-                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT)
-                    .build();
-                android.net.Uri msgSoundUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION);
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT)
+                        .build();
+                android.net.Uri msgSoundUri = android.media.RingtoneManager
+                        .getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION);
 
-                for (String chId : new String[]{"formbhro_messages_v3", "formbhro_messages_v2"}) {
+                for (String chId : new String[] { "formbhro_messages_v3", "formbhro_messages_v2" }) {
                     if (manager.getNotificationChannel(chId) == null) {
                         android.app.NotificationChannel msgChannel = new android.app.NotificationChannel(
-                            chId,
-                            "Messages & Updates",
-                            android.app.NotificationManager.IMPORTANCE_HIGH
-                        );
+                                chId,
+                                "Messages & Updates",
+                                android.app.NotificationManager.IMPORTANCE_HIGH);
                         msgChannel.setDescription("New message alerts from experts and team members");
                         msgChannel.enableVibration(true);
                         msgChannel.enableLights(true);
@@ -419,13 +447,12 @@ public class MainActivity extends BridgeActivity {
                 }
 
                 // Default Notification channels (_v3 and _v2)
-                for (String chId : new String[]{"formbhro_default_v3", "formbhro_default_v2"}) {
+                for (String chId : new String[] { "formbhro_default_v3", "formbhro_default_v2" }) {
                     if (manager.getNotificationChannel(chId) == null) {
                         android.app.NotificationChannel defChannel = new android.app.NotificationChannel(
-                            chId,
-                            "General Notifications",
-                            android.app.NotificationManager.IMPORTANCE_HIGH
-                        );
+                                chId,
+                                "General Notifications",
+                                android.app.NotificationManager.IMPORTANCE_HIGH);
                         defChannel.setDescription("General system and request updates");
                         defChannel.enableVibration(true);
                         defChannel.enableLights(true);
@@ -447,7 +474,8 @@ public class MainActivity extends BridgeActivity {
     }
 
     private void handleMessageIntent(Intent intent) {
-        if (intent == null) return;
+        if (intent == null)
+            return;
         String route = intent.getStringExtra("route");
         if (route == null || route.trim().isEmpty()) {
             String requestId = intent.getStringExtra("requestId");
@@ -463,17 +491,16 @@ public class MainActivity extends BridgeActivity {
             intent.removeExtra("requestId");
 
             final String js = String.format(
-                "(function() {" +
-                "  var target = '%s';" +
-                "  if (window.location && window.location.pathname !== target) {" +
-                "    console.log('[NativeBridge] Navigating to ' + target);" +
-                "    window.location.href = target;" +
-                "  }" +
-                "})();",
-                escapeJs(targetRoute)
-            );
+                    "(function() {" +
+                            "  var target = '%s';" +
+                            "  if (window.location && window.location.pathname !== target) {" +
+                            "    console.log('[NativeBridge] Navigating to ' + target);" +
+                            "    window.location.href = target;" +
+                            "  }" +
+                            "})();",
+                    escapeJs(targetRoute));
 
-            long[] delays = new long[]{300, 800, 1600, 3000};
+            long[] delays = new long[] { 300, 800, 1600, 3000 };
             for (long delay : delays) {
                 new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
                     if (MainActivity.this.bridge != null && MainActivity.this.bridge.getWebView() != null) {
@@ -485,33 +512,36 @@ public class MainActivity extends BridgeActivity {
     }
 
     private void handleOAuthIntent(Intent intent) {
-        if (intent == null) return;
+        if (intent == null)
+            return;
         try {
             String dataStr = intent.getDataString();
             String accessToken = intent.getStringExtra("access_token");
             String refreshToken = intent.getStringExtra("refresh_token");
 
             String urlToSend = null;
-            if (dataStr != null && (dataStr.contains("oauth-callback") || dataStr.contains("access_token") || dataStr.contains("code="))) {
+            if (dataStr != null && (dataStr.contains("oauth-callback") || dataStr.contains("access_token")
+                    || dataStr.contains("code="))) {
                 urlToSend = dataStr;
             } else if (accessToken != null && refreshToken != null) {
-                urlToSend = "com.formbhro.app://oauth-callback#access_token=" + accessToken + "&refresh_token=" + refreshToken;
+                urlToSend = "com.formbhro.app://oauth-callback#access_token=" + accessToken + "&refresh_token="
+                        + refreshToken;
             }
 
             if (urlToSend != null && this.bridge != null && this.bridge.getWebView() != null) {
                 final String safeUrl = escapeJs(urlToSend);
                 android.util.Log.i("MainActivity", "[AUTH] Dispatching OAuth URL to WebView: " + safeUrl);
-                long[] delays = new long[]{100, 500, 1500};
+                long[] delays = new long[] { 100, 500, 1500 };
                 for (long delay : delays) {
                     new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
                         if (MainActivity.this.bridge != null && MainActivity.this.bridge.getWebView() != null) {
                             String js = "(function() {" +
-                                "  var url = '" + safeUrl + "';" +
-                                "  window.dispatchEvent(new CustomEvent('appUrlOpen', { detail: { url: url } }));" +
-                                "  if (window.Capacitor && window.Capacitor.triggerEvent) {" +
-                                "    window.Capacitor.triggerEvent('appUrlOpen', 'app', { url: url });" +
-                                "  }" +
-                                "})();";
+                                    "  var url = '" + safeUrl + "';" +
+                                    "  window.dispatchEvent(new CustomEvent('appUrlOpen', { detail: { url: url } }));" +
+                                    "  if (window.Capacitor && window.Capacitor.triggerEvent) {" +
+                                    "    window.Capacitor.triggerEvent('appUrlOpen', 'app', { url: url });" +
+                                    "  }" +
+                                    "})();";
                             MainActivity.this.bridge.getWebView().evaluateJavascript(js, null);
                         }
                     }, delay);
@@ -523,57 +553,65 @@ public class MainActivity extends BridgeActivity {
     }
 
     private void handleCallIntent(Intent intent) {
-        if (intent == null) return;
+        if (intent == null)
+            return;
         boolean autoAnswer = intent.getBooleanExtra("autoAnswer", false);
         String action = intent.getAction();
         if (autoAnswer || "ACTION_INCOMING_CALL_ANSWERED".equals(action)) {
-            final String callSessionId = intent.getStringExtra("callSessionId") != null ? intent.getStringExtra("callSessionId") : "";
-            final String requestId = intent.getStringExtra("requestId") != null ? intent.getStringExtra("requestId") : "";
-            final String chatRoomId = intent.getStringExtra("chatRoomId") != null ? intent.getStringExtra("chatRoomId") : "";
-            final String callType = intent.getStringExtra("callType") != null ? intent.getStringExtra("callType") : "voice";
+            final String callSessionId = intent.getStringExtra("callSessionId") != null
+                    ? intent.getStringExtra("callSessionId")
+                    : "";
+            final String requestId = intent.getStringExtra("requestId") != null ? intent.getStringExtra("requestId")
+                    : "";
+            final String chatRoomId = intent.getStringExtra("chatRoomId") != null ? intent.getStringExtra("chatRoomId")
+                    : "";
+            final String callType = intent.getStringExtra("callType") != null ? intent.getStringExtra("callType")
+                    : "voice";
             final String route = intent.getStringExtra("route") != null ? intent.getStringExtra("route") : "";
 
-            // Clear intent extras to prevent duplicate execution on onResume or configuration change
+            // Clear intent extras to prevent duplicate execution on onResume or
+            // configuration change
             intent.removeExtra("autoAnswer");
             intent.setAction(null);
             setIntent(new Intent());
 
-            android.util.Log.i("MainActivity", "[CALL][BRIDGE] Handling call answer intent: session=" + callSessionId + " req=" + requestId + " route=" + route);
-            android.util.Log.i("CALL_FORENSIC", "[CALL FORENSIC] role=TEAM event=INCOMING_CALL_BRIDGE callSessionId=" + callSessionId + " requestId=" + requestId + " timestamp=" + System.currentTimeMillis());
+            android.util.Log.i("MainActivity", "[CALL][BRIDGE] Handling call answer intent: session=" + callSessionId
+                    + " req=" + requestId + " route=" + route);
+            android.util.Log.i("CALL_FORENSIC", "[CALL FORENSIC] role=TEAM event=INCOMING_CALL_BRIDGE callSessionId="
+                    + callSessionId + " requestId=" + requestId + " timestamp=" + System.currentTimeMillis());
 
             pendingCallAnswerJson = String.format(
-                "{\"callSessionId\":\"%s\",\"requestId\":\"%s\",\"chatRoomId\":\"%s\",\"callType\":\"%s\",\"route\":\"%s\",\"autoAnswer\":true,\"timestamp\":%d}",
-                escapeJs(callSessionId),
-                escapeJs(requestId),
-                escapeJs(chatRoomId),
-                escapeJs(callType),
-                escapeJs(route),
-                System.currentTimeMillis()
-            );
+                    "{\"callSessionId\":\"%s\",\"requestId\":\"%s\",\"chatRoomId\":\"%s\",\"callType\":\"%s\",\"route\":\"%s\",\"autoAnswer\":true,\"timestamp\":%d}",
+                    escapeJs(callSessionId),
+                    escapeJs(requestId),
+                    escapeJs(chatRoomId),
+                    escapeJs(callType),
+                    escapeJs(route),
+                    System.currentTimeMillis());
 
             final String js = String.format(
-                "window.__FORMBHARO_PENDING_CALL_ANSWER__ = {" +
-                "  callSessionId: '%s'," +
-                "  requestId: '%s'," +
-                "  chatRoomId: '%s'," +
-                "  callType: '%s'," +
-                "  route: '%s'," +
-                "  autoAnswer: true," +
-                "  timestamp: %d" +
-                "};" +
-                "window.dispatchEvent(new CustomEvent('formbhro:call_answered', {" +
-                "  detail: window.__FORMBHARO_PENDING_CALL_ANSWER__" +
-                "}));",
-                escapeJs(callSessionId),
-                escapeJs(requestId),
-                escapeJs(chatRoomId),
-                escapeJs(callType),
-                escapeJs(route),
-                System.currentTimeMillis()
-            );
+                    "window.__FORMBHARO_PENDING_CALL_ANSWER__ = {" +
+                            "  callSessionId: '%s'," +
+                            "  requestId: '%s'," +
+                            "  chatRoomId: '%s'," +
+                            "  callType: '%s'," +
+                            "  route: '%s'," +
+                            "  autoAnswer: true," +
+                            "  timestamp: %d" +
+                            "};" +
+                            "window.dispatchEvent(new CustomEvent('formbhro:call_answered', {" +
+                            "  detail: window.__FORMBHARO_PENDING_CALL_ANSWER__" +
+                            "}));",
+                    escapeJs(callSessionId),
+                    escapeJs(requestId),
+                    escapeJs(chatRoomId),
+                    escapeJs(callType),
+                    escapeJs(route),
+                    System.currentTimeMillis());
 
             deliverJsToWebView(js);
-        } else if (intent.getStringExtra("callSessionId") != null && !intent.getStringExtra("callSessionId").trim().isEmpty()) {
+        } else if (intent.getStringExtra("callSessionId") != null
+                && !intent.getStringExtra("callSessionId").trim().isEmpty()) {
             final String callSessionId = intent.getStringExtra("callSessionId");
             final String requestId = intent.getStringExtra("requestId");
             final String chatRoomId = intent.getStringExtra("chatRoomId");
@@ -585,7 +623,8 @@ public class MainActivity extends BridgeActivity {
             intent.removeExtra("callSessionId");
             setIntent(new Intent());
 
-            android.util.Log.i("MainActivity", "[CALL][BRIDGE] Opening IncomingCallActivity from notification tap: session=" + callSessionId);
+            android.util.Log.i("MainActivity",
+                    "[CALL][BRIDGE] Opening IncomingCallActivity from notification tap: session=" + callSessionId);
             Intent callUiIntent = new Intent(this, IncomingCallActivity.class);
             callUiIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
             callUiIntent.putExtra("callSessionId", callSessionId);
@@ -601,11 +640,13 @@ public class MainActivity extends BridgeActivity {
 
     private void deliverJsToWebView(final String js) {
         pendingCallAnswerJs = js;
-        long[] delays = new long[]{0, 300, 700, 1400, 2400, 4000, 6000, 8000};
+        long[] delays = new long[] { 0, 300, 700, 1400, 2400, 4000, 6000, 8000 };
         for (long delay : delays) {
             new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-                if (pendingCallAnswerJs != null && MainActivity.this.bridge != null && MainActivity.this.bridge.getWebView() != null) {
-                    android.util.Log.i("MainActivity", "[CALL][BRIDGE] Evaluating JS in WebView (delay=" + delay + "ms)");
+                if (pendingCallAnswerJs != null && MainActivity.this.bridge != null
+                        && MainActivity.this.bridge.getWebView() != null) {
+                    android.util.Log.i("MainActivity",
+                            "[CALL][BRIDGE] Evaluating JS in WebView (delay=" + delay + "ms)");
                     MainActivity.this.bridge.getWebView().evaluateJavascript(pendingCallAnswerJs, null);
                 }
             }, delay);
@@ -613,7 +654,8 @@ public class MainActivity extends BridgeActivity {
     }
 
     private String escapeJs(String str) {
-        if (str == null) return "";
+        if (str == null)
+            return "";
         return str.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "");
     }
 
@@ -631,30 +673,32 @@ public class MainActivity extends BridgeActivity {
                     webViewListenerAdded = true;
                     this.bridge.addWebViewListener(new WebViewListener() {
                         private void injectGoogleAuthHeader(WebView view) {
-                            if (view == null) return;
+                            if (view == null)
+                                return;
                             String js = "(function(){\n" +
-                                "  try {\n" +
-                                "    window.Capacitor = window.Capacitor || {};\n" +
-                                "    window.Capacitor.PluginHeaders = window.Capacitor.PluginHeaders || [];\n" +
-                                "    var found = false;\n" +
-                                "    for (var i = 0; i < window.Capacitor.PluginHeaders.length; i++) {\n" +
-                                "      if (window.Capacitor.PluginHeaders[i] && window.Capacitor.PluginHeaders[i].name === 'GoogleAuth') {\n" +
-                                "        found = true; break;\n" +
-                                "      }\n" +
-                                "    }\n" +
-                                "    if (!found) {\n" +
-                                "      window.Capacitor.PluginHeaders.push({\n" +
-                                "        name: 'GoogleAuth',\n" +
-                                "        methods: [\n" +
-                                "          { name: 'signIn', rtype: 'promise' },\n" +
-                                "          { name: 'refresh', rtype: 'promise' },\n" +
-                                "          { name: 'signOut', rtype: 'promise' },\n" +
-                                "          { name: 'initialize', rtype: 'promise' }\n" +
-                                "        ]\n" +
-                                "      });\n" +
-                                "    }\n" +
-                                "  } catch(e) {}\n" +
-                                "})();";
+                                    "  try {\n" +
+                                    "    window.Capacitor = window.Capacitor || {};\n" +
+                                    "    window.Capacitor.PluginHeaders = window.Capacitor.PluginHeaders || [];\n" +
+                                    "    var found = false;\n" +
+                                    "    for (var i = 0; i < window.Capacitor.PluginHeaders.length; i++) {\n" +
+                                    "      if (window.Capacitor.PluginHeaders[i] && window.Capacitor.PluginHeaders[i].name === 'GoogleAuth') {\n"
+                                    +
+                                    "        found = true; break;\n" +
+                                    "      }\n" +
+                                    "    }\n" +
+                                    "    if (!found) {\n" +
+                                    "      window.Capacitor.PluginHeaders.push({\n" +
+                                    "        name: 'GoogleAuth',\n" +
+                                    "        methods: [\n" +
+                                    "          { name: 'signIn', rtype: 'promise' },\n" +
+                                    "          { name: 'refresh', rtype: 'promise' },\n" +
+                                    "          { name: 'signOut', rtype: 'promise' },\n" +
+                                    "          { name: 'initialize', rtype: 'promise' }\n" +
+                                    "        ]\n" +
+                                    "      });\n" +
+                                    "    }\n" +
+                                    "  } catch(e) {}\n" +
+                                    "})();";
                             view.evaluateJavascript(js, null);
                         }
 

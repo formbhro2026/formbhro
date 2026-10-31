@@ -24,11 +24,11 @@ const config: CapacitorConfig = {
   plugins: {
     GoogleAuth: {
       scopes: ["profile", "email"],
-      // serverClientId: the WEB application OAuth client ID from Google Console.
-      // Must be used for requestIdToken to avoid Android ApiException: 10
-      serverClientId: "111790521008-kdr78o80m6h10voviku4r6uq9iq9nj2v.apps.googleusercontent.com",
-      clientId: "111790521008-kdr78o80m6h10voviku4r6uq9iq9nj2v.apps.googleusercontent.com",
-      androidClientId: "111790521008-kdr78o80m6h10voviku4r6uq9iq9nj2v.apps.googleusercontent.com",
+      // serverClientId: the WEB application OAuth client ID from Firebase project formbhro-29a0b (968890483464).
+      // Must match the project where the Android SHA-1 fingerprint is registered.
+      serverClientId: "968890483464-hc7metveqh08o27mur4kbjp44j1aii9v.apps.googleusercontent.com",
+      clientId: "968890483464-hc7metveqh08o27mur4kbjp44j1aii9v.apps.googleusercontent.com",
+      androidClientId: "968890483464-hc7metveqh08o27mur4kbjp44j1aii9v.apps.googleusercontent.com",
       forceCodeForRefreshToken: false,
     },
     PushNotifications: {
