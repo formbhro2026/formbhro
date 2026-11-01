@@ -188,7 +188,7 @@ public class MainActivity extends BridgeActivity {
     }
 
     private static final int RC_GOOGLE_SIGN_IN = 9001;
-    private static final String GOOGLE_SERVER_CLIENT_ID = "968890483464-hc7metveqh08o27mur4kbjp44j1aii9v.apps.googleusercontent.com";
+    private static final String GOOGLE_SERVER_CLIENT_ID = "111790521008-kdr78o80m6h10voviku4r6uq9iq9nj2v.apps.googleusercontent.com";
 
     public void launchNativeGoogleSignIn() {
         runOnUiThread(() -> {
