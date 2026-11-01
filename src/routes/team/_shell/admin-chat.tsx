@@ -271,7 +271,7 @@ function TeamAdminChatPage() {
       const storagePath = `admin-chats/${request.id}/${Date.now()}-${cleanName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from("documents")
+        .from("avatars")
         .upload(storagePath, file, {
           cacheControl: "3600",
           upsert: false,
@@ -279,7 +279,7 @@ function TeamAdminChatPage() {
 
       if (uploadError) throw uploadError;
 
-      const { data: urlData } = supabase.storage.from("documents").getPublicUrl(storagePath);
+      const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(storagePath);
       const publicUrl = urlData.publicUrl;
 
       const attachmentBody = `Shared attachment: [${file.name}](${publicUrl})`;
