@@ -257,7 +257,7 @@ function RootComponent() {
             },
           });
         }
-      } catch (_) {}
+      } catch (_) { }
     }, 2000);
     return () => clearTimeout(timer);
   }, []);
@@ -277,7 +277,7 @@ function RootComponent() {
 
       try {
         const { Browser } = await import("@capacitor/browser");
-        await Browser.close().catch(() => {});
+        await Browser.close().catch(() => { });
 
         let accessToken: string | null = null;
         let refreshToken: string | null = null;
@@ -324,7 +324,7 @@ function RootComponent() {
           try {
             if (accessToken.includes("%")) accessToken = decodeURIComponent(accessToken);
             if (refreshToken.includes("%")) refreshToken = decodeURIComponent(refreshToken);
-          } catch (_) {}
+          } catch (_) { }
 
           const { data, error } = await supabase.auth.setSession({
             access_token: accessToken,
@@ -340,7 +340,7 @@ function RootComponent() {
             try {
               const { Browser } = await import("@capacitor/browser");
               await Browser.close();
-            } catch (_) {}
+            } catch (_) { }
             localStorage.setItem("formbhro:last_workspace", "user");
             const redirectPath =
               localStorage.getItem("formbhro:redirect") ||
@@ -363,7 +363,7 @@ function RootComponent() {
             try {
               const { Browser } = await import("@capacitor/browser");
               await Browser.close();
-            } catch (_) {}
+            } catch (_) { }
             localStorage.setItem("formbhro:last_workspace", "user");
             const redirectPath =
               localStorage.getItem("formbhro:redirect") ||
@@ -474,13 +474,13 @@ function RootComponent() {
         duration: 6000,
         action: data?.requestId
           ? {
-              label: "Open chat",
-              onClick: () =>
-                void navigate({
-                  to: "/app/chats/$requestId",
-                  params: { requestId: data.requestId },
-                }),
-            }
+            label: "Open chat",
+            onClick: () =>
+              void navigate({
+                to: "/app/chats/$requestId",
+                params: { requestId: data.requestId },
+              }),
+          }
           : undefined,
       });
     });
@@ -502,7 +502,7 @@ function RootComponent() {
           {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
           <SplashScreen />
           <Outlet />
-                    <NativeAlertModal
+          <NativeAlertModal
             open={nativeAlert.open}
             type={nativeAlert.type}
             onAction={() => {
