@@ -17,6 +17,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { SplashScreen } from "../components/common/SplashScreen";
 import { SessionProvider } from "../lib/session";
 import { GlobalCallProvider } from "../lib/call-store";
+import { NativeAlertModal } from "../components/NativeAlertModal";
 
 import {
   onForegroundNotification,
@@ -210,6 +211,7 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const navigate = useNavigate();
+  const [nativeAlert, setNativeAlert] = useState<{ open: boolean; type: "notification" | "battery" }>({ open: false, type: "notification" });
 
   useEffect(() => {
     applyTheme(getInitialTheme());
@@ -500,6 +502,31 @@ function RootComponent() {
           {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
           <SplashScreen />
           <Outlet />
+                    <NativeAlertModal
+            open={nativeAlert.open}
+            type={nativeAlert.type}
+            onAction={() => {
+              if (nativeAlert.type === "notification") {
+                requestNativeNotificationPermission();
+                setTimeout(() => {
+                  if (!areNativeNotificationsEnabled()) {
+                    openNativeNotificationSettings();
+                  }
+                }, 600);
+                setNativeAlert({ open: false, type: "notification" });
+              } else {
+                localStorage.setItem("formbhro:battery_opt_prompted", "1");
+                requestIgnoreBatteryOptimizations();
+                setNativeAlert({ open: false, type: "battery" });
+              }
+            }}
+            onDismiss={() => {
+              if (nativeAlert.type === "battery") {
+                localStorage.setItem("formbhro:battery_opt_prompted", "1");
+              }
+              setNativeAlert({ open: false, type: "notification" });
+            }}
+          />
           <Toaster
             position="top-center"
             toastOptions={{

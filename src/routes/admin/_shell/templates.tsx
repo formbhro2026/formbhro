@@ -106,8 +106,9 @@ function AdminTemplates() {
       setEditing(null);
       setImageUrl("");
       void fetchReplies();
-    } catch {
-      toast.error("Failed to save quick reply");
+    } catch (err: any) {
+      console.error("[QuickReply] Failed to save:", err);
+      toast.error(err?.message || "Failed to save quick reply");
     }
   };
 

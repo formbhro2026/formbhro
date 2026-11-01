@@ -200,16 +200,14 @@ public class MainActivity extends BridgeActivity {
                         .build();
 
                 GoogleSignInClient client = GoogleSignIn.getClient(MainActivity.this, gso);
-                client.signOut().addOnCompleteListener(task -> {
-                    try {
-                        Intent signInIntent = client.getSignInIntent();
-                        startActivityForResult(signInIntent, RC_GOOGLE_SIGN_IN);
-                        android.util.Log.i("MainActivity", "[AUTH] Launched GoogleSignIn intent");
-                    } catch (Throwable t) {
-                        android.util.Log.e("MainActivity", "[AUTH] Failed to start signInIntent: " + t.getMessage(), t);
-                        dispatchGoogleAuthError(-1, "Failed to open account picker: " + t.getMessage());
-                    }
-                });
+                try {
+                    Intent signInIntent = client.getSignInIntent();
+                    startActivityForResult(signInIntent, RC_GOOGLE_SIGN_IN);
+                    android.util.Log.i("MainActivity", "[AUTH] Launched GoogleSignIn intent immediately");
+                } catch (Throwable t) {
+                    android.util.Log.e("MainActivity", "[AUTH] Failed to start signInIntent: " + t.getMessage(), t);
+                    dispatchGoogleAuthError(-1, "Failed to open account picker: " + t.getMessage());
+                }
             } catch (Throwable t) {
                 android.util.Log.e("MainActivity", "[AUTH] Failed to initialize GoogleSignIn: " + t.getMessage(), t);
                 dispatchGoogleAuthError(-1, "Failed to initialize Google Sign-In: " + t.getMessage());
@@ -232,6 +230,10 @@ public class MainActivity extends BridgeActivity {
                     android.util.Log.i("MainActivity",
                             "[AUTH] Native Google Sign-In success: " + email + ", hasIdToken=" + (!idToken.isEmpty()));
                     dispatchGoogleAuthSuccess(idToken, email, name, serverAuthCode);
+                    // Silently clear client state in background for next login without blocking launch
+                    try {
+                        GoogleSignIn.getClient(MainActivity.this, GoogleSignInOptions.DEFAULT_SIGN_IN).signOut();
+                    } catch (Throwable ignored) {}
                 } else {
                     android.util.Log.w("MainActivity", "[AUTH] GoogleSignInAccount was null");
                     dispatchGoogleAuthError(-1, "Google account was null");
