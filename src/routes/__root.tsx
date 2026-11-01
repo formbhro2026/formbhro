@@ -222,43 +222,19 @@ function RootComponent() {
     const timer = setTimeout(() => {
       try {
         // 1. Check if Android notification bar permissions are enabled (especially Android 13+)
-        if (!areNativeNotificationsEnabled()) {
-          toast("Enable Notification Bar Alerts", {
-            description:
-              "Notifications are disabled. Turn them on to see message alerts and calls in your notification bar even when the app is closed.",
-            duration: 15000,
-            action: {
-              label: "Turn On",
-              onClick: () => {
-                requestNativeNotificationPermission();
-                setTimeout(() => {
-                  if (!areNativeNotificationsEnabled()) {
-                    openNativeNotificationSettings();
-                  }
-                }, 800);
-              },
-            },
-          });
+        const hasDeclinedNotification = localStorage.getItem("formbhro:notification_perm_declined");
+        if (!areNativeNotificationsEnabled() && !hasDeclinedNotification) {
+          setNativeAlert({ open: true, type: "notification" });
+          return;
         }
 
         // 2. Background battery optimization exemption
         const hasPromptedBattery = localStorage.getItem("formbhro:battery_opt_prompted");
         if (!hasPromptedBattery && !isBatteryOptimizationIgnored()) {
-          toast("Enable Background Alerts", {
-            description:
-              "Allow Formbhro to run in the background so you receive call and message alerts even when the app is closed.",
-            duration: 12000,
-            action: {
-              label: "Allow",
-              onClick: () => {
-                localStorage.setItem("formbhro:battery_opt_prompted", "1");
-                requestIgnoreBatteryOptimizations();
-              },
-            },
-          });
+          setNativeAlert({ open: true, type: "battery" });
         }
       } catch (_) { }
-    }, 2000);
+    }, 1500);
     return () => clearTimeout(timer);
   }, []);
 
@@ -523,8 +499,10 @@ function RootComponent() {
             onDismiss={() => {
               if (nativeAlert.type === "battery") {
                 localStorage.setItem("formbhro:battery_opt_prompted", "1");
+              } else {
+                localStorage.setItem("formbhro:notification_perm_declined", "1");
               }
-              setNativeAlert({ open: false, type: "notification" });
+              setNativeAlert((prev) => ({ ...prev, open: false }));
             }}
           />
           <Toaster
