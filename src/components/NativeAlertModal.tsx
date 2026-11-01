@@ -74,3 +74,4 @@ export function NativeAlertModal({ open, type, onAction, onDismiss }: NativeAler
     </Dialog>
   );
 }
+

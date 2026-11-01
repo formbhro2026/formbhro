@@ -61,3 +61,4 @@ CREATE POLICY "quick replies storage insert" ON storage.objects FOR INSERT TO au
 DROP POLICY IF EXISTS "quick replies storage select" ON storage.objects;
 CREATE POLICY "quick replies storage select" ON storage.objects FOR SELECT TO authenticated
   USING (bucket_id = 'avatars');
+
