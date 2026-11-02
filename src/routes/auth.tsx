@@ -295,6 +295,10 @@ function AuthPage() {
   // Show a spinner while we're processing the OAuth token exchange
   if (
     processingOAuth ||
+    !initialized ||
+    loading ||
+    user ||
+    authSuccess ||
     (loading &&
       (window.location.hash.includes("access_token=") ||
         window.location.search.includes("access_token=")))
@@ -303,7 +307,9 @@ function AuthPage() {
       <main className="flex min-h-screen items-center justify-center bg-[#050505]">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-10 w-10 animate-spin text-brand" />
-          <p className="text-sm font-medium text-gray-400">Signing you in…</p>
+          <p className="text-sm font-medium text-gray-400">
+            {user || authSuccess ? "Redirecting to your workspace…" : "Signing you in…"}
+          </p>
         </div>
       </main>
     );

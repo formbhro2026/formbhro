@@ -57,7 +57,13 @@ function Index() {
     else if (lastWorkspace === "admin") target = "/admin";
 
     if (isCapacitor()) {
-      void navigate({ to: target as "/app" | "/team/work" | "/admin", replace: true });
+      supabase.auth.getSession().then(({ data }) => {
+        if (data.session) {
+          void navigate({ to: target as "/app" | "/team/work" | "/admin", replace: true });
+        } else {
+          void navigate({ to: "/auth", replace: true });
+        }
+      });
       return;
     }
 

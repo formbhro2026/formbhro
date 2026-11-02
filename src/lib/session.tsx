@@ -182,10 +182,13 @@ function SessionProviderInner({ children }: { children: ReactNode }) {
 
         // On cold start / app resume from background, if getSession is momentarily empty, retry briefly
         if (!session) {
-          await new Promise((r) => setTimeout(r, 120));
-          const retry = await supabase.auth.getSession();
-          if (retry.data?.session) {
-            session = retry.data.session;
+          for (let attempt = 0; attempt < 3; attempt++) {
+            await new Promise((r) => setTimeout(r, 100 * (attempt + 1)));
+            const retry = await supabase.auth.getSession();
+            if (retry.data?.session) {
+              session = retry.data.session;
+              break;
+            }
           }
         }
         console.log(
@@ -234,11 +237,8 @@ function SessionProviderInner({ children }: { children: ReactNode }) {
               await load(session.user);
             }
           } else {
-            const cached = getCachedSession();
-            if (!cached) {
-              setCachedSession(null);
-              await load(null);
-            }
+            setCachedSession(null);
+            await load(null);
           }
         }
       } catch (e) {

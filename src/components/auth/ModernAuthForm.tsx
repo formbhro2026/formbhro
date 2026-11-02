@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import logoAsset from "@/assets/logo.png.asset.json";
 import { ShieldCheck, Smartphone, Zap, Loader2, ArrowLeft, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,6 +15,7 @@ export function ModernAuthForm({
   onSuccess?: () => void;
   isLoading?: boolean;
 }) {
+  const navigate = useNavigate();
   const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -46,7 +47,9 @@ export function ModernAuthForm({
             localStorage.getItem("formbhro:redirect") ||
             sessionStorage.getItem("formbhro:redirect") ||
             "/app";
-          window.location.href = target;
+          if (!onSuccess) {
+            void navigate({ to: (target as "/app") || "/app", replace: true });
+          }
         }
         onSuccess?.();
       }
@@ -99,7 +102,7 @@ export function ModernAuthForm({
             let dest = "/app";
             if (roleList.includes("admin")) dest = "/admin";
             else if (roleList.includes("team")) dest = "/team";
-            window.location.href = dest;
+            void navigate({ to: (dest as "/app" | "/admin" | "/team") || "/app", replace: true });
           }
         }
       } else if (mode === "signup") {

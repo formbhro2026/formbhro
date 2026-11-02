@@ -151,7 +151,9 @@ export async function signInWithGoogle(redirectPath: string = "/app") {
             const { data: sessData } = await supabase.auth.getSession();
             if (sessData?.session) {
               localStorage.setItem("formbhro:last_workspace", "user");
-              window.location.href = "/app";
+              if (typeof window !== "undefined" && window.location.pathname.startsWith("/auth")) {
+                window.location.replace("/app");
+              }
               break;
             }
             await new Promise((r) => setTimeout(r, 400));
