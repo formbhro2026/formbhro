@@ -120,9 +120,10 @@ export async function signInWithGoogle(redirectPath: string = "/app") {
       ? window.location.origin
       : "https://formbhro.com";
 
-  // Note: formbhro.com redirects 308 to www.formbhro.com, so preserve origin hostname
+  // Note: On Android Capacitor, ALWAYS use the custom deep-link scheme com.formbhro.app://oauth-callback
+  // so that once Google login completes, Android OS immediately brings the user back into the native app.
   const redirectUri = isAndroid
-    ? `${origin}/auth?source=app`
+    ? "com.formbhro.app://oauth-callback"
     : `${origin}/auth`;
 
   const { data, error } = await supabase.auth.signInWithOAuth({

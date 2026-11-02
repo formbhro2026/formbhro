@@ -28,7 +28,7 @@ const config: CapacitorConfig = {
       // Must match the project where the Android SHA-1 fingerprint is registered.
       serverClientId: "111790521008-kdr78o80m6h10voviku4r6uq9iq9nj2v.apps.googleusercontent.com",
       clientId: "111790521008-kdr78o80m6h10voviku4r6uq9iq9nj2v.apps.googleusercontent.com",
-      androidClientId: "111790521008-kdr78o80m6h10voviku4r6uq9iq9nj2v.apps.googleusercontent.com",
+      androidClientId: "111790521008-5p9iv2598bl00nr9fdchq9he04ee6oac.apps.googleusercontent.com",
       forceCodeForRefreshToken: false,
     },
     PushNotifications: {

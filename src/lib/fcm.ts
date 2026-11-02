@@ -24,6 +24,7 @@ import { supabase } from "@/integrations/supabase/client";
  */
 export function isCapacitorAndroid(): boolean {
   if (typeof window === "undefined") return false;
+  if ((window as any).FormbharoNativeBridge != null) return true;
   const cap = (
     window as unknown as {
       Capacitor?: { getPlatform?: () => string; isPluginAvailable?: (name: string) => boolean };
