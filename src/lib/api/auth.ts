@@ -108,12 +108,8 @@ export async function signInWithGoogle(redirectPath: string = "/app") {
           return null;
         }
 
-        // If it is a configuration or developer error (status 10), surface it directly to the user
-        if (errMsg.includes("10") || errMsg.toLowerCase().includes("developer error") || errMsg.includes("SHA-1")) {
-          throw new ApiError(errMsg);
-        }
-
-        console.warn("[Auth] Native auth failed, attempting fallback OAuth flow:", errMsg);
+        // If native auth fails or throws code 10 (e.g. missing Play Store SHA-1), fall through to web OAuth
+        console.warn("[Auth] Native auth failed or code 10 encountered, smoothly falling back to OAuth flow:", errMsg);
       }
     }
   }

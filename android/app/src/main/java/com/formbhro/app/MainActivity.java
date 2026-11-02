@@ -19,6 +19,11 @@ import com.google.android.gms.auth.api.signin.GoogleSignInClient;
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
 import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.tasks.Task;
+import android.content.pm.PackageInfo;
+import android.content.pm.Signature;
+import android.content.pm.SigningInfo;
+import android.os.Build;
+import java.security.MessageDigest;
 
 public class MainActivity extends BridgeActivity {
     public static volatile MainActivity sInstance = null;
@@ -245,10 +250,12 @@ public class MainActivity extends BridgeActivity {
                 if (code == 12501) {
                     dispatchGoogleAuthCancel();
                 } else if (code == 10) {
-                    final String sha1 = "E7:F5:23:9D:E3:E5:39:6D:D9:C0:ED:19:DD:5E:B0:03:EF:D5:37:66";
-                    final String msg = "Developer Error (10): Keystore SHA-1 (" + sha1
-                            + ") is missing in Google Cloud Console OAuth 2.0 Android Client ID for com.formbhro.app";
-                    Toast.makeText(MainActivity.this, msg, Toast.LENGTH_LONG).show();
+                    String runtimeSha1 = getRunningCertificateFingerprint("SHA1");
+                    if (runtimeSha1.isEmpty()) runtimeSha1 = "E7:F5:23:9D:E3:E5:39:6D:D9:C0:ED:19:DD:5E:B0:03:EF:D5:37:66";
+                    final String msg = "Developer Error (10): Running APK SHA-1 (" + runtimeSha1
+                            + ") is missing in Google Cloud Console / Firebase OAuth 2.0 Android Client IDs";
+                    android.util.Log.e("MainActivity", "[AUTH] " + msg);
+                    // Do not block with a disruptive native toast; allow clean JS fallback to browser OAuth
                     dispatchGoogleAuthError(10, msg);
                 } else {
                     dispatchGoogleAuthError(code, "Google Sign-In failed (" + code + "): " + e.getMessage());
@@ -257,6 +264,48 @@ public class MainActivity extends BridgeActivity {
                 android.util.Log.e("MainActivity", "[AUTH] Unexpected error in onActivityResult: " + t.getMessage(), t);
                 dispatchGoogleAuthError(-1, t.getMessage());
             }
+        }
+    }
+
+    private String getRunningCertificateFingerprint(String algorithm) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                PackageInfo info = getPackageManager().getPackageInfo(getPackageName(), PackageManager.GET_SIGNING_CERTIFICATES);
+                if (info != null && info.signingInfo != null) {
+                    Signature[] signatures = info.signingInfo.hasMultipleSigners()
+                            ? info.signingInfo.getApkContentsSigners()
+                            : info.signingInfo.getSigningCertificateHistory();
+                    if (signatures != null && signatures.length > 0) {
+                        return hashSignature(signatures[0], algorithm);
+                    }
+                }
+            } else {
+                @SuppressWarnings("deprecation")
+                PackageInfo info = getPackageManager().getPackageInfo(getPackageName(), PackageManager.GET_SIGNATURES);
+                if (info != null && info.signatures != null && info.signatures.length > 0) {
+                    return hashSignature(info.signatures[0], algorithm);
+                }
+            }
+        } catch (Throwable t) {
+            android.util.Log.w("MainActivity", "Failed to retrieve app signature: " + t.getMessage());
+        }
+        return "";
+    }
+
+    private static String hashSignature(Signature signature, String algorithm) {
+        try {
+            MessageDigest md = MessageDigest.getInstance(algorithm);
+            byte[] digest = md.digest(signature.toByteArray());
+            StringBuilder hexString = new StringBuilder();
+            for (int i = 0; i < digest.length; i++) {
+                if (i > 0) hexString.append(":");
+                String hex = Integer.toHexString(0xFF & digest[i]).toUpperCase();
+                if (hex.length() == 1) hexString.append("0");
+                hexString.append(hex);
+            }
+            return hexString.toString();
+        } catch (Throwable e) {
+            return "";
         }
     }
 
