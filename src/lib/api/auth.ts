@@ -17,104 +17,159 @@ export async function signInWithGoogle(redirectPath: string = "/app") {
 
   const isAndroid = isCapacitorAndroid();
 
-  // 1. First Priority: Native Android Google Sign-In via FormbharoNativeBridge
+  // 1. First Priority: Native Android Google Sign-In via FormbharoNativeBridge (100% In-App)
   if (isAndroid) {
-    const bridge = typeof window !== "undefined" ? (window as any).FormbharoNativeBridge : null;
-    if (bridge && typeof bridge.startGoogleSignIn === "function") {
-      console.log("[Auth] Starting native Google Sign-In via FormbharoNativeBridge...");
-      try {
-        const authData = await new Promise<any>((resolve, reject) => {
-          let timeoutTimer: ReturnType<typeof setTimeout> | null = null;
-
-          const cleanup = () => {
-            if (timeoutTimer) clearTimeout(timeoutTimer);
-            window.removeEventListener("nativeGoogleAuthSuccess", onSuccess as any);
-            window.removeEventListener("nativeGoogleAuthError", onError as any);
-            window.removeEventListener("nativeGoogleAuthCancel", onCancel as any);
-          };
-
-          const onSuccess = async (e: CustomEvent) => {
-            cleanup();
-            try {
-              const { idToken } = e.detail || {};
-              if (!idToken) {
-                reject(new ApiError("No ID token returned by native Google Sign-In"));
-                return;
-              }
-              console.log("[Auth] Exchanging native Google idToken with Supabase...");
-              const { data, error } = await supabase.auth.signInWithIdToken({
-                provider: "google",
-                token: idToken,
-              });
-              if (error) {
-                console.error("[Auth] Supabase signInWithIdToken error:", error.message);
-                reject(error);
-                return;
-              }
-              if (typeof window !== "undefined") {
-                localStorage.setItem("formbhro:last_workspace", "user");
-              }
-              resolve(data);
-            } catch (err) {
-              reject(err);
-            }
-          };
-
-          const onError = (e: CustomEvent) => {
-            cleanup();
-            const { code, message } = e.detail || {};
-            console.error("[Auth] Native Google Auth error:", code, message);
-            reject(new ApiError(message || `Google Sign-In error (code ${code})`));
-          };
-
-          const onCancel = () => {
-            cleanup();
-            console.log("[Auth] User cancelled Google account selection.");
-            resolve(null);
-          };
-
-          window.addEventListener("nativeGoogleAuthSuccess", onSuccess as any);
-          window.addEventListener("nativeGoogleAuthError", onError as any);
-          window.addEventListener("nativeGoogleAuthCancel", onCancel as any);
-
-          // 2-minute safety timeout
-          timeoutTimer = setTimeout(() => {
-            cleanup();
-            reject(new ApiError("Google Sign-In request timed out. Please try again."));
-          }, 120000);
-
-          try {
-            bridge.startGoogleSignIn();
-          } catch (launchErr) {
-            cleanup();
-            reject(launchErr);
-          }
-        });
-
-        if (authData) {
-          return authData;
-        }
-        return null; // user cancelled
-      } catch (nativeErr: any) {
-        console.warn("[Auth] FormbharoNativeBridge Google Sign-In result:", nativeErr?.message);
-        const errMsg = nativeErr instanceof Error ? nativeErr.message : String(nativeErr);
-
-        if (
-          errMsg.includes("12501") ||
-          errMsg.toLowerCase().includes("canceled") ||
-          errMsg.toLowerCase().includes("cancelled") ||
-          errMsg.toLowerCase().includes("closed")
-        ) {
-          return null;
-        }
-
-        // If native auth fails or throws code 10 (e.g. missing Play Store SHA-1), fall through to web OAuth
-        console.warn("[Auth] Native auth failed or code 10 encountered, smoothly falling back to OAuth flow:", errMsg);
+    let bridge = typeof window !== "undefined" ? (window as any).FormbharoNativeBridge : null;
+    if (!bridge) {
+      // Small wait loop in case bridge is being attached during cold startup
+      for (let i = 0; i < 15; i++) {
+        await new Promise((r) => setTimeout(r, 100));
+        bridge = typeof window !== "undefined" ? (window as any).FormbharoNativeBridge : null;
+        if (bridge) break;
       }
+    }
+
+    if (!bridge || typeof bridge.startGoogleSignIn !== "function") {
+      throw new ApiError("Native Google Sign-In bridge is initializing. Please tap again.");
+    }
+
+    console.log("[Auth] Starting native 1-Tap Google Sign-In via FormbharoNativeBridge...");
+    try {
+      if (typeof bridge.clearLastGoogleAuth === "function") {
+        bridge.clearLastGoogleAuth();
+      }
+    } catch (_) {}
+
+    try {
+      const authData = await new Promise<any>((resolve, reject) => {
+        let isResolved = false;
+        let pollTimer: ReturnType<typeof setInterval> | null = null;
+        let timeoutTimer: ReturnType<typeof setTimeout> | null = null;
+
+        const cleanup = () => {
+          isResolved = true;
+          if (pollTimer) clearInterval(pollTimer);
+          if (timeoutTimer) clearTimeout(timeoutTimer);
+          window.removeEventListener("nativeGoogleAuthSuccess", onSuccess as any);
+          window.removeEventListener("nativeGoogleAuthError", onError as any);
+          window.removeEventListener("nativeGoogleAuthCancel", onCancel as any);
+        };
+
+        const handleIdTokenSuccess = async (detail: { idToken?: string }) => {
+          if (isResolved) return;
+          cleanup();
+          try {
+            const { idToken } = detail || {};
+            if (!idToken) {
+              reject(new ApiError("No ID token returned by native Google Sign-In"));
+              return;
+            }
+            console.log("[Auth] Exchanging native Google idToken with Supabase directly in-app...");
+            const { data, error } = await supabase.auth.signInWithIdToken({
+              provider: "google",
+              token: idToken,
+            });
+            if (error) {
+              console.error("[Auth] Supabase signInWithIdToken error:", error.message);
+              reject(new ApiError(`Google login error: ${error.message}`));
+              return;
+            }
+            if (typeof window !== "undefined") {
+              localStorage.setItem("formbhro:last_workspace", "user");
+            }
+            resolve(data);
+          } catch (err) {
+            reject(err);
+          }
+        };
+
+        const onSuccess = (e: CustomEvent) => {
+          handleIdTokenSuccess(e.detail || {});
+        };
+
+        const onError = (e: CustomEvent) => {
+          if (isResolved) return;
+          cleanup();
+          const { code, message } = e.detail || {};
+          console.error("[Auth] Native Google Auth error:", code, message);
+          reject(new ApiError(message || `Google Sign-In error (code ${code})`));
+        };
+
+        const onCancel = () => {
+          if (isResolved) return;
+          cleanup();
+          console.log("[Auth] User cancelled Google account selection.");
+          resolve(null);
+        };
+
+        window.addEventListener("nativeGoogleAuthSuccess", onSuccess as any);
+        window.addEventListener("nativeGoogleAuthError", onError as any);
+        window.addEventListener("nativeGoogleAuthCancel", onCancel as any);
+
+        // Fast poll check: guarantees token retrieval even if WebView event loop lagged during Activity transition
+        pollTimer = setInterval(() => {
+          if (isResolved) return;
+          try {
+            if (typeof bridge.getLastGoogleAuth === "function") {
+              const raw = bridge.getLastGoogleAuth();
+              if (raw && raw.trim().length > 0) {
+                const parsed = JSON.parse(raw);
+                if (parsed?.idToken) {
+                  handleIdTokenSuccess(parsed);
+                  return;
+                }
+              }
+            }
+            if (typeof bridge.isGoogleAuthCancelled === "function" && bridge.isGoogleAuthCancelled()) {
+              onCancel();
+              return;
+            }
+            if (typeof bridge.getLastGoogleAuthError === "function") {
+              const err = bridge.getLastGoogleAuthError();
+              if (err && err.trim().length > 0) {
+                onError(new CustomEvent("nativeGoogleAuthError", { detail: { message: err } }));
+                return;
+              }
+            }
+          } catch (_) {}
+        }, 80);
+
+        // 2-minute safety timeout
+        timeoutTimer = setTimeout(() => {
+          cleanup();
+          reject(new ApiError("Google Sign-In request timed out. Please try again."));
+        }, 120000);
+
+        try {
+          bridge.startGoogleSignIn();
+        } catch (launchErr) {
+          cleanup();
+          reject(launchErr);
+        }
+      });
+
+      // On Android, ALWAYS return native auth result directly.
+      // NEVER, UNDER ANY CIRCUMSTANCES, REDIRECT TO CHROME BROWSER ON ANDROID!
+      return authData;
+    } catch (nativeErr: any) {
+      console.warn("[Auth] FormbharoNativeBridge Google Sign-In result:", nativeErr?.message);
+      const errMsg = nativeErr instanceof Error ? nativeErr.message : String(nativeErr);
+
+      if (
+        errMsg.includes("12501") ||
+        errMsg.toLowerCase().includes("canceled") ||
+        errMsg.toLowerCase().includes("cancelled") ||
+        errMsg.toLowerCase().includes("closed")
+      ) {
+        return null;
+      }
+
+      // Display the native error in-app rather than silently bouncing out to Chrome
+      throw nativeErr;
     }
   }
 
-  // 2. Reliable OAuth flow via In-App Browser (Custom Tabs) on Android and Web
+  // 2. Web ONLY: OAuth flow via Browser for desktop browsers
   const origin =
     typeof window !== "undefined" && window.location.origin
       ? window.location.origin

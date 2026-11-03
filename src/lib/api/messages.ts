@@ -186,24 +186,9 @@ export async function sendMessage(input: {
       }
     }
 
-    for (const target of targets) {
-      if (!target.receiverId) continue;
-      void supabase.functions
-        .invoke("send-fcm-notification", {
-          body: {
-            receiver_id: target.receiverId,
-            title: target.title,
-            body: preview,
-            notification_type: "message",
-            request_id: reqData.id,
-            chat_room_id: input.chatRoomId,
-            route: target.route,
-            notification_id: `msg:${data.id}`,
-            message_id: data.id,
-          },
-        })
-        .catch((e) => console.warn("[FCM] Direct push invocation error:", e));
-    }
+    // Note: The database trigger 'messages_created' automatically creates a record in
+    // public.notifications, which in turn triggers 'on_notification_created_send_fcm'
+    // to dispatch the high-priority FCM push. Direct invocation here is omitted to prevent duplicate notifications.
   }
 
   return data;

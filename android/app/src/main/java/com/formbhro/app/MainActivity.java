@@ -32,7 +32,32 @@ public class MainActivity extends BridgeActivity {
     private String pendingCallAnswerJs = null;
     private String pendingCallAnswerJson = null;
 
+    public static volatile String sLastGoogleAuthJson = null;
+    public static volatile String sLastGoogleAuthError = null;
+    public static volatile boolean sLastGoogleAuthCancel = false;
+
     public class FormbharoNativeBridge {
+        @android.webkit.JavascriptInterface
+        public String getLastGoogleAuth() {
+            return sLastGoogleAuthJson != null ? sLastGoogleAuthJson : "";
+        }
+
+        @android.webkit.JavascriptInterface
+        public String getLastGoogleAuthError() {
+            return sLastGoogleAuthError != null ? sLastGoogleAuthError : "";
+        }
+
+        @android.webkit.JavascriptInterface
+        public boolean isGoogleAuthCancelled() {
+            return sLastGoogleAuthCancel;
+        }
+
+        @android.webkit.JavascriptInterface
+        public void clearLastGoogleAuth() {
+            sLastGoogleAuthJson = null;
+            sLastGoogleAuthError = null;
+            sLastGoogleAuthCancel = false;
+        }
         @android.webkit.JavascriptInterface
         public String getPendingCallAnswer() {
             android.util.Log.i("MainActivity",
@@ -310,34 +335,65 @@ public class MainActivity extends BridgeActivity {
     }
 
     private void dispatchGoogleAuthSuccess(String idToken, String email, String name, String authCode) {
-        if (this.bridge != null && this.bridge.getWebView() != null) {
-            final String js = String.format(
-                    "(function() {" +
-                            "  var detail = { idToken: '%s', email: '%s', name: '%s', serverAuthCode: '%s' };" +
-                            "  window.__FORMBHARO_LAST_GOOGLE_AUTH__ = detail;" +
-                            "  window.dispatchEvent(new CustomEvent('nativeGoogleAuthSuccess', { detail: detail }));" +
-                            "})();",
-                    escapeJs(idToken), escapeJs(email), escapeJs(name), escapeJs(authCode));
-            runOnUiThread(() -> this.bridge.getWebView().evaluateJavascript(js, null));
+        sLastGoogleAuthJson = String.format(
+                "{\"idToken\":\"%s\",\"email\":\"%s\",\"name\":\"%s\",\"serverAuthCode\":\"%s\"}",
+                escapeJs(idToken), escapeJs(email), escapeJs(name), escapeJs(authCode));
+        sLastGoogleAuthError = null;
+        sLastGoogleAuthCancel = false;
+
+        final String js = String.format(
+                "(function() {" +
+                        "  var detail = { idToken: '%s', email: '%s', name: '%s', serverAuthCode: '%s' };" +
+                        "  window.__FORMBHARO_LAST_GOOGLE_AUTH__ = detail;" +
+                        "  window.dispatchEvent(new CustomEvent('nativeGoogleAuthSuccess', { detail: detail }));" +
+                        "})();",
+                escapeJs(idToken), escapeJs(email), escapeJs(name), escapeJs(authCode));
+
+        long[] delays = new long[] { 0, 150, 500, 1200 };
+        for (long delay : delays) {
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                if (MainActivity.this.bridge != null && MainActivity.this.bridge.getWebView() != null) {
+                    MainActivity.this.bridge.getWebView().evaluateJavascript(js, null);
+                }
+            }, delay);
         }
     }
 
     private void dispatchGoogleAuthError(int code, String message) {
-        if (this.bridge != null && this.bridge.getWebView() != null) {
-            final String js = String.format(
-                    "(function() {" +
-                            "  var detail = { code: %d, message: '%s' };" +
-                            "  window.dispatchEvent(new CustomEvent('nativeGoogleAuthError', { detail: detail }));" +
-                            "})();",
-                    code, escapeJs(message));
-            runOnUiThread(() -> this.bridge.getWebView().evaluateJavascript(js, null));
+        sLastGoogleAuthError = message != null ? message : ("Error " + code);
+        sLastGoogleAuthJson = null;
+        sLastGoogleAuthCancel = false;
+
+        final String js = String.format(
+                "(function() {" +
+                        "  var detail = { code: %d, message: '%s' };" +
+                        "  window.dispatchEvent(new CustomEvent('nativeGoogleAuthError', { detail: detail }));" +
+                        "})();",
+                code, escapeJs(message));
+
+        long[] delays = new long[] { 0, 150, 500 };
+        for (long delay : delays) {
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                if (MainActivity.this.bridge != null && MainActivity.this.bridge.getWebView() != null) {
+                    MainActivity.this.bridge.getWebView().evaluateJavascript(js, null);
+                }
+            }, delay);
         }
     }
 
     private void dispatchGoogleAuthCancel() {
-        if (this.bridge != null && this.bridge.getWebView() != null) {
-            final String js = "(function() { window.dispatchEvent(new CustomEvent('nativeGoogleAuthCancel')); })();";
-            runOnUiThread(() -> this.bridge.getWebView().evaluateJavascript(js, null));
+        sLastGoogleAuthCancel = true;
+        sLastGoogleAuthJson = null;
+        sLastGoogleAuthError = null;
+
+        final String js = "(function() { window.dispatchEvent(new CustomEvent('nativeGoogleAuthCancel')); })();";
+        long[] delays = new long[] { 0, 150, 500 };
+        for (long delay : delays) {
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                if (MainActivity.this.bridge != null && MainActivity.this.bridge.getWebView() != null) {
+                    MainActivity.this.bridge.getWebView().evaluateJavascript(js, null);
+                }
+            }, delay);
         }
     }
 
