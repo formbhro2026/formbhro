@@ -141,7 +141,7 @@ async function sendFCMMessage(
   // Select channel based on notification type for proper heads-up / ringtone routing
   let channelId = "formbhro_default_v3";
   if (data.type === "call") {
-    channelId = "formbhro_calls_v3";
+    channelId = "formbhro_calls_v4";
   } else if (data.type === "message") {
     channelId = "formbhro_messages_v3";
   }

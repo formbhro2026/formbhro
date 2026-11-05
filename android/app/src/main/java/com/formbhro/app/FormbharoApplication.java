@@ -13,6 +13,7 @@ import android.util.Log;
 public class FormbharoApplication extends Application {
     private static final String TAG = "FormbharoApp";
 
+    public static final String CHANNEL_ID_CALLS_V4 = "formbhro_calls_v4";
     public static final String CHANNEL_ID_CALLS_V3 = "formbhro_calls_v3";
     public static final String CHANNEL_ID_MESSAGES_V3 = "formbhro_messages_v3";
     public static final String CHANNEL_ID_DEFAULT_V3 = "formbhro_default_v3";
@@ -52,28 +53,29 @@ public class FormbharoApplication extends Application {
                 .build();
             Uri msgSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
 
-            // 1. High-importance Incoming Calls channels (_v3 and _v2)
-            String[] callChannelIds = new String[]{CHANNEL_ID_CALLS_V3, CHANNEL_ID_CALLS};
-            for (String chId : callChannelIds) {
-                if (manager.getNotificationChannel(chId) == null) {
-                    NotificationChannel callChannel = new NotificationChannel(
-                        chId,
-                        "Incoming Calls",
-                        NotificationManager.IMPORTANCE_HIGH
-                    );
-                    callChannel.setDescription("Alerts for incoming audio and video calls");
-                    callChannel.enableVibration(true);
-                    callChannel.setVibrationPattern(new long[]{0, 1000, 500, 1000, 500, 1000});
-                    callChannel.enableLights(true);
-                    callChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
-                    callChannel.setBypassDnd(true);
-                    if (ringtoneUri != null) {
-                        callChannel.setSound(ringtoneUri, callAudioAttributes);
-                    }
-                    manager.createNotificationChannel(callChannel);
-                    Log.i(TAG, "Notification channel created: " + chId);
-                }
-            }
+            // 1. High-importance Incoming Calls channel (_v4)
+            // Delete old channels to ensure no stale audio bindings persist
+            try {
+                manager.deleteNotificationChannel("formbhro_calls_v3");
+                manager.deleteNotificationChannel("formbhro_calls_v2");
+            } catch (Throwable ignored) {}
+
+            NotificationChannel callChannel = new NotificationChannel(
+                CHANNEL_ID_CALLS_V4,
+                "Incoming Calls",
+                NotificationManager.IMPORTANCE_HIGH
+            );
+            callChannel.setDescription("Alerts for incoming audio and video calls");
+            callChannel.enableVibration(true);
+            callChannel.setVibrationPattern(new long[]{0, 1000, 500, 1000, 500, 1000});
+            callChannel.enableLights(true);
+            callChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+            callChannel.setBypassDnd(true);
+            // CRITICAL: setSound(null, null) so the notification system itself NEVER plays an uncoordinated sound.
+            // Ringtone audio is managed exclusively by IncomingCallActivity.startRingtoneAndVibration.
+            callChannel.setSound(null, null);
+            manager.createNotificationChannel(callChannel);
+            Log.i(TAG, "Notification channel created: " + CHANNEL_ID_CALLS_V4);
 
             // 2. High-importance Messages channels (_v3 and _v2)
             String[] msgChannelIds = new String[]{CHANNEL_ID_MESSAGES_V3, CHANNEL_ID_MESSAGES};

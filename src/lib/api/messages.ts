@@ -3,7 +3,7 @@ import { ApiError, type DocumentRow, type MessageRow, type SenderRole } from "./
 
 export type MessageWithDoc = MessageRow & { attachment: DocumentRow | null };
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 200;
 
 export async function listMessages(
   chatRoomId: string,
@@ -297,7 +297,7 @@ export async function deleteChatMessage(messageId: string): Promise<boolean> {
       p_message_id: messageId,
     });
     if (!error) return true;
-  } catch (_) {}
+  } catch (_) { }
 
   // Direct client update fallback if RPC not yet deployed or in offline mode
   const { error } = await supabase

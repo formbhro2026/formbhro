@@ -24,7 +24,7 @@ import java.util.Map;
 
 public class FormbharoFirebaseMessagingService extends FirebaseMessagingService {
     private static final String TAG = "FormbharoFCM";
-    private static final String CHANNEL_ID_CALLS = "formbhro_calls_v3";
+    private static final String CHANNEL_ID_CALLS = "formbhro_calls_v4";
     private static final String CHANNEL_ID_MESSAGES = "formbhro_messages_v3";
     private static final String CHANNEL_ID_DEFAULT = "formbhro_default_v3";
 
@@ -105,26 +105,27 @@ public class FormbharoFirebaseMessagingService extends FirebaseMessagingService 
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .setUsage(AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT)
                 .build();
-            Uri msgSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);            // Calls channels
-            for (String chId : new String[]{CHANNEL_ID_CALLS, "formbhro_calls_v2"}) {
-                if (manager.getNotificationChannel(chId) == null) {
-                    NotificationChannel callChannel = new NotificationChannel(
-                        chId,
-                        "Incoming Calls",
-                        NotificationManager.IMPORTANCE_HIGH
-                    );
-                    callChannel.setDescription("Alerts for incoming audio and video calls");
-                    callChannel.enableVibration(true);
-                    callChannel.setVibrationPattern(new long[]{0, 1000, 500, 1000, 500, 1000});
-                    callChannel.enableLights(true);
-                    callChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
-                    callChannel.setBypassDnd(true);
-                    // Ringer audio is exclusively handled by IncomingCallActivity.startRingtoneAndVibration
-                    callChannel.setSound(null, null);
-                    manager.createNotificationChannel(callChannel);
-                    Log.i(TAG, "[CALL][NATIVE] Created channel: " + chId);
-                }
-            }
+            Uri msgSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);            // Calls channels (_v4)
+            try {
+                manager.deleteNotificationChannel("formbhro_calls_v3");
+                manager.deleteNotificationChannel("formbhro_calls_v2");
+            } catch (Throwable ignored) {}
+
+            NotificationChannel callChannel = new NotificationChannel(
+                CHANNEL_ID_CALLS,
+                "Incoming Calls",
+                NotificationManager.IMPORTANCE_HIGH
+            );
+            callChannel.setDescription("Alerts for incoming audio and video calls");
+            callChannel.enableVibration(true);
+            callChannel.setVibrationPattern(new long[]{0, 1000, 500, 1000, 500, 1000});
+            callChannel.enableLights(true);
+            callChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+            callChannel.setBypassDnd(true);
+            // Ringer audio is exclusively handled by IncomingCallActivity.startRingtoneAndVibration
+            callChannel.setSound(null, null);
+            manager.createNotificationChannel(callChannel);
+            Log.i(TAG, "[CALL][NATIVE] Created channel: " + CHANNEL_ID_CALLS);
 
             // Messages channels
             for (String chId : new String[]{CHANNEL_ID_MESSAGES, "formbhro_messages_v2"}) {

@@ -64,6 +64,7 @@ function ChatScreen() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [quickReplies, setQuickReplies] = useState<QuickReplyRow[]>([]);
+  const [resolving, setResolving] = useState(true);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { height: viewportHeight, keyboardOpen } = useVisualViewport();
   const openSheet = useCallback((tab: "details" | "documents") => setSheetTab(tab), []);
@@ -71,7 +72,24 @@ function ChatScreen() {
   const request = getRequest(requestId);
   const messages = messagesFor(requestId);
   const requestDocs = documentsFor(requestId);
-  const preview = documents.find((d: any) => d.id === previewId) ?? null;
+  const preview =
+    documents.find((d: any) => d.id === previewId) ??
+    (() => {
+      const msg = messages.find((m: any) => m.file?.id === previewId);
+      if (msg?.file) {
+        return {
+          id: msg.file.id,
+          name: msg.file.name,
+          kind: msg.file.kind,
+          size: msg.file.size,
+          previewUrl: msg.file.previewUrl,
+          storagePath: (msg.file as any).storagePath,
+          updatedAt: msg.time,
+        };
+      }
+      return null;
+    })() ??
+    null;
   const { startCall, setActiveRoomId } = useGlobalCall();
 
   const {
@@ -192,8 +210,23 @@ function ChatScreen() {
     markRead(requestId);
   }, [requestId, markRead]);
 
+  useEffect(() => {
+    let alive = true;
+    if (request) {
+      setResolving(false);
+      return;
+    }
+    const t = setTimeout(() => {
+      if (alive) setResolving(false);
+    }, 3000);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [request]);
+
   if (!request) {
-    if (loading) {
+    if (loading || resolving) {
       return (
         <div className="flex min-h-screen flex-col bg-bg text-white">
           <UserHeader title="Conversation" />

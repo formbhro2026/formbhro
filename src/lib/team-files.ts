@@ -1,5 +1,5 @@
 import type { TeamDocument } from "@/data/team-module";
-import { resolveDocumentUrl } from "@/lib/doc-access";
+import { resolveDocumentUrl, triggerFileDownload } from "@/lib/doc-access";
 
 /**
  * Documents are served through a controlled blob handoff so raw storage URLs
@@ -30,14 +30,7 @@ export async function resolveTeamDocumentUrl(doc: TeamDocument, download = false
 export async function downloadDocument(doc: TeamDocument) {
   const url = await resolveTeamDocumentUrl(doc, true);
   if (!url) return;
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = doc.name;
-  a.rel = "noopener";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  if (url.startsWith("blob:")) window.setTimeout(() => URL.revokeObjectURL(url), 4000);
+  await triggerFileDownload(url, doc.name);
 }
 
 export async function openDocumentInNewTab(doc: TeamDocument) {

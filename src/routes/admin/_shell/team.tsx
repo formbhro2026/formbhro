@@ -21,7 +21,8 @@ import {
   updateTeamMember,
   assignRequestToTeam,
 } from "@/lib/api/admin.functions";
-import { PresenceDot } from "@/components/team/PresenceDot";
+import { PresenceDot, getPresenceStatus, isOnline } from "@/components/team/PresenceDot";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/admin/_shell/team")({ component: AdminTeam });
 
@@ -72,12 +73,30 @@ function AdminTeam() {
   const [assignTo, setAssignTo] = useState("");
   // Inline permissions editor state (replaces window.confirm)
   const [editPerms, setEditPerms] = useState<TeamPermissions | null>(null);
+  const [statusFilter, setStatusFilter] = useState<"all" | "online" | "away" | "offline">("all");
+
+  const onlineCount = useMemo(
+    () => team.filter((t) => isOnline(t.availability_status, (t as any).last_seen_at)).length,
+    [team],
+  );
+  const awayCount = useMemo(
+    () => team.filter((t) => getPresenceStatus(t.availability_status, (t as any).last_seen_at) === "away").length,
+    [team],
+  );
+  const offlineCount = useMemo(
+    () => Math.max(0, team.length - onlineCount - awayCount),
+    [team.length, onlineCount, awayCount],
+  );
 
   const rows = useMemo(() => {
     const term = q.trim().toLowerCase();
     return team
       .map((t) => ({ member: t, profile: profiles.find((p) => p.id === t.id) }))
       .filter(({ member, profile }) => {
+        if (statusFilter !== "all") {
+          const st = getPresenceStatus(member.availability_status, (member as any).last_seen_at);
+          if (st !== statusFilter) return false;
+        }
         if (!term) return true;
         return (
           (profile?.full_name ?? "").toLowerCase().includes(term) ||
@@ -86,7 +105,7 @@ function AdminTeam() {
           member.team_code.toLowerCase().includes(term)
         );
       });
-  }, [team, profiles, q]);
+  }, [team, profiles, q, statusFilter]);
 
   const detail = team.find((t) => t.id === selected) ?? null;
   const detailProfile = profileOf(detail?.id);
@@ -291,6 +310,60 @@ function AdminTeam() {
           </form>
         )}
 
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setStatusFilter("all")}
+            className={cn(
+              "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
+              statusFilter === "all"
+                ? "bg-brand text-white"
+                : "bg-surface-2 text-text-muted hover:text-white border border-border-subtle"
+            )}
+          >
+            All ({team.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter("online")}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
+              statusFilter === "online"
+                ? "bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.4)]"
+                : "bg-surface-2 text-emerald-400 hover:text-emerald-300 border border-emerald-500/20"
+            )}
+          >
+            <span className="h-2 w-2 rounded-full bg-emerald-400" />
+            Online ({onlineCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter("away")}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
+              statusFilter === "away"
+                ? "bg-amber-500 text-white"
+                : "bg-surface-2 text-amber-400 hover:text-amber-300 border border-amber-500/20"
+            )}
+          >
+            <span className="h-2 w-2 rounded-full bg-amber-400" />
+            Away ({awayCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter("offline")}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
+              statusFilter === "offline"
+                ? "bg-zinc-600 text-white"
+                : "bg-surface-2 text-text-muted hover:text-white border border-border-subtle"
+            )}
+          >
+            <span className="h-2 w-2 rounded-full bg-zinc-500" />
+            Offline ({offlineCount})
+          </button>
+        </div>
+
         <div className="mb-3">
           <SearchBox
             value={q}
@@ -357,15 +430,24 @@ function AdminTeam() {
                     {mineTotal} · {mineDone} done
                   </td>
                   <td className="px-3 py-2.5">
-                    <div className="flex items-center gap-2">
-                      <PresenceDot
-                        availability={member.availability_status}
-                        lastSeenAt={(member as any).last_seen_at}
-                        showLabel
-                      />
-                      <Pill tone={member.is_active ? "ok" : "bad"}>
-                        {member.is_active ? "Active" : "Suspended"}
-                      </Pill>
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <PresenceDot
+                          availability={member.availability_status}
+                          lastSeenAt={(member as any).last_seen_at}
+                          showLabel
+                        />
+                        <Pill tone={member.is_active ? "ok" : "bad"}>
+                          {member.is_active ? "Active" : "Suspended"}
+                        </Pill>
+                      </div>
+                      {(member as any).last_seen_at && (
+                        <span className="text-[9px] text-text-muted">
+                          {isOnline(member.availability_status, (member as any).last_seen_at)
+                            ? "Active now"
+                            : `Last seen ${formatDate((member as any).last_seen_at)}`}
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="px-3 py-2.5 text-text-muted">{formatDate(member.created_at)}</td>

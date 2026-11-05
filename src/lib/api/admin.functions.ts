@@ -1248,4 +1248,82 @@ export const deleteNewsItemServer = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
+export const getTransferredRequestsServerFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) => z.object({ limit: z.number().optional() }).optional().parse(input))
+  .handler(async ({ data: input, context }: any) => {
+    await assertTeamOrAdmin(context as Parameters<typeof assertTeamOrAdmin>[0]);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // 1. Fetch transfer activity logs
+    const limit = input?.limit ?? 100;
+    const { data: logs, error: logsError } = await supabaseAdmin
+      .from("activity_logs")
+      .select("*")
+      .eq("action", "request_transferred")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (logsError) throw new Error(logsError.message);
+    if (!logs || logs.length === 0) return [];
+
+    const requestIds = Array.from(new Set(logs.map((l: any) => l.request_id).filter(Boolean)));
+    if (requestIds.length === 0) return [];
+
+    // 2. Fetch all matching requests
+    const { data: requests, error: reqError } = await supabaseAdmin
+      .from("requests")
+      .select("*")
+      .in("id", requestIds);
+
+    if (reqError) throw new Error(reqError.message);
+
+    // 3. Gather unique user IDs & actor IDs for name lookups
+    const userIds = Array.from(
+      new Set(
+        [
+          ...(requests ?? []).map((r: any) => r.user_id),
+          ...logs.map((l: any) => l.actor_id),
+          ...logs.map((l: any) => l.meta?.new_assignee_id),
+          ...logs.map((l: any) => l.meta?.previous_assignee_id),
+        ].filter(Boolean),
+      ),
+    );
+
+    const nameMap: Record<string, string> = {};
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabaseAdmin
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", userIds);
+      for (const p of profiles ?? []) {
+        nameMap[p.id] = p.full_name || p.email || "Team Member";
+      }
+    }
+
+    // 4. Map the latest transfer log per request
+    const logByRequestId: Record<string, any> = {};
+    for (const l of logs) {
+      if (l.request_id && !logByRequestId[l.request_id]) {
+        logByRequestId[l.request_id] = l;
+      }
+    }
+
+    return (requests ?? []).map((r: any) => {
+      const log = logByRequestId[r.id];
+      const fromId = log?.actor_id || log?.meta?.previous_assignee_id;
+      const toId = log?.meta?.new_assignee_id || r.assigned_team_id;
+      return {
+        ...r,
+        userName: nameMap[r.user_id] ?? "User",
+        isTransferred: true,
+        transferInfo: {
+          fromMemberName: fromId ? nameMap[fromId] ?? "Team Member" : "Team Member",
+          toMemberName: toId ? nameMap[toId] ?? "Team Member" : "Team Member",
+          transferredAt: log?.created_at ?? r.last_activity_at,
+        },
+      };
+    });
+  });
+
 

@@ -123,7 +123,7 @@ export async function createNewRequest(input?: {
         }
       }
     }
-  } catch (_) {}
+  } catch (_) { }
 
   let { data, error } = await supabase.rpc("create_new_request_with_limit", {
     p_title: title,
@@ -272,9 +272,9 @@ export async function listRequests(opts?: {
   const { data: sessionData } = await supabase.auth.getSession();
   const uid = sessionData.session?.user?.id;
   let query = supabase.from("requests").select("*").order("last_activity_at", { ascending: false });
-  
+
   if (opts?.status?.length) query = query.in("status", opts.status);
-  
+
   if (typeof opts?.archived === "boolean") {
     if (opts.archived === false && uid) {
       query = query.or(`archived.eq.false,and(assigned_team_id.eq.${uid},status.eq.completed)`);
@@ -285,7 +285,7 @@ export async function listRequests(opts?: {
 
   if (opts?.search)
     query = query.or(`title.ilike.%${opts.search}%,reference.ilike.%${opts.search}%`);
-  const limit = opts?.limit ?? 50;
+  const limit = opts?.limit ?? 150;
   const offset = opts?.offset ?? 0;
   const { data, error } = await query.range(offset, offset + limit - 1);
   if (error) throw new ApiError(error.message, error.code);
@@ -306,9 +306,9 @@ export async function listRequestsPaginated(opts?: {
     .from("requests")
     .select("*", { count: "exact" })
     .order("last_activity_at", { ascending: false });
-    
+
   if (opts?.status?.length) query = query.in("status", opts.status);
-  
+
   if (typeof opts?.archived === "boolean") {
     if (opts.archived === false && uid) {
       query = query.or(`archived.eq.false,and(assigned_team_id.eq.${uid},status.eq.completed)`);
@@ -319,7 +319,7 @@ export async function listRequestsPaginated(opts?: {
 
   if (opts?.search)
     query = query.or(`title.ilike.%${opts.search}%,reference.ilike.%${opts.search}%`);
-  const limit = opts?.limit ?? 50;
+  const limit = opts?.limit ?? 100;
   const offset = opts?.offset ?? 0;
   const { data, error, count } = await query.range(offset, offset + limit - 1);
   if (error) throw new ApiError(error.message, error.code);
@@ -726,7 +726,7 @@ export async function escalateRequestWithReason(
       p_reason: reason,
     });
     if (!error) rpcSuccess = true;
-  } catch (_) {}
+  } catch (_) { }
 
   // Always ensure requests table has escalation_reason, is_escalated = true, and activity log recorded
   const now = new Date().toISOString();
@@ -759,7 +759,7 @@ export async function escalateRequestWithReason(
       label: `Escalated to Admin: ${reason}`,
       meta: { reason },
     });
-  } catch (_) {}
+  } catch (_) { }
 
   if (error && !rpcSuccess) throw new ApiError(error.message, error.code);
 }
@@ -788,7 +788,7 @@ export async function resolveEscalation(
       p_notes: notes || null,
     });
     if (!error) return;
-  } catch (_) {}
+  } catch (_) { }
 
   // Fallback: clear escalation flag if resolved, keep if reopened
   const { error } = await supabase
@@ -808,7 +808,7 @@ export async function updateTeamPresence(status: "online" | "away" | "offline"):
       p_status: status,
     });
     if (!error) return;
-  } catch (_) {}
+  } catch (_) { }
 
   const { data: userData } = await supabase.auth.getUser();
   if (userData.user?.id) {
@@ -816,5 +816,74 @@ export async function updateTeamPresence(status: "online" | "away" | "offline"):
       .from("team_members")
       .update({ availability_status: status, last_seen_at: new Date().toISOString() })
       .eq("id", userData.user.id);
+  }
+}
+
+/**
+ * Universal transferred chats fetcher that works in both server SSR and client SPA / Capacitor.
+ */
+export async function listTransferredRequestsClient(): Promise<any[]> {
+  try {
+    const { data: logs } = await (supabase as any)
+      .from("activity_logs")
+      .select("request_id, actor_id, label, meta, created_at")
+      .eq("action", "request_transferred")
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (logs && logs.length > 0) {
+      const requestIds = Array.from(new Set(logs.map((l: any) => l.request_id).filter(Boolean)));
+      if (requestIds.length > 0) {
+        const { data: reqs } = await (supabase as any)
+          .from("requests")
+          .select("*")
+          .in("id", requestIds);
+
+        if (reqs && reqs.length > 0) {
+          const userIds = Array.from(new Set(reqs.map((r: any) => r.user_id).filter(Boolean)));
+          const [{ data: profiles }, { data: teamMembers }] = await Promise.all([
+            userIds.length > 0
+              ? (supabase as any).from("profiles").select("id, full_name, email").in("id", userIds)
+              : Promise.resolve({ data: [] }),
+            (supabase as any).from("team_members").select("id, full_name, email"),
+          ]);
+
+          const profMap = new Map((profiles || []).map((p: any) => [p.id, p.full_name || p.email || "User"]));
+          const tmMap = new Map((teamMembers || []).map((t: any) => [t.id, t.full_name || t.email || "Team Member"]));
+
+          const logMap = new Map();
+          for (const l of logs) {
+            if (!logMap.has(l.request_id)) logMap.set(l.request_id, l);
+          }
+
+          return reqs.map((r: any) => {
+            const l = logMap.get(r.id);
+            const fromName = l?.meta?.from_team_id ? (tmMap.get(l.meta.from_team_id) || "Previous Member") : "Previous Member";
+            const toName = l?.meta?.to_team_id ? (tmMap.get(l.meta.to_team_id) || (r.assigned_team_id ? tmMap.get(r.assigned_team_id) : "Team Member")) : "Team Member";
+            return {
+              ...r,
+              isTransferred: true,
+              userName: profMap.get(r.user_id) || "User",
+              transferInfo: {
+                fromMemberName: fromName,
+                toMemberName: toName,
+                transferredAt: l?.created_at || r.updated_at,
+                reason: l?.meta?.reason || "Transferred to team member",
+              },
+            };
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("[listTransferredRequestsClient] Direct query failed:", err);
+  }
+
+  // Fallback to server function
+  try {
+    const { getTransferredRequestsServerFn } = await import("@/lib/api/admin.functions");
+    return await getTransferredRequestsServerFn({ limit: 100 });
+  } catch (_) {
+    return [];
   }
 }

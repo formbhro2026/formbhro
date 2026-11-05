@@ -183,10 +183,10 @@ export async function loadTeamSnapshot(
     .select("*")
     .eq("assigned_team_id", memberId)
     .order("last_activity_at", { ascending: false })
-    .limit(100);
+    .limit(200);
 
-  // 2. Load the top 20 active pool requests
-  const { data: poolRows, count } = await requestsApi.listRequestsPaginated({ archived: false, limit });
+  // 2. Load active and recent pool requests without filtering out previous history
+  const { data: poolRows, count } = await requestsApi.listRequestsPaginated({ limit: Math.max(limit, 50) });
 
   // Helper to ensure internal Admin direct chats never pollute Work requests
   const isUserReq = (r: RequestRow) =>
@@ -212,13 +212,14 @@ export async function loadTeamSnapshot(
     for (const p of data ?? []) names[p.id] = p.full_name || p.email || "User";
   }
 
-  // Fetch ALL chat rooms for ALL active requests in a single batch query.
-  // This ensures rooms.current is populated for every request, not just the
-  // first 20, so setStatus / claim / subscribeToRoom always have a valid mapping.
+  // Fetch ALL chat rooms for requests in a single batch query.
+  // This ensures rooms.current is populated for every request (active and completed),
+  // so setStatus / claim / subscribeToRoom always have a valid mapping.
   const { data: allRequests } = await supabase
     .from("requests")
     .select("id, reference")
-    .eq("archived", false);
+    .order("created_at", { ascending: false })
+    .limit(250);
 
   const activeRequestIds = (allRequests ?? []).map((r) => r.id);
   const rowIds = rows.map((r) => r.id);

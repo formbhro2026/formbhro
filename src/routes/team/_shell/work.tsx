@@ -33,6 +33,7 @@ import {
   Loader2,
   Download,
   Trash2,
+  Share2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { downloadCsv } from "@/lib/csv-export";
@@ -97,9 +98,9 @@ export const Route = createFileRoute("/team/_shell/work")({
     q: str(search.q),
     f:
       search.f === "pending" ||
-      search.f === "completed" ||
-      search.f === "waiting_documents" ||
-      search.f === "escalated"
+        search.f === "completed" ||
+        search.f === "waiting_documents" ||
+        search.f === "escalated"
         ? (search.f as string)
         : undefined,
     u: str(search.u),
@@ -225,53 +226,53 @@ function WorkArea() {
     [userRequests],
   );
 
-function matchesDateFilter(r: TeamRequest, range: string, custom: string) {
-  if (range === "all" || !range) return true;
-  const raw = r.lastActivityAt || r.assignedAtRaw || r.createdAt;
-  if (!raw) return true;
-  const d = new Date(raw);
-  if (isNaN(d.getTime())) return true;
+  function matchesDateFilter(r: TeamRequest, range: string, custom: string) {
+    if (range === "all" || !range) return true;
+    const raw = r.lastActivityAt || r.assignedAtRaw || r.createdAt;
+    if (!raw) return true;
+    const d = new Date(raw);
+    if (isNaN(d.getTime())) return true;
 
-  const now = new Date();
-  const toYMD = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  };
+    const now = new Date();
+    const toYMD = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    };
 
-  const targetYMD = toYMD(d);
-  const todayYMD = toYMD(now);
+    const targetYMD = toYMD(d);
+    const todayYMD = toYMD(now);
 
-  if (range === "today") {
-    return targetYMD === todayYMD;
+    if (range === "today") {
+      return targetYMD === todayYMD;
+    }
+
+    if (range === "yesterday") {
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      return targetYMD === toYMD(yesterday);
+    }
+
+    if (range === "this-week") {
+      const startOfWeek = new Date(now);
+      const dayOfWeek = startOfWeek.getDay();
+      const diff = startOfWeek.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+      startOfWeek.setDate(diff);
+      startOfWeek.setHours(0, 0, 0, 0);
+      return d >= startOfWeek;
+    }
+
+    if (range === "this-month") {
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    }
+
+    if (range === "custom" && custom) {
+      return targetYMD === custom;
+    }
+
+    return true;
   }
-
-  if (range === "yesterday") {
-    const yesterday = new Date(now);
-    yesterday.setDate(yesterday.getDate() - 1);
-    return targetYMD === toYMD(yesterday);
-  }
-
-  if (range === "this-week") {
-    const startOfWeek = new Date(now);
-    const dayOfWeek = startOfWeek.getDay();
-    const diff = startOfWeek.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-    startOfWeek.setDate(diff);
-    startOfWeek.setHours(0, 0, 0, 0);
-    return d >= startOfWeek;
-  }
-
-  if (range === "this-month") {
-    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-  }
-
-  if (range === "custom" && custom) {
-    return targetYMD === custom;
-  }
-
-  return true;
-}
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -281,6 +282,12 @@ function matchesDateFilter(r: TeamRequest, range: string, custom: string) {
       if (state === "completed" && r.status !== "completed") return false;
       if (state === "waiting_documents" && r.status !== "waiting-user") return false;
       if (state === "escalated" && !r.isEscalated) return false;
+      if (
+        state === "transferred" &&
+        !r.isTransferred &&
+        !r.tags?.some((t) => t.toLowerCase().includes("transferred"))
+      )
+        return false;
       if (priority !== "all" && r.priority !== priority) return false;
       if (userFilter && r.userName !== userFilter) return false;
       if (typeFilter && r.category !== typeFilter) return false;
@@ -358,7 +365,7 @@ function matchesDateFilter(r: TeamRequest, range: string, custom: string) {
         r.id.toLowerCase() === searchR.toLowerCase() ||
         r.requestUuid === searchR ||
         r.id.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() ===
-          searchR.replace(/[^a-zA-Z0-9]/g, "").toLowerCase(),
+        searchR.replace(/[^a-zA-Z0-9]/g, "").toLowerCase(),
     );
     if (alreadyFound) return;
 
@@ -412,7 +419,7 @@ function matchesDateFilter(r: TeamRequest, range: string, custom: string) {
           };
           setDirectFoundRequest(mapped);
         }
-      } catch (_) {}
+      } catch (_) { }
     })();
     return () => {
       active = false;
@@ -531,13 +538,13 @@ function matchesDateFilter(r: TeamRequest, range: string, custom: string) {
 
   const selected = searchR
     ? (requests.find(
-        (r) =>
-          r.id === searchR ||
-          r.id.toLowerCase() === searchR.toLowerCase() ||
-          r.requestUuid === searchR ||
-          r.id.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() ===
-            searchR.replace(/[^a-zA-Z0-9]/g, "").toLowerCase(),
-      ) ?? (directFoundRequest && (directFoundRequest.id === searchR || directFoundRequest.requestUuid === searchR) ? directFoundRequest : null))
+      (r) =>
+        r.id === searchR ||
+        r.id.toLowerCase() === searchR.toLowerCase() ||
+        r.requestUuid === searchR ||
+        r.id.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() ===
+        searchR.replace(/[^a-zA-Z0-9]/g, "").toLowerCase(),
+    ) ?? (directFoundRequest && (directFoundRequest.id === searchR || directFoundRequest.requestUuid === searchR) ? directFoundRequest : null))
     : null;
 
   useEffect(() => {
@@ -823,7 +830,17 @@ function ConversationCard({ request: r, active }: { request: TeamRequest; active
           <TeamStatusBadge status={r.status} />
           <PriorityBadge priority={r.priority} />
           <PaymentStatusBadge status={r.paymentStatus} />
+          {(r.isTransferred || r.tags?.some((t) => t.toLowerCase().includes("transferred"))) && (
+            <span className="inline-flex items-center rounded-full border border-purple-500/30 bg-purple-500/15 px-2 py-0.5 text-[10px] font-bold text-purple-300">
+              Transferred
+            </span>
+          )}
         </div>
+        {r.transferInfo && (
+          <p className="mt-1 truncate text-[10px] font-medium text-purple-300/80">
+            {r.transferInfo.fromMemberName} → {r.transferInfo.toMemberName}
+          </p>
+        )}
         {r.tags && r.tags.length > 0 && <ChatTagBadges tags={r.tags} className="mt-1.5" />}
         <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-text-muted">
           <span className="truncate">Assigned {r.assignedAt}</span>
@@ -858,33 +875,50 @@ const DELIVERY_LABEL: Record<TeamDelivery, string> = {
 };
 
 function DeliveryReceipt({ delivery }: { delivery: TeamDelivery }) {
-  const Icon =
-    delivery === "failed"
-      ? AlertTriangle
-      : delivery === "retrying"
-        ? RefreshCw
-        : delivery === "sending"
-          ? Clock3
-          : delivery === "sent"
-            ? Check
-            : CheckCheck;
+  if (delivery === "failed") {
+    return (
+      <span className="inline-flex items-center text-red-400" title={DELIVERY_LABEL[delivery]}>
+        <AlertTriangle className="h-3 w-3" aria-hidden="true" />
+        <span className="sr-only">{DELIVERY_LABEL[delivery]}</span>
+      </span>
+    );
+  }
+  if (delivery === "retrying") {
+    return (
+      <span className="inline-flex items-center text-gray-400" title={DELIVERY_LABEL[delivery]}>
+        <RefreshCw className="h-3 w-3 animate-spin" aria-hidden="true" />
+        <span className="sr-only">{DELIVERY_LABEL[delivery]}</span>
+      </span>
+    );
+  }
+  if (delivery === "sending") {
+    return (
+      <span className="inline-flex items-center text-gray-400" title={DELIVERY_LABEL[delivery]}>
+        <Clock3 className="h-3 w-3" aria-hidden="true" />
+        <span className="sr-only">{DELIVERY_LABEL[delivery]}</span>
+      </span>
+    );
+  }
+  if (delivery === "sent") {
+    return (
+      <span className="inline-flex items-center text-gray-400" title={DELIVERY_LABEL[delivery]}>
+        <Check className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+        <span className="sr-only">{DELIVERY_LABEL[delivery]}</span>
+      </span>
+    );
+  }
+  if (delivery === "delivered") {
+    return (
+      <span className="inline-flex items-center text-gray-400" title={DELIVERY_LABEL[delivery]}>
+        <CheckCheck className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+        <span className="sr-only">{DELIVERY_LABEL[delivery]}</span>
+      </span>
+    );
+  }
+  // read: WhatsApp-style double blue ticks
   return (
-    <span className="inline-flex items-center">
-      <Icon
-        className={cn(
-          "h-3 w-3",
-          delivery === "failed"
-            ? "text-danger"
-            : delivery === "retrying"
-              ? "animate-spin text-white/80"
-              : delivery === "read"
-                ? "text-white"
-                : delivery === "sending"
-                  ? "text-white/50"
-                  : "text-white/70",
-        )}
-        aria-hidden="true"
-      />
+    <span className="inline-flex items-center text-[#53bdeb]" title={DELIVERY_LABEL[delivery]}>
+      <CheckCheck className="h-3.5 w-3.5 text-[#53bdeb]" strokeWidth={2.5} aria-hidden="true" />
       <span className="sr-only">{DELIVERY_LABEL[delivery]}</span>
     </span>
   );
@@ -1684,6 +1718,24 @@ function Conversation({
         </div>
       )}
 
+      {(r.isTransferred || r.tags?.some((t) => t.toLowerCase().includes("transferred"))) && (
+        <div className="flex items-center gap-2.5 border-b border-purple-500/30 bg-purple-500/10 px-4 py-2.5 text-xs text-purple-200">
+          <Share2 className="h-4 w-4 shrink-0 text-purple-400" />
+          <div className="min-w-0 flex-1">
+            <span className="font-bold text-purple-300">Transferred Chat</span>
+            {r.transferInfo ? (
+              <span className="ml-1.5 text-purple-100/90 font-medium">
+                — Transferred from {r.transferInfo.fromMemberName} to {r.transferInfo.toMemberName}
+              </span>
+            ) : (
+              <span className="ml-1.5 text-purple-100/90 font-medium">
+                — Assigned to {r.userName || "Team Member"}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       {reactionCounts.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 border-b border-border-subtle bg-surface-1/60 px-3 py-2">
           <span className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
@@ -2189,10 +2241,10 @@ function Conversation({
                   const query = text.startsWith("/") ? text.slice(1).trim().toLowerCase() : "";
                   const filtered = query
                     ? quickReplies.filter(
-                        (qr) =>
-                          qr.title.toLowerCase().includes(query) ||
-                          qr.body.toLowerCase().includes(query),
-                      )
+                      (qr) =>
+                        qr.title.toLowerCase().includes(query) ||
+                        qr.body.toLowerCase().includes(query),
+                    )
                     : quickReplies;
 
                   if (filtered.length === 0) {
@@ -2275,10 +2327,10 @@ function Conversation({
                 if (text.startsWith("/")) {
                   const filtered = query
                     ? quickReplies.filter(
-                        (qr) =>
-                          qr.title.toLowerCase().includes(query) ||
-                          qr.body.toLowerCase().includes(query),
-                      )
+                      (qr) =>
+                        qr.title.toLowerCase().includes(query) ||
+                        qr.body.toLowerCase().includes(query),
+                    )
                     : quickReplies;
                   if (filtered.length > 0) {
                     e.preventDefault();

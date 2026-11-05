@@ -4,6 +4,7 @@ import { CallEventBubble } from "@/components/chat/CallEventBubble";
 import { cn } from "@/lib/utils";
 import type { ChatMessage } from "@/data/user-module";
 import { extractQuickReplyImage } from "@/lib/api/notifications";
+import { openDocument } from "@/lib/doc-access";
 
 export function MessageBubble({
   message,
@@ -62,6 +63,7 @@ export function MessageBubble({
               time={message.time}
               tone={isMine ? "emerald" : "dark"}
               onView={() => onViewFile(message.file!.id)}
+              onDownload={() => void openDocument(message.file as any, true)}
             />
           </div>
         ) : (
@@ -91,19 +93,16 @@ export function MessageBubble({
               {isMine && message.state && (
                 <span className="flex items-center ml-0.5">
                   {message.state === "sending" && (
-                    <Clock className="h-3 w-3 text-chat-meta opacity-70" />
+                    <Clock className="h-3 w-3 text-gray-400/80 animate-spin" />
                   )}
                   {message.state === "sent" && (
-                    <Check className="h-3.5 w-3.5 text-chat-meta opacity-70" strokeWidth={1.5} />
+                    <Check className="h-3.5 w-3.5 text-gray-400" strokeWidth={2} />
                   )}
                   {message.state === "delivered" && (
-                    <CheckCheck
-                      className="h-3.5 w-3.5 text-chat-meta opacity-70"
-                      strokeWidth={1.5}
-                    />
+                    <CheckCheck className="h-3.5 w-3.5 text-gray-400" strokeWidth={2} />
                   )}
                   {message.state === "read" && (
-                    <CheckCheck className="h-3.5 w-3.5 text-chat-accent" strokeWidth={2} />
+                    <CheckCheck className="h-3.5 w-3.5 text-[#53bdeb]" strokeWidth={2.5} />
                   )}
                 </span>
               )}

@@ -389,14 +389,31 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         }
         if (!active) return;
         if (data.session && data.session.user && data.session.user.id === stored.member.id) {
-          setMember(stored.member);
-          setLive(true);
-          persistSession(stored.member, true, true);
-        } else if (!data.session) {
-          // Keep member state while disk recovery settles; don't wipe prematurely
-          setMember(stored.member);
-          setLive(true);
+          try {
+            const { data: tm } = await supabase
+              .from("team_members")
+              .select("is_active")
+              .eq("id", stored.member.id)
+              .maybeSingle();
+            if (tm && tm.is_active) {
+              setMember(stored.member);
+              setLive(true);
+              persistSession(stored.member, true, true);
+            } else {
+              setMember(null);
+              setLive(false);
+              window.localStorage.removeItem(SESSION_KEY);
+              window.sessionStorage.removeItem(SESSION_KEY);
+              if (active) setLoading(false);
+            }
+          } catch {
+            setMember(stored.member);
+            setLive(true);
+            persistSession(stored.member, true, true);
+          }
         } else {
+          setMember(null);
+          setLive(false);
           try {
             window.localStorage.removeItem(SESSION_KEY);
             window.sessionStorage.removeItem(SESSION_KEY);
@@ -471,6 +488,43 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       setNotifications(snapshot.notifications);
       setRoomsVersion((v) => v + 1);
 
+      // Load all transferred chats so every team member can view them under Transferred tab
+      try {
+        const { listTransferredRequestsClient } = await import("@/lib/api/requests");
+        const transferredRows = await listTransferredRequestsClient();
+        if (transferredRows && transferredRows.length) {
+          setRequests((prev) => {
+            const map = new Map(prev.map((r) => [r.id, r]));
+            for (const tr of transferredRows) {
+              const key = tr.reference || tr.id;
+              const existing = map.get(key) || map.get(tr.id);
+              if (existing) {
+                map.set(existing.id, {
+                  ...existing,
+                  isTransferred: true,
+                  transferInfo: tr.transferInfo,
+                  tags: Array.from(new Set([...(existing.tags || []), "transferred"])),
+                });
+              } else {
+                const mapped = mapTeamRequest(
+                  tr,
+                  safe.id,
+                  tr.userName ?? "User",
+                  tr.chat_room_id ?? null,
+                );
+                mapped.isTransferred = true;
+                mapped.transferInfo = tr.transferInfo;
+                mapped.tags = Array.from(new Set([...(mapped.tags || []), "transferred"]));
+                map.set(mapped.id, mapped);
+              }
+            }
+            return Array.from(map.values());
+          });
+        }
+      } catch (err) {
+        console.warn("[hydrateLive] Could not fetch transferred chats:", err);
+      }
+
       try {
         const { data: tm } = await (supabase as any)
           .from("team_members")
@@ -518,7 +572,6 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       const limit = 20;
       const nextPage = requestsPage + 1;
       const { data: rows, count } = await requestsApi.listRequestsPaginated({
-        archived: false,
         limit,
         offset: requestsPage * limit,
       });
@@ -945,7 +998,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         loadedRoomsRef.current.add(room.chatRoomId);
         loadedRoomsRef.current.add(cleanId);
         loadedRoomsRef.current.add(ref);
-        void messagesApi.listMessages(room.chatRoomId, { limit: 50 }).then((msgs) => {
+        void messagesApi.listMessages(room.chatRoomId, { limit: 200 }).then((msgs) => {
           setMessages((prev) => {
             const existingIds = new Set(prev.map((m) => m.id));
             const newMsgs = msgs
@@ -968,6 +1021,32 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
             });
           }
         });
+      } else if (!room?.chatRoomId && !loadedRoomsRef.current.has(cleanId) && !loadedRoomsRef.current.has(ref)) {
+        loadedRoomsRef.current.add(cleanId);
+        loadedRoomsRef.current.add(ref);
+        void requestsApi
+          .getOrCreateChatRoom(id)
+          .then((fresh) => {
+            if (fresh?.id) {
+              const roomData = { requestId: fresh.request_id, chatRoomId: fresh.id };
+              rooms.current[id] = roomData;
+              rooms.current[cleanId] = roomData;
+              rooms.current[ref] = roomData;
+              rooms.current[fresh.id] = roomData;
+              rooms.current[fresh.request_id] = roomData;
+              refByRequestId.current[fresh.request_id] = ref || id;
+              void messagesApi.listMessages(fresh.id, { limit: 200 }).then((msgs) => {
+                setMessages((prev) => {
+                  const existingIds = new Set(prev.map((m) => m.id));
+                  const newMsgs = msgs
+                    .filter((m) => !existingIds.has(m.id))
+                    .map((m) => mapTeamMessage(m, ref || id, memberRef.current?.name ?? "Support"));
+                  return [...prev, ...newMsgs];
+                });
+              });
+            }
+          })
+          .catch(() => {});
       }
 
       return visibleMessages.filter((m) => {
@@ -1207,8 +1286,19 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         const { transferRequest } = await import("@/lib/api/requests");
         await transferRequest(dbUuid, targetAssigneeId);
 
-        // Optimistically remove it from active UI
-        setRequests((prev) => prev.filter((r) => r.id !== requestId));
+        // Mark as transferred in UI so it remains visible under Transferred section
+        setRequests((prev) =>
+          prev.map((r) =>
+            r.id === requestId || r.requestUuid === dbUuid
+              ? {
+                  ...r,
+                  assigneeId: targetAssigneeId,
+                  isTransferred: true,
+                  tags: [...(r.tags || []).filter((t) => t !== "transferred"), "transferred"],
+                }
+              : r,
+          ),
+        );
 
         fetchAnalytics(); // Update stats
       } catch (err) {
@@ -1857,7 +1947,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       const roomId = cur.chatRoomId || room?.chatRoomId;
 
       if (roomId) {
-        void messagesApi.listMessages(roomId, { limit: 50 }).then((msgs) => {
+        void messagesApi.listMessages(roomId, { limit: 150 }).then((msgs) => {
           if (!alive) return;
           setMessages((prev) => {
             const existingIds = new Set(prev.map((m) => m.id));
@@ -1954,6 +2044,10 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           ? prev
           : [mapTeamNotification(row, refByRequestId.current), ...prev],
       );
+
+      if (row.type === "call" || (row.title && row.title.toLowerCase().includes("call"))) {
+        return;
+      }
 
       if (row.type === "message") {
         const isChatOpen = isChatActive({

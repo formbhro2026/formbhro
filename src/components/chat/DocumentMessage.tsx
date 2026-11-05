@@ -9,6 +9,7 @@ export function DocumentMessage({
   size,
   time,
   onView,
+  onDownload,
   tone = "dark",
   previewUrl,
   pageCount,
@@ -19,6 +20,7 @@ export function DocumentMessage({
   size: string;
   time: string;
   onView: () => void;
+  onDownload?: () => void;
   tone?: "dark" | "brand" | "emerald";
   previewUrl?: string;
   pageCount?: number;
@@ -66,7 +68,7 @@ export function DocumentMessage({
           </button>
           <button
             type="button"
-            onClick={onView}
+            onClick={onDownload ?? onView}
             className="text-[10px] font-bold text-brand uppercase tracking-widest hover:text-white transition-colors"
           >
             Get

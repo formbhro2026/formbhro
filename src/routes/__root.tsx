@@ -19,6 +19,7 @@ import { SessionProvider } from "../lib/session";
 import { GlobalCallProvider } from "../lib/call-store";
 import { NativeAlertModal } from "../components/NativeAlertModal";
 
+
 import {
   onForegroundNotification,
   onNotificationTap,
@@ -400,8 +401,13 @@ function RootComponent() {
 
     // Register FCM foreground notification handler → plays chime, triggers OS notification & shows rich top toast
     void onForegroundNotification((title, body, data) => {
-      if (data?.type === "call") {
-        // Suppress generic toast/chime/notification: GlobalCallProvider has exclusive authority for incoming calls
+      const isCall =
+        data?.type === "call" ||
+        data?.notification_type === "call" ||
+        Boolean(data?.callSessionId) ||
+        Boolean(title && title.toLowerCase().includes("call"));
+      if (isCall) {
+        // Suppress generic toast/chime/notification: calls are handled exclusively
         return;
       }
 
@@ -513,6 +519,7 @@ function RootComponent() {
               },
             }}
           />
+
         </GlobalCallProvider>
       </SessionProvider>
     </QueryClientProvider>

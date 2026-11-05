@@ -182,6 +182,14 @@ export type TeamRequest = {
   paymentNote?: string;
   /** Reason or note written by team member when escalating to admin */
   escalationReason?: string;
+  /** True if this request has been transferred to another team member */
+  isTransferred?: boolean;
+  /** Metadata describing the transfer */
+  transferInfo?: {
+    fromMemberName?: string;
+    toMemberName?: string;
+    transferredAt?: string;
+  };
 };
 
 export type TeamNotification = {

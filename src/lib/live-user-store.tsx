@@ -265,10 +265,10 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       }
       try {
         const [rows, notes, newsRows, docRows] = await Promise.all([
-          requestsApi.listRequests({ limit: 20 }),
-          notificationsApi.listNotifications(30),
+          requestsApi.listRequests({ limit: 250 }),
+          notificationsApi.listNotifications(50),
           notificationsApi.listNews(),
-          documentsApi.listDocuments({ limit: 100 }),
+          documentsApi.listDocuments({ limit: 200 }),
         ]);
 
         console.log(
@@ -352,7 +352,7 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
           const activeRoom = roomByRequestId.get(activeRow.id);
           if (activeRoom) {
             loadedRoomsRef.current.add(activeRoom.id);
-            const msgs = await messagesApi.listMessages(activeRoom.id, { limit: 50 });
+            const msgs = await messagesApi.listMessages(activeRoom.id, { limit: 150 });
             const ref = activeRow.reference || activeRow.id;
             setMessages(msgs.map((m) => mapMessage(m, ref)));
 
@@ -395,7 +395,7 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
 
   /**
    * On-demand chat message loader for active chat views.
-   * Replaces the historical startup storm.
+   * Ensures old chats and messages are completely retrieved from backend.
    */
   const loadChat = useCallback(
     async (reqIdOrRef: string) => {
@@ -413,9 +413,28 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      let room = rooms.current[matchedRef];
+      // Check if request is missing in local requests state (e.g. older chat)
+      const hasReq = requests.some(
+        (r) =>
+          r.id.toLowerCase() === clean ||
+          r.reference?.toLowerCase() === clean ||
+          (referenceById.current[reqIdOrRef] && r.id === referenceById.current[reqIdOrRef]),
+      );
+      if (!hasReq) {
+        try {
+          const reqRow = await requestsApi.getRequest(reqIdOrRef);
+          if (reqRow) {
+            const mapped = mapRequest(reqRow);
+            setRequests((prev) => (prev.some((r) => r.id === mapped.id) ? prev : [mapped, ...prev]));
+            matchedRef = mapped.reference || mapped.id;
+            referenceById.current[reqRow.id] = matchedRef;
+          }
+        } catch (_) {}
+      }
+
+      let room = rooms.current[matchedRef] || rooms.current[clean];
       if (!room?.chatRoomId) {
-        const rawRoom = await requestsApi.getChatRoom(room?.requestId || matchedRef);
+        const rawRoom = await requestsApi.getOrCreateChatRoom(room?.requestId || reqIdOrRef);
         if (rawRoom) {
           room = {
             requestId: rawRoom.request_id,
@@ -423,12 +442,21 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
             title: room?.title || "Support Chat",
           };
           rooms.current[matchedRef] = room;
+          rooms.current[rawRoom.id] = room;
+          rooms.current[rawRoom.request_id] = room;
           referenceById.current[rawRoom.request_id] = matchedRef;
         }
       }
 
+      // Mark as loaded so repetitive cycles are avoided
+      loadedRoomsRef.current.add(clean);
+      loadedRoomsRef.current.add(matchedRef.toLowerCase());
       if (room?.chatRoomId) {
-        const msgs = await messagesApi.listMessages(room.chatRoomId, { limit: 50 });
+        loadedRoomsRef.current.add(room.chatRoomId);
+      }
+
+      if (room?.chatRoomId) {
+        const msgs = await messagesApi.listMessages(room.chatRoomId, { limit: 200 });
         setMessages((prev) => {
           const existingIds = new Set(prev.map((m) => m.id));
           const newMsgs = msgs
@@ -437,7 +465,7 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
           return newMsgs.length ? [...prev, ...newMsgs] : prev;
         });
 
-        // FIX 4: Ingest attachments from messages into global documents state
+        // Ingest attachments from messages into global documents state
         const attachedDocs = msgs
           .map((m) => m.attachment)
           .filter((att): att is NonNullable<typeof att> => Boolean(att));
@@ -452,7 +480,7 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    [mapMessage, mapDocument],
+    [requests, mapRequest, mapMessage, mapDocument],
   );
 
   useEffect(() => {
@@ -711,7 +739,7 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       const mapped = mapRequest(request);
       setRequests((prev) => (prev.some((r) => r.id === mapped.id) ? prev : [mapped, ...prev]));
       if (room) {
-        const list = await messagesApi.listMessages(room.id, { limit: 50 });
+        const list = await messagesApi.listMessages(room.id, { limit: 150 });
         setMessages((prev) => {
           const known = new Set(prev.map((m) => m.id));
           return [
@@ -974,6 +1002,14 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
               })
               .catch(() => undefined);
           }
+        }
+
+        const isCallNotif =
+          row.type === "call" ||
+          (row.title && row.title.toLowerCase().includes("call")) ||
+          Boolean((row as any).call_session_id);
+        if (isCallNotif) {
+          return;
         }
 
         const notifKey = getNotificationDedupKey({

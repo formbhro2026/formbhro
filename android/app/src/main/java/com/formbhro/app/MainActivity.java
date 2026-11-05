@@ -13,6 +13,12 @@ import android.content.Intent;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.WebViewListener;
 import android.widget.Toast;
+import android.webkit.DownloadListener;
+import android.app.DownloadManager;
+import android.net.Uri;
+import android.os.Environment;
+import android.webkit.URLUtil;
+import android.webkit.CookieManager;
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
 import com.google.android.gms.auth.api.signin.GoogleSignInClient;
@@ -38,6 +44,28 @@ public class MainActivity extends BridgeActivity {
 
     public class FormbharoNativeBridge {
         @android.webkit.JavascriptInterface
+        public int getAppVersionCode() {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    return (int) getPackageManager().getPackageInfo(getPackageName(), 0).getLongVersionCode();
+                } else {
+                    return getPackageManager().getPackageInfo(getPackageName(), 0).versionCode;
+                }
+            } catch (Throwable t) {
+                return 10406;
+            }
+        }
+
+        @android.webkit.JavascriptInterface
+        public String getAppVersionName() {
+            try {
+                return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+            } catch (Throwable t) {
+                return "1.4.6";
+            }
+        }
+
+        @android.webkit.JavascriptInterface
         public String getLastGoogleAuth() {
             return sLastGoogleAuthJson != null ? sLastGoogleAuthJson : "";
         }
@@ -57,6 +85,39 @@ public class MainActivity extends BridgeActivity {
             sLastGoogleAuthJson = null;
             sLastGoogleAuthError = null;
             sLastGoogleAuthCancel = false;
+        }
+
+        @android.webkit.JavascriptInterface
+        public void downloadFile(String url, String filename) {
+            try {
+                if (url == null || url.trim().isEmpty()) return;
+                android.net.Uri uri = android.net.Uri.parse(url);
+                android.app.DownloadManager.Request request = new android.app.DownloadManager.Request(uri);
+                request.setDescription("Downloading document from Formbhro…");
+                if (filename != null && !filename.trim().isEmpty()) {
+                    request.setTitle(filename);
+                    request.setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, filename);
+                }
+                request.allowScanningByMediaScanner();
+                request.setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                android.app.DownloadManager dm = (android.app.DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+                if (dm != null) {
+                    dm.enqueue(request);
+                    runOnUiThread(() -> android.widget.Toast.makeText(getApplicationContext(),
+                            "Downloading " + (filename != null && !filename.trim().isEmpty() ? filename : "document") + "…",
+                            android.widget.Toast.LENGTH_SHORT).show());
+                }
+            } catch (Throwable e) {
+                android.util.Log.w("MainActivity", "[DOWNLOAD] DownloadManager failed, launching browser intent: " + e.getMessage());
+                try {
+                    Intent intent = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url));
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(intent);
+                } catch (Throwable ex) {
+                    runOnUiThread(() -> android.widget.Toast.makeText(getApplicationContext(),
+                            "Download error: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show());
+                }
+            }
         }
         @android.webkit.JavascriptInterface
         public String getPendingCallAnswer() {
@@ -508,25 +569,25 @@ public class MainActivity extends BridgeActivity {
                 android.net.Uri ringtoneUri = android.media.RingtoneManager
                         .getDefaultUri(android.media.RingtoneManager.TYPE_RINGTONE);
 
-                // High-importance Incoming Calls channels (_v3 and _v2)
-                for (String chId : new String[] { "formbhro_calls_v3", "formbhro_calls_v2" }) {
-                    if (manager.getNotificationChannel(chId) == null) {
-                        android.app.NotificationChannel callChannel = new android.app.NotificationChannel(
-                                chId,
-                                "Incoming Calls",
-                                android.app.NotificationManager.IMPORTANCE_HIGH);
-                        callChannel.setDescription("Alerts for incoming audio and video calls");
-                        callChannel.enableVibration(true);
-                        callChannel.setVibrationPattern(new long[] { 0, 1000, 500, 1000, 500, 1000 });
-                        callChannel.enableLights(true);
-                        callChannel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
-                        callChannel.setBypassDnd(true);
-                        if (ringtoneUri != null) {
-                            callChannel.setSound(ringtoneUri, audioAttributes);
-                        }
-                        manager.createNotificationChannel(callChannel);
-                    }
-                }
+                // High-importance Incoming Calls channel (_v4)
+                try {
+                    manager.deleteNotificationChannel("formbhro_calls_v3");
+                    manager.deleteNotificationChannel("formbhro_calls_v2");
+                } catch (Throwable ignored) {}
+
+                android.app.NotificationChannel callChannel = new android.app.NotificationChannel(
+                        "formbhro_calls_v4",
+                        "Incoming Calls",
+                        android.app.NotificationManager.IMPORTANCE_HIGH);
+                callChannel.setDescription("Alerts for incoming audio and video calls");
+                callChannel.enableVibration(true);
+                callChannel.setVibrationPattern(new long[] { 0, 1000, 500, 1000, 500, 1000 });
+                callChannel.enableLights(true);
+                callChannel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
+                callChannel.setBypassDnd(true);
+                // System notification channel sound is null; ringtone handled strictly by IncomingCallActivity
+                callChannel.setSound(null, null);
+                manager.createNotificationChannel(callChannel);
 
                 // High-importance Messages channels (_v3 and _v2)
                 android.media.AudioAttributes msgAudioAttributes = new android.media.AudioAttributes.Builder()
@@ -775,6 +836,44 @@ public class MainActivity extends BridgeActivity {
                 webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
                 webView.getSettings().setJavaScriptCanOpenWindowsAutomatically(true);
                 webView.addJavascriptInterface(new FormbharoNativeBridge(), "FormbharoNativeBridge");
+
+                webView.setDownloadListener(new DownloadListener() {
+                    @Override
+                    public void onDownloadStart(String url, String userAgent, String contentDisposition, String mimeType, long contentLength) {
+                        try {
+                            DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
+                            if (mimeType != null && !mimeType.isEmpty()) {
+                                request.setMimeType(mimeType);
+                            }
+                            String cookies = CookieManager.getInstance().getCookie(url);
+                            if (cookies != null) {
+                                request.addRequestHeader("cookie", cookies);
+                            }
+                            if (userAgent != null) {
+                                request.addRequestHeader("User-Agent", userAgent);
+                            }
+                            request.setDescription("Downloading file from Formbhro…");
+                            String filename = URLUtil.guessFileName(url, contentDisposition, mimeType);
+                            request.setTitle(filename);
+                            request.allowScanningByMediaScanner();
+                            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, filename);
+                            DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+                            if (dm != null) {
+                                dm.enqueue(request);
+                                Toast.makeText(getApplicationContext(), "Downloading " + filename, Toast.LENGTH_SHORT).show();
+                            }
+                        } catch (Exception e) {
+                            try {
+                                Intent intent = new Intent(Intent.ACTION_VIEW);
+                                intent.setData(Uri.parse(url));
+                                startActivity(intent);
+                            } catch (Exception ex) {
+                                Toast.makeText(getApplicationContext(), "Download error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                            }
+                        }
+                    }
+                });
 
                 if (!webViewListenerAdded) {
                     webViewListenerAdded = true;
