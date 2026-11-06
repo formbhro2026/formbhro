@@ -63,7 +63,17 @@ export function MessageBubble({
               time={message.time}
               tone={isMine ? "emerald" : "dark"}
               onView={() => onViewFile(message.file!.id)}
-              onDownload={() => void openDocument(message.file as any, true)}
+              onDownload={() =>
+                openDocument(
+                  {
+                    id: message.file!.id,
+                    name: message.file!.name,
+                    storagePath: (message.file as any).storagePath,
+                    previewUrl: message.file!.previewUrl,
+                  },
+                  true,
+                )
+              }
             />
           </div>
         ) : (

@@ -63,6 +63,15 @@ function MyDocuments() {
     [documents, query, kind, requestFilter],
   );
 
+  const counts = useMemo(() => {
+    return {
+      all: documents.length,
+      pdf: documents.filter((d) => d.kind === "pdf").length,
+      image: documents.filter((d) => d.kind === "image").length,
+      doc: documents.filter((d) => d.kind === "doc").length,
+    };
+  }, [documents]);
+
   const preview = useMemo(
     () => documents.find((d) => d.id === previewId),
     [documents, previewId],
@@ -128,13 +137,21 @@ function MyDocuments() {
                   onClick={() => setKind(c.kind)}
                   aria-pressed={kind === c.kind}
                   className={cn(
-                    "shrink-0 rounded-full border px-4 py-2 text-[10px] font-bold uppercase tracking-wider transition-all duration-200",
+                    "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200",
                     kind === c.kind
-                      ? "border-brand/40 bg-brand/10 text-brand shadow-lg shadow-brand/5"
-                      : "border-border-subtle text-text-muted hover:border-text-secondary hover:text-text",
+                      ? "border-brand/40 bg-brand/15 text-brand shadow-sm"
+                      : "border-border-subtle bg-surface-1 text-text-muted hover:border-text-secondary hover:text-text",
                   )}
                 >
-                  {c.label}
+                  <span>{c.label}</span>
+                  <span
+                    className={cn(
+                      "rounded-full px-1.5 py-0.2 text-[10px] font-bold",
+                      kind === c.kind ? "bg-brand/20 text-brand" : "bg-surface-3 text-text-muted"
+                    )}
+                  >
+                    {c.kind ? counts[c.kind as keyof typeof counts] : counts.all}
+                  </span>
                 </button>
               ))}
             </div>

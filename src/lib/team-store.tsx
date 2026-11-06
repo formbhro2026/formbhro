@@ -439,7 +439,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         try {
           window.localStorage.removeItem(SESSION_KEY);
           window.sessionStorage.removeItem(SESSION_KEY);
-        } catch {}
+        } catch { }
       } else if (session?.user && (event === "INITIAL_SESSION" || event === "SIGNED_IN")) {
         try {
           const raw =
@@ -453,7 +453,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
               persistSession(m, true, true);
             }
           }
-        } catch {}
+        } catch { }
       }
     });
 
@@ -540,7 +540,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
             return { ...prev, permissions: tm.permissions as TeamPermissions };
           });
         }
-      } catch (_) {}
+      } catch (_) { }
     } catch {
       if (!silent && requestsRef.current.length === 0) {
         rooms.current = {};
@@ -627,7 +627,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
               return mapped.length ? [...prev, ...mapped] : prev;
             });
           }
-        }).catch(() => {});
+        }).catch(() => { });
       }
 
       setRequestsHasMore(count > nextPage * limit);
@@ -671,7 +671,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       if (typeof window !== "undefined") {
         localStorage.setItem("formbhro:team_manual_status", status);
       }
-    } catch (_) {}
+    } catch (_) { }
     setAvailabilityStatusState(status);
     if (!liveRef.current || !memberRef.current?.id) return;
     try {
@@ -682,7 +682,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           last_seen_at: new Date().toISOString(),
         })
         .eq("id", memberRef.current.id);
-    } catch (_) {}
+    } catch (_) { }
   }, []);
 
   // Periodic heartbeat keeping team presence (availability_status & last_seen_at) alive in DB every 25s
@@ -707,7 +707,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
             last_seen_at: new Date().toISOString(),
           })
           .eq("id", member.id);
-      } catch (_) {}
+      } catch (_) { }
     };
 
     const initialStatus = manualStatusRef.current || "online";
@@ -730,7 +730,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           `${(supabase as any).supabaseUrl}/rest/v1/team_members?id=eq.${member.id}`,
           JSON.stringify({ availability_status: "offline", last_seen_at: new Date().toISOString() })
         );
-      } catch (_) {}
+      } catch (_) { }
     };
 
     document.addEventListener("visibilitychange", handleVisibility);
@@ -960,8 +960,8 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     () =>
       member
         ? requests
-            .filter((r) => r.assigneeId === member.id && isUserRequest(r))
-            .map((r) => ({ ...r, unread: unreadByRequest[r.id] ?? 0 }))
+          .filter((r) => r.assigneeId === member.id && isUserRequest(r))
+          .map((r) => ({ ...r, unread: unreadByRequest[r.id] ?? 0 }))
         : [],
     [requests, member, unreadByRequest, isUserRequest],
   );
@@ -970,9 +970,9 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     () =>
       member
         ? requests.filter(
-            (r) =>
-              !r.assigneeId && !["completed", "cancelled"].includes(r.status) && isUserRequest(r),
-          )
+          (r) =>
+            !r.assigneeId && !["completed", "cancelled"].includes(r.status) && isUserRequest(r),
+        )
         : [],
     [requests, member, isUserRequest],
   );
@@ -1046,7 +1046,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
               });
             }
           })
-          .catch(() => {});
+          .catch(() => { });
       }
 
       return visibleMessages.filter((m) => {
@@ -1103,8 +1103,8 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       const cleanUid = userId?.trim().toLowerCase();
       const userDocs = cleanUid
         ? visibleDocuments.filter(
-            (d) => d.userId && d.userId.trim().toLowerCase() === cleanUid,
-          )
+          (d) => d.userId && d.userId.trim().toLowerCase() === cleanUid,
+        )
         : [];
       const seen = new Set<string>();
       const combined: TeamDocument[] = [];
@@ -1171,13 +1171,13 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         prev.map((r) =>
           r.id === requestId
             ? {
-                ...r,
-                ...patch,
-                lastUpdated: `Today • ${nowTime()}`,
-                timeline: timelineLabel
-                  ? [...r.timeline, { label: timelineLabel, time: `Today • ${nowTime()}` }]
-                  : r.timeline,
-              }
+              ...r,
+              ...patch,
+              lastUpdated: `Today • ${nowTime()}`,
+              timeline: timelineLabel
+                ? [...r.timeline, { label: timelineLabel, time: `Today • ${nowTime()}` }]
+                : r.timeline,
+            }
             : r,
         ),
       );
@@ -1195,11 +1195,11 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
             prev.map((r) =>
               r.id === requestId
                 ? {
-                    ...r,
-                    assigneeId: member.id,
-                    status: "pending",
-                    lastUpdated: `Today • ${nowTime()}`,
-                  }
+                  ...r,
+                  assigneeId: member.id,
+                  status: "pending",
+                  lastUpdated: `Today • ${nowTime()}`,
+                }
                 : r,
             ),
           );
@@ -1232,11 +1232,11 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           prev.map((r) =>
             r.id === requestId
               ? {
-                  ...r,
-                  assigneeId: member.id,
-                  status: "pending",
-                  lastUpdated: `Today • ${nowTime()}`,
-                }
+                ...r,
+                assigneeId: member.id,
+                status: "pending",
+                lastUpdated: `Today • ${nowTime()}`,
+              }
               : r,
           ),
         );
@@ -1291,11 +1291,11 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           prev.map((r) =>
             r.id === requestId || r.requestUuid === dbUuid
               ? {
-                  ...r,
-                  assigneeId: targetAssigneeId,
-                  isTransferred: true,
-                  tags: [...(r.tags || []).filter((t) => t !== "transferred"), "transferred"],
-                }
+                ...r,
+                assigneeId: targetAssigneeId,
+                isTransferred: true,
+                tags: [...(r.tags || []).filter((t) => t !== "transferred"), "transferred"],
+              }
               : r,
           ),
         );
@@ -1328,20 +1328,20 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           prev.map((r) =>
             r.id === requestId || r.id.toLowerCase() === requestId.toLowerCase()
               ? {
-                  ...r,
-                  isEscalated: true,
-                  escalationReason: reason,
-                  tags: [
-                    ...(r.tags || []).filter((t) => !t.startsWith("esc_note:")),
-                    `esc_note:${encodeURIComponent(reason.trim())}`,
-                  ],
-                }
+                ...r,
+                isEscalated: true,
+                escalationReason: reason,
+                tags: [
+                  ...(r.tags || []).filter((t) => !t.startsWith("esc_note:")),
+                  `esc_note:${encodeURIComponent(reason.trim())}`,
+                ],
+              }
               : r,
           ),
         );
         try {
           sendMessageRef.current?.(requestId, `🚨 [Escalated to Admin] Note: ${reason}`);
-        } catch (_) {}
+        } catch (_) { }
         toast.success("Conversation escalated to Admin");
       } catch (err) {
         console.error("Failed to escalate chat:", err);
@@ -1659,10 +1659,10 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       setMessages((prev) =>
         prev.some((m) => m.requestId === requestId && m.author === "user" && !m.read)
           ? prev.map((m) =>
-              m.requestId === requestId && m.author === "user" && !m.read
-                ? withReceipt({ ...m, read: true, readAt: at }, meReader, at)
-                : m,
-            )
+            m.requestId === requestId && m.author === "user" && !m.read
+              ? withReceipt({ ...m, read: true, readAt: at }, meReader, at)
+              : m,
+          )
           : prev,
       );
       setRequests((prev) =>
@@ -1683,8 +1683,8 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       setMessages((prev) =>
         prev.some((m) => m.id === messageId && m.author === "user" && !m.read)
           ? prev.map((m) =>
-              m.id === messageId ? withReceipt({ ...m, read: true, readAt: at }, meReader, at) : m,
-            )
+            m.id === messageId ? withReceipt({ ...m, read: true, readAt: at }, meReader, at) : m,
+          )
           : prev,
       );
     },
@@ -1825,10 +1825,10 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         const exists = prev.some((r) => r.id === mapped.id || (row.id && r.id === row.id));
         const next = exists
           ? prev.map((r) =>
-              r.id === mapped.id || (row.id && r.id === row.id)
-                ? { ...mapped, unread: r.unread, timeline: r.timeline }
-                : r,
-            )
+            r.id === mapped.id || (row.id && r.id === row.id)
+              ? { ...mapped, unread: r.unread, timeline: r.timeline }
+              : r,
+          )
           : [{ ...mapped }, ...prev];
         return next.length > 500 ? next.slice(0, 500) : next;
       });
@@ -2011,17 +2011,17 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
                 ),
               );
             },
-          onDocument: (row) => {
-            setDocuments((prev) =>
-              prev.some((d) => d.id === row.id)
-                ? prev
-                : [mapTeamDocument(row, ref || target), ...prev],
-            );
-          },
-          onTyping: (payload) => {
-            if (payload.typing) startTyping(ref || target, 2500);
-          },
-        });
+            onDocument: (row) => {
+              setDocuments((prev) =>
+                prev.some((d) => d.id === row.id)
+                  ? prev
+                  : [mapTeamDocument(row, ref || target), ...prev],
+              );
+            },
+            onTyping: (payload) => {
+              if (payload.typing) startTyping(ref || target, 2500);
+            },
+          });
         }
       }
     };
@@ -2080,11 +2080,11 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
             duration: 6000,
             action: row.request_id
               ? {
-                  label: "Open chat",
-                  onClick: () => {
-                    window.location.href = `/team/work?id=${row.request_id}`;
-                  },
-                }
+                label: "Open chat",
+                onClick: () => {
+                  window.location.href = `/team/work?id=${row.request_id}`;
+                },
+              }
               : undefined,
           });
         }
@@ -2142,19 +2142,19 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         prev.map((r) =>
           r.id === requestId || r.id.toLowerCase() === requestId.toLowerCase()
             ? {
-                ...r,
-                paymentStatus,
-                ...(note !== undefined ? { paymentNote: note } : {}),
-                tags: [
-                  ...(r.tags || []).filter(
-                    (t) => !t.startsWith("payment:") && (note !== undefined ? !t.startsWith("pnote:") : true),
-                  ),
-                  `payment:${paymentStatus}`,
-                  ...(note !== undefined && note.trim()
-                    ? [`pnote:${encodeURIComponent(note.trim())}`]
-                    : []),
-                ],
-              }
+              ...r,
+              paymentStatus,
+              ...(note !== undefined ? { paymentNote: note } : {}),
+              tags: [
+                ...(r.tags || []).filter(
+                  (t) => !t.startsWith("payment:") && (note !== undefined ? !t.startsWith("pnote:") : true),
+                ),
+                `payment:${paymentStatus}`,
+                ...(note !== undefined && note.trim()
+                  ? [`pnote:${encodeURIComponent(note.trim())}`]
+                  : []),
+              ],
+            }
             : r,
         ),
       );
@@ -2168,7 +2168,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           console.error("Failed to update payment status:", err);
           toast.error(
             "Failed to update payment status: " +
-              (err instanceof Error ? err.message : "Please try again."),
+            (err instanceof Error ? err.message : "Please try again."),
           );
         });
     },
@@ -2185,13 +2185,13 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         prev.map((r) =>
           r.id === requestId || r.id.toLowerCase() === requestId.toLowerCase()
             ? {
-                ...r,
-                paymentNote: note,
-                tags: [
-                  ...(r.tags || []).filter((t) => !t.startsWith("pnote:")),
-                  ...(note.trim() ? [`pnote:${encodeURIComponent(note.trim())}`] : []),
-                ],
-              }
+              ...r,
+              paymentNote: note,
+              tags: [
+                ...(r.tags || []).filter((t) => !t.startsWith("pnote:")),
+                ...(note.trim() ? [`pnote:${encodeURIComponent(note.trim())}`] : []),
+              ],
+            }
             : r,
         ),
       );

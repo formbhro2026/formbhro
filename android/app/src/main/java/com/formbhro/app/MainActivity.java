@@ -92,20 +92,27 @@ public class MainActivity extends BridgeActivity {
             try {
                 if (url == null || url.trim().isEmpty()) return;
                 android.net.Uri uri = android.net.Uri.parse(url);
+                String safeFilename = (filename != null && !filename.trim().isEmpty())
+                        ? filename.replaceAll("[\\\\/:*?\"<>|]", "_").trim()
+                        : "document";
                 android.app.DownloadManager.Request request = new android.app.DownloadManager.Request(uri);
-                request.setDescription("Downloading document from Formbhro…");
-                if (filename != null && !filename.trim().isEmpty()) {
-                    request.setTitle(filename);
-                    request.setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, filename);
-                }
-                request.allowScanningByMediaScanner();
+                request.setDescription("Downloading file from Formbhro…");
+                request.setTitle(safeFilename);
+                request.setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, safeFilename);
                 request.setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
+                    try {
+                        request.allowScanningByMediaScanner();
+                    } catch (Throwable ignored) {}
+                }
                 android.app.DownloadManager dm = (android.app.DownloadManager) getSystemService(DOWNLOAD_SERVICE);
                 if (dm != null) {
                     dm.enqueue(request);
                     runOnUiThread(() -> android.widget.Toast.makeText(getApplicationContext(),
-                            "Downloading " + (filename != null && !filename.trim().isEmpty() ? filename : "document") + "…",
+                            "Downloading " + safeFilename + "…",
                             android.widget.Toast.LENGTH_SHORT).show());
+                } else {
+                    throw new IllegalStateException("DownloadManager service not available");
                 }
             } catch (Throwable e) {
                 android.util.Log.w("MainActivity", "[DOWNLOAD] DownloadManager failed, launching browser intent: " + e.getMessage());
@@ -115,7 +122,8 @@ public class MainActivity extends BridgeActivity {
                     startActivity(intent);
                 } catch (Throwable ex) {
                     runOnUiThread(() -> android.widget.Toast.makeText(getApplicationContext(),
-                            "Download error: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show());
+                            "Download error: " + (ex.getMessage() != null ? ex.getMessage() : e.getMessage()),
+                            android.widget.Toast.LENGTH_LONG).show());
                 }
             }
         }
@@ -855,7 +863,11 @@ public class MainActivity extends BridgeActivity {
                             request.setDescription("Downloading file from Formbhro…");
                             String filename = URLUtil.guessFileName(url, contentDisposition, mimeType);
                             request.setTitle(filename);
-                            request.allowScanningByMediaScanner();
+                            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                                try {
+                                    request.allowScanningByMediaScanner();
+                                } catch (Throwable ignored) {}
+                            }
                             request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
                             request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, filename);
                             DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
