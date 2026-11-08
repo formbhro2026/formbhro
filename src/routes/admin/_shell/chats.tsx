@@ -30,6 +30,7 @@ import {
   BadgeIndianRupee,
   Image as ImageIcon,
   Loader2,
+  Info,
 } from "lucide-react";
 import { PresenceDot } from "@/components/team/PresenceDot";
 import { downloadCsv } from "@/lib/csv-export";
@@ -39,6 +40,7 @@ import * as messagesApi from "@/lib/api/messages";
 import { subscribeToRoom } from "@/lib/api/realtime";
 import { useChatScroll } from "@/lib/use-chat-scroll";
 import { openDocument } from "@/lib/doc-access";
+import { renderMessageWithLinks, openExternalLink } from "@/lib/chat-links";
 import * as requestsApi from "@/lib/api/requests";
 import * as notificationsApi from "@/lib/api/notifications";
 import { getOrCreateAdminTeamChat } from "@/lib/api/admin-team-chat";
@@ -74,16 +76,16 @@ export const Route = createFileRoute("/admin/_shell/chats")({
         : undefined,
     mode:
       search["mode"] === "user-search" ||
-      search["mode"] === "chat-search" ||
-      search["mode"] === "threads"
+        search["mode"] === "chat-search" ||
+        search["mode"] === "threads"
         ? (search["mode"] as "threads" | "user-search" | "chat-search")
         : undefined,
     f:
       search["f"] === "all" ||
-      search["f"] === "escalated" ||
-      search["f"] === "waiting_documents" ||
-      search["f"] === "pending" ||
-      search["f"] === "completed"
+        search["f"] === "escalated" ||
+        search["f"] === "waiting_documents" ||
+        search["f"] === "pending" ||
+        search["f"] === "completed"
         ? (search["f"] as any)
         : undefined,
     userId: typeof search["userId"] === "string" ? (search["userId"] as string) : undefined,
@@ -161,7 +163,7 @@ function AdminChats() {
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setCurrentAdminId(data.user?.id ?? null));
-    void notificationsApi.listQuickReplies().then(setQuickReplies).catch(() => {});
+    void notificationsApi.listQuickReplies().then(setQuickReplies).catch(() => { });
   }, []);
 
   // ── A. Dedicated User Search State & Handler ───────────────────────────────
@@ -488,9 +490,9 @@ function AdminChats() {
   const active =
     (activeId
       ? (chatType === "monitor"
-          ? customerRequests.find((r) => r.id === activeId)
-          : requestsPage.find((r) => r.id === activeId)) ??
-        (fetchedActive?.id === activeId ? fetchedActive : null)
+        ? customerRequests.find((r) => r.id === activeId)
+        : requestsPage.find((r) => r.id === activeId)) ??
+      (fetchedActive?.id === activeId ? fetchedActive : null)
       : null) ??
     (typeof window !== "undefined" && window.innerWidth >= 1280 && chatType === "monitor"
       ? customerRequests[0] ?? null
@@ -540,7 +542,7 @@ function AdminChats() {
         if (data?.reason) {
           setActiveEscalationNote(data.reason);
         }
-      } catch (_) {}
+      } catch (_) { }
     })();
   }, [active?.id, (active as any)?.is_escalated, (active as any)?.escalation_reason, (active as any)?.tags]);
 
@@ -599,6 +601,7 @@ function AdminChats() {
   const [userChatHistory, setUserChatHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [copiedText, setCopiedText] = useState<string | null>(null);
+  const [showInfoSidebar, setShowInfoSidebar] = useState(false);
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -1040,11 +1043,10 @@ function AdminChats() {
                         key={tab.id}
                         type="button"
                         onClick={() => setFilterTab(tab.id as any)}
-                        className={`px-2 py-0.5 text-[9px] font-bold rounded-full transition-colors shrink-0 ${
-                          filterTab === tab.id
+                        className={`px-2 py-0.5 text-[9px] font-bold rounded-full transition-colors shrink-0 ${filterTab === tab.id
                             ? "bg-brand text-white shadow-sm"
                             : "bg-surface-2 text-text-muted hover:text-text"
-                        }`}
+                          }`}
                       >
                         {tab.label}
                       </button>
@@ -1068,11 +1070,10 @@ function AdminChats() {
                     <button
                       type="button"
                       onClick={() => handleSelectRequest(r.id)}
-                      className={`w-full rounded-xl border px-3 py-3 text-left transition-all ${
-                        active?.id === r.id
+                      className={`w-full rounded-xl border px-3 py-3 text-left transition-all ${active?.id === r.id
                           ? "border-brand bg-brand/10 shadow-sm shadow-brand/10"
                           : "border-border-subtle bg-bg hover:border-border-strong"
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5 min-w-0">
@@ -1586,11 +1587,10 @@ function AdminChats() {
                       <button
                         type="button"
                         onClick={() => void handleSelectTeamMember(member.id, profile?.full_name)}
-                        className={`w-full rounded-xl border px-3 py-3 text-left transition-all ${
-                          isSelected
+                        className={`w-full rounded-xl border px-3 py-3 text-left transition-all ${isSelected
                             ? "border-brand bg-brand/10 shadow-sm shadow-brand/10"
                             : "border-border-subtle bg-bg hover:border-border-strong"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1.5 min-w-0">
@@ -1654,9 +1654,14 @@ function AdminChats() {
                         : "Select a conversation"}
                   </span>
                   {chatType === "monitor" && active && (
-                    <span className="text-[10px] text-text-muted truncate">
-                      User: <strong className="text-text-secondary">{profileOf(active.user_id)?.full_name ?? "User"}</strong> • Assigned: <strong className="text-brand-light">{profileOf(active.assigned_team_id)?.full_name ?? "Unassigned"}</strong>
-                    </span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[10px] text-text-muted truncate">
+                        User: <strong className="text-text-secondary">{profileOf(active.user_id)?.full_name ?? "User"}</strong> • Assigned: <strong className="text-brand-light">{profileOf(active.assigned_team_id)?.full_name ?? "Unassigned"}</strong>
+                      </span>
+                      {active.tags && active.tags.length > 0 && (
+                        <ChatTagBadges tags={active.tags} className="inline-flex scale-90 origin-left" />
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
@@ -1667,6 +1672,7 @@ function AdminChats() {
                 <div className="flex items-center gap-2">
                   <ChatTagButton
                     requestId={active.id}
+                    userId={active.user_id}
                     currentTags={active.tags ?? []}
                     onTagsUpdated={() => {
                       void fetchRequestsPage(page);
@@ -1697,6 +1703,20 @@ function AdminChats() {
                         <Monitor className="h-3.5 w-3.5" />
                       </button>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => setShowInfoSidebar((prev) => !prev)}
+                      className={cn(
+                        "inline-flex h-8 w-8 items-center justify-center rounded-lg border transition-colors",
+                        showInfoSidebar
+                          ? "border-brand bg-brand/20 text-brand"
+                          : "border-border-subtle bg-surface-2 text-text-muted hover:border-brand/40 hover:text-brand",
+                      )}
+                      title="Information & Details (i)"
+                      aria-label="Information & Details"
+                    >
+                      <Info className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 </div>
               )
@@ -1802,13 +1822,12 @@ function AdminChats() {
                           className={`flex group ${mine ? "justify-end" : "justify-start"}`}
                         >
                           <div
-                            className={`max-w-[85%] rounded-2xl border px-4 py-3 text-xs shadow-sm relative ${
-                              m.is_system
+                            className={`max-w-[85%] rounded-2xl border px-4 py-3 text-xs shadow-sm relative ${m.is_system
                                 ? "border-border-subtle bg-surface-1 text-text-muted mx-auto text-center"
                                 : mine
                                   ? "border-brand/40 bg-brand/15 text-white"
                                   : "border-border-subtle bg-bg text-text-secondary"
-                            }`}
+                              }`}
                           >
                             {!m.is_system && (
                               <div className="flex items-center justify-between gap-4 mb-1 border-b border-white/5 pb-1">
@@ -1850,14 +1869,14 @@ function AdminChats() {
                                         src={imageUrl}
                                         alt="Attachment"
                                         className="max-h-60 w-auto max-w-full rounded-xl object-contain cursor-pointer hover:opacity-95 transition-opacity"
-                                        onClick={() => window.open(imageUrl, "_blank")}
+                                        onClick={() => void openExternalLink(imageUrl)}
                                       />
                                     </div>
                                   )}
                                   {cleanBody && (
-                                    <p className="whitespace-pre-wrap break-words leading-relaxed">
-                                      {cleanBody}
-                                    </p>
+                                    <div className="whitespace-pre-wrap break-words leading-relaxed">
+                                      {renderMessageWithLinks(cleanBody)}
+                                    </div>
                                   )}
                                 </div>
                               );
@@ -1964,10 +1983,10 @@ function AdminChats() {
                           const query = draft.startsWith("/") ? draft.slice(1).trim().toLowerCase() : "";
                           const filtered = query
                             ? quickReplies.filter(
-                                (qr) =>
-                                  qr.title.toLowerCase().includes(query) ||
-                                  qr.body.toLowerCase().includes(query),
-                              )
+                              (qr) =>
+                                qr.title.toLowerCase().includes(query) ||
+                                qr.body.toLowerCase().includes(query),
+                            )
                             : quickReplies;
 
                           if (filtered.length === 0) {
@@ -2053,10 +2072,10 @@ function AdminChats() {
                             if (draft.startsWith("/")) {
                               const filtered = query
                                 ? quickReplies.filter(
-                                    (qr) =>
-                                      qr.title.toLowerCase().includes(query) ||
-                                      qr.body.toLowerCase().includes(query),
-                                  )
+                                  (qr) =>
+                                    qr.title.toLowerCase().includes(query) ||
+                                    qr.body.toLowerCase().includes(query),
+                                )
                                 : quickReplies;
                               if (filtered.length > 0) {
                                 e.preventDefault();
@@ -2087,7 +2106,26 @@ function AdminChats() {
                   </div>
                 </div>
 
-                <div className="w-72 border-l border-border-subtle pl-4 hidden xl:block overflow-y-auto">
+                <div
+                  className={cn(
+                    "w-72 border-l border-border-subtle pl-4 overflow-y-auto shrink-0",
+                    showInfoSidebar
+                      ? "block fixed inset-y-0 right-0 z-50 bg-surface-1 shadow-2xl p-4 sm:p-6 w-80 xl:static xl:z-auto xl:shadow-none xl:p-0 xl:w-72"
+                      : "hidden xl:block",
+                  )}
+                >
+                  {showInfoSidebar && (
+                    <div className="flex xl:hidden items-center justify-between pb-3 mb-3 border-b border-border-subtle">
+                      <span className="text-xs font-bold text-white">Conversation Details</span>
+                      <button
+                        onClick={() => setShowInfoSidebar(false)}
+                        className="p-1.5 rounded-lg text-text-muted hover:text-white hover:bg-surface-2"
+                        title="Close"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
                   <div className="space-y-6">
                     {chatType === "team" ? (
                       <section>

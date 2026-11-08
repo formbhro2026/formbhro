@@ -30,6 +30,7 @@ import { Route as AdminShellIndexRouteImport } from './routes/admin/_shell/index
 import { Route as AdminShellAnalyticsRouteImport } from './routes/admin/_shell/analytics'
 import { Route as AdminShellCategoriesRouteImport } from './routes/admin/_shell/categories'
 import { Route as AdminShellChatsRouteImport } from './routes/admin/_shell/chats'
+import { Route as AdminShellDocumentsRouteImport } from './routes/admin/_shell/documents'
 import { Route as AdminShellNewsRouteImport } from './routes/admin/_shell/news'
 import { Route as AdminShellPoliciesRouteImport } from './routes/admin/_shell/policies'
 import { Route as AdminShellRequestsRouteImport } from './routes/admin/_shell/requests'
@@ -151,6 +152,11 @@ const AdminShellChatsRoute = AdminShellChatsRouteImport.update({
   path: '/chats',
   getParentRoute: () => AdminShellRoute,
 } as any)
+const AdminShellDocumentsRoute = AdminShellDocumentsRouteImport.update({
+  id: '/documents',
+  path: '/documents',
+  getParentRoute: () => AdminShellRoute,
+} as any)
 const AdminShellNewsRoute = AdminShellNewsRouteImport.update({
   id: '/news',
   path: '/news',
@@ -256,6 +262,7 @@ export interface FileRoutesByFullPath {
   '/admin/analytics': typeof AdminShellAnalyticsRoute
   '/admin/categories': typeof AdminShellCategoriesRoute
   '/admin/chats': typeof AdminShellChatsRoute
+  '/admin/documents': typeof AdminShellDocumentsRoute
   '/admin/news': typeof AdminShellNewsRoute
   '/admin/policies': typeof AdminShellPoliciesRoute
   '/admin/requests': typeof AdminShellRequestsRoute
@@ -293,6 +300,7 @@ export interface FileRoutesByTo {
   '/admin/analytics': typeof AdminShellAnalyticsRoute
   '/admin/categories': typeof AdminShellCategoriesRoute
   '/admin/chats': typeof AdminShellChatsRoute
+  '/admin/documents': typeof AdminShellDocumentsRoute
   '/admin/news': typeof AdminShellNewsRoute
   '/admin/policies': typeof AdminShellPoliciesRoute
   '/admin/requests': typeof AdminShellRequestsRoute
@@ -332,6 +340,7 @@ export interface FileRoutesById {
   '/admin/_shell/analytics': typeof AdminShellAnalyticsRoute
   '/admin/_shell/categories': typeof AdminShellCategoriesRoute
   '/admin/_shell/chats': typeof AdminShellChatsRoute
+  '/admin/_shell/documents': typeof AdminShellDocumentsRoute
   '/admin/_shell/news': typeof AdminShellNewsRoute
   '/admin/_shell/policies': typeof AdminShellPoliciesRoute
   '/admin/_shell/requests': typeof AdminShellRequestsRoute
@@ -372,6 +381,7 @@ export interface FileRouteTypes {
     | '/admin/analytics'
     | '/admin/categories'
     | '/admin/chats'
+    | '/admin/documents'
     | '/admin/news'
     | '/admin/policies'
     | '/admin/requests'
@@ -409,6 +419,7 @@ export interface FileRouteTypes {
     | '/admin/analytics'
     | '/admin/categories'
     | '/admin/chats'
+    | '/admin/documents'
     | '/admin/news'
     | '/admin/policies'
     | '/admin/requests'
@@ -447,6 +458,7 @@ export interface FileRouteTypes {
     | '/admin/_shell/analytics'
     | '/admin/_shell/categories'
     | '/admin/_shell/chats'
+    | '/admin/_shell/documents'
     | '/admin/_shell/news'
     | '/admin/_shell/policies'
     | '/admin/_shell/requests'
@@ -627,6 +639,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminShellChatsRouteImport
       parentRoute: typeof AdminShellRoute
     }
+    '/admin/_shell/documents': {
+      id: '/admin/_shell/documents'
+      path: '/documents'
+      fullPath: '/admin/documents'
+      preLoaderRoute: typeof AdminShellDocumentsRouteImport
+      parentRoute: typeof AdminShellRoute
+    }
     '/admin/_shell/news': {
       id: '/admin/_shell/news'
       path: '/news'
@@ -753,6 +772,7 @@ interface AdminShellRouteChildren {
   AdminShellAnalyticsRoute: typeof AdminShellAnalyticsRoute
   AdminShellCategoriesRoute: typeof AdminShellCategoriesRoute
   AdminShellChatsRoute: typeof AdminShellChatsRoute
+  AdminShellDocumentsRoute: typeof AdminShellDocumentsRoute
   AdminShellNewsRoute: typeof AdminShellNewsRoute
   AdminShellPoliciesRoute: typeof AdminShellPoliciesRoute
   AdminShellRequestsRoute: typeof AdminShellRequestsRoute
@@ -766,6 +786,7 @@ const AdminShellRouteChildren: AdminShellRouteChildren = {
   AdminShellAnalyticsRoute: AdminShellAnalyticsRoute,
   AdminShellCategoriesRoute: AdminShellCategoriesRoute,
   AdminShellChatsRoute: AdminShellChatsRoute,
+  AdminShellDocumentsRoute: AdminShellDocumentsRoute,
   AdminShellNewsRoute: AdminShellNewsRoute,
   AdminShellPoliciesRoute: AdminShellPoliciesRoute,
   AdminShellRequestsRoute: AdminShellRequestsRoute,

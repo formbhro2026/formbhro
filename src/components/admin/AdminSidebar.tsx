@@ -30,6 +30,7 @@ export const ADMIN_NAV = [
   { label: "Team Members", to: "/admin/team", icon: UserCog, exact: false },
   { label: "Requests", to: "/admin/requests", icon: Inbox, exact: false },
   { label: "Chats", to: "/admin/chats", icon: MessagesSquare, exact: false },
+  { label: "Documents", to: "/admin/documents", icon: FileText, exact: false },
   {
     label: "User Search",
     to: "/admin/chats",

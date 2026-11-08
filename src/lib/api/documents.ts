@@ -92,14 +92,60 @@ export async function uploadDocument(input: {
   return data;
 }
 
-/** Short-lived signed URL for preview or download. */
-export async function getSignedUrl(storagePath: string, expiresInSeconds = 300, download = false) {
+interface CacheEntry {
+  url: string;
+  expiresAt: number;
+}
+
+const signedUrlCache = new Map<string, CacheEntry>();
+
+/**
+ * High-performance cached signed URL retriever.
+ * Caches signed URLs with 1-hour TTL to eliminate network latency on re-opens and previews.
+ */
+export async function getSignedUrl(
+  storagePath: string,
+  expiresInSeconds = 3600,
+  download = false,
+): Promise<string> {
+  const cleanPath = storagePath?.trim();
+  if (!cleanPath) throw new ApiError("Invalid storage path", "bad_request");
+
+  const cacheKey = `${cleanPath}:${download ? "dl" : "view"}`;
+  const now = Date.now();
+  const cached = signedUrlCache.get(cacheKey);
+  if (cached && cached.expiresAt > now + 60000) {
+    return cached.url;
+  }
+
   const { data, error } = await supabase.storage
     .from(BUCKET)
-    .createSignedUrl(storagePath, expiresInSeconds, download ? { download: true } : undefined);
+    .createSignedUrl(cleanPath, expiresInSeconds, download ? { download: true } : undefined);
+
   if (error || !data)
     throw new ApiError("Could not open this document. Please try again.", "storage_failure");
+
+  signedUrlCache.set(cacheKey, {
+    url: data.signedUrl,
+    expiresAt: now + expiresInSeconds * 1000,
+  });
+
   return data.signedUrl;
+}
+
+/**
+ * Silently prefetches signed URLs in the background for instant document opening.
+ */
+export function prefetchSignedUrls(storagePaths: (string | undefined | null)[]): void {
+  const paths = Array.from(
+    new Set(storagePaths.filter((p): p is string => Boolean(p && p.trim()))),
+  );
+  for (const path of paths) {
+    const cacheKey = `${path.trim()}:view`;
+    if (!signedUrlCache.has(cacheKey) || signedUrlCache.get(cacheKey)!.expiresAt <= Date.now() + 60000) {
+      void getSignedUrl(path, 3600, false).catch(() => {});
+    }
+  }
 }
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

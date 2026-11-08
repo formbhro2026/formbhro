@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import type { SupportRequest, UserDocument } from "@/data/user-module";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { registerBackHandler } from "@/lib/back-handler";
 
 type Tab = "documents" | "details";
 type DocFilter = "this_request" | "all_docs";
@@ -45,6 +46,11 @@ export function RequestDetailsSheet({
   const currentList = docFilter === "this_request" ? documents : allUserDocs;
 
   useEffect(() => {
+    const unregisterBack = registerBackHandler(() => {
+      onClose();
+      return true;
+    });
+
     openerRef.current = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -76,6 +82,7 @@ export function RequestDetailsSheet({
 
     document.addEventListener("keydown", onKeyDown);
     return () => {
+      unregisterBack();
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
       openerRef.current?.focus?.();

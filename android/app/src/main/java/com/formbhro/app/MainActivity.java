@@ -52,7 +52,7 @@ public class MainActivity extends BridgeActivity {
                     return getPackageManager().getPackageInfo(getPackageName(), 0).versionCode;
                 }
             } catch (Throwable t) {
-                return 10406;
+                return 10409;
             }
         }
 
@@ -61,7 +61,7 @@ public class MainActivity extends BridgeActivity {
             try {
                 return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
             } catch (Throwable t) {
-                return "1.4.6";
+                return "1.4.9";
             }
         }
 
@@ -88,9 +88,24 @@ public class MainActivity extends BridgeActivity {
         }
 
         @android.webkit.JavascriptInterface
+        public void openExternalUrl(String url) {
+            try {
+                if (url == null || url.trim().isEmpty())
+                    return;
+                android.net.Uri uri = android.net.Uri.parse(url.trim());
+                android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_VIEW, uri);
+                intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(intent);
+            } catch (Throwable t) {
+                android.util.Log.e("MainActivity", "Failed to open external url: " + t.getMessage());
+            }
+        }
+
+        @android.webkit.JavascriptInterface
         public void downloadFile(String url, String filename) {
             try {
-                if (url == null || url.trim().isEmpty()) return;
+                if (url == null || url.trim().isEmpty())
+                    return;
                 android.net.Uri uri = android.net.Uri.parse(url);
                 String safeFilename = (filename != null && !filename.trim().isEmpty())
                         ? filename.replaceAll("[\\\\/:*?\"<>|]", "_").trim()
@@ -99,11 +114,13 @@ public class MainActivity extends BridgeActivity {
                 request.setDescription("Downloading file from Formbhro…");
                 request.setTitle(safeFilename);
                 request.setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, safeFilename);
-                request.setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                request.setNotificationVisibility(
+                        android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
                 if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
                     try {
                         request.allowScanningByMediaScanner();
-                    } catch (Throwable ignored) {}
+                    } catch (Throwable ignored) {
+                    }
                 }
                 android.app.DownloadManager dm = (android.app.DownloadManager) getSystemService(DOWNLOAD_SERVICE);
                 if (dm != null) {
@@ -115,7 +132,8 @@ public class MainActivity extends BridgeActivity {
                     throw new IllegalStateException("DownloadManager service not available");
                 }
             } catch (Throwable e) {
-                android.util.Log.w("MainActivity", "[DOWNLOAD] DownloadManager failed, launching browser intent: " + e.getMessage());
+                android.util.Log.w("MainActivity",
+                        "[DOWNLOAD] DownloadManager failed, launching browser intent: " + e.getMessage());
                 try {
                     Intent intent = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url));
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -127,6 +145,7 @@ public class MainActivity extends BridgeActivity {
                 }
             }
         }
+
         @android.webkit.JavascriptInterface
         public String getPendingCallAnswer() {
             android.util.Log.i("MainActivity",
@@ -329,10 +348,12 @@ public class MainActivity extends BridgeActivity {
                     android.util.Log.i("MainActivity",
                             "[AUTH] Native Google Sign-In success: " + email + ", hasIdToken=" + (!idToken.isEmpty()));
                     dispatchGoogleAuthSuccess(idToken, email, name, serverAuthCode);
-                    // Silently clear client state in background for next login without blocking launch
+                    // Silently clear client state in background for next login without blocking
+                    // launch
                     try {
                         GoogleSignIn.getClient(MainActivity.this, GoogleSignInOptions.DEFAULT_SIGN_IN).signOut();
-                    } catch (Throwable ignored) {}
+                    } catch (Throwable ignored) {
+                    }
                 } else {
                     android.util.Log.w("MainActivity", "[AUTH] GoogleSignInAccount was null");
                     dispatchGoogleAuthError(-1, "Google account was null");
@@ -345,11 +366,13 @@ public class MainActivity extends BridgeActivity {
                     dispatchGoogleAuthCancel();
                 } else if (code == 10) {
                     String runtimeSha1 = getRunningCertificateFingerprint("SHA1");
-                    if (runtimeSha1.isEmpty()) runtimeSha1 = "E7:F5:23:9D:E3:E5:39:6D:D9:C0:ED:19:DD:5E:B0:03:EF:D5:37:66";
+                    if (runtimeSha1.isEmpty())
+                        runtimeSha1 = "E7:F5:23:9D:E3:E5:39:6D:D9:C0:ED:19:DD:5E:B0:03:EF:D5:37:66";
                     final String msg = "Developer Error (10): Running APK SHA-1 (" + runtimeSha1
                             + ") is missing in Google Cloud Console / Firebase OAuth 2.0 Android Client IDs";
                     android.util.Log.e("MainActivity", "[AUTH] " + msg);
-                    // Do not block with a disruptive native toast; allow clean JS fallback to browser OAuth
+                    // Do not block with a disruptive native toast; allow clean JS fallback to
+                    // browser OAuth
                     dispatchGoogleAuthError(10, msg);
                 } else {
                     dispatchGoogleAuthError(code, "Google Sign-In failed (" + code + "): " + e.getMessage());
@@ -364,7 +387,8 @@ public class MainActivity extends BridgeActivity {
     private String getRunningCertificateFingerprint(String algorithm) {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                PackageInfo info = getPackageManager().getPackageInfo(getPackageName(), PackageManager.GET_SIGNING_CERTIFICATES);
+                PackageInfo info = getPackageManager().getPackageInfo(getPackageName(),
+                        PackageManager.GET_SIGNING_CERTIFICATES);
                 if (info != null && info.signingInfo != null) {
                     Signature[] signatures = info.signingInfo.hasMultipleSigners()
                             ? info.signingInfo.getApkContentsSigners()
@@ -392,9 +416,11 @@ public class MainActivity extends BridgeActivity {
             byte[] digest = md.digest(signature.toByteArray());
             StringBuilder hexString = new StringBuilder();
             for (int i = 0; i < digest.length; i++) {
-                if (i > 0) hexString.append(":");
+                if (i > 0)
+                    hexString.append(":");
                 String hex = Integer.toHexString(0xFF & digest[i]).toUpperCase();
-                if (hex.length() == 1) hexString.append("0");
+                if (hex.length() == 1)
+                    hexString.append("0");
                 hexString.append(hex);
             }
             return hexString.toString();
@@ -581,7 +607,8 @@ public class MainActivity extends BridgeActivity {
                 try {
                     manager.deleteNotificationChannel("formbhro_calls_v3");
                     manager.deleteNotificationChannel("formbhro_calls_v2");
-                } catch (Throwable ignored) {}
+                } catch (Throwable ignored) {
+                }
 
                 android.app.NotificationChannel callChannel = new android.app.NotificationChannel(
                         "formbhro_calls_v4",
@@ -593,7 +620,8 @@ public class MainActivity extends BridgeActivity {
                 callChannel.enableLights(true);
                 callChannel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
                 callChannel.setBypassDnd(true);
-                // System notification channel sound is null; ringtone handled strictly by IncomingCallActivity
+                // System notification channel sound is null; ringtone handled strictly by
+                // IncomingCallActivity
                 callChannel.setSound(null, null);
                 manager.createNotificationChannel(callChannel);
 
@@ -847,7 +875,8 @@ public class MainActivity extends BridgeActivity {
 
                 webView.setDownloadListener(new DownloadListener() {
                     @Override
-                    public void onDownloadStart(String url, String userAgent, String contentDisposition, String mimeType, long contentLength) {
+                    public void onDownloadStart(String url, String userAgent, String contentDisposition,
+                            String mimeType, long contentLength) {
                         try {
                             DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
                             if (mimeType != null && !mimeType.isEmpty()) {
@@ -866,14 +895,17 @@ public class MainActivity extends BridgeActivity {
                             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
                                 try {
                                     request.allowScanningByMediaScanner();
-                                } catch (Throwable ignored) {}
+                                } catch (Throwable ignored) {
+                                }
                             }
-                            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                            request.setNotificationVisibility(
+                                    DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
                             request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, filename);
                             DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
                             if (dm != null) {
                                 dm.enqueue(request);
-                                Toast.makeText(getApplicationContext(), "Downloading " + filename, Toast.LENGTH_SHORT).show();
+                                Toast.makeText(getApplicationContext(), "Downloading " + filename, Toast.LENGTH_SHORT)
+                                        .show();
                             }
                         } catch (Exception e) {
                             try {
@@ -881,7 +913,8 @@ public class MainActivity extends BridgeActivity {
                                 intent.setData(Uri.parse(url));
                                 startActivity(intent);
                             } catch (Exception ex) {
-                                Toast.makeText(getApplicationContext(), "Download error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                                Toast.makeText(getApplicationContext(), "Download error: " + e.getMessage(),
+                                        Toast.LENGTH_LONG).show();
                             }
                         }
                     }

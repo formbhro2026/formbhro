@@ -15,11 +15,17 @@ export async function listMessages(
     .eq("chat_room_id", chatRoomId)
     .eq("deleted", false)
     .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .limit(opts?.limit ?? PAGE_SIZE);
   if (opts?.before) query = query.lt("created_at", opts.before);
   const { data, error } = await query;
   if (error) throw new ApiError(error.message, error.code);
-  return ((data ?? []) as unknown as MessageWithDoc[]).reverse();
+  const rows = ((data ?? []) as unknown as MessageWithDoc[]);
+  return rows.sort((a, b) => {
+    const diff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    if (diff !== 0) return diff;
+    return a.id.localeCompare(b.id);
+  });
 }
 
 export async function sendMessage(input: {

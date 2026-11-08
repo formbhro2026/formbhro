@@ -34,6 +34,7 @@ import {
   requestNativeNotificationPermission,
 } from "../lib/fcm";
 import { isChatActive, shouldDeliverNotification, getNotificationDedupKey } from "../lib/active-chat-tracker";
+import { handleBackAction } from "../lib/back-handler";
 import {
   playMessageNotificationSound,
   startIncomingCallRingtone,
@@ -360,6 +361,10 @@ function RootComponent() {
       import("@capacitor/app").then(({ App }) => {
         // Hardware back button handler for Android
         App.addListener("backButton", ({ canGoBack }) => {
+          // If a modal, sheet, or preview is open, consume back action to dismiss it smoothly
+          if (handleBackAction()) {
+            return;
+          }
           const path = window.location.pathname;
           if (path === "/app" || path === "/") {
             App.exitApp();

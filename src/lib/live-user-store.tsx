@@ -169,6 +169,7 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
             ? "Formbhro"
             : "Support Team",
       time: time(row.created_at),
+      createdAt: row.created_at || new Date().toISOString(),
       text: row.body ?? undefined,
       isSystem: row.is_system,
       callLog: (row.reactions as any)?.call_log ?? undefined,
@@ -346,15 +347,30 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
         }
         rooms.current = nextRooms;
 
-        // 2. Fetch messages ONLY for the active / latest request needed by dashboard
-        const activeRow = rows.find((r) => r.status !== "completed") ?? rows[0];
+        // 2. Fetch messages for active request (merging safely so active chat is never wiped on resume)
+        const curActiveChat = getActiveChat();
+        const focusedRow = curActiveChat.requestId
+          ? rows.find(
+              (r) =>
+                r.id.toLowerCase() === curActiveChat.requestId ||
+                (r.reference && r.reference.toLowerCase() === curActiveChat.requestId),
+            )
+          : null;
+        const activeRow = focusedRow ?? rows.find((r) => r.status !== "completed") ?? rows[0];
         if (activeRow) {
           const activeRoom = roomByRequestId.get(activeRow.id);
           if (activeRoom) {
             loadedRoomsRef.current.add(activeRoom.id);
             const msgs = await messagesApi.listMessages(activeRoom.id, { limit: 150 });
             const ref = activeRow.reference || activeRow.id;
-            setMessages(msgs.map((m) => mapMessage(m, ref)));
+            setMessages((prev) => {
+              if (prev.length === 0) {
+                return msgs.map((m) => mapMessage(m, ref));
+              }
+              const existingIds = new Set(prev.map((m) => m.id));
+              const newItems = msgs.filter((m) => !existingIds.has(m.id)).map((m) => mapMessage(m, ref));
+              return newItems.length ? [...prev, ...newItems] : prev;
+            });
 
             // Ingest message attachments into global documents state
             const attachedDocs = msgs
@@ -368,6 +384,8 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
                   .map((att) => mapDocument(att, ref, activeRow.title || "Document"));
                 return newDocs.length ? [...prev, ...newDocs] : prev;
               });
+              // High-speed signed URL prefetch so documents open instantaneously
+              documentsApi.prefetchSignedUrls(attachedDocs.map((att) => att.storage_path));
             }
           }
         }
@@ -477,6 +495,7 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
               .map((att) => mapDocument(att, matchedRef, room?.title || "Document"));
             return newDocs.length ? [...prev, ...newDocs] : prev;
           });
+          documentsApi.prefetchSignedUrls(attachedDocs.map((att) => att.storage_path));
         }
       }
     },
@@ -680,18 +699,25 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       if (!loadedRoomsRef.current.has(cleanId) && !loadedRoomsRef.current.has(ref)) {
         void loadChat(ref || cleanId);
       }
-      return messages.filter((m) => {
-        const req = m.requestId?.toLowerCase();
-        const reqUuid = m.requestUuid?.toLowerCase();
-        const msgRoomId = m.chatRoomId?.toLowerCase();
-        return (
-          req === cleanId ||
-          req === ref ||
-          (matchedUuid && req === matchedUuid) ||
-          (reqUuid && (reqUuid === cleanId || reqUuid === ref || reqUuid === roomReqId)) ||
-          (msgRoomId && (msgRoomId === cleanId || msgRoomId === roomId))
-        );
-      });
+      return messages
+        .filter((m) => {
+          const req = m.requestId?.toLowerCase();
+          const reqUuid = m.requestUuid?.toLowerCase();
+          const msgRoomId = m.chatRoomId?.toLowerCase();
+          return (
+            req === cleanId ||
+            req === ref ||
+            (matchedUuid && req === matchedUuid) ||
+            (reqUuid && (reqUuid === cleanId || reqUuid === ref || reqUuid === roomReqId)) ||
+            (msgRoomId && (msgRoomId === cleanId || msgRoomId === roomId))
+          );
+        })
+        .sort((a, b) => {
+          const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          if (timeA !== timeB) return timeA - timeB;
+          return a.id.localeCompare(b.id);
+        });
     },
     [messages, loadChat],
   );
@@ -765,6 +791,7 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
         author: "user",
         authorName: "You",
         time: time(),
+        createdAt: new Date().toISOString(),
         text,
         state: "sending",
       },
@@ -860,21 +887,15 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
         finalName = `${finalName}${ext}`;
       }
 
-      // If the user has an active request, link the document to it so team
-      // members can see it via their subscribeToRoom listener and document
-      // list fetch (which filters by request_id). Without this, personal
-      // documents (request_id = null, chat_room_id = null) are completely
-      // invisible to the support team.
-      const activeRef = Object.values(rooms.current).find((r) => r.chatRoomId !== null);
-      const requestId = activeRef?.requestId ?? undefined;
-      const chatRoomId = activeRef?.chatRoomId ?? undefined;
-
+      // Personal Vault documents stay strictly private to the user.
+      // They are NEVER linked to an active request and NEVER send notifications to the support team.
+      // Only when a user explicitly taps "Share in Chat" is a document linked to support.
       const doc = await documentsApi.uploadDocument({
         file,
         fileName: finalName,
         uploaderRole: "user",
-        requestId,
-        chatRoomId,
+        requestId: undefined,
+        chatRoomId: undefined,
       });
 
       // Derive the UI reference for display

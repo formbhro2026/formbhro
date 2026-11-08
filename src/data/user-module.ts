@@ -50,6 +50,7 @@ export type ChatMessage = {
   author: "user" | "support";
   authorName: string;
   time: string;
+  createdAt?: string;
   text?: string;
   isSystem?: boolean;
   callLog?: CallLogData;

@@ -95,7 +95,7 @@ export async function resolveDocumentUrl(doc: Openable, download = false): Promi
 
   if (path) {
     try {
-      return await documentsApi.getSignedUrl(path, 600, download);
+      return await documentsApi.getSignedUrl(path, 3600, download);
     } catch (err) {
       console.warn("[resolveDocumentUrl] getSignedUrl error:", err);
     }

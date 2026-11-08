@@ -11,23 +11,38 @@ export async function assertAdmin(context: {
  * Asserts caller is either an admin OR a team member (role = 'team' | 'admin').
  * Used for actions any authenticated team account may perform on their own data.
  */
-export async function assertTeamOrAdmin(context: {
-  supabase: { rpc: (fn: "is_admin" | "is_team") => PromiseLike<{ data: unknown }> };
-  userId?: string;
-}) {
-  try {
-    const [{ data: isAdmin }, { data: isTeam }] = await Promise.all([
-      Promise.resolve(context.supabase.rpc("is_admin")).catch(() => ({ data: false })),
-      Promise.resolve(context.supabase.rpc("is_team")).catch(() => ({ data: false })),
-    ]);
-    if (isAdmin === true || isTeam === true) return;
-  } catch (_) {}
+export async function assertTeamOrAdmin(
+  contextOrUserId:
+    | {
+        supabase?: { rpc: (fn: "is_admin" | "is_team") => PromiseLike<{ data: unknown }> };
+        userId?: string;
+      }
+    | string,
+) {
+  const userId =
+    typeof contextOrUserId === "string" ? contextOrUserId : contextOrUserId?.userId;
+  const supabase =
+    typeof contextOrUserId === "object" ? contextOrUserId?.supabase : undefined;
 
-  if (context.userId) {
+  if (supabase) {
+    try {
+      const [{ data: isAdmin }, { data: isTeam }] = await Promise.all([
+        Promise.resolve(supabase.rpc("is_admin")).catch(() => ({ data: false })),
+        Promise.resolve(supabase.rpc("is_team")).catch(() => ({ data: false })),
+      ]);
+      if (isAdmin === true || isTeam === true) return;
+    } catch (_) {}
+  }
+
+  if (userId) {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const [{ data: roleRows }, { data: teamMember }] = await Promise.all([
-      supabaseAdmin.from("user_roles").select("role").eq("user_id", context.userId),
-      supabaseAdmin.from("team_members").select("is_active").eq("id", context.userId).maybeSingle(),
+      supabaseAdmin.from("user_roles").select("role").eq("user_id", userId),
+      supabaseAdmin
+        .from("team_members")
+        .select("is_active")
+        .eq("id", userId)
+        .maybeSingle(),
     ]);
     const roles = (roleRows || []).map((r: any) => r.role);
     if (roles.includes("admin") || roles.includes("team") || teamMember?.is_active) {

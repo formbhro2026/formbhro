@@ -69,6 +69,7 @@ import type { TeamRequest } from "@/data/team-module";
 import { cn } from "@/lib/utils";
 import { useGlobalCall } from "@/lib/call-store";
 import { listQuickReplies, extractQuickReplyImage, formatQuickReplyWithImage } from "@/lib/api/notifications";
+import { renderMessageWithLinks, openExternalLink } from "@/lib/chat-links";
 import type { QuickReplyRow } from "@/lib/api/types";
 import { Zap, Image as ImageIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -1394,7 +1395,12 @@ function Conversation({
             {r.userInitials}
           </span>
           <div className="min-w-0 flex-1 overflow-hidden">
-            <p className="truncate text-xs font-semibold text-text">{r.userName}</p>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <p className="truncate text-xs font-semibold text-text">{r.userName}</p>
+              {r.tags && r.tags.length > 0 && (
+                <ChatTagBadges tags={r.tags} className="inline-flex scale-90 origin-left" />
+              )}
+            </div>
             <p className="truncate text-[10px] text-text-muted">
               {r.id} • {r.category}
             </p>
@@ -1457,6 +1463,7 @@ function Conversation({
             {/* Chat Tags Button on xl+ */}
             <ChatTagButton
               requestId={r.id}
+              userId={r.userId || (r as any).user_id}
               currentTags={r.tags}
               onTagsUpdated={(newTags) => updateTags(r.id, newTags)}
               className="hidden xl:inline-flex shrink-0"
@@ -1505,6 +1512,7 @@ function Conversation({
           <EscalateButton request={r} />
           <ChatTagButton
             requestId={r.id}
+            userId={r.userId || (r as any).user_id}
             currentTags={r.tags}
             onTagsUpdated={(newTags) => updateTags(r.id, newTags)}
           />
@@ -1924,14 +1932,17 @@ function Conversation({
                                 src={imageUrl}
                                 alt="Attachment"
                                 className="max-h-60 w-auto max-w-full rounded-xl object-contain cursor-pointer hover:opacity-95 transition-opacity"
-                                onClick={() => window.open(imageUrl, "_blank")}
+                                onClick={() => void openExternalLink(imageUrl)}
                               />
                             </div>
                           )}
                           {cleanBody && (
-                            <p className="whitespace-pre-wrap break-words">
-                              <Highlighted text={cleanBody} query={query} active={activeMatchId === m.id} />
-                            </p>
+                            <div className="whitespace-pre-wrap break-words">
+                              {renderMessageWithLinks(cleanBody, {
+                                highlightQuery: query,
+                                activeMatch: activeMatchId === m.id,
+                              })}
+                            </div>
                           )}
                         </div>
                       );

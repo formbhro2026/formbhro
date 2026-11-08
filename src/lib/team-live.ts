@@ -126,6 +126,7 @@ export function mapTeamMessage(
     author: mine ? "team" : "user",
     authorName: mine ? memberName : "User",
     time: timeLabel(row.created_at),
+    createdAt: row.created_at || new Date().toISOString(),
     text: row.body ?? undefined,
     isSystem: row.is_system,
     callLog: (row.reactions as any)?.call_log ?? undefined,

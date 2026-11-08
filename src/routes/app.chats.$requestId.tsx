@@ -16,6 +16,7 @@ import { useVisualViewport } from "@/lib/use-visual-viewport";
 import { useChatScroll } from "@/lib/use-chat-scroll";
 import { useGlobalCall } from "@/lib/call-store";
 import { setActiveChat } from "@/lib/active-chat-tracker";
+import { registerBackHandler } from "@/lib/back-handler";
 import { listQuickReplies } from "@/lib/api/notifications";
 import type { QuickReplyRow } from "@/lib/api/types";
 import { toast } from "sonner";
@@ -114,7 +115,7 @@ function ChatScreen() {
         const { sendMessageWithRetry } = await import("@/lib/api/messages");
         const { linkDocumentToRequest } = await import("@/lib/api/documents");
         if (!doc.requestId || doc.requestId === "Personal Document") {
-          void linkDocumentToRequest(doc.id, room.requestId).catch(() => {});
+          void linkDocumentToRequest(doc.id, room.requestId).catch(() => { });
         }
         await sendMessageWithRetry({
           chatRoomId: room.chatRoomId,
@@ -163,10 +164,23 @@ function ChatScreen() {
     [store, attachFile, requestId],
   );
 
+  // Register back actions to dismiss in-chat search smoothly without resetting chat
   useEffect(() => {
-    void listQuickReplies().then(setQuickReplies).catch(() => {});
-    store.loadChat?.(requestId);
-  }, [requestId, store]);
+    if (!searchOpen) return;
+    return registerBackHandler(() => {
+      setSearchOpen(false);
+      setSearchQuery("");
+      return true;
+    });
+  }, [searchOpen]);
+
+  const loadChatRef = useRef(store.loadChat);
+  loadChatRef.current = store.loadChat;
+
+  useEffect(() => {
+    void listQuickReplies().then(setQuickReplies).catch(() => { });
+    loadChatRef.current?.(requestId);
+  }, [requestId]);
 
   const isQuickChatSearch = searchQuery.startsWith("/");
   const quickChatFilter = isQuickChatSearch ? searchQuery.slice(1).trim().toLowerCase() : "";

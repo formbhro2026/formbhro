@@ -103,6 +103,7 @@ export type TeamMessage = {
   author: "user" | "team";
   authorName: string;
   time: string;
+  createdAt?: string;
   text?: string;
   isSystem?: boolean;
   callLog?: {

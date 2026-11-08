@@ -169,7 +169,38 @@ export async function createNewRequest(input?: {
     throw new ApiError(error.message, error.code);
   }
   if (!data) throw new ApiError("Failed to fetch created request", "FETCH_FAILED");
-  return data as RequestRow;
+  const createdReq = data as RequestRow;
+
+  // Auto-inherit user's permanent tags into every newly created chat
+  if (createdReq?.id) {
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      const rawUserTags = authData?.user?.user_metadata?.user_tags;
+      let userTags: string[] = Array.isArray(rawUserTags) ? rawUserTags : [];
+      if (userTags.length === 0 && uid) {
+        const { data: prevReq } = await supabase
+          .from("requests")
+          .select("tags")
+          .eq("user_id", uid)
+          .not("tags", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (prevReq && Array.isArray(prevReq.tags) && prevReq.tags.length > 0) {
+          userTags = prevReq.tags;
+        }
+      }
+      if (userTags.length > 0) {
+        await supabase
+          .from("requests")
+          .update({ tags: userTags })
+          .eq("id", createdReq.id);
+        createdReq.tags = userTags;
+      }
+    } catch (_) {}
+  }
+
+  return createdReq;
 }
 
 /**

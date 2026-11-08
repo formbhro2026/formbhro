@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import type { ChatMessage } from "@/data/user-module";
 import { extractQuickReplyImage } from "@/lib/api/notifications";
 import { openDocument } from "@/lib/doc-access";
+import { renderMessageWithLinks, openExternalLink } from "@/lib/chat-links";
 
 export function MessageBubble({
   message,
@@ -88,11 +89,15 @@ export function MessageBubble({
                         src={imageUrl}
                         alt="Attachment"
                         className="max-h-60 w-auto max-w-full rounded-xl object-contain cursor-pointer hover:opacity-95 transition-opacity"
-                        onClick={() => window.open(imageUrl, "_blank")}
+                        onClick={() => void openExternalLink(imageUrl)}
                       />
                     </div>
                   )}
-                  {cleanBody && <span className="whitespace-pre-wrap break-words">{cleanBody}</span>}
+                  {cleanBody && (
+                    <span className="whitespace-pre-wrap break-words">
+                      {renderMessageWithLinks(cleanBody)}
+                    </span>
+                  )}
                 </>
               );
             })()}

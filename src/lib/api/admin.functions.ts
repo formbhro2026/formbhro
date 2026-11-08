@@ -1326,4 +1326,201 @@ export const getTransferredRequestsServerFn = createServerFn({ method: "POST" })
     });
   });
 
+export const PRESET_USER_TAGS = [
+  "VIP User",
+  "Document Verified",
+  "Pending Payment",
+  "Frequent Applicant",
+  "High Priority User",
+  "Student",
+  "Defaulter",
+] as const;
+
+const PRESET_USER_TAGS_SET = new Set<string>(PRESET_USER_TAGS);
+
+/**
+ * Fetches permanent tags assigned to a user from their user_metadata.
+ */
+export const getUserPermanentTags = createServerFn({ method: "POST" })
+  .validator((input: unknown) => z.object({ userId: z.string().min(1) }).parse(input))
+  .handler(async ({ data }: { data: { userId: string } }) => {
+    const auth = await requireSupabaseAuth();
+    await assertTeamOrAdmin({ supabase: auth.supabase, userId: auth.user.id });
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: userRes, error } = await supabaseAdmin.auth.admin.getUserById(data.userId);
+    if (error || !userRes?.user) {
+      return { tags: [] as string[] };
+    }
+    const rawTags = userRes.user.user_metadata?.user_tags;
+    const tags: string[] = Array.isArray(rawTags) ? rawTags : [];
+    return { tags };
+  });
+
+/**
+ * Updates permanent user tags, saves into auth.users user_metadata,
+ * and synchronizes tags across all existing requests for this user.
+ */
+export const setUserPermanentTags = createServerFn({ method: "POST" })
+  .validator(
+    (input: unknown) =>
+      z
+        .object({
+          userId: z.string().min(1),
+          tags: z.array(z.string().max(60)).max(30),
+        })
+        .parse(input),
+  )
+  .handler(async ({ data }: { data: { userId: string; tags: string[] } }) => {
+    const auth = await requireSupabaseAuth();
+    await assertTeamOrAdmin({ supabase: auth.supabase, userId: auth.user.id });
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: userRes, error: userErr } = await supabaseAdmin.auth.admin.getUserById(
+      data.userId,
+    );
+    if (userErr || !userRes?.user) {
+      throw new Error("Target user not found");
+    }
+
+    const currentMeta = userRes.user.user_metadata || {};
+    const cleanTags = Array.from(new Set(data.tags.map((t) => t.trim()).filter(Boolean)));
+
+    // 1. Update user_metadata permanently
+    const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(data.userId, {
+      user_metadata: {
+        ...currentMeta,
+        user_tags: cleanTags,
+      },
+    });
+
+    if (updateErr) {
+      throw new Error(`Failed to update user permanent tags: ${updateErr.message}`);
+    }
+
+    // 2. Synchronize across all requests belonging to this user
+    try {
+      const { data: requests } = await supabaseAdmin
+        .from("requests")
+        .select("id, tags")
+        .eq("user_id", data.userId);
+
+      if (requests && requests.length > 0) {
+        for (const req of requests) {
+          const reqTags: string[] = Array.isArray(req.tags) ? req.tags : [];
+          const nonUserTags = reqTags.filter(
+            (t) => !PRESET_USER_TAGS_SET.has(t) && !cleanTags.includes(t),
+          );
+          const merged = Array.from(new Set([...cleanTags, ...nonUserTags]));
+          await supabaseAdmin.from("requests").update({ tags: merged }).eq("id", req.id);
+        }
+      }
+    } catch (syncErr) {
+      console.warn("[setUserPermanentTags] Non-fatal request sync error:", syncErr);
+    }
+
+    return { ok: true, tags: cleanTags };
+  });
+
+/**
+ * Searches documents specifically for a target User ID, email, or phone.
+ * Documents are never exposed in bulk by default.
+ */
+export const searchUserDocuments = createServerFn({ method: "POST" })
+  .validator((input: unknown) => z.object({ query: z.string().min(1).max(100) }).parse(input))
+  .handler(async ({ data }: { data: { query: string } }) => {
+    const auth = await requireSupabaseAuth();
+    await assertTeamOrAdmin({ supabase: auth.supabase, userId: auth.user.id });
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const q = data.query.trim();
+
+    // 1. Resolve user ID: check exact UUID or search profiles by email/phone/name
+    let targetUserId: string | null = null;
+    let userProfile: any = null;
+
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (UUID_REGEX.test(q)) {
+      targetUserId = q;
+      const { data: prof } = await supabaseAdmin
+        .from("profiles")
+        .select("id, full_name, email, phone")
+        .eq("id", targetUserId)
+        .maybeSingle();
+      userProfile = prof;
+    } else {
+      const { data: profs } = await supabaseAdmin
+        .from("profiles")
+        .select("id, full_name, email, phone")
+        .or(`email.ilike.%${q}%,phone.ilike.%${q}%,full_name.ilike.%${q}%`)
+        .limit(1);
+      if (profs && profs.length > 0) {
+        userProfile = profs[0];
+        targetUserId = profs[0].id;
+      }
+    }
+
+    if (!targetUserId) {
+      return { user: null, documents: [] };
+    }
+
+    // 2. Fetch requests belonging to this user for request title mapping
+    const { data: userReqs } = await supabaseAdmin
+      .from("requests")
+      .select("id, reference, title")
+      .eq("user_id", targetUserId);
+
+    const reqIds = (userReqs || []).map((r) => r.id);
+    const reqMap = new Map((userReqs || []).map((r) => [r.id, r]));
+
+    // 3. Fetch documents uploaded by this user OR tied to their requests
+    let docsQuery = supabaseAdmin
+      .from("documents")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (reqIds.length > 0) {
+      docsQuery = docsQuery.or(`uploaded_by.eq.${targetUserId},request_id.in.(${reqIds.join(",")})`);
+    } else {
+      docsQuery = docsQuery.eq("uploaded_by", targetUserId);
+    }
+
+    const { data: docs, error } = await docsQuery;
+    if (error) {
+      throw new Error(`Failed to load user documents: ${error.message}`);
+    }
+
+    const mappedDocs = (docs || []).map((d: any) => {
+      const req = d.request_id ? reqMap.get(d.request_id) : undefined;
+      const ref = req ? req.reference || req.id : "";
+      const reqTitle = req ? req.title : "Personal Vault Document";
+      const sizeKb = d.size_bytes ? Math.round(d.size_bytes / 1024) : 0;
+      const sizeStr = sizeKb > 1024 ? `${(sizeKb / 1024).toFixed(1)} MB` : `${sizeKb} KB`;
+
+      return {
+        id: d.id,
+        name: d.file_name,
+        kind: (d.kind || "doc") as "doc" | "pdf" | "image",
+        size: sizeStr,
+        storagePath: d.storage_path,
+        previewUrl: d.storage_path,
+        requestId: ref || d.request_id || "Vault",
+        requestTitle: reqTitle,
+        uploadedBy: d.uploader_role === "user" ? (userProfile?.full_name || "User") : "Support Team",
+        date: new Date(d.created_at).toLocaleDateString(),
+        createdAt: d.created_at,
+      };
+    });
+
+    return {
+      user: {
+        id: targetUserId,
+        name: userProfile?.full_name || "User",
+        email: userProfile?.email || "No email",
+        phone: userProfile?.phone || "No phone",
+      },
+      documents: mappedDocs,
+    };
+  });
+
 

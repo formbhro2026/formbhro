@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { X, Tag, Plus, Check, Loader2 } from "lucide-react";
+import { X, Tag, Plus, Check, Loader2, UserCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { updateRequestTags } from "@/lib/api/requests";
+import { setUserPermanentTags } from "@/lib/api/admin.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export const PRESET_TAGS = [
@@ -11,6 +13,11 @@ export const PRESET_TAGS = [
   { label: "Pending", color: "bg-amber-500/20 text-amber-300 border-amber-500/30" },
   { label: "Urgent", color: "bg-red-500/20 text-red-300 border-red-500/30" },
   { label: "Completed", color: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" },
+  { label: "VIP User", color: "bg-amber-500/25 text-amber-300 border-amber-500/40" },
+  { label: "Document Verified", color: "bg-teal-500/20 text-teal-300 border-teal-500/30" },
+  { label: "Frequent Applicant", color: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30" },
+  { label: "Student", color: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30" },
+  { label: "Defaulter", color: "bg-rose-500/20 text-rose-300 border-rose-500/30" },
 ] as const;
 
 export function getTagStyle(tag: string) {
@@ -40,11 +47,13 @@ export function ChatTagBadges({ tags, className }: { tags?: string[]; className?
 
 export function ChatTagButton({
   requestId,
+  userId,
   currentTags = [],
   onTagsUpdated,
   className,
 }: {
   requestId: string;
+  userId?: string;
   currentTags?: string[];
   onTagsUpdated?: (newTags: string[]) => void;
   className?: string;
@@ -53,6 +62,7 @@ export function ChatTagButton({
   const [tags, setTags] = useState<string[]>(currentTags);
   const [customInput, setCustomInput] = useState("");
   const [saving, setSaving] = useState(false);
+  const [saveAsPermanent, setSaveAsPermanent] = useState(Boolean(userId));
 
   const toggleTag = (tag: string) => {
     if (tags.includes(tag)) {
@@ -75,9 +85,26 @@ export function ChatTagButton({
   const handleSave = async () => {
     setSaving(true);
     try {
-      await updateRequestTags(requestId, tags);
+      let targetUserId = userId;
+      if (!targetUserId && requestId) {
+        try {
+          const { data: req } = await supabase
+            .from("requests")
+            .select("user_id")
+            .or(`id.eq.${requestId},reference.eq.${requestId}`)
+            .maybeSingle();
+          if (req?.user_id) targetUserId = req.user_id;
+        } catch (_) {}
+      }
+
+      if (saveAsPermanent && targetUserId) {
+        await setUserPermanentTags({ data: { userId: targetUserId, tags } });
+        toast.success("Permanent user tags saved & synced across chats");
+      } else {
+        await updateRequestTags(requestId, tags);
+        toast.success("Chat tags updated");
+      }
       onTagsUpdated?.(tags);
-      toast.success("Chat tags updated");
       setOpen(false);
     } catch (err: any) {
       toast.error(err?.message || "Failed to update tags");
@@ -200,6 +227,26 @@ export function ChatTagButton({
                   </div>
                 )}
               </div>
+
+              {/* Permanent User Tag Option */}
+              {userId && (
+                <label className="flex items-start gap-2.5 mt-4 p-2.5 rounded-xl border border-brand/30 bg-brand/10 cursor-pointer select-none hover:bg-brand/15 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={saveAsPermanent}
+                    onChange={(e) => setSaveAsPermanent(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-white/20 bg-surface-3 text-brand focus:ring-brand/40 accent-brand"
+                  />
+                  <div className="text-xs">
+                    <span className="font-bold text-white flex items-center gap-1.5">
+                      <UserCheck className="h-3.5 w-3.5 text-brand-light" /> Permanent User Tag
+                    </span>
+                    <p className="text-[10px] text-text-muted mt-0.5 leading-snug">
+                      Permanently saves to this user's profile and auto-applies to all existing and new chats.
+                    </p>
+                  </div>
+                </label>
+              )}
 
               {/* Action Buttons */}
               <div className="mt-6 flex justify-end gap-2 pt-3 border-t border-border-subtle">

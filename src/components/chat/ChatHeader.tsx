@@ -100,7 +100,7 @@ export function ChatHeader({
               onClick={onOpenDocuments}
               aria-label={`Documents in this request (${documentCount})`}
               aria-haspopup="dialog"
-              className="relative hidden sm:inline-flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 2xl:hidden"
+              className="relative hidden sm:inline-flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2"
             >
               <FileText className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
               {documentCount > 0 && (
@@ -117,7 +117,7 @@ export function ChatHeader({
             aria-label="Documents and details"
             title="Documents and Request Info"
             aria-haspopup="dialog"
-            className="relative inline-flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 2xl:hidden"
+            className="relative inline-flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2"
           >
             <Info className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
             {documentCount > 0 && (
