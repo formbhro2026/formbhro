@@ -13,6 +13,26 @@ import { useEffect, useRef, useState } from "react";
 import { type CallSession } from "@/hooks/use-webrtc-call";
 import { cn } from "@/lib/utils";
 
+function formatCallError(error: string): string {
+  if (!error) return "Call ended";
+  const err = error.toLowerCase();
+  if (
+    err.includes("peer_connection") ||
+    err.includes("ice") ||
+    err.includes("network") ||
+    err.includes("connection")
+  ) {
+    return "Call disconnected due to unstable network connection. Please check your internet and try again.";
+  }
+  if (err.includes("no answer")) {
+    return "Call unanswered. Please try again later.";
+  }
+  if (err.includes("permission") || err.includes("notallowed") || err.includes("denied")) {
+    return "Microphone or camera permission denied. Please allow access in app settings.";
+  }
+  return error;
+}
+
 export function CallOverlay({
   session,
   onAccept,
@@ -100,7 +120,7 @@ export function CallOverlay({
         {session.error ? (
           <div className="flex flex-col items-center gap-3 text-center p-6 bg-red-950/40 w-full h-full justify-center">
             <AlertCircle className="h-12 w-12 text-destructive animate-bounce" />
-            <p className="text-white font-semibold text-sm max-w-xs">{session.error}</p>
+            <p className="text-white font-semibold text-sm max-w-xs">{formatCallError(session.error)}</p>
             <button
               id="call-overlay-error-close"
               onClick={() => onHangup()}

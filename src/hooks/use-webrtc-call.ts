@@ -32,6 +32,7 @@ interface ActiveCallDetails {
 }
 
 const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
+  // Fast Google & Cloudflare STUN servers for direct P2P NAT resolution
   { urls: "stun:stun.l.google.com:19302" },
   { urls: "stun:stun1.l.google.com:19302" },
   { urls: "stun:stun2.l.google.com:19302" },
@@ -39,8 +40,17 @@ const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
   { urls: "stun:stun4.l.google.com:19302" },
   { urls: "stun:stun.cloudflare.com:3478" },
   { urls: "stun:global.stun.twilio.com:3478" },
-  { urls: "stun:stun.services.mozilla.com" },
-  { urls: "stun:stun.nextcloud.com:443" },
+  // High-availability TURN relay servers (vital for mobile 4G/5G CGNAT / Symmetric NAT networks)
+  {
+    urls: [
+      "turn:openrelay.metered.ca:80",
+      "turn:openrelay.metered.ca:443",
+      "turn:openrelay.metered.ca:443?transport=tcp",
+      "turns:openrelay.metered.ca:443?transport=tcp",
+    ],
+    username: "openrelayproject",
+    credential: "openrelayproject",
+  },
 ];
 
 function getRtcConfiguration(): RTCConfiguration {
@@ -51,7 +61,7 @@ function getRtcConfiguration(): RTCConfiguration {
   const iceServers: RTCIceServer[] = [...DEFAULT_ICE_SERVERS];
 
   if (turnUrl) {
-    iceServers.push({
+    iceServers.unshift({
       urls: turnUrl,
       ...(turnUser ? { username: turnUser } : {}),
       ...(turnCred ? { credential: turnCred } : {}),
@@ -61,6 +71,8 @@ function getRtcConfiguration(): RTCConfiguration {
   return {
     iceServers,
     iceCandidatePoolSize: 10,
+    bundlePolicy: "max-bundle",
+    rtcpMuxPolicy: "require",
   };
 }
 
@@ -365,6 +377,8 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
   const terminalSessionsRef = useRef<Set<string>>(new Set());
   const callDetailsRef = useRef<ActiveCallDetails | null>(null);
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
+  const iceDisconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isAcceptedRef = useRef<boolean>(false);
 
   // Sync current user ID eagerly & via auth change
   useEffect(() => {
@@ -391,6 +405,10 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
       if (noAnswerTimeoutRef.current) {
         clearTimeout(noAnswerTimeoutRef.current);
         noAnswerTimeoutRef.current = null;
+      }
+      if (iceDisconnectTimeoutRef.current) {
+        clearTimeout(iceDisconnectTimeoutRef.current);
+        iceDisconnectTimeoutRef.current = null;
       }
       stopIncomingCallRingtone();
     };
@@ -493,6 +511,11 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         clearTimeout(noAnswerTimeoutRef.current);
         noAnswerTimeoutRef.current = null;
       }
+      if (iceDisconnectTimeoutRef.current) {
+        clearTimeout(iceDisconnectTimeoutRef.current);
+        iceDisconnectTimeoutRef.current = null;
+      }
+      isAcceptedRef.current = false;
       lastOfferRef.current = null;
 
       if (pcRef.current) {
@@ -587,28 +610,104 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
 
     pc.onconnectionstatechange = () => {
       const activeRoom = canonicalRoomIdRef.current || chatRoomId;
+      const connState = pc.connectionState;
       logWebRTC(
         role,
         "CONNECTION_STATE_CHANGED",
         callDetailsRef.current?.callSessionId,
         activeRoom,
         pc,
-        `connectionState=${pc.connectionState}`,
+        `connectionState=${connState}`,
       );
+
+      if (connState === "connected") {
+        if (iceDisconnectTimeoutRef.current) {
+          console.log("[WEBRTC] Connection established / recovered. Cleared disconnect timer.");
+          clearTimeout(iceDisconnectTimeoutRef.current);
+          iceDisconnectTimeoutRef.current = null;
+        }
+      } else if (connState === "failed") {
+        if (!iceDisconnectTimeoutRef.current) {
+          iceDisconnectTimeoutRef.current = setTimeout(() => {
+            if (pcRef.current?.connectionState === "failed") {
+              cleanup("Call disconnected due to unstable network connection.");
+            }
+          }, 6000);
+        }
+      }
     };
 
     pc.oniceconnectionstatechange = () => {
       const activeRoom = canonicalRoomIdRef.current || chatRoomId;
+      const iceState = pc.iceConnectionState;
       logWebRTC(
         role,
         "ICE_CONNECTION_STATE_CHANGED",
         callDetailsRef.current?.callSessionId,
         activeRoom,
         pc,
-        `iceConnectionState=${pc.iceConnectionState}`,
+        `iceConnectionState=${iceState}`,
       );
-      if (pc.iceConnectionState === "disconnected" || pc.iceConnectionState === "failed") {
-        cleanup("peer_connection_failed");
+
+      if (iceState === "connected" || iceState === "completed") {
+        // ICE connection is healthy or recovered from a temporary drop
+        if (iceDisconnectTimeoutRef.current) {
+          console.log("[WEBRTC] ICE connection healthy / recovered back to", iceState);
+          clearTimeout(iceDisconnectTimeoutRef.current);
+          iceDisconnectTimeoutRef.current = null;
+        }
+      } else if (iceState === "disconnected") {
+        // Transient network fluctuation (e.g. mobile 4G/LTE handover, temporary packet loss).
+        // DO NOT kill the call immediately. Give the ICE agent a 10s grace window to self-heal.
+        if (!iceDisconnectTimeoutRef.current) {
+          console.warn("[WEBRTC] ICE connection disconnected. Waiting up to 10s for automatic recovery...");
+          iceDisconnectTimeoutRef.current = setTimeout(() => {
+            if (
+              pcRef.current &&
+              (pcRef.current.iceConnectionState === "disconnected" ||
+                pcRef.current.iceConnectionState === "failed")
+            ) {
+              try {
+                if (typeof pcRef.current.restartIce === "function") {
+                  console.log("[WEBRTC] Attempting ICE restart to recover connection...");
+                  pcRef.current.restartIce();
+                }
+              } catch (e) {
+                console.warn("[WEBRTC] restartIce failed:", e);
+              }
+
+              // Allow 5 additional seconds for ICE restart to re-negotiate
+              setTimeout(() => {
+                if (
+                  pcRef.current &&
+                  (pcRef.current.iceConnectionState === "disconnected" ||
+                    pcRef.current.iceConnectionState === "failed")
+                ) {
+                  console.error("[WEBRTC] Connection could not be restored after grace period.");
+                  cleanup("Call disconnected due to unstable network connection.");
+                }
+              }, 5000);
+            }
+          }, 10000);
+        }
+      } else if (iceState === "failed") {
+        // ICE candidate checking failed. Attempt ICE restart before giving up.
+        try {
+          if (typeof pc.restartIce === "function") {
+            console.log("[WEBRTC] ICE failed, triggering restartIce...");
+            pc.restartIce();
+          }
+        } catch (e) {
+          console.warn("[WEBRTC] restartIce error:", e);
+        }
+
+        if (!iceDisconnectTimeoutRef.current) {
+          iceDisconnectTimeoutRef.current = setTimeout(() => {
+            if (pcRef.current?.iceConnectionState === "failed") {
+              cleanup("Call disconnected due to unstable network connection.");
+            }
+          }, 6000);
+        }
       }
     };
 
@@ -813,9 +912,10 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
           })
           .catch((e) => console.warn("[CALL][FCM] Call push network error:", e));
 
+        isAcceptedRef.current = false;
         // 45-second timeout for missed call
         noAnswerTimeoutRef.current = setTimeout(() => {
-          if (!session.isAccepted) {
+          if (!isAcceptedRef.current && !session.isAccepted) {
             console.log(
               `[CALL][TRACE][TIMEOUT] No answer after 45s: callSessionId=${callSessionId}`,
             );
@@ -873,6 +973,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         logWebRTC("TEAM", "ACCEPT_CALL_ENTER", sid, activeRoomId, pcRef.current);
 
         const sessionType: "audio" | "video" = effectiveCallType === "audio" ? "audio" : "video";
+        isAcceptedRef.current = true;
 
         // Mark session as active immediately so UI overlay remains mounted
         setSession((prev) => ({
@@ -1280,6 +1381,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
             break;
           case "answer":
             logWebRTC("USER", "ANSWER_RECEIVED", sid, activeSignalingRoom, pcRef.current);
+            isAcceptedRef.current = true;
             if (offerIntervalRef.current) {
               clearInterval(offerIntervalRef.current);
               offerIntervalRef.current = null;

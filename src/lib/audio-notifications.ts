@@ -139,8 +139,18 @@ export function startIncomingCallRingtone(): void {
   if (isRingtonePlaying) {
     return;
   }
+
+  // Clear any existing intervals without prematurely resetting isRingtonePlaying
+  if (ringtoneIntervalId) {
+    clearInterval(ringtoneIntervalId);
+    ringtoneIntervalId = null;
+  }
+  if (vibrationIntervalId) {
+    clearInterval(vibrationIntervalId);
+    vibrationIntervalId = null;
+  }
+
   isRingtonePlaying = true;
-  stopIncomingCallRingtone();
 
   // On native Capacitor app, native Android IncomingCallActivity / FCM manages the phone ringtone.
   // Suppress Web Audio ringtone inside WebView to prevent double ringtone playback.
