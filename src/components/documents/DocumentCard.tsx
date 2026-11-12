@@ -73,7 +73,7 @@ export function DocumentCard({
                 src={thumbUrl}
                 alt={`Preview of ${doc.name}`}
                 loading="lazy"
-                className="h-full w-full object-cover"
+                className="h-full w-full object-contain p-0.5"
               />
             ) : (
               <Icon className="h-6 w-6 text-[#ff7a00]" strokeWidth={2} aria-hidden="true" />

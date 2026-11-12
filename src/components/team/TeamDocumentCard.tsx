@@ -35,7 +35,7 @@ export function TeamDocumentCard({
       <div className="flex items-start gap-3">
         <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl border border-border-subtle bg-surface-2">
           {thumbUrl ? (
-            <img src={thumbUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
+            <img src={thumbUrl} alt="" loading="lazy" className="h-full w-full object-contain p-0.5" />
           ) : (
             <Icon className="h-4.5 w-4.5 text-brand" strokeWidth={1.75} aria-hidden="true" />
           )}

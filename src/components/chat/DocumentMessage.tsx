@@ -78,22 +78,22 @@ export function DocumentMessage({
 
   return (
     <div className="w-full max-w-[290px] sm:max-w-xs select-none">
-      {/* Optional image preview thumbnail */}
+      {/* Optional image preview thumbnail: uses object-contain to prevent auto-zooming or cropping */}
       {previewUrl && kind === "image" && (
         <button
           type="button"
           onClick={onView}
           aria-label={`Open preview of ${name}`}
-          className="group relative mb-2 block w-full overflow-hidden rounded-xl border border-white/10 bg-black/40 transition-all hover:border-white/20 active:scale-[0.99]"
+          className="group relative mb-2 flex items-center justify-center w-full min-h-[140px] max-h-64 overflow-hidden rounded-xl border border-white/10 bg-black/50 transition-all hover:border-white/20 active:scale-[0.99] p-1.5 touch-manipulation cursor-pointer"
         >
           <img
             src={previewUrl}
             alt={`Preview of ${name}`}
             loading="lazy"
-            className="max-h-48 w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            className="max-h-60 max-w-full w-auto h-auto object-contain mx-auto rounded-lg select-none"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100 flex items-end p-2.5">
-            <span className="inline-flex items-center gap-1.5 rounded-lg bg-black/70 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100 flex items-end p-2.5">
+            <span className="inline-flex items-center gap-1.5 rounded-lg bg-black/75 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm shadow">
               <Eye className="h-3.5 w-3.5" /> Tap to view
             </span>
           </div>

@@ -142,7 +142,7 @@ export function DocumentPreview({
               <span className="text-xs font-medium">Loading document…</span>
             </div>
           ) : url && doc.kind === "image" ? (
-            <div className="relative w-full h-full flex items-center justify-center overflow-auto p-2">
+            <div className="relative w-full h-full flex items-center justify-center overflow-auto p-2 touch-manipulation">
               <img
                 src={url}
                 alt={`Preview of ${doc.name}`}

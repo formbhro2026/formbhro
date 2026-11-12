@@ -40,13 +40,13 @@ export function MessageAttachment({
           type="button"
           onClick={() => onPreview(doc.id)}
           aria-label={`Preview image ${doc.name}`}
-          className="block w-full"
+          className="flex items-center justify-center w-full bg-black/40 p-1.5 min-h-[120px] max-h-64 overflow-hidden touch-manipulation"
         >
           <img
             src={imageUrl}
             alt={`Attachment preview of ${doc.name}`}
             loading="lazy"
-            className="max-h-52 w-full bg-bg object-cover"
+            className="max-h-60 max-w-full w-auto h-auto object-contain mx-auto rounded-lg select-none"
           />
         </button>
       )}

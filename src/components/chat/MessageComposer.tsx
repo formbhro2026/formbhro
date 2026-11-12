@@ -276,7 +276,7 @@ export function MessageComposer({
                         src={u.preview.previewUrl}
                         alt={`Preview of ${u.name}`}
                         loading="lazy"
-                        className="h-full w-full object-cover"
+                        className="h-full w-full object-contain p-0.5"
                       />
                     ) : u.previewLoading ? (
                       <span
