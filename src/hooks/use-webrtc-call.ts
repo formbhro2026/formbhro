@@ -1008,8 +1008,8 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
           const errName = mediaErr?.name || "";
           let errorMessage = isCapacitor()
             ? (effectiveCallType === "audio"
-                ? "Microphone permission is required. Please enable it in app settings."
-                : "Microphone and camera permissions are required. Please enable them in app settings.")
+              ? "Microphone permission is required. Please enable it in app settings."
+              : "Microphone and camera permissions are required. Please enable them in app settings.")
             : "Microphone access is required for calls.";
 
           if (errName === "NotAllowedError" || errName === "PermissionDeniedError") {
@@ -1402,6 +1402,9 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
             if (callDetailsRef.current) {
               callDetailsRef.current.status = "completed";
               callDetailsRef.current.connectedAt = Date.now();
+              if (signal.from && !callDetailsRef.current.receiverId) {
+                callDetailsRef.current.receiverId = signal.from;
+              }
             }
             if (pcRef.current) {
               await pcRef.current.setRemoteDescription(new RTCSessionDescription(signal.data));

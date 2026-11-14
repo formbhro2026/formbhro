@@ -191,38 +191,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "manifest", href: "/manifest.webmanifest" },
       { rel: "apple-touch-icon", sizes: "180x180", href: "/icon-192.png" },
     ],
-    scripts: [
-      {
-        type: "application/ld+json",
-        children: JSON.stringify({
-          "@context": "https://schema.org",
-          "@graph": [
-            {
-              "@type": "Organization",
-              "@id": "https://formbhro.com/#organization",
-              "name": "Formbhro",
-              "url": "https://formbhro.com",
-              "logo": "https://formbhro.com/icon-512.png",
-              "image": "https://formbhro.com/icon-512.png",
-              "description": "Formbhro is India's online form assistance platform, helping candidates and citizens fill government exam applications, jobs, certificates, and citizen documents from home.",
-              "sameAs": ["https://formbhro.in"]
-            },
-            {
-              "@type": "WebSite",
-              "@id": "https://formbhro.com/#website",
-              "url": "https://formbhro.com",
-              "name": "Formbhro",
-              "publisher": { "@id": "https://formbhro.com/#organization" },
-              "potentialAction": {
-                "@type": "SearchAction",
-                "target": "https://formbhro.com/?q={search_term_string}",
-                "query-input": "required name=search_term_string"
-              }
-            }
-          ]
-        }),
-      },
-    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,
@@ -235,6 +203,38 @@ function RootShell({ children }: { children: ReactNode }) {
     <html lang="en" className="light-theme">
       <head>
         <HeadContent />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@graph": [
+                {
+                  "@type": "Organization",
+                  "@id": "https://formbhro.com/#organization",
+                  "name": "Formbhro",
+                  "url": "https://formbhro.com",
+                  "logo": "https://formbhro.com/icon-512.png",
+                  "image": "https://formbhro.com/icon-512.png",
+                  "description": "Formbhro is India's online form assistance platform, helping candidates and citizens fill government exam applications, jobs, certificates, and citizen documents from home.",
+                  "sameAs": ["https://formbhro.in"],
+                },
+                {
+                  "@type": "WebSite",
+                  "@id": "https://formbhro.com/#website",
+                  "url": "https://formbhro.com",
+                  "name": "Formbhro",
+                  "publisher": { "@id": "https://formbhro.com/#organization" },
+                  "potentialAction": {
+                    "@type": "SearchAction",
+                    "target": "https://formbhro.com/?q={search_term_string}",
+                    "query-input": "required name=search_term_string",
+                  },
+                },
+              ],
+            }),
+          }}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){

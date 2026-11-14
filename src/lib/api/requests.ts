@@ -178,8 +178,8 @@ export async function createNewRequest(input?: {
       const rawUserTags = authData?.user?.user_metadata?.user_tags;
       let userTags: string[] = Array.isArray(rawUserTags) ? rawUserTags : [];
       if (userTags.length === 0 && uid) {
-        const { data: prevReq } = await supabase
-          .from("requests")
+        const { data: prevReq } = await (supabase
+          .from("requests") as any)
           .select("tags")
           .eq("user_id", uid)
           .not("tags", "is", null)
@@ -191,11 +191,11 @@ export async function createNewRequest(input?: {
         }
       }
       if (userTags.length > 0) {
-        await supabase
-          .from("requests")
+        await (supabase
+          .from("requests") as any)
           .update({ tags: userTags })
           .eq("id", createdReq.id);
-        createdReq.tags = userTags;
+        (createdReq as any).tags = userTags;
       }
     } catch (_) {}
   }

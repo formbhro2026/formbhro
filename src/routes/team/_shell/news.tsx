@@ -675,6 +675,8 @@ function TeamNewsAndVacancies() {
                     application_url: "",
                     image_url: "",
                     custom_fields: {},
+                    published: true,
+                    featured: false,
                   });
                   setShowVacancyModal(true);
                 }}

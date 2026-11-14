@@ -94,7 +94,7 @@ export function CallOverlay({
     // User gesture fallback unlocker for mobile browsers
     const unlockAudio = () => {
       if (audioEl.paused) {
-        audioEl.play().catch(() => {});
+        audioEl.play().catch(() => { });
       }
     };
     window.addEventListener("click", unlockAudio, { once: true });
@@ -174,6 +174,7 @@ export function CallOverlay({
               ref={remoteVideoRef}
               autoPlay
               playsInline
+              muted
               className="w-full h-full object-cover"
             />
           )
@@ -232,7 +233,12 @@ export function CallOverlay({
               {session.isIncoming && !session.isAccepted ? (
                 <>
                   <button
-                    onClick={onAccept}
+                    onClick={() => {
+                      if (audioRef.current) {
+                        audioRef.current.play().catch(() => {});
+                      }
+                      onAccept();
+                    }}
                     className="flex items-center gap-2.5 px-6 py-3.5 rounded-full bg-emerald-500 text-white font-bold hover:bg-emerald-600 active:scale-95 transition-all shadow-xl shadow-emerald-500/30 cursor-pointer text-sm"
                     title="Accept Call"
                   >
@@ -282,9 +288,6 @@ export function CallOverlay({
           </div>
         )}
       </div>
-
-      {/* Hidden audio element to guarantee remote audio playback for calls */}
-      <audio ref={audioRef} autoPlay playsInline className="hidden" aria-hidden="true" />
 
       <style>{`
         .mirror {

@@ -441,13 +441,13 @@ function TeamAdminChatPage() {
                     {isMine && (
                       <span>
                         {m.delivery === "sending" && <Clock className="h-3 w-3 text-gray-400 animate-spin" />}
-                        {m.delivery === "sent" && (
+                        {(m.delivery as string) === "sent" && (
                           <Check className="h-3.5 w-3.5 text-gray-400" strokeWidth={2} />
                         )}
                         {m.delivery === "delivered" && (
                           <CheckCheck className="h-3.5 w-3.5 text-gray-400" strokeWidth={2} />
                         )}
-                        {m.delivery === "read" && (
+                        {(m.delivery as string) === "read" && (
                           <CheckCheck className="h-3.5 w-3.5 text-[#53bdeb]" strokeWidth={2.5} />
                         )}
                         {m.delivery === "failed" && (

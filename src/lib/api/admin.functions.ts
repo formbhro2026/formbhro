@@ -778,7 +778,7 @@ export const getAdminUsers = createServerFn({ method: "POST" })
           .order("created_at", { ascending: false })
           .limit(100);
         matchedProfile = allP?.find(
-          (p) =>
+          (p: any) =>
             p.id.toLowerCase().includes(raw) ||
             p.id.replace(/-/g, "").toLowerCase().includes(raw),
         );
@@ -889,7 +889,7 @@ export const adminSearchUser = createServerFn({ method: "POST" })
         .order("created_at", { ascending: false })
         .limit(200);
       const match = allP?.find(
-        (p) =>
+        (p: any) =>
           p.id.toLowerCase().includes(raw.toLowerCase()) ||
           p.id.replace(/-/g, "").toLowerCase().includes(raw.toLowerCase()),
       );
@@ -1384,7 +1384,7 @@ export const setUserPermanentTags = createServerFn({ method: "POST" })
     }
 
     const currentMeta = userRes.user.user_metadata || {};
-    const cleanTags = Array.from(new Set(data.tags.map((t) => t.trim()).filter(Boolean)));
+    const cleanTags = Array.from(new Set(data.tags.map((t: string) => t.trim()).filter(Boolean)));
 
     // 1. Update user_metadata permanently
     const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(data.userId, {
@@ -1489,8 +1489,8 @@ export const searchUserDocuments = createServerFn({ method: "POST" })
       .select("id, reference, title")
       .eq("user_id", targetUserId);
 
-    const reqIds = (userReqs || []).map((r) => r.id);
-    const reqMap = new Map((userReqs || []).map((r) => [r.id, r]));
+    const reqIds = (userReqs || []).map((r: any) => r.id);
+    const reqMap = new Map<string, any>((userReqs || []).map((r: any) => [r.id, r]));
 
     // 3. Fetch documents uploaded by this user OR tied to their requests
     let docsQuery = supabaseAdmin
@@ -1510,7 +1510,7 @@ export const searchUserDocuments = createServerFn({ method: "POST" })
     }
 
     const mappedDocs = (docs || []).map((d: any) => {
-      const req = d.request_id ? reqMap.get(d.request_id) : undefined;
+      const req: any = d.request_id ? reqMap.get(d.request_id) : undefined;
       const ref = req ? req.reference || req.id : "";
       const reqTitle = req ? req.title : "Personal Vault Document";
       const sizeKb = d.size_bytes ? Math.round(d.size_bytes / 1024) : 0;

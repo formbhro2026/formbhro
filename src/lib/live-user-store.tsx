@@ -783,7 +783,7 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
 
   const sendMessage = useCallback((reference: string, text: string) => {
     const targetReq = requests.find((r) => r.id === reference || r.reference === reference);
-    if (targetReq?.status === "completed" || targetReq?.completed_at) {
+    if (targetReq?.status === "completed") {
       toast.error("This chat has been completed and is closed for new messages.");
       return;
     }
@@ -840,7 +840,7 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
   const attachFile = useCallback<UserStore["attachFile"]>(
     (reference, name, kind, size, preview, file) => {
       const targetReq = requests.find((r) => r.id === reference || r.reference === reference);
-      if (targetReq?.status === "completed" || targetReq?.completed_at) {
+      if (targetReq?.status === "completed") {
         toast.error("This chat has been completed and is closed for new messages.");
         return;
       }
@@ -910,13 +910,9 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
         chatRoomId: undefined,
       });
 
-      // Derive the UI reference for display
-      const reference = requestId
-        ? (Object.entries(rooms.current).find(([, r]) => r.requestId === requestId)?.[0] ?? "")
-        : "";
-      const title = requestId
-        ? (rooms.current[reference]?.title ?? "My Request")
-        : "Personal Document";
+      // Personal vault uploads are independent of individual requests
+      const reference = "";
+      const title = "Personal Document";
 
       setDocuments((prev) =>
         prev.some((d) => d.id === doc.id) ? prev : [mapDocument(doc, reference, title), ...prev],
@@ -1038,7 +1034,7 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
         }
 
         const isCallNotif =
-          row.type === "call" ||
+          (row.type as string) === "call" ||
           (row.title && row.title.toLowerCase().includes("call")) ||
           Boolean((row as any).call_session_id);
         if (isCallNotif) {

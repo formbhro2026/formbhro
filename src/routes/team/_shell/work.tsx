@@ -284,7 +284,7 @@ function WorkArea() {
       if (state === "waiting_documents" && r.status !== "waiting-user") return false;
       if (state === "escalated" && !r.isEscalated) return false;
       if (
-        state === "transferred" &&
+        (state as string) === "transferred" &&
         !r.isTransferred &&
         !r.tags?.some((t) => t.toLowerCase().includes("transferred"))
       )

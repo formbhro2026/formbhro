@@ -186,7 +186,7 @@ function AdminChats() {
 
     try {
       // 1. Try server-side privileged user search first (handles full UUID, 32-hex, partial UUID, email, phone, reference)
-      const res = await adminSearchUser({ data: { query: raw } }).catch((err) => {
+      const res = await adminSearchUser({ data: { query: raw } }).catch((err: any) => {
         console.warn("[AdminChats] adminSearchUser error:", err);
         return null;
       });

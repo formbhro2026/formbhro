@@ -108,7 +108,7 @@ function TeamJobGroups() {
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const [resolvingUrl, setResolvingUrl] = useState(false);
   const [previewError, setPreviewError] = useState(false);
-  const [customFields, setCustomFields] = useState<notificationsApi.CustomFilterField[]>([]);
+  const [customFields, setCustomFields] = useState<notificationsApi.CustomFieldRow[]>([]);
   const bannerFileRef = useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
@@ -1021,7 +1021,7 @@ function TeamJobGroups() {
                               className="h-9 w-full rounded-xl border border-border-subtle bg-surface-2 px-2 text-xs text-text focus:border-brand/50 outline-none"
                             >
                               <option value="">Select {cf.field_label}…</option>
-                              {(cf.options || []).map((opt) => (
+                              {(cf.options || []).map((opt: any) => (
                                 <option key={opt} value={opt}>
                                   {opt}
                                 </option>
