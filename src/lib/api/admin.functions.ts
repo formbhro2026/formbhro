@@ -1342,10 +1342,10 @@ const PRESET_USER_TAGS_SET = new Set<string>(PRESET_USER_TAGS);
  * Fetches permanent tags assigned to a user from their user_metadata.
  */
 export const getUserPermanentTags = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .validator((input: unknown) => z.object({ userId: z.string().min(1) }).parse(input))
-  .handler(async ({ data }: { data: { userId: string } }) => {
-    const auth = await requireSupabaseAuth();
-    await assertTeamOrAdmin({ supabase: auth.supabase, userId: auth.user.id });
+  .handler(async ({ data, context }: any) => {
+    await assertTeamOrAdmin(context);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: userRes, error } = await supabaseAdmin.auth.admin.getUserById(data.userId);
@@ -1362,6 +1362,7 @@ export const getUserPermanentTags = createServerFn({ method: "POST" })
  * and synchronizes tags across all existing requests for this user.
  */
 export const setUserPermanentTags = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .validator(
     (input: unknown) =>
       z
@@ -1371,9 +1372,8 @@ export const setUserPermanentTags = createServerFn({ method: "POST" })
         })
         .parse(input),
   )
-  .handler(async ({ data }: { data: { userId: string; tags: string[] } }) => {
-    const auth = await requireSupabaseAuth();
-    await assertTeamOrAdmin({ supabase: auth.supabase, userId: auth.user.id });
+  .handler(async ({ data, context }: any) => {
+    await assertTeamOrAdmin(context);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: userRes, error: userErr } = await supabaseAdmin.auth.admin.getUserById(
@@ -1423,19 +1423,19 @@ export const setUserPermanentTags = createServerFn({ method: "POST" })
   });
 
 /**
- * Searches documents specifically for a target User ID, email, or phone.
+ * Searches documents specifically for a target User ID, email, phone, or Request/Chat ID (e.g. FRM-XXXXXX).
  * Documents are never exposed in bulk by default.
  */
 export const searchUserDocuments = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .validator((input: unknown) => z.object({ query: z.string().min(1).max(100) }).parse(input))
-  .handler(async ({ data }: { data: { query: string } }) => {
-    const auth = await requireSupabaseAuth();
-    await assertTeamOrAdmin({ supabase: auth.supabase, userId: auth.user.id });
+  .handler(async ({ data, context }: any) => {
+    await assertTeamOrAdmin(context);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const q = data.query.trim();
 
-    // 1. Resolve user ID: check exact UUID or search profiles by email/phone/name
+    // 1. Resolve user ID: check exact UUID or search profiles by email/phone/name or request reference (e.g. FRM-B46703B)
     let targetUserId: string | null = null;
     let userProfile: any = null;
 
@@ -1449,14 +1449,33 @@ export const searchUserDocuments = createServerFn({ method: "POST" })
         .maybeSingle();
       userProfile = prof;
     } else {
-      const { data: profs } = await supabaseAdmin
-        .from("profiles")
-        .select("id, full_name, email, phone")
-        .or(`email.ilike.%${q}%,phone.ilike.%${q}%,full_name.ilike.%${q}%`)
-        .limit(1);
-      if (profs && profs.length > 0) {
-        userProfile = profs[0];
-        targetUserId = profs[0].id;
+      // 1a. Check if q is a request reference (e.g. FRM-B46703B) or matches a request id/reference
+      const { data: matchingReq } = await supabaseAdmin
+        .from("requests")
+        .select("user_id, reference, id")
+        .or(`reference.ilike.%${q}%,id.ilike.%${q}%`)
+        .limit(1)
+        .maybeSingle();
+
+      if (matchingReq?.user_id) {
+        targetUserId = matchingReq.user_id;
+        const { data: prof } = await supabaseAdmin
+          .from("profiles")
+          .select("id, full_name, email, phone")
+          .eq("id", targetUserId)
+          .maybeSingle();
+        userProfile = prof;
+      } else {
+        // 1b. Search profiles by email, phone, name, or partial id
+        const { data: profs } = await supabaseAdmin
+          .from("profiles")
+          .select("id, full_name, email, phone")
+          .or(`email.ilike.%${q}%,phone.ilike.%${q}%,full_name.ilike.%${q}%,id.ilike.%${q}%`)
+          .limit(1);
+        if (profs && profs.length > 0) {
+          userProfile = profs[0];
+          targetUserId = profs[0].id;
+        }
       }
     }
 

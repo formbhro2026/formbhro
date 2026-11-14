@@ -579,6 +579,9 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
 
     pc.ontrack = (event) => {
       const activeRoom = canonicalRoomIdRef.current || chatRoomId;
+      if (event.track) {
+        event.track.enabled = true;
+      }
       logWebRTC(
         role,
         "REMOTE_TRACK_RECEIVED",
@@ -803,7 +806,10 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         const pc = createPeerConnection();
         pcRef.current = pc;
 
-        stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+        stream.getTracks().forEach((track) => {
+          track.enabled = true;
+          pc.addTrack(track, stream);
+        });
 
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
@@ -1028,7 +1034,10 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
           pcRef.current = pc;
         }
 
-        stream.getTracks().forEach((track) => pc?.addTrack(track, stream));
+        stream.getTracks().forEach((track) => {
+          track.enabled = true;
+          pc?.addTrack(track, stream);
+        });
 
         if (!callDetailsRef.current) {
           callDetailsRef.current = {

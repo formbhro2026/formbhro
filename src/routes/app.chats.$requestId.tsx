@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { MessageSquareText, Loader2, Search, X, Zap, CornerDownLeft, ChevronDown } from "lucide-react";
+import { MessageSquareText, Loader2, Search, X, Zap, CornerDownLeft, ChevronDown, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UserHeader } from "@/components/layout/UserHeader";
 import { ChatHeader } from "@/components/chat/ChatHeader";
@@ -449,29 +449,36 @@ function ChatScreen() {
               keyboardOpen ? "pb-0" : "pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:pb-3",
             )}
           >
-            <MessageComposer
-              requestLabel={request.id}
-              onSend={(text) => {
-                sendMessage(requestId, text);
-                scrollToBottom("smooth");
-              }}
-              onUpload={(name, kind, size, preview, file) =>
-                attachFile(requestId, name, kind, size, preview, file)
-              }
-              onOpenSavedDocs={() => openSheet("documents")}
-              onTyping={() => {
-                const room = store.rooms?.current?.[requestId];
-                if (room?.chatRoomId) {
-                  import("@/lib/api/realtime").then((api) => {
-                    api.sendTyping(room.chatRoomId, {
-                      userId: store.profile.id,
-                      name: store.profile.full_name || store.profile.name,
-                      typing: true,
-                    });
-                  });
+            {request.status === "completed" || Boolean(request.completed_at) ? (
+              <div className="mx-3 my-2 flex items-center justify-center gap-2.5 rounded-2xl border border-emerald-500/25 bg-emerald-950/30 px-4 py-3.5 text-center text-xs font-semibold text-emerald-300 shadow-sm backdrop-blur-sm">
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />
+                <span>This request has been completed. The chat is closed for new messages.</span>
+              </div>
+            ) : (
+              <MessageComposer
+                requestLabel={request.id}
+                onSend={(text) => {
+                  sendMessage(requestId, text);
+                  scrollToBottom("smooth");
+                }}
+                onUpload={(name, kind, size, preview, file) =>
+                  attachFile(requestId, name, kind, size, preview, file)
                 }
-              }}
-            />
+                onOpenSavedDocs={() => openSheet("documents")}
+                onTyping={() => {
+                  const room = store.rooms?.current?.[requestId];
+                  if (room?.chatRoomId) {
+                    import("@/lib/api/realtime").then((api) => {
+                      api.sendTyping(room.chatRoomId, {
+                        userId: store.profile.id,
+                        name: store.profile.full_name || store.profile.name,
+                        typing: true,
+                      });
+                    });
+                  }
+                }}
+              />
+            )}
           </div>
         </section>
 

@@ -64,24 +64,47 @@ export function CallOverlay({
   }, [session.remoteStream, session.callType]);
 
   useEffect(() => {
-    if (audioRef.current && session.remoteStream) {
-      audioRef.current.srcObject = session.remoteStream;
-      audioRef.current
+    const audioEl = audioRef.current;
+    const stream = session.remoteStream;
+    if (!audioEl || !stream) return;
+
+    audioEl.srcObject = stream;
+    const playAudio = () => {
+      audioEl
         .play()
         .then(() => {
           console.log(
             "[WEBRTC][AUDIO] Audio playback started successfully. tracks:",
-            session.remoteStream?.getAudioTracks().length,
+            stream.getAudioTracks().length,
           );
         })
         .catch((err) => {
-          console.warn(
-            "[WEBRTC][AUDIO] Audio autoplay failed:",
-            err?.name || err,
-            err?.message || "",
-          );
+          console.warn("[WEBRTC][AUDIO] Audio autoplay blocked, waiting for user gesture:", err);
         });
-    }
+    };
+
+    playAudio();
+
+    // Listen for late-arriving audio tracks (e.g. video track negotiated first, audio 200ms later)
+    stream.onaddtrack = () => {
+      console.log("[WEBRTC][AUDIO] Remote track dynamically added, re-invoking play()");
+      playAudio();
+    };
+
+    // User gesture fallback unlocker for mobile browsers
+    const unlockAudio = () => {
+      if (audioEl.paused) {
+        audioEl.play().catch(() => {});
+      }
+    };
+    window.addEventListener("click", unlockAudio, { once: true });
+    window.addEventListener("touchstart", unlockAudio, { once: true });
+
+    return () => {
+      stream.onaddtrack = null;
+      window.removeEventListener("click", unlockAudio);
+      window.removeEventListener("touchstart", unlockAudio);
+    };
   }, [session.remoteStream, session.callType]);
 
   useEffect(() => {
@@ -114,7 +137,13 @@ export function CallOverlay({
             : "bottom-6 right-6 w-96 h-[520px] rounded-3xl",
       )}
     >
-      <audio ref={audioRef} autoPlay playsInline style={{ display: "none" }} />
+      <audio
+        ref={audioRef}
+        autoPlay
+        playsInline
+        className="fixed -top-full -left-full h-0 w-0 opacity-0 pointer-events-none"
+        aria-hidden="true"
+      />
       {/* Visual media stream container */}
       <div className="relative flex-1 bg-surface-base flex items-center justify-center overflow-hidden">
         {session.error ? (

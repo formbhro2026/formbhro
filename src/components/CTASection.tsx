@@ -14,15 +14,15 @@ export function CTASection() {
           <div className="relative grid grid-cols-1 items-center gap-8 lg:grid-cols-[1.3fr_1fr]">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand">
-                Ready to Get Started?
+                Starting at Just ₹49 • 100% Error-Free
               </p>
               <h2 className="mt-3 text-3xl font-extrabold leading-tight text-text sm:text-4xl">
                 Let Us Handle the Forms,
-                <br /> You Focus on What Matters.
+                <br /> You Focus on Your Preparation.
               </h2>
               <p className="mt-4 max-w-lg text-sm leading-relaxed text-text-secondary sm:text-base">
-                Start your request now and experience a smooth, secure, and stress-free application
-                process.
+                Join thousands of candidates who trust Formbhro for zero-error exam submissions,
+                automatic photo formatting, and doorstep CSC services.
               </p>
               <Link
                 to="/app"

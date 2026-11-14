@@ -1394,20 +1394,29 @@ function Conversation({
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-border-subtle bg-surface-2 text-[11px] font-bold text-brand">
             {r.userInitials}
           </span>
-          <div className="min-w-0 flex-1 overflow-hidden">
-            <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="min-w-0 flex-1 overflow-hidden pr-1">
+            <div className="flex items-center gap-1.5 min-w-0">
               <p className="truncate text-xs font-semibold text-text">{r.userName}</p>
               {r.tags && r.tags.length > 0 && (
-                <ChatTagBadges tags={r.tags} className="inline-flex scale-90 origin-left" />
+                <div className="hidden sm:inline-flex shrink-0">
+                  <ChatTagBadges tags={r.tags} className="scale-90 origin-left" />
+                </div>
               )}
             </div>
-            <p className="truncate text-[10px] text-text-muted">
-              {r.id} • {r.category}
-            </p>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <p className="truncate text-[10px] text-text-muted">
+                {r.id} • {r.category}
+              </p>
+              {r.tags && r.tags.length > 0 && (
+                <span className="sm:hidden text-[9px] font-semibold text-brand truncate max-w-[100px]">
+                  • {r.tags.join(", ")}
+                </span>
+              )}
+            </div>
           </div>
 
-          {/* Action buttons group with shrink-0 protection */}
-          <div className="flex shrink-0 items-center gap-1 sm:gap-1.5 ml-auto">
+          {/* Action buttons group with shrink-0 protection — Info (i) is always anchored */}
+          <div className="flex shrink-0 items-center gap-1 sm:gap-1.5 ml-auto z-10">
             {/* In-chat Document Access — xl only */}
             <div className="hidden items-center gap-1 rounded-xl bg-surface-2 p-1 xl:flex shrink-0">
               {documentsFor(r.id)

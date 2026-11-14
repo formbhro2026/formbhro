@@ -142,35 +142,86 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         name: "viewport",
         content: "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover",
       },
-      { title: "Formbhro — Real-Time Form Assistance" },
+      { title: "Formbhro — Online Form Filling & Government Exam Assistance" },
       {
         name: "description",
         content:
-          "Formbhro is your premium platform for real-time form assistance, connecting you with experts for all your documentation needs.",
+          "Formbhro (formbhro.com) is India's trusted digital form assistance and CSC platform. Get expert help with Government Exams (UPSC, SSC, Railway, Banking), Admissions, Jobs, Passport, PAN Card & Certificates starting at ₹49.",
+      },
+      {
+        name: "keywords",
+        content:
+          "Formbhro, form bhro, formbhro.com, formbhro.in, online form filling, sarkari naukri form, sarkari exam form, upsc form, ssc form, railway form, pan card apply, passport form assistance, csc center online, admission form online",
       },
       { name: "author", content: "Formbhro" },
-      { property: "og:title", content: "Formbhro — Real-Time Form Assistance" },
+      { name: "robots", content: "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" },
+      { property: "og:site_name", content: "Formbhro" },
+      { property: "og:title", content: "Formbhro — Online Form Filling & Government Exam Assistance" },
       {
         property: "og:description",
         content:
-          "Get expert assistance for your forms in real-time. Fast, secure, and professional.",
+          "Get expert assistance for your forms in real-time. Fast, secure, and error-free form filling starting at ₹49.",
       },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://formbhro.com" },
+      { property: "og:image", content: "https://formbhro.com/icon-512.png" },
+      { property: "og:image:width", content: "512" },
+      { property: "og:image:height", content: "512" },
+      { property: "og:image:alt", content: "Formbhro Logo" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@formbhro" },
+      { name: "twitter:title", content: "Formbhro — Online Form Filling & Government Exam Assistance" },
+      { name: "twitter:description", content: "Error-free form filling for Govt Exams, Jobs, Passport, PAN Card & more starting at ₹49." },
+      { name: "twitter:image", content: "https://formbhro.com/icon-512.png" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
       { name: "apple-mobile-web-app-title", content: "Formbhro" },
-      { name: "theme-color", content: "#f8fafc" },
+      { name: "theme-color", content: "#09090b" },
     ],
     links: [
       {
         rel: "stylesheet",
         href: appCss,
       },
-      { rel: "icon", href: "/favicon.png", type: "image/png" },
+      { rel: "canonical", href: "https://formbhro.com" },
+      { rel: "icon", href: "/favicon.ico", sizes: "any" },
+      { rel: "icon", href: "/icon-192.png", type: "image/png", sizes: "192x192" },
+      { rel: "icon", href: "/icon-512.png", type: "image/png", sizes: "512x512" },
+      { rel: "shortcut icon", href: "/favicon.png" },
       { rel: "manifest", href: "/manifest.webmanifest" },
-      { rel: "apple-touch-icon", href: "/favicon.png" },
+      { rel: "apple-touch-icon", sizes: "180x180", href: "/icon-192.png" },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@graph": [
+            {
+              "@type": "Organization",
+              "@id": "https://formbhro.com/#organization",
+              "name": "Formbhro",
+              "url": "https://formbhro.com",
+              "logo": "https://formbhro.com/icon-512.png",
+              "image": "https://formbhro.com/icon-512.png",
+              "description": "Formbhro is India's online form assistance platform, helping candidates and citizens fill government exam applications, jobs, certificates, and citizen documents from home.",
+              "sameAs": ["https://formbhro.in"]
+            },
+            {
+              "@type": "WebSite",
+              "@id": "https://formbhro.com/#website",
+              "url": "https://formbhro.com",
+              "name": "Formbhro",
+              "publisher": { "@id": "https://formbhro.com/#organization" },
+              "potentialAction": {
+                "@type": "SearchAction",
+                "target": "https://formbhro.com/?q={search_term_string}",
+                "query-input": "required name=search_term_string"
+              }
+            }
+          ]
+        }),
+      },
     ],
   }),
   shellComponent: RootShell,

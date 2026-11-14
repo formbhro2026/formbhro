@@ -11,77 +11,77 @@ export const STEPS = [
   {
     n: "01",
     title: "Start a Request",
-    desc: "Click on Fill Now and create a new support request in seconds.",
+    desc: "Choose your exam, job, or certificate application and start for as low as ₹49.",
     icon: "FilePen",
   },
   {
     n: "02",
     title: "Connect with Expert",
-    desc: "Our support team will connect with you and understand your needs.",
+    desc: "A verified form-filling expert connects with you via live chat or voice call.",
     icon: "Headphones",
   },
   {
     n: "03",
     title: "Upload Documents",
-    desc: "Share your documents securely and get them verified by experts.",
+    desc: "Share your photo, signature, and certificates securely in your private vault.",
     icon: "CloudUpload",
   },
   {
     n: "04",
     title: "Track in Real-Time",
-    desc: "Track your application progress and stay updated at every step.",
+    desc: "Watch your application being filled with exact photo resizing and zero errors.",
     icon: "MessageSquareText",
   },
   {
     n: "05",
     title: "Request Completed",
-    desc: "We assist you until your application is completed successfully.",
+    desc: "Download your final application printout and submission confirmation receipt.",
     icon: "CircleCheck",
   },
 ];
 
 export const FEATURES = [
   {
-    title: "Live Assistance",
-    desc: "Chat in real-time with our support team and get instant help.",
+    title: "Sarkari & Govt Exam Forms",
+    desc: "Complete assistance for UPSC, SSC, Railways, Banking, State PSC, Defence, and police exams.",
     icon: "MessageCircle",
   },
   {
-    title: "Secure Documents",
-    desc: "Upload and share documents safely with end-to-end security.",
+    title: "Photo & Signature Resizing",
+    desc: "Never worry about KB limits or dimensions. We format photos, signatures, and PDFs automatically.",
     icon: "ShieldCheck",
   },
   {
-    title: "Track Progress",
-    desc: "Monitor your application status and get real-time updates.",
+    title: "Citizen & Identity Services",
+    desc: "Fast processing for PAN Card, Passport, Driving License, Domicile, Caste, and Income certificates.",
     icon: "BarChart3",
   },
   {
-    title: "Instant Notifications",
-    desc: "Receive instant alerts for messages, updates, and important actions.",
+    title: "Instant Updates & Alerts",
+    desc: "Receive real-time notifications for exam dates, admit cards, answer keys, and results.",
     icon: "Bell",
   },
   {
-    title: "Application History",
-    desc: "Access all your previous requests, chats, and documents anytime.",
+    title: "Private Document Vault",
+    desc: "Access your saved certificates, previous application receipts, and documents safely anytime.",
     icon: "History",
   },
   {
-    title: "Expert Support Team",
-    desc: "Dedicated support operators to guide you through the entire process.",
+    title: "Verified CSC Assistance",
+    desc: "Certified operators ensure 100% accurate, rejection-free submission from the comfort of home.",
     icon: "Users",
   },
 ];
 
 export const STATS = [
-  { value: "5,000+", label: "Happy Users", icon: "Users" },
-  { value: "12,000+", label: "Requests Assisted", icon: "MessageCircle" },
-  { value: "50,000+", label: "Documents Processed", icon: "FileText" },
-  { value: "4.8/5", label: "User Satisfaction", icon: "Star" },
+  { value: "50,000+", label: "Forms Filled", icon: "FileText" },
+  { value: "₹49", label: "Starting Fee", icon: "MessageCircle" },
+  { value: "100%", label: "Accuracy Guaranteed", icon: "ShieldCheck" },
+  { value: "4.9/5", label: "User Rating", icon: "Star" },
 ];
 
 export const CONTACT = {
   phone: "+91 9817359195",
   email: "formbhro@gmail.com",
-  address: "Bhubaneswar, Odisha",
+  address: "India • MSME Reg. UDYAM-HR-16-0042971",
 };

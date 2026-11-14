@@ -20,7 +20,9 @@ export async function assertTeamOrAdmin(
     | string,
 ) {
   const userId =
-    typeof contextOrUserId === "string" ? contextOrUserId : contextOrUserId?.userId;
+    typeof contextOrUserId === "string"
+      ? contextOrUserId
+      : contextOrUserId?.userId ?? (contextOrUserId as any)?.user?.id;
   const supabase =
     typeof contextOrUserId === "object" ? contextOrUserId?.supabase : undefined;
 

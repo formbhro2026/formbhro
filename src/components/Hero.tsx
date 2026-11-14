@@ -23,7 +23,7 @@ export function Hero() {
       <div className="mx-auto grid max-w-7xl grid-cols-1 gap-12 px-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-center lg:gap-10 lg:px-8">
         <div className="min-w-0 text-center lg:text-left">
           <span className="inline-flex items-center rounded-full border border-brand/40 px-3 py-1 text-xs font-medium text-brand-light">
-            Smart Form Assistance Platform
+            Smart Online Form Filling & CSC Services
           </span>
           <h1 className="mt-5 text-[clamp(2rem,7vw,3.75rem)] font-extrabold leading-[1.06] tracking-tight text-text">
             Forms Made Simple.
@@ -33,8 +33,8 @@ export function Hero() {
             </span>
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-text-secondary sm:text-lg lg:mx-0">
-            Get expert help with your forms, share documents securely, and track your application in
-            real time — all from one trusted platform.
+            Get expert help for Government Exams (UPSC, SSC, Railway, Banking), Admissions, Jobs,
+            Passport, PAN Card & Certificates — 100% error-free starting at just ₹49.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start">

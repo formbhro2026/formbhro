@@ -73,7 +73,7 @@ export function Footer() {
               Terms of Use
             </Link>
           </div>
-          © 2026 Formbhro. All rights reserved.
+          © 2026 Formbhro. MSME Reg. UDYAM-HR-16-0042971. All rights reserved.
         </div>
       </div>
     </footer>

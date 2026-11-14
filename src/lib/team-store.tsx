@@ -1049,7 +1049,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           .catch(() => { });
       }
 
-      return visibleMessages.filter((m) => {
+      const filtered = visibleMessages.filter((m) => {
         const req = m.requestId?.toLowerCase();
         const reqUuid = m.requestUuid?.toLowerCase();
         const msgRoomId = m.chatRoomId?.toLowerCase();
@@ -1062,6 +1062,14 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           (reqUuid && (reqUuid === cleanId || reqUuid === ref || reqUuid === roomReqId)) ||
           (msgRoomId && (msgRoomId === cleanId || (roomId && msgRoomId === roomId)))
         );
+      });
+
+      // Strict chronological sort to prevent disarranged messages
+      return filtered.sort((a, b) => {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        if (timeA !== timeB) return timeA - timeB;
+        return a.id.localeCompare(b.id);
       });
     },
     [visibleMessages],

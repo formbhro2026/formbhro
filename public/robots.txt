@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /team
+Disallow: /app/
+
+Sitemap: https://formbhro.com/sitemap.xml

@@ -697,6 +697,8 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
 
       // On-demand message loading when messages are accessed for a specific chat
       if (!loadedRoomsRef.current.has(cleanId) && !loadedRoomsRef.current.has(ref)) {
+        loadedRoomsRef.current.add(cleanId);
+        loadedRoomsRef.current.add(ref);
         void loadChat(ref || cleanId);
       }
       return messages
@@ -780,6 +782,11 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
   );
 
   const sendMessage = useCallback((reference: string, text: string) => {
+    const targetReq = requests.find((r) => r.id === reference || r.reference === reference);
+    if (targetReq?.status === "completed" || targetReq?.completed_at) {
+      toast.error("This chat has been completed and is closed for new messages.");
+      return;
+    }
     const room = rooms.current[reference];
     if (!room?.chatRoomId) return;
     const tempId = uid("m");
@@ -832,6 +839,11 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
 
   const attachFile = useCallback<UserStore["attachFile"]>(
     (reference, name, kind, size, preview, file) => {
+      const targetReq = requests.find((r) => r.id === reference || r.reference === reference);
+      if (targetReq?.status === "completed" || targetReq?.completed_at) {
+        toast.error("This chat has been completed and is closed for new messages.");
+        return;
+      }
       const room = rooms.current[reference];
       if (!room) return;
       if (!file) return; // Live mode uploads the real file only.
