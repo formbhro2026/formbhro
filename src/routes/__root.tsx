@@ -41,25 +41,41 @@ import {
 } from "../lib/audio-notifications";
 import { getInitialTheme, applyTheme } from "../lib/theme-manager";
 
+function RootDocument({ children }: { children: ReactNode }) {
+  return (
+    <html lang="en" suppressHydrationWarning className="light-theme">
+      <head>
+        <HeadContent />
+      </head>
+      <body suppressHydrationWarning className="light-theme">
+        {children}
+        <Scripts />
+      </body>
+    </html>
+  );
+}
+
 function NotFoundComponent() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-bg px-4">
-      <div className="max-w-md text-center">
-        <h1 className="text-7xl font-bold text-foreground">404</h1>
-        <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          The page you're looking for doesn't exist or has been moved.
-        </p>
-        <div className="mt-6">
-          <Link
-            to="/"
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Go home
-          </Link>
+    <RootDocument>
+      <div className="flex min-h-screen items-center justify-center bg-bg px-4">
+        <div className="max-w-md text-center">
+          <h1 className="text-7xl font-bold text-foreground">404</h1>
+          <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            The page you're looking for doesn't exist or has been moved.
+          </p>
+          <div className="mt-6">
+            <Link
+              to="/"
+              className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              Go home
+            </Link>
+          </div>
         </div>
       </div>
-    </div>
+    </RootDocument>
   );
 }
 
@@ -113,60 +129,62 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
         : "";
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-bg px-4">
-      <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          This page didn't load
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
-        </p>
-        {errorMessage && (
-          <div className="mt-4 p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-xs text-destructive text-left font-mono break-all max-h-36 overflow-y-auto">
-            {errorMessage}
+    <RootDocument>
+      <div className="flex min-h-screen items-center justify-center bg-bg px-4">
+        <div className="max-w-md text-center">
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">
+            This page didn't load
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Something went wrong on our end. You can try refreshing or head back home.
+          </p>
+          {errorMessage && (
+            <div className="mt-4 p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-xs text-destructive text-left font-mono break-all max-h-36 overflow-y-auto">
+              {errorMessage}
+            </div>
+          )}
+          <div className="mt-6 flex flex-wrap justify-center gap-2">
+            <button
+              onClick={async () => {
+                if (typeof window !== "undefined") {
+                  sessionStorage.removeItem("chunk_reload_attempt");
+                  try {
+                    if ("caches" in window) {
+                      const keys = await caches.keys();
+                      await Promise.all(keys.map((k) => caches.delete(k)));
+                    }
+                    if ("serviceWorker" in navigator) {
+                      const regs = await navigator.serviceWorker.getRegistrations();
+                      await Promise.all(regs.map((r) => r.unregister()));
+                    }
+                  } catch (_) { }
+                  const url = new URL(window.location.href);
+                  url.searchParams.set("_b", Date.now().toString());
+                  window.location.replace(url.toString());
+                } else {
+                  router.invalidate();
+                  reset();
+                }
+              }}
+              className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              Try again
+            </button>
+            <a
+              href="/"
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  sessionStorage.removeItem("chunk_reload_attempt");
+                }
+              }}
+              className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+            >
+              Go home
+            </a>
           </div>
-        )}
-        <div className="mt-6 flex flex-wrap justify-center gap-2">
-          <button
-            onClick={async () => {
-              if (typeof window !== "undefined") {
-                sessionStorage.removeItem("chunk_reload_attempt");
-                try {
-                  if ("caches" in window) {
-                    const keys = await caches.keys();
-                    await Promise.all(keys.map((k) => caches.delete(k)));
-                  }
-                  if ("serviceWorker" in navigator) {
-                    const regs = await navigator.serviceWorker.getRegistrations();
-                    await Promise.all(regs.map((r) => r.unregister()));
-                  }
-                } catch (_) { }
-                const url = new URL(window.location.href);
-                url.searchParams.set("_b", Date.now().toString());
-                window.location.replace(url.toString());
-              } else {
-                router.invalidate();
-                reset();
-              }
-            }}
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Try again
-          </button>
-          <a
-            href="/"
-            onClick={() => {
-              if (typeof window !== "undefined") {
-                sessionStorage.removeItem("chunk_reload_attempt");
-              }
-            }}
-            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
-          >
-            Go home
-          </a>
         </div>
       </div>
-    </div>
+    </RootDocument>
   );
 }
 
@@ -213,24 +231,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
       { name: "apple-mobile-web-app-title", content: "Formbhro" },
       { name: "theme-color", content: "#09090b" },
-    ],
-    links: [
       {
-        rel: "stylesheet",
-        href: appCss,
-      },
-      { rel: "canonical", href: "https://formbhro.com" },
-      { rel: "icon", href: "/favicon.ico", sizes: "any" },
-      { rel: "icon", href: "/icon-192.png", type: "image/png", sizes: "192x192" },
-      { rel: "icon", href: "/icon-512.png", type: "image/png", sizes: "512x512" },
-      { rel: "shortcut icon", href: "/favicon.png" },
-      { rel: "manifest", href: "/manifest.webmanifest" },
-      { rel: "apple-touch-icon", sizes: "180x180", href: "/icon-192.png" },
-    ],
-    scripts: [
-      {
-        type: "application/ld+json",
-        children: JSON.stringify({
+        "script:ld+json": {
           "@context": "https://schema.org",
           "@graph": [
             {
@@ -259,29 +261,27 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
               },
             },
           ],
-        }),
+        },
       },
     ],
+    links: [
+      {
+        rel: "stylesheet",
+        href: appCss,
+      },
+      { rel: "canonical", href: "https://formbhro.com" },
+      { rel: "icon", href: "/favicon.ico", sizes: "any" },
+      { rel: "icon", href: "/icon-192.png", type: "image/png", sizes: "192x192" },
+      { rel: "icon", href: "/icon-512.png", type: "image/png", sizes: "512x512" },
+      { rel: "shortcut icon", href: "/favicon.png" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "apple-touch-icon", sizes: "180x180", href: "/icon-192.png" },
+    ],
   }),
-  shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
   errorComponent: ErrorComponent,
 });
-
-function RootShell({ children }: { children: ReactNode }) {
-  return (
-    <html lang="en" suppressHydrationWarning className="light-theme">
-      <head>
-        <HeadContent />
-      </head>
-      <body suppressHydrationWarning className="light-theme">
-        {children}
-        <Scripts />
-      </body>
-    </html>
-  );
-}
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
@@ -578,50 +578,52 @@ function RootComponent() {
   }, [navigate]);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <SessionProvider>
-        <GlobalCallProvider>
-          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-          <SplashScreen />
-          <Outlet />
-          <NativeAlertModal
-            open={nativeAlert.open}
-            type={nativeAlert.type}
-            onAction={() => {
-              if (nativeAlert.type === "notification") {
-                requestNativeNotificationPermission();
-                setTimeout(() => {
-                  if (!areNativeNotificationsEnabled()) {
-                    openNativeNotificationSettings();
-                  }
-                }, 600);
-                setNativeAlert({ open: false, type: "notification" });
-              } else {
-                localStorage.setItem("formbhro:battery_opt_prompted", "1");
-                requestIgnoreBatteryOptimizations();
-                setNativeAlert({ open: false, type: "battery" });
-              }
-            }}
-            onDismiss={() => {
-              if (nativeAlert.type === "battery") {
-                localStorage.setItem("formbhro:battery_opt_prompted", "1");
-              } else {
-                localStorage.setItem("formbhro:notification_perm_declined", "1");
-              }
-              setNativeAlert((prev) => ({ ...prev, open: false }));
-            }}
-          />
-          <Toaster
-            position="top-center"
-            toastOptions={{
-              style: {
-                marginTop: "max(0.5rem, env(safe-area-inset-top))",
-              },
-            }}
-          />
+    <RootDocument>
+      <QueryClientProvider client={queryClient}>
+        <SessionProvider>
+          <GlobalCallProvider>
+            {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+            <SplashScreen />
+            <Outlet />
+            <NativeAlertModal
+              open={nativeAlert.open}
+              type={nativeAlert.type}
+              onAction={() => {
+                if (nativeAlert.type === "notification") {
+                  requestNativeNotificationPermission();
+                  setTimeout(() => {
+                    if (!areNativeNotificationsEnabled()) {
+                      openNativeNotificationSettings();
+                    }
+                  }, 600);
+                  setNativeAlert({ open: false, type: "notification" });
+                } else {
+                  localStorage.setItem("formbhro:battery_opt_prompted", "1");
+                  requestIgnoreBatteryOptimizations();
+                  setNativeAlert({ open: false, type: "battery" });
+                }
+              }}
+              onDismiss={() => {
+                if (nativeAlert.type === "battery") {
+                  localStorage.setItem("formbhro:battery_opt_prompted", "1");
+                } else {
+                  localStorage.setItem("formbhro:notification_perm_declined", "1");
+                }
+                setNativeAlert((prev) => ({ ...prev, open: false }));
+              }}
+            />
+            <Toaster
+              position="top-center"
+              toastOptions={{
+                style: {
+                  marginTop: "max(0.5rem, env(safe-area-inset-top))",
+                },
+              }}
+            />
 
-        </GlobalCallProvider>
-      </SessionProvider>
-    </QueryClientProvider>
+          </GlobalCallProvider>
+        </SessionProvider>
+      </QueryClientProvider>
+    </RootDocument>
   );
 }

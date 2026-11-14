@@ -1,4 +1,4 @@
-import React from "react";
+import * as React from "react";
 import { Bell, Zap, ShieldCheck, CheckCircle2, BatteryCharging, X } from "lucide-react";
 import {
   Dialog,

@@ -1,4 +1,4 @@
-import React from "react";
+import * as React from "react";
 import { Browser } from "@capacitor/browser";
 import { isCapacitor } from "@/lib/fcm";
 import { ExternalLink } from "lucide-react";
