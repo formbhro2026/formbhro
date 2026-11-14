@@ -33,7 +33,7 @@ export function HowItWorks() {
 
         <div className="mt-14 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {STEPS.map((s, i) => {
-            const Icon = iconMap[s.icon];
+            const Icon = iconMap[s.icon] || CircleCheck;
             return (
               <div key={s.n} className="relative">
                 <div className="group h-full rounded-2xl border border-white/10 bg-surface-1 p-5 transition-colors hover:border-brand/40 shadow-sm">

@@ -11,7 +11,10 @@ export default defineConfig({
     optimizeDeps: {
       exclude: ["@capacitor/cli"],
     },
-    build: { sourcemap: true },
+    build: {
+      sourcemap: true,
+      minify: "terser",
+    },
     plugins: [
       VitePWA({
         selfDestroying: true,

@@ -1,7 +1,13 @@
-import { Users, MessageCircle, FileText, Star, type LucideIcon } from "lucide-react";
+import { Users, MessageCircle, FileText, Star, ShieldCheck, type LucideIcon } from "lucide-react";
 import { STATS } from "@/data/landing";
 
-const iconMap: Record<string, LucideIcon> = { Users, MessageCircle, FileText, Star };
+const iconMap: Record<string, LucideIcon> = {
+  Users,
+  MessageCircle,
+  FileText,
+  Star,
+  ShieldCheck,
+};
 
 export function Stats() {
   return (
@@ -14,7 +20,7 @@ export function Stats() {
           />
           <div className="relative grid grid-cols-2 gap-6 lg:grid-cols-4">
             {STATS.map((s) => {
-              const Icon = iconMap[s.icon];
+              const Icon = iconMap[s.icon] || FileText;
               return (
                 <div key={s.label} className="flex items-center gap-4">
                   <Icon className="h-9 w-9 shrink-0 text-brand" strokeWidth={1.5} />

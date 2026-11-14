@@ -214,9 +214,8 @@ function PoliciesPage() {
           policies?.map((policy) => (
             <div
               key={policy.id}
-              className={`bg-card border rounded-xl p-5 shadow-sm transition-colors ${
-                policy.is_active ? "border-brand/50 ring-1 ring-brand/20" : "border-border-subtle"
-              }`}
+              className={`bg-card border rounded-xl p-5 shadow-sm transition-colors ${policy.is_active ? "border-brand/50 ring-1 ring-brand/20" : "border-border-subtle"
+                }`}
             >
               <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div className="space-y-1">

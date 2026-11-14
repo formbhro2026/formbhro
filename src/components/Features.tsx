@@ -31,7 +31,7 @@ export function Features() {
 
         <div className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((f) => {
-            const Icon = iconMap[f.icon];
+            const Icon = iconMap[f.icon] || MessageCircle;
             return (
               <div
                 key={f.title}
