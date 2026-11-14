@@ -1044,8 +1044,8 @@ function AdminChats() {
                         type="button"
                         onClick={() => setFilterTab(tab.id as any)}
                         className={`px-2 py-0.5 text-[9px] font-bold rounded-full transition-colors shrink-0 ${filterTab === tab.id
-                            ? "bg-brand text-white shadow-sm"
-                            : "bg-surface-2 text-text-muted hover:text-text"
+                          ? "bg-brand text-white shadow-sm"
+                          : "bg-surface-2 text-text-muted hover:text-text"
                           }`}
                       >
                         {tab.label}
@@ -1071,8 +1071,8 @@ function AdminChats() {
                       type="button"
                       onClick={() => handleSelectRequest(r.id)}
                       className={`w-full rounded-xl border px-3 py-3 text-left transition-all ${active?.id === r.id
-                          ? "border-brand bg-brand/10 shadow-sm shadow-brand/10"
-                          : "border-border-subtle bg-bg hover:border-border-strong"
+                        ? "border-brand bg-brand/10 shadow-sm shadow-brand/10"
+                        : "border-border-subtle bg-bg hover:border-border-strong"
                         }`}
                     >
                       <div className="flex items-center justify-between">
@@ -1588,8 +1588,8 @@ function AdminChats() {
                         type="button"
                         onClick={() => void handleSelectTeamMember(member.id, profile?.full_name)}
                         className={`w-full rounded-xl border px-3 py-3 text-left transition-all ${isSelected
-                            ? "border-brand bg-brand/10 shadow-sm shadow-brand/10"
-                            : "border-border-subtle bg-bg hover:border-border-strong"
+                          ? "border-brand bg-brand/10 shadow-sm shadow-brand/10"
+                          : "border-border-subtle bg-bg hover:border-border-strong"
                           }`}
                       >
                         <div className="flex items-center justify-between">
@@ -1823,10 +1823,10 @@ function AdminChats() {
                         >
                           <div
                             className={`max-w-[85%] rounded-2xl border px-4 py-3 text-xs shadow-sm relative ${m.is_system
-                                ? "border-border-subtle bg-surface-1 text-text-muted mx-auto text-center"
-                                : mine
-                                  ? "border-brand/40 bg-brand/15 text-white"
-                                  : "border-border-subtle bg-bg text-text-secondary"
+                              ? "border-border-subtle bg-surface-1 text-text-muted mx-auto text-center"
+                              : mine
+                                ? "border-brand/40 bg-brand/15 text-white"
+                                : "border-border-subtle bg-bg text-text-secondary"
                               }`}
                           >
                             {!m.is_system && (

@@ -235,7 +235,7 @@ export function CallOverlay({
                   <button
                     onClick={() => {
                       if (audioRef.current) {
-                        audioRef.current.play().catch(() => {});
+                        audioRef.current.play().catch(() => { });
                       }
                       onAccept();
                     }}

@@ -197,7 +197,7 @@ export async function createNewRequest(input?: {
           .eq("id", createdReq.id);
         (createdReq as any).tags = userTags;
       }
-    } catch (_) {}
+    } catch (_) { }
   }
 
   return createdReq;

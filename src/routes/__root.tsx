@@ -85,13 +85,32 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
       error?.name === "ChunkLoadError";
 
     if (isChunkOrNetworkError && typeof window !== "undefined") {
-      const hasReloaded = sessionStorage.getItem("chunk_reload_attempt");
-      if (!hasReloaded) {
-        sessionStorage.setItem("chunk_reload_attempt", "1");
-        window.location.reload();
+      const attempts = parseInt(sessionStorage.getItem("chunk_reload_attempt") || "0", 10);
+      if (attempts < 2) {
+        sessionStorage.setItem("chunk_reload_attempt", String(attempts + 1));
+        try {
+          if ("caches" in window) {
+            caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))));
+          }
+          if ("serviceWorker" in navigator) {
+            navigator.serviceWorker
+              .getRegistrations()
+              .then((regs) => Promise.all(regs.map((r) => r.unregister())));
+          }
+        } catch (_) { }
+        const url = new URL(window.location.href);
+        url.searchParams.set("_reload", Date.now().toString());
+        window.location.replace(url.toString());
       }
     }
   }, [error]);
+
+  const errorMessage =
+    error instanceof Error
+      ? `${error.name ? `${error.name}: ` : ""}${error.message}`
+      : typeof error === "string"
+        ? error
+        : "";
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg px-4">
@@ -102,12 +121,29 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
         <p className="mt-2 text-sm text-muted-foreground">
           Something went wrong on our end. You can try refreshing or head back home.
         </p>
+        {errorMessage && (
+          <div className="mt-4 p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-xs text-destructive text-left font-mono break-all max-h-36 overflow-y-auto">
+            {errorMessage}
+          </div>
+        )}
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
-            onClick={() => {
+            onClick={async () => {
               if (typeof window !== "undefined") {
                 sessionStorage.removeItem("chunk_reload_attempt");
-                window.location.reload();
+                try {
+                  if ("caches" in window) {
+                    const keys = await caches.keys();
+                    await Promise.all(keys.map((k) => caches.delete(k)));
+                  }
+                  if ("serviceWorker" in navigator) {
+                    const regs = await navigator.serviceWorker.getRegistrations();
+                    await Promise.all(regs.map((r) => r.unregister()));
+                  }
+                } catch (_) { }
+                const url = new URL(window.location.href);
+                url.searchParams.set("_b", Date.now().toString());
+                window.location.replace(url.toString());
               } else {
                 router.invalidate();
                 reset();
@@ -191,6 +227,41 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "manifest", href: "/manifest.webmanifest" },
       { rel: "apple-touch-icon", sizes: "180x180", href: "/icon-192.png" },
     ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@graph": [
+            {
+              "@type": "Organization",
+              "@id": "https://formbhro.com/#organization",
+              "name": "Formbhro",
+              "url": "https://formbhro.com",
+              "logo": {
+                "@type": "ImageObject",
+                "url": "https://formbhro.com/icon-512.png",
+                "width": 512,
+                "height": 512,
+              },
+              "sameAs": ["https://formbhro.in"],
+            },
+            {
+              "@type": "WebSite",
+              "@id": "https://formbhro.com/#website",
+              "url": "https://formbhro.com",
+              "name": "Formbhro",
+              "publisher": { "@id": "https://formbhro.com/#organization" },
+              "potentialAction": {
+                "@type": "SearchAction",
+                "target": "https://formbhro.com/?q={search_term_string}",
+                "query-input": "required name=search_term_string",
+              },
+            },
+          ],
+        }),
+      },
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,
@@ -200,60 +271,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className="light-theme">
+    <html lang="en" suppressHydrationWarning className="light-theme">
       <head>
         <HeadContent />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@graph": [
-                {
-                  "@type": "Organization",
-                  "@id": "https://formbhro.com/#organization",
-                  "name": "Formbhro",
-                  "url": "https://formbhro.com",
-                  "logo": "https://formbhro.com/icon-512.png",
-                  "image": "https://formbhro.com/icon-512.png",
-                  "description": "Formbhro is India's online form assistance platform, helping candidates and citizens fill government exam applications, jobs, certificates, and citizen documents from home.",
-                  "sameAs": ["https://formbhro.in"],
-                },
-                {
-                  "@type": "WebSite",
-                  "@id": "https://formbhro.com/#website",
-                  "url": "https://formbhro.com",
-                  "name": "Formbhro",
-                  "publisher": { "@id": "https://formbhro.com/#organization" },
-                  "potentialAction": {
-                    "@type": "SearchAction",
-                    "target": "https://formbhro.com/?q={search_term_string}",
-                    "query-input": "required name=search_term_string",
-                  },
-                },
-              ],
-            }),
-          }}
-        />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){
-              try {
-                var stored = localStorage.getItem('formbhro-theme-preference');
-                var theme = stored === 'dark' ? 'dark' : 'light';
-                if (theme === 'dark') {
-                  document.documentElement.classList.add('dark-theme');
-                  document.documentElement.classList.remove('light-theme');
-                } else {
-                  document.documentElement.classList.add('light-theme');
-                  document.documentElement.classList.remove('dark-theme');
-                }
-              } catch(e) {}
-            })();`,
-          }}
-        />
       </head>
-      <body className="light-theme">
+      <body suppressHydrationWarning className="light-theme">
         {children}
         <Scripts />
       </body>
@@ -265,6 +287,28 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const navigate = useNavigate();
   const [nativeAlert, setNativeAlert] = useState<{ open: boolean; type: "notification" | "battery" }>({ open: false, type: "notification" });
+
+  // Eagerly unregister any service worker or stale workbox cache in Capacitor APK
+  useEffect(() => {
+    if (typeof window !== "undefined" && isCapacitor()) {
+      try {
+        if ("serviceWorker" in navigator) {
+          navigator.serviceWorker.getRegistrations().then((registrations) => {
+            for (const r of registrations) {
+              r.unregister();
+            }
+          });
+        }
+        if ("caches" in window) {
+          caches.keys().then((keys) => {
+            for (const k of keys) {
+              caches.delete(k);
+            }
+          });
+        }
+      } catch (_) { }
+    }
+  }, []);
 
   useEffect(() => {
     applyTheme(getInitialTheme());

@@ -157,10 +157,10 @@ function TeamAdminChatPage() {
             return prev.map((m) =>
               m.id === incoming.id
                 ? {
-                    ...m,
-                    body: incoming.body,
-                    delivery: "delivered",
-                  }
+                  ...m,
+                  body: incoming.body,
+                  delivery: "delivered",
+                }
                 : m,
             );
           }
@@ -241,11 +241,11 @@ function TeamAdminChatPage() {
         prev.map((m) =>
           m.id === tempId
             ? {
-                ...m,
-                id: sent.id,
-                delivery: "delivered",
-                createdAt: sent.created_at,
-              }
+              ...m,
+              id: sent.id,
+              delivery: "delivered",
+              createdAt: sent.created_at,
+            }
             : m,
         ),
       );

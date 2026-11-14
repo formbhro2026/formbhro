@@ -14,6 +14,7 @@ export default defineConfig({
     build: { sourcemap: true },
     plugins: [
       VitePWA({
+        selfDestroying: true,
         // Use 'prompt' instead of 'autoUpdate' so the service worker does not
         // intercept notifications — native FCM handles push on Android.
         registerType: "prompt",
