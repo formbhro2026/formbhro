@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { UserPlus, MessageSquare } from "lucide-react";
 import { useAdmin } from "@/lib/admin-store";
 import {
@@ -74,14 +74,21 @@ function AdminTeam() {
   // Inline permissions editor state (replaces window.confirm)
   const [editPerms, setEditPerms] = useState<TeamPermissions | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | "online" | "away" | "offline">("all");
+  const [tick, setTick] = useState(0);
+
+  // Periodic 10s tick to re-evaluate isOnline (based on 90s heartbeat expiry)
+  useEffect(() => {
+    const timer = setInterval(() => setTick((t) => t + 1), 10000);
+    return () => clearInterval(timer);
+  }, []);
 
   const onlineCount = useMemo(
     () => team.filter((t) => isOnline(t.availability_status, (t as any).last_seen_at)).length,
-    [team],
+    [team, tick],
   );
   const awayCount = useMemo(
     () => team.filter((t) => getPresenceStatus(t.availability_status, (t as any).last_seen_at) === "away").length,
-    [team],
+    [team, tick],
   );
   const offlineCount = useMemo(
     () => Math.max(0, team.length - onlineCount - awayCount),
@@ -105,7 +112,7 @@ function AdminTeam() {
           member.team_code.toLowerCase().includes(term)
         );
       });
-  }, [team, profiles, q, statusFilter]);
+  }, [team, profiles, q, statusFilter, tick]);
 
   const detail = team.find((t) => t.id === selected) ?? null;
   const detailProfile = profileOf(detail?.id);

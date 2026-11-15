@@ -62,7 +62,87 @@ function AdminDocuments() {
     setSearching(true);
     setHasSearched(true);
     try {
-      const res = await searchUserDocuments({ data: { query: q } });
+      let res: any = null;
+      try {
+        res = await searchUserDocuments({ data: { query: q } });
+      } catch (srvErr: any) {
+        console.warn("Server searchUserDocuments failed, falling back to direct client lookup:", srvErr);
+        const { supabase } = await import("@/integrations/supabase/client");
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        let targetUid: string | null = null;
+        let profile: any = null;
+
+        if (uuidRegex.test(q)) {
+          targetUid = q;
+          const { data: p } = await supabase
+            .from("profiles")
+            .select("id, full_name, email, phone")
+            .eq("id", targetUid)
+            .maybeSingle();
+          profile = p;
+        } else {
+          const { data: req } = await supabase
+            .from("requests")
+            .select("id, user_id, reference")
+            .or(`reference.ilike.%${q}%,id.ilike.%${q}%`)
+            .limit(1)
+            .maybeSingle();
+
+          if (req?.user_id) {
+            targetUid = req.user_id;
+            const { data: p } = await supabase
+              .from("profiles")
+              .select("id, full_name, email, phone")
+              .eq("id", targetUid)
+              .maybeSingle();
+            profile = p;
+          } else {
+            const { data: profs } = await supabase
+              .from("profiles")
+              .select("id, full_name, email, phone")
+              .or(`email.ilike.%${q}%,phone.ilike.%${q}%,full_name.ilike.%${q}%`)
+              .limit(1);
+            if (profs && profs[0]) {
+              profile = profs[0];
+              targetUid = profs[0].id;
+            }
+          }
+        }
+
+        if (targetUid) {
+          const { data: docs } = await supabase
+            .from("documents")
+            .select("*")
+            .or(`uploaded_by.eq.${targetUid},request_id.eq.${targetUid}`)
+            .order("created_at", { ascending: false })
+            .limit(100);
+
+          res = {
+            user: {
+              id: targetUid,
+              name: profile?.full_name || "User",
+              email: profile?.email || "—",
+              phone: profile?.phone || "—",
+            },
+            documents: (docs || []).map((d: any) => ({
+              id: d.id,
+              name: d.file_name,
+              kind: (d.kind || "doc") as any,
+              size: d.size_bytes ? `${Math.round(d.size_bytes / 1024)} KB` : "—",
+              storagePath: d.storage_path,
+              previewUrl: d.storage_path,
+              requestId: d.request_id || "Vault",
+              requestTitle: "Document",
+              uploadedBy: d.uploader_role === "user" ? (profile?.full_name || "User") : "Support Team",
+              date: new Date(d.created_at).toLocaleDateString(),
+              createdAt: d.created_at,
+            })),
+          };
+        } else {
+          res = { user: null, documents: [] };
+        }
+      }
+
       if (!res.user) {
         setSearchedUser(null);
         setUserDocs([]);

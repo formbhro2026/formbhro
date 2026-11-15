@@ -137,6 +137,9 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
     return {
       id: row.reference || row.id,
       reference: row.reference || row.id,
+      userId: row.user_id,
+      requestUuid: row.id,
+      completed_at: row.completed_at ?? undefined,
       title: row.title,
       status: STATUS_MAP[row.status] ?? "pending",
       createdAt: day(row.created_at),

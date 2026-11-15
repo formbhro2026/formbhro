@@ -675,13 +675,18 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     setAvailabilityStatusState(status);
     if (!liveRef.current || !memberRef.current?.id) return;
     try {
-      await (supabase as any)
-        .from("team_members")
-        .update({
-          availability_status: status,
-          last_seen_at: new Date().toISOString(),
-        })
-        .eq("id", memberRef.current.id);
+      const { error: rpcErr } = await (supabase as any).rpc("update_team_presence", {
+        p_status: status,
+      });
+      if (rpcErr) {
+        await (supabase as any)
+          .from("team_members")
+          .update({
+            availability_status: status,
+            last_seen_at: new Date().toISOString(),
+          })
+          .eq("id", memberRef.current.id);
+      }
     } catch (_) { }
   }, []);
 
@@ -700,13 +705,18 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           effectiveStatus = document.visibilityState === "visible" ? "online" : "away";
         }
         setAvailabilityStatusState(effectiveStatus);
-        await (supabase as any)
-          .from("team_members")
-          .update({
-            availability_status: effectiveStatus,
-            last_seen_at: new Date().toISOString(),
-          })
-          .eq("id", member.id);
+        const { error: rpcErr } = await (supabase as any).rpc("update_team_presence", {
+          p_status: effectiveStatus,
+        });
+        if (rpcErr) {
+          await (supabase as any)
+            .from("team_members")
+            .update({
+              availability_status: effectiveStatus,
+              last_seen_at: new Date().toISOString(),
+            })
+            .eq("id", member.id);
+        }
       } catch (_) { }
     };
 
@@ -992,6 +1002,8 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       )?.[0]?.toLowerCase();
       const room = rooms.current[id] || (ref ? rooms.current[ref] : undefined);
       const roomReqId = room?.requestId?.toLowerCase();
+      const reqObj = requests.find((r) => r.id === id || r.requestUuid === id || r.id.toLowerCase() === cleanId);
+      const reqUuidFromReq = reqObj?.requestUuid?.toLowerCase();
 
       // On-demand message loading if not yet loaded in initial batch
       if (room?.chatRoomId && !loadedRoomsRef.current.has(room.chatRoomId)) {
@@ -1057,8 +1069,9 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         return (
           req === cleanId ||
           req === ref ||
-          (matchedUuid && req === matchedUuid) ||
-          (roomReqId && req === roomReqId) ||
+          (matchedUuid && (req === matchedUuid || reqUuid === matchedUuid)) ||
+          (roomReqId && (req === roomReqId || reqUuid === roomReqId)) ||
+          (reqUuidFromReq && (req === reqUuidFromReq || reqUuid === reqUuidFromReq)) ||
           (reqUuid && (reqUuid === cleanId || reqUuid === ref || reqUuid === roomReqId)) ||
           (msgRoomId && (msgRoomId === cleanId || (roomId && msgRoomId === roomId)))
         );
@@ -1072,7 +1085,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         return a.id.localeCompare(b.id);
       });
     },
-    [visibleMessages],
+    [visibleMessages, requests],
   );
   const documentsFor = useCallback(
     (id: string) => {
@@ -1293,6 +1306,15 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
 
         const { transferRequest } = await import("@/lib/api/requests");
         await transferRequest(dbUuid, targetAssigneeId);
+
+        // Also add transferred tag in DB so it sticks across page reloads
+        try {
+          const { data: reqData } = await (supabase as any).from("requests").select("tags").eq("id", dbUuid).maybeSingle();
+          const currentTags = Array.isArray(reqData?.tags) ? reqData.tags : [];
+          if (!currentTags.includes("transferred")) {
+            await (supabase as any).from("requests").update({ tags: [...currentTags, "transferred"] }).eq("id", dbUuid);
+          }
+        } catch (_) {}
 
         // Mark as transferred in UI so it remains visible under Transferred section
         setRequests((prev) =>
@@ -1820,9 +1842,13 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       }
 
       setRequests((prev) => {
-        // If it's assigned to someone else (not null and not this member), remove it from the pool.
+        // If it's assigned to someone else (not null and not this member), check if it's transferred
         if (row.assigned_team_id !== null && row.assigned_team_id !== memberId) {
-          return prev.filter((r) => r.id !== (row.reference || row.id));
+          const existing = prev.find((r) => r.id === (row.reference || row.id) || (r.requestUuid && r.requestUuid === row.id));
+          if (existing && (existing.isTransferred || existing.tags?.some((t) => t.toLowerCase().includes("transferred")) || existing.assigneeId === memberId)) {
+            return prev.map((r) => (r.id === existing.id ? { ...r, isTransferred: true, assigneeId: row.assigned_team_id || existing.assigneeId || "" } : r));
+          }
+          return prev.filter((r) => r.id !== (row.reference || row.id) && r.requestUuid !== row.id);
         }
 
         const mapped = mapTeamRequest(
@@ -1939,7 +1965,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     let unsubActive: (() => void) | null = null;
     let alive = true;
 
-    const syncActiveChat = () => {
+    const syncActiveChat = async () => {
       if (!alive) return;
       if (unsubActive) {
         unsubActive();
@@ -1951,87 +1977,104 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
 
       const ref =
         cur.requestRef || refByRequestId.current[cur.requestId || ""] || cur.requestId || "";
-      const room = rooms.current[ref] || (cur.requestId ? rooms.current[cur.requestId] : undefined);
-      const roomId = cur.chatRoomId || room?.chatRoomId;
+      let room = rooms.current[ref] || (cur.requestId ? rooms.current[cur.requestId] : undefined) || rooms.current[target];
+      let roomId = cur.chatRoomId || room?.chatRoomId;
 
-      if (roomId) {
-        void messagesApi.listMessages(roomId, { limit: 150 }).then((msgs) => {
+      if (!roomId) {
+        try {
+          const fresh = await requestsApi.getOrCreateChatRoom(target);
           if (!alive) return;
-          setMessages((prev) => {
-            const existingIds = new Set(prev.map((m) => m.id));
-            const newMsgs = msgs
-              .filter((m) => !existingIds.has(m.id))
-              .map((m) => mapTeamMessage(m, ref || target, memberRef.current?.name ?? "Team Member"));
-            return newMsgs.length ? [...prev, ...newMsgs] : prev;
-          });
-
-          // FIX 1: Extract attachments and merge into documents state
-          const attachedDocs = msgs
-            .map((m) => m.attachment)
-            .filter((att): att is NonNullable<typeof att> => Boolean(att));
-          if (attachedDocs.length) {
-            setDocuments((prev) => {
-              const existingDocIds = new Set(prev.map((d) => d.id));
-              const newDocs = attachedDocs
-                .filter((att) => !existingDocIds.has(att.id))
-                .map((att) => mapTeamDocument(att, ref || target));
-              return newDocs.length ? [...prev, ...newDocs] : prev;
-            });
+          if (fresh?.id) {
+            roomId = fresh.id;
+            const actualUuid = fresh.request_id || (cur.requestId && cur.requestId.length === 36 ? cur.requestId : target);
+            const roomData = { requestId: actualUuid, chatRoomId: fresh.id };
+            rooms.current[ref] = roomData;
+            rooms.current[target] = roomData;
+            rooms.current[fresh.id] = roomData;
+            rooms.current[actualUuid] = roomData;
+            refByRequestId.current[actualUuid] = ref || target;
+            room = roomData;
           }
-        });
-
-        // FIX 2: Fetch historical request documents and user vault documents when opening request
-        const actualRequestId =
-          room?.requestId ||
-          (cur.requestId && cur.requestId.length === 36 ? cur.requestId : undefined) ||
-          Object.entries(refByRequestId.current).find(([, r]) => r === target)?.[0];
-        const reqObj = requests.find((r) => r.id === target || r.requestUuid === actualRequestId);
-        if (actualRequestId) {
-          void loadDocumentsForRequest(actualRequestId, reqObj?.userId);
-        }
-
-        const isAlreadySubscribed = Object.values(rooms.current).some((r) => r.chatRoomId === roomId);
-        if (!isAlreadySubscribed) {
-          unsubActive = subscribeToRoom(roomId, {
-            onMessage: (row) => {
-              setMessages((prev) => {
-                if (prev.some((m) => m.id === row.id)) return prev;
-                const optIdx = prev.findIndex(
-                  (m) =>
-                    m.delivery === "sending" &&
-                    m.author === (row.sender_role === "user" ? "user" : "team") &&
-                    (m.text || "").trim() === (row.body || "").trim() &&
-                    (m.requestId === ref || m.requestId === row.request_id),
-                );
-                const mapped = mapTeamMessage(row, ref || target, memberRef.current?.name ?? "Team Member");
-                if (optIdx >= 0) {
-                  const copy = [...prev];
-                  copy[optIdx] = mapped;
-                  return copy;
-                }
-                return [...prev, mapped];
-              });
-            },
-            onMessageUpdate: (row) => {
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === row.id ? { ...m, ...mapTeamMessage(row, ref || target, memberRef.current?.name ?? "Team Member") } : m,
-                ),
-              );
-            },
-            onDocument: (row) => {
-              setDocuments((prev) =>
-                prev.some((d) => d.id === row.id)
-                  ? prev
-                  : [mapTeamDocument(row, ref || target), ...prev],
-              );
-            },
-            onTyping: (payload) => {
-              if (payload.typing) startTyping(ref || target, 2500);
-            },
-          });
+        } catch (err) {
+          console.error("[TeamStore] Failed to resolve chat room:", err);
         }
       }
+
+      if (!roomId) return;
+
+      void messagesApi.listMessages(roomId, { limit: 200 }).then((msgs) => {
+        if (!alive) return;
+        setMessages((prev) => {
+          const existingIds = new Set(prev.map((m) => m.id));
+          const newMsgs = msgs
+            .filter((m) => !existingIds.has(m.id))
+            .map((m) => mapTeamMessage(m, ref || target, memberRef.current?.name ?? "Team Member"));
+          return newMsgs.length ? [...prev, ...newMsgs] : prev;
+        });
+
+        // FIX 1: Extract attachments and merge into documents state
+        const attachedDocs = msgs
+          .map((m) => m.attachment)
+          .filter((att): att is NonNullable<typeof att> => Boolean(att));
+        if (attachedDocs.length) {
+          setDocuments((prev) => {
+            const existingDocIds = new Set(prev.map((d) => d.id));
+            const newDocs = attachedDocs
+              .filter((att) => !existingDocIds.has(att.id))
+              .map((att) => mapTeamDocument(att, ref || target));
+            return newDocs.length ? [...prev, ...newDocs] : prev;
+          });
+        }
+      });
+
+      // FIX 2: Fetch historical request documents and user vault documents when opening request
+      const actualRequestId =
+        room?.requestId ||
+        (cur.requestId && cur.requestId.length === 36 ? cur.requestId : undefined) ||
+        Object.entries(refByRequestId.current).find(([, r]) => r === target)?.[0];
+      const reqObj = requests.find((r) => r.id === target || r.requestUuid === actualRequestId);
+      if (actualRequestId) {
+        void loadDocumentsForRequest(actualRequestId, reqObj?.userId);
+      }
+
+      unsubActive = subscribeToRoom(roomId, {
+        onMessage: (row) => {
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === row.id)) return prev;
+            const optIdx = prev.findIndex(
+              (m) =>
+                m.delivery === "sending" &&
+                m.author === (row.sender_role === "user" ? "user" : "team") &&
+                (m.text || "").trim() === (row.body || "").trim() &&
+                (m.requestId === ref || m.requestId === row.request_id || m.requestUuid === row.request_id),
+            );
+            const mapped = mapTeamMessage(row, ref || target, memberRef.current?.name ?? "Team Member");
+            if (optIdx >= 0) {
+              const copy = [...prev];
+              copy[optIdx] = mapped;
+              return copy;
+            }
+            return [...prev, mapped];
+          });
+        },
+        onMessageUpdate: (row) => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === row.id ? { ...m, ...mapTeamMessage(row, ref || target, memberRef.current?.name ?? "Team Member") } : m,
+            ),
+          );
+        },
+        onDocument: (row) => {
+          setDocuments((prev) =>
+            prev.some((d) => d.id === row.id)
+              ? prev
+              : [mapTeamDocument(row, ref || target), ...prev],
+          );
+        },
+        onTyping: (payload) => {
+          if (payload.typing) startTyping(ref || target, 2500);
+        },
+      });
     };
 
     syncActiveChat();

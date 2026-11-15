@@ -22,37 +22,39 @@ export function ChatHeader({
   isSearching?: boolean;
 }) {
   return (
-    <header className="sticky top-0 z-20 border-b border-border-subtle bg-surface-1/95 backdrop-blur-sm py-1 pt-[max(0.25rem,env(safe-area-inset-top))]">
-      <div className="flex items-center justify-between gap-2 px-2 sm:px-4">
+    <header className="sticky top-0 z-20 border-b border-border-subtle bg-surface-1/95 backdrop-blur-sm py-1 pt-[max(0.25rem,env(safe-area-inset-top))] max-w-full overflow-hidden">
+      <div className="flex items-center justify-between gap-1.5 sm:gap-3 px-2 sm:px-4 max-w-full">
         <Link
           to="/app/chats"
           aria-label="Back to chats"
-          className="inline-flex h-9 w-9 items-center justify-center text-text-secondary transition-colors duration-200 xl:hidden"
+          className="inline-flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center text-text-secondary transition-colors duration-200 xl:hidden"
         >
           <ArrowLeft className="h-5 w-5" aria-hidden="true" />
         </Link>
-        <div className="flex min-w-0 flex-1 items-center gap-3">
-          <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-surface-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3 overflow-hidden">
+          <div className="h-9 w-9 sm:h-10 sm:w-10 shrink-0 overflow-hidden rounded-full bg-surface-3">
             <div className="flex h-full w-full items-center justify-center text-brand">
-              <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6">
+              <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5 sm:h-6 sm:w-6">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z" />
               </svg>
             </div>
           </div>
           <div className="min-w-0 flex-1 overflow-hidden">
-            <div className="flex items-center gap-2 min-w-0">
-              <h1 className="truncate text-[15px] font-bold text-text">{request.title}</h1>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <h1 className="truncate text-[13px] sm:text-[15px] font-bold text-text leading-tight">{request.title}</h1>
               <StatusBadge status={request.status} className="hidden sm:inline-flex py-0.5 text-[10px] shrink-0" />
             </div>
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[10px] text-text-muted font-bold tracking-tight uppercase min-w-0">
+            <div className="mt-0.5 flex items-center gap-x-1.5 text-[10px] text-text-muted font-medium tracking-tight min-w-0 overflow-hidden">
+              <span className="truncate text-brand font-semibold">{request.id || request.reference || "Request"}</span>
+              <span className="text-zinc-600 shrink-0">•</span>
               <span className="truncate">{request.assigneeOnline ? "Online" : "Support Team"}</span>
               <span className="sm:hidden shrink-0">
-                <StatusBadge status={request.status} className="py-0 px-2 text-[9px]" />
+                <StatusBadge status={request.status} className="py-0 px-1.5 text-[8.5px]" />
               </span>
             </div>
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
+        <div className="flex shrink-0 items-center gap-0.5 sm:gap-1.5">
           <button
             type="button"
             onClick={() => onStartCall?.("audio")}
@@ -75,7 +77,7 @@ export function ChatHeader({
             <button
               type="button"
               onClick={() => onStartCall?.("screen")}
-              className="hidden sm:inline-flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 hover:text-brand"
+              className="hidden md:inline-flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2 hover:text-brand"
               title="Share Screen"
             >
               <Monitor className="h-4 w-4" />
@@ -100,7 +102,7 @@ export function ChatHeader({
               onClick={onOpenDocuments}
               aria-label={`Documents in this request (${documentCount})`}
               aria-haspopup="dialog"
-              className="relative hidden sm:inline-flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2"
+              className="relative hidden md:inline-flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-2"
             >
               <FileText className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
               {documentCount > 0 && (
@@ -121,7 +123,7 @@ export function ChatHeader({
           >
             <Info className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
             {documentCount > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[9px] font-bold text-white shadow-sm sm:hidden">
+              <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[9px] font-bold text-white shadow-sm">
                 {documentCount}
               </span>
             )}

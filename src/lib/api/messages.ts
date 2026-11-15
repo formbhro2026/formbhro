@@ -9,6 +9,7 @@ export async function listMessages(
   chatRoomId: string,
   opts?: { limit?: number; before?: string },
 ): Promise<MessageWithDoc[]> {
+  if (!chatRoomId) return [];
   let query = supabase
     .from("messages")
     .select("*, attachment:documents(*)")
@@ -20,7 +21,24 @@ export async function listMessages(
   if (opts?.before) query = query.lt("created_at", opts.before);
   const { data, error } = await query;
   if (error) throw new ApiError(error.message, error.code);
-  const rows = ((data ?? []) as unknown as MessageWithDoc[]);
+  let rows = ((data ?? []) as unknown as MessageWithDoc[]);
+
+  // Fallback: If no messages found by chat_room_id, try matching by request_id
+  if (rows.length === 0 && chatRoomId) {
+    let fallbackQuery = supabase
+      .from("messages")
+      .select("*, attachment:documents(*)")
+      .eq("request_id", chatRoomId)
+      .eq("deleted", false)
+      .order("created_at", { ascending: false })
+      .limit(opts?.limit ?? PAGE_SIZE);
+    if (opts?.before) fallbackQuery = fallbackQuery.lt("created_at", opts.before);
+    const { data: fallbackData } = await fallbackQuery;
+    if (fallbackData && fallbackData.length > 0) {
+      rows = fallbackData as unknown as MessageWithDoc[];
+    }
+  }
+
   return rows.sort((a, b) => {
     const diff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
     if (diff !== 0) return diff;
@@ -49,12 +67,13 @@ export async function sendMessage(input: {
     assigned_team_id: string | null;
     reference: string | null;
     category: string | null;
+    status?: string | null;
   } | null = null;
 
   if (isUuid) {
     const { data: r } = await supabase
       .from("requests")
-      .select("id, user_id, assigned_team_id, reference, category")
+      .select("id, user_id, assigned_team_id, reference, category, status")
       .eq("id", input.requestId)
       .maybeSingle();
     reqData = r;
@@ -62,7 +81,7 @@ export async function sendMessage(input: {
   } else {
     const { data: r } = await supabase
       .from("requests")
-      .select("id, user_id, assigned_team_id, reference, category")
+      .select("id, user_id, assigned_team_id, reference, category, status")
       .eq("reference", input.requestId)
       .maybeSingle();
     reqData = r;
@@ -79,12 +98,17 @@ export async function sendMessage(input: {
     if (roomData?.request_id) {
       const { data: r } = await supabase
         .from("requests")
-        .select("id, user_id, assigned_team_id, reference, category")
+        .select("id, user_id, assigned_team_id, reference, category, status")
         .eq("id", roomData.request_id)
         .maybeSingle();
       reqData = r;
       if (r?.id) resolvedRequestId = r.id;
     }
+  }
+
+  // Prevent sending messages to completed requests
+  if (reqData?.status === "completed") {
+    throw new ApiError("This chat has been completed and is closed for new messages.", "CHAT_COMPLETED");
   }
 
   const { data, error } = await supabase

@@ -77,6 +77,9 @@ export type SupportRequest = {
   createdAt: string;
   assignedTo: string;
   reference?: string;
+  userId?: string;
+  requestUuid?: string;
+  completed_at?: string;
   assigneeOnline: boolean;
   lastUpdate: string;
   lastMessage: string;

@@ -490,9 +490,9 @@ function AdminChats() {
   const active =
     (activeId
       ? (chatType === "monitor"
-        ? customerRequests.find((r) => r.id === activeId)
-        : requestsPage.find((r) => r.id === activeId)) ??
-      (fetchedActive?.id === activeId ? fetchedActive : null)
+        ? customerRequests.find((r) => r.id === activeId || r.reference === activeId)
+        : requestsPage.find((r) => r.id === activeId || r.reference === activeId)) ??
+      (fetchedActive?.id === activeId || fetchedActive?.reference === activeId ? fetchedActive : null)
       : null) ??
     (typeof window !== "undefined" && window.innerWidth >= 1280 && chatType === "monitor"
       ? customerRequests[0] ?? null
@@ -709,7 +709,7 @@ function AdminChats() {
 
   // If initial request param or activeId changes in monitor mode
   useEffect(() => {
-    if (activeId && !requestsPage.find((r) => r.id === activeId)) {
+    if (activeId && !requestsPage.find((r) => r.id === activeId || r.reference === activeId)) {
       void requestsApi
         .getRequest(activeId)
         .then((r) => {
@@ -1658,6 +1658,18 @@ function AdminChats() {
                       <span className="text-[10px] text-text-muted truncate">
                         User: <strong className="text-text-secondary">{profileOf(active.user_id)?.full_name ?? "User"}</strong> • Assigned: <strong className="text-brand-light">{profileOf(active.assigned_team_id)?.full_name ?? "Unassigned"}</strong>
                       </span>
+                      {active.user_id && (
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(active.user_id, "User ID")}
+                          className="inline-flex items-center gap-1 rounded bg-surface-3 px-1.5 py-0.5 text-[9px] font-mono text-brand hover:border-brand/40 border border-border-subtle transition-colors cursor-pointer"
+                          title="Click to copy User ID"
+                        >
+                          <User className="h-2.5 w-2.5" />
+                          <span>UID: {active.user_id.slice(0, 8)}...</span>
+                          <Copy className="h-2 w-2 opacity-60" />
+                        </button>
+                      )}
                       {active.tags && active.tags.length > 0 && (
                         <ChatTagBadges tags={active.tags} className="inline-flex scale-90 origin-left" />
                       )}

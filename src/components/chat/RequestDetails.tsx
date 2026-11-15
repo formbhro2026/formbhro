@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { FileImage, FileText, File, Plus, StickyNote, Trash2, Send, Loader2 } from "lucide-react";
+import { FileImage, FileText, File, Plus, StickyNote, Trash2, Send, Loader2, Copy, User } from "lucide-react";
+import { toast } from "sonner";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { RequestTimeline } from "@/components/chat/RequestTimeline";
 import type { SupportRequest, UserDocument } from "@/data/user-module";
@@ -55,9 +56,41 @@ export function RequestDetails({
         </h2>
         <dl className="mt-4 space-y-4 text-xs font-bold">
           <div className="flex items-start justify-between gap-3">
-            <dt className="text-text-secondary">Reference ID</dt>
-            <dd className="text-right text-white font-mono">{request.reference || request.id}</dd>
+            <dt className="text-text-secondary">Request ID</dt>
+            <dd className="text-right text-brand font-mono flex items-center justify-end gap-1.5">
+              <span>{request.reference || request.id}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  void navigator.clipboard.writeText(request.reference || request.id);
+                  toast.success("Request ID copied: " + (request.reference || request.id));
+                }}
+                title="Copy Request ID"
+                className="text-text-muted hover:text-white p-0.5 rounded cursor-pointer"
+              >
+                <Copy className="h-3 w-3" />
+              </button>
+            </dd>
           </div>
+          {(request as any).userId && (
+            <div className="flex items-start justify-between gap-3">
+              <dt className="text-text-secondary">User ID</dt>
+              <dd className="text-right text-text font-mono text-[11px] flex items-center justify-end gap-1.5">
+                <span>{((request as any).userId as string).slice(0, 8)}...</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void navigator.clipboard.writeText((request as any).userId);
+                    toast.success("User ID copied: " + (request as any).userId);
+                  }}
+                  title="Copy User ID"
+                  className="text-text-muted hover:text-brand p-0.5 rounded cursor-pointer"
+                >
+                  <Copy className="h-3 w-3" />
+                </button>
+              </dd>
+            </div>
+          )}
           <div className="flex items-start justify-between gap-3">
             <dt className="text-text-secondary">Current Status</dt>
             <dd>

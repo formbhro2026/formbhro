@@ -872,15 +872,22 @@ export async function listTransferredRequestsClient(): Promise<any[]> {
 
         if (reqs && reqs.length > 0) {
           const userIds = Array.from(new Set(reqs.map((r: any) => r.user_id).filter(Boolean)));
-          const [{ data: profiles }, { data: teamMembers }] = await Promise.all([
-            userIds.length > 0
-              ? (supabase as any).from("profiles").select("id, full_name, email").in("id", userIds)
-              : Promise.resolve({ data: [] }),
-            (supabase as any).from("team_members").select("id, full_name, email"),
-          ]);
+          const allPeopleIds = Array.from(
+            new Set([
+              ...userIds,
+              ...logs.map((l: any) => l.actor_id),
+              ...logs.map((l: any) => l.meta?.new_assignee_id),
+              ...logs.map((l: any) => l.meta?.previous_assignee_id),
+              ...reqs.map((r: any) => r.assigned_team_id),
+            ].filter(Boolean)),
+          );
+
+          const { data: profiles } = allPeopleIds.length > 0
+            ? await (supabase as any).from("profiles").select("id, full_name, email").in("id", allPeopleIds)
+            : { data: [] };
 
           const profMap = new Map((profiles || []).map((p: any) => [p.id, p.full_name || p.email || "User"]));
-          const tmMap = new Map((teamMembers || []).map((t: any) => [t.id, t.full_name || t.email || "Team Member"]));
+          const tmMap = profMap;
 
           const logMap = new Map();
           for (const l of logs) {
@@ -889,8 +896,10 @@ export async function listTransferredRequestsClient(): Promise<any[]> {
 
           return reqs.map((r: any) => {
             const l = logMap.get(r.id);
-            const fromName = l?.meta?.from_team_id ? (tmMap.get(l.meta.from_team_id) || "Previous Member") : "Previous Member";
-            const toName = l?.meta?.to_team_id ? (tmMap.get(l.meta.to_team_id) || (r.assigned_team_id ? tmMap.get(r.assigned_team_id) : "Team Member")) : "Team Member";
+            const fromId = l?.meta?.from_team_id || l?.meta?.previous_assignee_id || l?.actor_id;
+            const toId = l?.meta?.to_team_id || l?.meta?.new_assignee_id || r.assigned_team_id;
+            const fromName = fromId ? (tmMap.get(fromId) || "Previous Member") : "Previous Member";
+            const toName = toId ? (tmMap.get(toId) || "Team Member") : "Team Member";
             return {
               ...r,
               isTransferred: true,

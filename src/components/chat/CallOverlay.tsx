@@ -59,6 +59,8 @@ export function CallOverlay({
   useEffect(() => {
     if (remoteVideoRef.current && session.remoteStream && session.callType !== "audio") {
       remoteVideoRef.current.srcObject = session.remoteStream;
+      remoteVideoRef.current.muted = false;
+      remoteVideoRef.current.volume = 1.0;
       remoteVideoRef.current.play().catch((err) => console.error("Video autoplay failed:", err));
     }
   }, [session.remoteStream, session.callType]);
@@ -134,7 +136,7 @@ export function CallOverlay({
           ? "bottom-4 right-4 w-72 h-44 rounded-2xl"
           : isMaximized
             ? "inset-0 w-full h-full rounded-none"
-            : "bottom-6 right-6 w-96 h-[520px] rounded-3xl",
+            : "bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 w-auto sm:w-96 max-w-[calc(100vw-2rem)] h-[480px] sm:h-[520px] rounded-3xl",
       )}
     >
       <audio
@@ -174,7 +176,6 @@ export function CallOverlay({
               ref={remoteVideoRef}
               autoPlay
               playsInline
-              muted
               className="w-full h-full object-cover"
             />
           )

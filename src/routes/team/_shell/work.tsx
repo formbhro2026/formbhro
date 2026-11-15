@@ -34,6 +34,8 @@ import {
   Download,
   Trash2,
   Share2,
+  Copy,
+  User,
 } from "lucide-react";
 import { toast } from "sonner";
 import { downloadCsv } from "@/lib/csv-export";
@@ -1359,6 +1361,10 @@ function Conversation({
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (r.status === "completed") {
+      toast.error("This request has been completed and the chat is closed for new messages.");
+      return;
+    }
     const value = text.trim();
     if (!value) return;
     onSend(value);
@@ -1369,9 +1375,9 @@ function Conversation({
   return (
     <>
       {/* ===== RESPONSIVE HEADER ===== */}
-      <header className="relative z-40 border-b border-border-subtle bg-surface-1 pt-[env(safe-area-inset-top)] lg:pt-0">
+      <header className="relative z-40 border-b border-border-subtle bg-surface-1 pt-[env(safe-area-inset-top)] lg:pt-0 max-w-full overflow-hidden">
         {/* Row 1: Back + User info + critical icon actions */}
-        <div className="flex items-center gap-2 px-3 py-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 max-w-full overflow-hidden">
           <button
             type="button"
             onClick={() => {
@@ -1387,14 +1393,14 @@ function Conversation({
               });
             }}
             aria-label="Back to assigned chats"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 transition-colors lg:hidden"
+            className="inline-flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 transition-colors lg:hidden"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           </button>
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-border-subtle bg-surface-2 text-[11px] font-bold text-brand">
+          <span className="grid h-8 w-8 sm:h-9 sm:w-9 shrink-0 place-items-center rounded-full border border-border-subtle bg-surface-2 text-[11px] font-bold text-brand">
             {r.userInitials}
           </span>
-          <div className="min-w-0 flex-1 overflow-hidden pr-1">
+          <div className="min-w-0 flex-1 overflow-hidden pr-0.5 sm:pr-1">
             <div className="flex items-center gap-1.5 min-w-0">
               <p className="truncate text-xs font-semibold text-text">{r.userName}</p>
               {r.tags && r.tags.length > 0 && (
@@ -1403,10 +1409,25 @@ function Conversation({
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-1.5 min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
               <p className="truncate text-[10px] text-text-muted">
                 {r.id} • {r.category}
               </p>
+              {r.userId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(r.userId || "");
+                    toast.success("User ID copied to clipboard: " + r.userId);
+                  }}
+                  title={`Click to copy full User ID: ${r.userId}`}
+                  className="inline-flex items-center gap-1 rounded bg-surface-3 px-1.5 py-0.5 text-[9px] font-mono text-text hover:text-brand hover:border-brand/40 border border-border-subtle transition-colors shrink-0"
+                >
+                  <User className="h-2.5 w-2.5 text-brand" />
+                  <span>UID: {r.userId.slice(0, 8)}...</span>
+                  <Copy className="h-2 w-2 opacity-60" />
+                </button>
+              )}
               {r.tags && r.tags.length > 0 && (
                 <span className="sm:hidden text-[9px] font-semibold text-brand truncate max-w-[100px]">
                   • {r.tags.join(", ")}
@@ -1415,7 +1436,7 @@ function Conversation({
             </div>
           </div>
 
-          {/* Action buttons group with shrink-0 protection — Info (i) is always anchored */}
+          {/* Action buttons group with shrink-0 protection — Info (i) is always anchored inside bounds */}
           <div className="flex shrink-0 items-center gap-1 sm:gap-1.5 ml-auto z-10">
             {/* In-chat Document Access — xl only */}
             <div className="hidden items-center gap-1 rounded-xl bg-surface-2 p-1 xl:flex shrink-0">
@@ -1441,31 +1462,31 @@ function Conversation({
               )}
             </div>
 
-            {/* Call button — always visible */}
+            {/* Call button — always visible and compact */}
             <button
               type="button"
               onClick={() => startCall("audio", r.requestUuid || r.id)}
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 hover:text-brand transition-colors"
+              className="inline-flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 hover:text-brand transition-colors"
               title="Start Audio Call"
             >
-              <Phone className="h-4 w-4" />
+              <Phone className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </button>
             <button
               type="button"
               onClick={() => startCall("video", r.requestUuid || r.id)}
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 hover:text-brand transition-colors"
+              className="inline-flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 hover:text-brand transition-colors"
               title="Start Video Call"
             >
-              <Video className="h-4 w-4" />
+              <Video className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </button>
             {canShareScreen() && (
               <button
                 type="button"
                 onClick={() => startCall("screen", r.requestUuid || r.id)}
-                className="hidden sm:inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 hover:text-brand transition-colors"
+                className="hidden md:inline-flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 hover:text-brand transition-colors"
                 title="Share Screen"
               >
-                <Monitor className="h-4 w-4" />
+                <Monitor className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </button>
             )}
 
@@ -1488,24 +1509,24 @@ function Conversation({
               aria-expanded={searchOpen}
               aria-label="Search in this conversation"
               className={cn(
-                "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-colors",
+                "inline-flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl border transition-colors",
                 searchOpen
                   ? "border-brand/40 bg-brand/10 text-brand"
                   : "border-border-subtle bg-surface-2 text-text hover:bg-surface-3",
               )}
             >
-              <Search className="h-4 w-4" aria-hidden="true" />
+              <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true" />
             </button>
 
-            {/* Info / sheet — always visible on all screen sizes */}
+            {/* Info / sheet — always anchored right and guaranteed visible */}
             <button
               type="button"
               onClick={onOpenSheet}
               aria-haspopup="dialog"
               aria-label={`Request details, ${docCount} documents`}
-              className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 transition-colors"
+              className="relative inline-flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3 transition-colors"
             >
-              <Info className="h-4 w-4" aria-hidden="true" />
+              <Info className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true" />
               {docCount > 0 && (
                 <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[9px] font-bold text-white">
                   {docCount}
@@ -2165,10 +2186,18 @@ function Conversation({
         )}
       </div>
 
-      <form
-        onSubmit={submit}
-        className="sticky bottom-0 border-t border-white/10 bg-bg/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl"
-      >
+      {r.status === "completed" ? (
+        <div className="sticky bottom-0 border-t border-emerald-500/20 bg-emerald-950/40 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-xl">
+          <div className="mx-auto flex max-w-2xl items-center justify-center gap-2.5 rounded-2xl border border-emerald-500/30 bg-emerald-900/30 px-4 py-3 text-center text-xs font-semibold text-emerald-300 shadow-sm">
+            <CheckCircle className="h-5 w-5 shrink-0 text-emerald-400" />
+            <span>This request has been marked as Completed. The chat is closed for new messages.</span>
+          </div>
+        </div>
+      ) : (
+        <form
+          onSubmit={submit}
+          className="sticky bottom-0 border-t border-white/10 bg-bg/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl"
+        >
         <div className="mx-auto flex max-w-2xl items-end gap-2">
           <input
             ref={fileRef}
@@ -2375,6 +2404,7 @@ function Conversation({
           </button>
         </div>
       </form>
+      )}
     </>
   );
 }
@@ -2420,6 +2450,7 @@ function RequestPanel({
 
   const rows = [
     { label: "User Name", value: r.userName },
+    { label: "User ID", value: r.userId || (r as any).user_id || "—" },
     { label: "Request ID", value: r.id },
     { label: "Created On", value: r.createdOn },
     { label: "Current Status", value: null as string | null },
@@ -2443,6 +2474,23 @@ function RequestPanel({
             <dd className="min-w-0 text-right text-[11px] font-semibold text-text flex justify-end">
               {row.label === "Current Status" ? (
                 <TeamStatusBadge status={r.status} />
+              ) : row.label === "User ID" ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const uid = r.userId || (r as any).user_id || "";
+                    if (uid && uid !== "—") {
+                      void navigator.clipboard.writeText(uid);
+                      toast.success("User ID copied: " + uid);
+                    }
+                  }}
+                  title="Click to copy full User ID"
+                  className="inline-flex items-center gap-1 rounded-md bg-surface-2 px-1.5 py-0.5 text-[10px] font-mono text-brand hover:bg-surface-3 transition-colors cursor-pointer"
+                >
+                  <User className="h-3 w-3" />
+                  <span className="truncate max-w-[140px]">{row.value}</span>
+                  <Copy className="h-2.5 w-2.5 opacity-60" />
+                </button>
               ) : row.label === "Payment Status" ? (
                 <PaymentStatusSelect
                   requestId={r.id}

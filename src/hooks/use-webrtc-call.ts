@@ -34,19 +34,12 @@ interface ActiveCallDetails {
 const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
   // Fast Google & Cloudflare STUN servers for direct P2P NAT resolution
   { urls: "stun:stun.l.google.com:19302" },
-  { urls: "stun:stun1.l.google.com:19302" },
-  { urls: "stun:stun2.l.google.com:19302" },
-  { urls: "stun:stun3.l.google.com:19302" },
-  { urls: "stun:stun4.l.google.com:19302" },
   { urls: "stun:stun.cloudflare.com:3478" },
-  { urls: "stun:global.stun.twilio.com:3478" },
-  // High-availability TURN relay servers (vital for mobile 4G/5G CGNAT / Symmetric NAT networks)
+  // High-availability TURN relay servers (for mobile CGNAT / Symmetric NAT)
   {
     urls: [
       "turn:openrelay.metered.ca:80",
       "turn:openrelay.metered.ca:443",
-      "turn:openrelay.metered.ca:443?transport=tcp",
-      "turns:openrelay.metered.ca:443?transport=tcp",
     ],
     username: "openrelayproject",
     credential: "openrelayproject",
@@ -70,7 +63,7 @@ function getRtcConfiguration(): RTCConfiguration {
 
   return {
     iceServers,
-    iceCandidatePoolSize: 10,
+    iceCandidatePoolSize: 2,
     bundlePolicy: "max-bundle",
     rtcpMuxPolicy: "require",
   };
@@ -727,12 +720,31 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         `[CALL FORENSIC] role=USER event=START_CALL_ENTER invocation=${invocationId} timestamp=${Date.now()} requestId=${rawId} chatRoomId=${chatRoomId || "none"}`,
       );
 
+      // Provide immediate visual feedback to user & prevent duplicate clicks
+      setSession((prev) => ({
+        ...prev,
+        isActive: true,
+        isOutgoing: true,
+        callType: type,
+        error: null,
+      }));
+
       try {
         cleanup();
+        setSession((prev) => ({
+          ...prev,
+          isActive: true,
+          isOutgoing: true,
+          callType: type,
+          error: null,
+        }));
         const {
           data: { user },
         } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!user) {
+          cleanup();
+          return;
+        }
         myIdRef.current = user.id;
 
         // 1. Resolve canonical signaling room ID BEFORE creating offer or subscribing
@@ -933,7 +945,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         cleanup("Could not start call: " + (err as Error).message);
       }
     },
-    [chatRoomId, cleanup, createPeerConnection, session.isAccepted],
+    [chatRoomId, cleanup, createPeerConnection, session.isActive, session.isAccepted],
   );
 
   const acceptCall = useCallback(
