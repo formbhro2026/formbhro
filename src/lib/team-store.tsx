@@ -1317,7 +1317,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           if (!currentTags.includes("transferred")) {
             await (supabase as any).from("requests").update({ tags: [...currentTags, "transferred"] }).eq("id", dbUuid);
           }
-        } catch (_) {}
+        } catch (_) { }
 
         // Mark as transferred in UI so it remains visible under Transferred section
         setRequests((prev) =>

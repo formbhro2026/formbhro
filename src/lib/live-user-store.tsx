@@ -179,19 +179,19 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       state: row.seen ? "read" : "delivered",
       file: row.attachment
         ? {
-            id: row.attachment.id,
-            name: row.attachment.file_name,
-            kind: fileKind(row.attachment.kind),
-            size: sizeLabel(row.attachment.size_bytes),
-            storagePath: row.attachment.storage_path ?? undefined,
-          }
+          id: row.attachment.id,
+          name: row.attachment.file_name,
+          kind: fileKind(row.attachment.kind),
+          size: sizeLabel(row.attachment.size_bytes),
+          storagePath: row.attachment.storage_path ?? undefined,
+        }
         : row.attachment_id
           ? {
-              id: row.attachment_id,
-              name: "Document",
-              kind: "doc",
-              size: "",
-            }
+            id: row.attachment_id,
+            name: "Document",
+            kind: "doc",
+            size: "",
+          }
           : undefined,
     }),
     [],
@@ -285,7 +285,7 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
         if (cacheKey) {
           try {
             sessionStorage.setItem(cacheKey, JSON.stringify(mappedRequests));
-          } catch {}
+          } catch { }
         }
 
         const requestMap = Object.fromEntries(rows.map((r) => [r.id, r]));
@@ -354,10 +354,10 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
         const curActiveChat = getActiveChat();
         const focusedRow = curActiveChat.requestId
           ? rows.find(
-              (r) =>
-                r.id.toLowerCase() === curActiveChat.requestId ||
-                (r.reference && r.reference.toLowerCase() === curActiveChat.requestId),
-            )
+            (r) =>
+              r.id.toLowerCase() === curActiveChat.requestId ||
+              (r.reference && r.reference.toLowerCase() === curActiveChat.requestId),
+          )
           : null;
         const activeRow = focusedRow ?? rows.find((r) => r.status !== "completed") ?? rows[0];
         if (activeRow) {
@@ -450,7 +450,7 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
             matchedRef = mapped.reference || mapped.id;
             referenceById.current[reqRow.id] = matchedRef;
           }
-        } catch (_) {}
+        } catch (_) { }
       }
 
       let room = rooms.current[matchedRef] || rooms.current[clean];
@@ -605,10 +605,10 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
           prev.map((r) =>
             r.id === reference || (row.request_id && r.id === row.request_id)
               ? {
-                  ...r,
-                  lastMessage: row.body || "Attachment",
-                  lastUpdate: time(row.created_at),
-                }
+                ...r,
+                lastMessage: row.body || "Attachment",
+                lastUpdate: time(row.created_at),
+              }
               : r,
           ),
         );
@@ -662,10 +662,10 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
         const exists = prev.some((r) => r.id === mapped.id || (row.id && r.id === row.id));
         return exists
           ? prev.map((r) =>
-              r.id === mapped.id || (row.id && r.id === row.id)
-                ? { ...mapped, notes: r.notes, unread: r.unread }
-                : r,
-            )
+            r.id === mapped.id || (row.id && r.id === row.id)
+              ? { ...mapped, notes: r.notes, unread: r.unread }
+              : r,
+          )
           : [mapped, ...prev];
       });
     });
@@ -1083,11 +1083,11 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
             duration: 6000,
             action: row.request_id
               ? {
-                  label: "Open chat",
-                  onClick: () => {
-                    window.location.href = `/app/chats/${row.request_id}`;
-                  },
-                }
+                label: "Open chat",
+                onClick: () => {
+                  window.location.href = `/app/chats/${row.request_id}`;
+                },
+              }
               : undefined,
           });
         }
