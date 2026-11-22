@@ -507,9 +507,17 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void hydrate(true);
+    let lastBlur = 0;
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        void hydrate(false);
+      if (document.visibilityState === "hidden") {
+        lastBlur = Date.now();
+      } else if (document.visibilityState === "visible") {
+        // Prevent aggressive re-fetching/re-rendering on brief app switch or keyboard toggle.
+        // Realtime channels already handle live updates; only re-hydrate if backgrounded for > 45 seconds.
+        const elapsed = Date.now() - lastBlur;
+        if (lastBlur > 0 && elapsed > 45000) {
+          void hydrate(false);
+        }
       }
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);

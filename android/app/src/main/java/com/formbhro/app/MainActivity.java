@@ -88,6 +88,19 @@ public class MainActivity extends BridgeActivity {
         }
 
         @android.webkit.JavascriptInterface
+        public void clearAppCache() {
+            try {
+                if (MainActivity.this.bridge != null && MainActivity.this.bridge.getWebView() != null) {
+                    MainActivity.this.runOnUiThread(() -> {
+                        MainActivity.this.bridge.getWebView().clearCache(true);
+                        android.util.Log.i("MainActivity", "[CACHE] Native bridge clearAppCache executed");
+                    });
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+
+        @android.webkit.JavascriptInterface
         public void openExternalUrl(String url) {
             try {
                 if (url == null || url.trim().isEmpty())
@@ -872,6 +885,19 @@ public class MainActivity extends BridgeActivity {
                 webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
                 webView.getSettings().setJavaScriptCanOpenWindowsAutomatically(true);
                 webView.addJavascriptInterface(new FormbharoNativeBridge(), "FormbharoNativeBridge");
+
+                try {
+                    int currentVersion = 10420;
+                    android.content.SharedPreferences prefs = getSharedPreferences("formbhro_prefs", android.content.Context.MODE_PRIVATE);
+                    int lastVersion = prefs.getInt("last_cache_version_code", 0);
+                    if (lastVersion < currentVersion) {
+                        webView.clearCache(true);
+                        prefs.edit().putInt("last_cache_version_code", currentVersion).apply();
+                        android.util.Log.i("MainActivity", "[CACHE] Wiped WebView cache for new version: " + currentVersion);
+                    }
+                } catch (Throwable t) {
+                    android.util.Log.w("MainActivity", "Error checking version cache: " + t.getMessage());
+                }
 
                 webView.setDownloadListener(new DownloadListener() {
                     @Override

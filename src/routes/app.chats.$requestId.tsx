@@ -405,6 +405,7 @@ function ChatScreen() {
             onScroll={handleScroll}
             className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-chat-bg px-3 py-4 pb-4 sm:px-4 relative"
             style={{
+              overflowAnchor: "auto",
               backgroundImage:
                 'url("https://w0.peakpx.com/wallpaper/580/650/HD-wallpaper-whatsapp-background-cool-dark-grey-google-material-minimal-white.jpg")',
               backgroundBlendMode: "soft-light",

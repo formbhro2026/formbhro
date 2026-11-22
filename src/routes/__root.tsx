@@ -93,11 +93,13 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
       url: typeof window !== "undefined" ? window.location.href : undefined,
     });
 
-    // Auto-recover chunk load failure / dynamic import failures caused by new deployment
+    // Auto-recover chunk load failure / dynamic import failures / React minified errors caused by stale WebView cache
     const isChunkOrNetworkError =
       error?.message?.includes("Failed to fetch dynamically imported module") ||
       error?.message?.includes("Importing a module script failed") ||
       error?.message?.includes("Failed to load") ||
+      error?.message?.includes("Minified React error #130") ||
+      error?.message?.includes("Minified React error") ||
       error?.name === "ChunkLoadError";
 
     if (isChunkOrNetworkError && typeof window !== "undefined") {
@@ -113,6 +115,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
               .getRegistrations()
               .then((regs) => Promise.all(regs.map((r) => r.unregister())));
           }
+          (window as any).FormbharoNativeBridge?.clearAppCache?.();
         } catch (_) { }
         const url = new URL(window.location.href);
         url.searchParams.set("_reload", Date.now().toString());
@@ -157,6 +160,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
                       const regs = await navigator.serviceWorker.getRegistrations();
                       await Promise.all(regs.map((r) => r.unregister()));
                     }
+                    (window as any).FormbharoNativeBridge?.clearAppCache?.();
                   } catch (_) { }
                   const url = new URL(window.location.href);
                   url.searchParams.set("_b", Date.now().toString());

@@ -649,10 +649,14 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         void Notification.requestPermission();
       }
 
+      let lastBlur = 0;
       const handleVisibilityChange = () => {
-        if (document.visibilityState === "visible") {
-          // Silent refresh on app resume to keep existing UI displayed without full-screen loading flash
-          if (memberRef.current) {
+        if (document.visibilityState === "hidden") {
+          lastBlur = Date.now();
+        } else if (document.visibilityState === "visible") {
+          // Avoid aggressive re-hydration on brief app switch. Only sync if backgrounded for > 45 seconds.
+          const elapsed = Date.now() - lastBlur;
+          if (memberRef.current && lastBlur > 0 && elapsed > 45000) {
             void hydrateLive(memberRef.current, true);
             fetchAnalytics();
           }

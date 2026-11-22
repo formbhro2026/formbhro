@@ -429,11 +429,11 @@ function TeamHome() {
 
 function ActivityColumn({
   title,
-  icon: Icon,
+  icon: Icon = MessageSquareText,
   items,
 }: {
   title: string;
-  icon: typeof MessageSquareText;
+  icon?: typeof MessageSquareText;
   items: ReturnType<typeof useTeamStore>["requests"];
 }) {
   return (
