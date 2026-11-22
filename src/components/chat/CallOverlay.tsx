@@ -125,6 +125,21 @@ export function CallOverlay({
     typeof window !== "undefined" &&
     (window.location.pathname.startsWith("/team") || window.location.pathname.startsWith("/admin"));
 
+  const callerDisplayName =
+    session.callerName ||
+    (session.isIncoming
+      ? (isStaff ? "Client" : "Formbhro Support")
+      : (isStaff ? "Calling Client..." : "Calling Support..."));
+
+  const callerInitials =
+    callerDisplayName
+      .split(" ")
+      .map((n) => n[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join("")
+      .toUpperCase() || "FB";
+
   if (!session.isActive && !session.error) return null;
 
   return (
@@ -162,45 +177,62 @@ export function CallOverlay({
           </div>
         ) : session.remoteStream ? (
           session.callType === "audio" ? (
-            <div className="flex flex-col w-full h-full items-center justify-center gap-4 text-center p-6 bg-surface-3">
-              <div className="h-24 w-24 rounded-full bg-brand/20 flex items-center justify-center animate-pulse">
-                <Phone className="h-10 w-10 text-brand" />
+            <div className="flex flex-col w-full h-full items-center justify-center gap-3 text-center p-6 bg-surface-3">
+              <div className="h-24 w-24 rounded-full bg-emerald-500/20 flex items-center justify-center animate-pulse ring-8 ring-emerald-500/10 text-emerald-400 font-bold text-2xl shadow-lg border border-emerald-500/40">
+                {callerInitials}
               </div>
               <div>
-                <p className="text-white font-bold text-lg">In Call</p>
-                <p className="text-sm text-text-muted mt-1">Audio Connected</p>
+                <p className="text-white font-bold text-xl sm:text-2xl tracking-tight">{callerDisplayName}</p>
+                <p className="text-xs text-emerald-400 font-semibold mt-1 uppercase tracking-wider">Voice Call Connected</p>
+                {(session.requestTitle || session.requestId) && (
+                  <p className="text-[11px] text-text-muted mt-1 max-w-xs truncate font-medium">
+                    {session.requestTitle || `Request ${session.requestId}`}
+                  </p>
+                )}
               </div>
             </div>
           ) : (
-            <video
-              ref={remoteVideoRef}
-              autoPlay
-              playsInline
-              className="w-full h-full object-cover"
-            />
+            <div className="relative w-full h-full">
+              <div className="absolute top-4 left-4 z-20 flex items-center gap-2 rounded-xl bg-black/60 px-3 py-1.5 backdrop-blur-md border border-white/10">
+                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-xs font-semibold text-white truncate max-w-[180px]">{callerDisplayName}</span>
+              </div>
+              <video
+                ref={remoteVideoRef}
+                autoPlay
+                playsInline
+                className="w-full h-full object-cover"
+              />
+            </div>
           )
         ) : (
-          <div className="flex flex-col items-center gap-4 text-center p-6">
-            <div className="h-24 w-24 rounded-full bg-brand/20 flex items-center justify-center animate-pulse ring-8 ring-brand/10">
-              <Phone className="h-10 w-10 text-brand" />
+          <div className="flex flex-col items-center gap-3 text-center p-6">
+            <div className="relative">
+              <div className="h-24 w-24 rounded-full bg-brand/20 flex items-center justify-center animate-pulse ring-8 ring-brand/10 text-white font-bold text-2xl shadow-lg border border-brand/40">
+                {callerInitials}
+              </div>
+              <span className="absolute bottom-0 right-0 grid h-7 w-7 place-items-center rounded-full bg-brand text-white shadow-md">
+                <Phone className="h-4 w-4" />
+              </span>
             </div>
             <div>
-              <p className="text-white font-bold text-xl">
+              <p className="text-white font-bold text-xl sm:text-2xl tracking-tight">
+                {callerDisplayName}
+              </p>
+              <p className="text-xs text-brand font-semibold mt-1 uppercase tracking-wider">
                 {session.isAccepted
                   ? "Connecting Call..."
                   : session.isIncoming
-                    ? "Incoming Call..."
+                    ? (session.callType === "video" ? "Incoming Video Call" : "Incoming Voice Call")
                     : isStaff
                       ? "Calling Client..."
                       : "Calling Support..."}
               </p>
-              <p className="text-xs text-brand font-semibold mt-1.5 uppercase tracking-widest">
-                {session.isScreenSharing
-                  ? "Screen Sharing Session"
-                  : session.callType === "audio"
-                    ? "Voice Call"
-                    : "Voice & Video Call"}
-              </p>
+              {(session.requestTitle || session.requestId) && (
+                <p className="text-[11px] text-text-muted mt-1.5 max-w-xs truncate font-medium">
+                  {session.requestTitle || `Request ${session.requestId}`}
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -247,7 +279,7 @@ export function CallOverlay({
                     <span>Accept Call</span>
                   </button>
                   <button
-                    onClick={onHangup}
+                    onClick={() => onHangup()}
                     className="flex items-center gap-2.5 px-6 py-3.5 rounded-full bg-red-500 text-white font-bold hover:bg-red-600 active:scale-95 transition-all shadow-xl shadow-red-500/30 cursor-pointer text-sm"
                     title="Decline Call"
                   >
@@ -258,7 +290,7 @@ export function CallOverlay({
               ) : (
                 <>
                   <button
-                    onClick={onHangup}
+                    onClick={() => onHangup()}
                     className="h-14 w-14 rounded-full bg-red-500 flex items-center justify-center text-white hover:bg-red-600 active:scale-95 transition-all shadow-xl shadow-red-500/30 cursor-pointer"
                     title="End Call"
                   >

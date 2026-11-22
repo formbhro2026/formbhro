@@ -608,18 +608,20 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
 
           return [...prev, mapped];
         });
-        // Synchronize request state immediately
-        setRequests((prev) =>
-          prev.map((r) =>
-            r.id === reference || (row.request_id && r.id === row.request_id)
-              ? {
-                ...r,
-                lastMessage: row.body || "Attachment",
-                lastUpdate: time(row.created_at),
-              }
-              : r,
-          ),
-        );
+        // Synchronize request state immediately and bump to top
+        setRequests((prev) => {
+          const idx = prev.findIndex(
+            (r) => r.id === reference || (row.request_id && r.id === row.request_id),
+          );
+          if (idx === -1) return prev;
+          const target = {
+            ...prev[idx],
+            lastMessage: row.body || "Attachment",
+            lastUpdate: time(row.created_at),
+            lastActivityAt: row.created_at || new Date().toISOString(),
+          };
+          return [target, ...prev.filter((_, i) => i !== idx)];
+        });
       },
       onMessageUpdate: (row) => {
         setMessages((prev) => prev.map((m) => (m.id === row.id ? mapMessage(row, reference) : m)));
@@ -827,9 +829,17 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
         state: "sending",
       },
     ]);
-    setRequests((prev) =>
-      prev.map((r) => (r.id === reference ? { ...r, lastMessage: text, lastUpdate: time() } : r)),
-    );
+    setRequests((prev) => {
+      const idx = prev.findIndex((r) => r.id === reference);
+      if (idx === -1) return prev;
+      const target = {
+        ...prev[idx],
+        lastMessage: text,
+        lastUpdate: time(),
+        lastActivityAt: new Date().toISOString(),
+      };
+      return [target, ...prev.filter((_, i) => i !== idx)];
+    });
     void messagesApi
       .sendMessageWithRetry(
         {

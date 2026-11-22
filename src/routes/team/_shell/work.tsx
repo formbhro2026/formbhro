@@ -1378,7 +1378,7 @@ function Conversation({
   return (
     <>
       {/* ===== RESPONSIVE HEADER ===== */}
-      <header className="relative z-40 border-b border-border-subtle bg-surface-1 pt-[env(safe-area-inset-top)] lg:pt-0 max-w-full overflow-hidden">
+      <header className="relative z-40 border-b border-border-subtle bg-surface-1 pt-[env(safe-area-inset-top)] lg:pt-0 max-w-full overflow-visible">
         {/* Row 1: Back + User info + critical icon actions */}
         <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 max-w-full overflow-hidden">
           <button
@@ -1412,8 +1412,8 @@ function Conversation({
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
-              <p className="truncate text-[10px] text-text-muted">
+            <div className="flex items-center gap-1.5 min-w-0 flex-nowrap overflow-hidden">
+              <p className="truncate text-[10px] text-text-muted shrink-0">
                 {r.id} • {r.category}
               </p>
               {r.userId && (
@@ -1432,7 +1432,7 @@ function Conversation({
                 </button>
               )}
               {r.tags && r.tags.length > 0 && (
-                <span className="sm:hidden text-[9px] font-semibold text-brand truncate max-w-[100px]">
+                <span className="sm:hidden text-[9px] font-semibold text-brand truncate max-w-[80px]">
                   • {r.tags.join(", ")}
                 </span>
               )}
@@ -1540,7 +1540,7 @@ function Conversation({
         </div>
 
         {/* Row 2: Secondary actions — wrap instead of overflow to allow dropdowns */}
-        <div className="flex flex-wrap items-center gap-2 border-t border-border-subtle px-3 py-1.5 xl:hidden">
+        <div className="flex flex-wrap items-center gap-2 border-t border-border-subtle px-3 py-1.5 xl:hidden overflow-visible relative z-30">
           <TransferButton request={r} />
           <EscalateButton request={r} />
           <ChatTagButton

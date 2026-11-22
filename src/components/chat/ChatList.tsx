@@ -41,20 +41,27 @@ export function ChatList({
   }, [isQuickMode, quickFilter, quickReplies]);
 
   const filtered = useMemo(() => {
-    if (isQuickMode) return requests;
-    return requests.filter((r) => {
-      const matchesQuery =
-        !query ||
-        r.title.toLowerCase().includes(query.toLowerCase()) ||
-        r.id.toLowerCase().includes(query.toLowerCase()) ||
-        r.lastMessage.toLowerCase().includes(query.toLowerCase());
-      const matchesFilter =
-        filter === "All" ||
-        (filter === "Active" && ACTIVE_STATUSES.includes(r.status) && r.status !== "pending") ||
-        (filter === "Waiting for Docs" && r.status === "waiting-documents") ||
-        (filter === "Pending" && (r.status === "pending" || r.status === "new")) ||
-        (filter === "Completed" && r.status === "completed");
-      return matchesQuery && matchesFilter;
+    let list = requests;
+    if (!isQuickMode) {
+      list = requests.filter((r) => {
+        const matchesQuery =
+          !query ||
+          r.title.toLowerCase().includes(query.toLowerCase()) ||
+          r.id.toLowerCase().includes(query.toLowerCase()) ||
+          r.lastMessage.toLowerCase().includes(query.toLowerCase());
+        const matchesFilter =
+          filter === "All" ||
+          (filter === "Active" && ACTIVE_STATUSES.includes(r.status) && r.status !== "pending") ||
+          (filter === "Waiting for Docs" && r.status === "waiting-documents") ||
+          (filter === "Pending" && (r.status === "pending" || r.status === "new")) ||
+          (filter === "Completed" && r.status === "completed");
+        return matchesQuery && matchesFilter;
+      });
+    }
+    return list.slice().sort((a, b) => {
+      const timeA = new Date((a as any).lastActivityAt || (a as any).created_at || a.createdAt || (a as any).lastUpdate || 0).getTime();
+      const timeB = new Date((b as any).lastActivityAt || (b as any).created_at || b.createdAt || (b as any).lastUpdate || 0).getTime();
+      return timeB - timeA;
     });
   }, [requests, query, filter, isQuickMode]);
 

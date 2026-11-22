@@ -16,6 +16,10 @@ export type CallSession = {
   localStream: MediaStream | null;
   error: string | null;
   facingMode: "user" | "environment";
+  callerName?: string;
+  callerId?: string;
+  requestId?: string;
+  requestTitle?: string;
 };
 
 interface ActiveCallDetails {
@@ -24,6 +28,7 @@ interface ActiveCallDetails {
   requestId: string;
   callType: "audio" | "video";
   callerId: string;
+  callerName?: string;
   receiverId?: string;
   connectedAt?: number;
   status: "completed" | "missed" | "declined" | "cancelled" | "connecting";
@@ -842,6 +847,26 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
           return;
         }
 
+        // Resolve caller display name for remote peer
+        let callerName =
+          (user as any).user_metadata?.full_name ||
+          (user as any).user_metadata?.name ||
+          (user as any).profile?.full_name;
+        if (!callerName) {
+          try {
+            const { data: prof } = await supabase
+              .from("profiles")
+              .select("full_name, email")
+              .eq("id", user.id)
+              .maybeSingle();
+            if (prof?.full_name) callerName = prof.full_name;
+            else if (prof?.email) callerName = prof.email.split("@")[0];
+          } catch (_) { }
+        }
+        if (!callerName) {
+          callerName = user.email?.split("@")[0] || "User";
+        }
+
         console.log(
           `[CALL][TRACE][OFFER] Sending offer: callSessionId=${callSessionId} requestId=${resolved.requestUuid} canonicalRoomId=${canonicalRoom} userId=${user.id} target=${targetUserId} timestamp=${Date.now()} source=startCall`,
         );
@@ -855,6 +880,8 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
             sessionId: callSessionId,
             requestId: resolved.requestUuid,
             targetUserId,
+            callerName,
+            requestTitle: resolved.requestReference || resolved.requestUuid,
           },
         });
         logWebRTC("USER", "OFFER_SENT", callSessionId, canonicalRoom, pc, `target=${targetUserId}`);
@@ -887,14 +914,14 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
               data: {
                 ...lastOfferRef.current,
                 targetUserId: retryTarget,
+                callerName,
+                requestTitle: resolved.requestReference || resolved.requestUuid,
               },
             });
           }
         }, 2500);
 
         // Dispatches single authoritative FCM notification + database notification
-        const callerName =
-          (user as any).user_metadata?.full_name || user.email?.split("@")[0] || "Formbhro Support";
         console.log(
           `[CALL FORENSIC] role=USER event=FCM_DISPATCH_REQUESTED invocation=${invocationId} timestamp=${Date.now()} callSessionId=${callSessionId}`,
         );
@@ -1159,24 +1186,35 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         clearTimeout(noAnswerTimeoutRef.current);
         noAnswerTimeoutRef.current = null;
       }
-      const activeRoom = canonicalRoomIdRef.current || chatRoomId;
-      if (activeRoom && myIdRef.current) {
-        const targetUserId = callDetailsRef.current?.isCaller
-          ? callDetailsRef.current?.receiverId
-          : callDetailsRef.current?.callerId;
-        if (targetUserId) {
-          console.log(
-            `[CALL][TRACE][HANGUP] Sending hangup signal: callSessionId=${currentSid} canonicalRoomId=${activeRoom} target=${targetUserId} timestamp=${Date.now()}`,
-          );
-          await sendSignal(activeRoom, {
-            type: "hangup",
-            from: myIdRef.current,
-            target: targetUserId,
-            data: { sessionId: currentSid, targetUserId },
-          });
+
+      try {
+        const activeRoom = canonicalRoomIdRef.current || chatRoomId;
+        if (activeRoom && myIdRef.current) {
+          const targetUserId = callDetailsRef.current?.isCaller
+            ? callDetailsRef.current?.receiverId
+            : callDetailsRef.current?.callerId;
+          if (targetUserId) {
+            console.log(
+              `[CALL][TRACE][HANGUP] Sending hangup signal: callSessionId=${currentSid} canonicalRoomId=${activeRoom} target=${targetUserId} timestamp=${Date.now()}`,
+            );
+            await Promise.race([
+              sendSignal(activeRoom, {
+                type: "hangup",
+                from: myIdRef.current,
+                target: targetUserId,
+                data: { sessionId: currentSid, targetUserId },
+              }),
+              new Promise((resolve) => setTimeout(resolve, 800)),
+            ]).catch((err) => {
+              console.warn("[CALL][HANGUP] Signal send failed or timed out:", err);
+            });
+          }
         }
+      } catch (err) {
+        console.warn("[CALL][HANGUP] Signal error, continuing with cleanup:", err);
+      } finally {
+        cleanup(typeof errorMessage === "string" ? errorMessage : undefined);
       }
-      cleanup(typeof errorMessage === "string" ? errorMessage : undefined);
     },
     [chatRoomId, cleanup],
   );
@@ -1277,6 +1315,9 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
 
             logWebRTC("TEAM", "OFFER_RECEIVED", sid, activeSignalingRoom, pcRef.current);
 
+            const incomingCallerName = signal.data?.callerName || signal.data?.title || undefined;
+            const incomingRequestTitle = signal.data?.requestTitle || undefined;
+
             if (!callDetailsRef.current || callDetailsRef.current.logged) {
               callDetailsRef.current = {
                 callSessionId: sid,
@@ -1284,11 +1325,14 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
                 requestId: signal.data.requestId || activeSignalingRoom,
                 callType: signal.data.type === "screen" ? "video" : signal.data.type || "video",
                 callerId: signal.from,
+                callerName: incomingCallerName,
                 receiverId: currentUserId,
                 status: "declined",
                 isCaller: false,
                 logged: false,
               };
+            } else {
+              callDetailsRef.current.callerName = incomingCallerName;
             }
 
             let pc = pcRef.current;
@@ -1352,6 +1396,10 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
                 ...prev,
                 isIncoming: true,
                 callType: signal.data.type || (signal.data.isScreenShare ? "screen" : "video"),
+                callerName: incomingCallerName,
+                callerId: signal.from,
+                requestId: activeSignalingRoom,
+                requestTitle: incomingRequestTitle,
               }));
               if (typeof window !== "undefined") {
                 window.dispatchEvent(
@@ -1362,6 +1410,8 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
                       requestId: activeSignalingRoom,
                       callType: signal.data.type || (signal.data.isScreenShare ? "screen" : "video") || "audio",
                       callerId: signal.from,
+                      callerName: incomingCallerName,
+                      requestTitle: incomingRequestTitle,
                     },
                   }),
                 );

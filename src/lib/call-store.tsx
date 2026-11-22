@@ -393,12 +393,16 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
   const handleHangup = useCallback(
     async (errorMessage?: string) => {
       stopIncomingCallRingtone();
-      const currentSid = incomingAlert?.callSessionId;
+      const currentSid = incomingAlert?.callSessionId || (call.session as any)?.callSessionId;
       setIncomingAlert(null);
       if (currentSid) {
-        lastHandledCallSessionIdRef.current.delete(currentSid);
+        lastHandledCallSessionIdRef.current.set(currentSid, Date.now());
       }
-      await call.hangup(errorMessage);
+      try {
+        await call.hangup(typeof errorMessage === "string" ? errorMessage : undefined);
+      } catch (err) {
+        console.warn("[GlobalCall] Error during call.hangup:", err);
+      }
     },
     [call, incomingAlert?.callSessionId],
   );
@@ -417,8 +421,14 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
           localStream: null,
           error: null,
           facingMode: "user",
+          callerName: incomingAlert.title,
+          requestId: incomingAlert.requestId,
         }
-      : call.session;
+      : {
+          ...call.session,
+          callerName: call.session.callerName || incomingAlert?.title,
+          requestId: call.session.requestId || incomingAlert?.requestId,
+        };
 
   const handleAcceptFromOverlay = useCallback(() => {
     const target = incomingAlert?.requestId || callRoomId;

@@ -887,7 +887,7 @@ public class MainActivity extends BridgeActivity {
                 webView.addJavascriptInterface(new FormbharoNativeBridge(), "FormbharoNativeBridge");
 
                 try {
-                    int currentVersion = 10420;
+                    int currentVersion = 10421;
                     android.content.SharedPreferences prefs = getSharedPreferences("formbhro_prefs", android.content.Context.MODE_PRIVATE);
                     int lastVersion = prefs.getInt("last_cache_version_code", 0);
                     if (lastVersion < currentVersion) {
