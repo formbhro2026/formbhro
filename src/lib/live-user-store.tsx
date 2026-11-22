@@ -583,7 +583,12 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
               m.state === "sending" &&
               m.author === (row.sender_role === "user" ? "user" : "support") &&
               (m.text || "").trim() === (row.body || "").trim() &&
-              (m.requestId === reference || m.requestId === row.request_id),
+              (
+                (m.chatRoomId && m.chatRoomId === row.chat_room_id) ||
+                (m.requestUuid && m.requestUuid === row.request_id) ||
+                m.requestId === reference ||
+                m.requestId === row.request_id
+              ),
           );
 
           const mapped = mapMessage(row, reference);
@@ -704,18 +709,24 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
         loadedRoomsRef.current.add(ref);
         void loadChat(ref || cleanId);
       }
+      const targetChatRoomId = roomId?.toLowerCase();
+      const targetReqUuid = (matchedUuid || roomReqId)?.toLowerCase();
+
       return messages
         .filter((m) => {
-          const req = m.requestId?.toLowerCase();
-          const reqUuid = m.requestUuid?.toLowerCase();
-          const msgRoomId = m.chatRoomId?.toLowerCase();
-          return (
-            req === cleanId ||
-            req === ref ||
-            (matchedUuid && req === matchedUuid) ||
-            (reqUuid && (reqUuid === cleanId || reqUuid === ref || reqUuid === roomReqId)) ||
-            (msgRoomId && (msgRoomId === cleanId || msgRoomId === roomId))
-          );
+          const mRoomId = m.chatRoomId?.toLowerCase();
+          const mReqUuid = m.requestUuid?.toLowerCase();
+          const mReqId = m.requestId?.toLowerCase();
+
+          // 1. Direct room ID match (highest precision)
+          if (targetChatRoomId && mRoomId && mRoomId === targetChatRoomId) return true;
+          // 2. Direct request UUID match
+          if (targetReqUuid && mReqUuid && mReqUuid === targetReqUuid) return true;
+          // 3. Human reference match
+          if (mReqId && (mReqId === cleanId || mReqId === ref)) return true;
+          if (mReqUuid && (mReqUuid === cleanId || mReqUuid === ref)) return true;
+
+          return false;
         })
         .sort((a, b) => {
           const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -798,6 +809,8 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       {
         id: tempId,
         requestId: reference,
+        requestUuid: targetReq?.id || room.requestId,
+        chatRoomId: room.chatRoomId ?? undefined,
         author: "user",
         authorName: "You",
         time: time(),

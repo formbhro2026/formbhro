@@ -116,7 +116,7 @@ export function TeamNotificationPanel({ onClose }: { onClose: () => void }) {
       ) : (
         <ul className="flex-1 overflow-y-auto overscroll-contain max-h-[calc(100dvh-13rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] sm:max-h-80">
           {list.map((n: TeamNotification) => {
-            const Icon = ICONS[n.type];
+            const Icon = (ICONS as Record<string, any>)[n.type] ?? MessageSquareText;
             const body = (
               <span className="flex items-start gap-3">
                 <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-border-subtle bg-surface-2">

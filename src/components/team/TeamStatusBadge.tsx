@@ -17,13 +17,17 @@ const TONES = {
 };
 
 export function TeamStatusBadge({ status, className }: { status: TeamStatus; className?: string }) {
-  const meta = TEAM_STATUS_META[status];
+  const meta = TEAM_STATUS_META[status] ?? {
+    label: (status as string) || "Pending",
+    tone: "neutral" as const,
+    icon: "Clock",
+  };
   const Icon = ICONS[meta.icon] ?? Clock;
   return (
     <span
       className={cn(
         "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium",
-        TONES[meta.tone],
+        TONES[meta.tone] ?? TONES.neutral,
         className,
       )}
     >
@@ -35,7 +39,10 @@ export function TeamStatusBadge({ status, className }: { status: TeamStatus; cla
 }
 
 export function PriorityBadge({ priority, className }: { priority: Priority; className?: string }) {
-  const meta = PRIORITY_META[priority];
+  const meta = PRIORITY_META[priority] ?? {
+    label: (priority as string) || "Medium",
+    className: "border-border-subtle bg-surface-1 text-text-secondary",
+  };
   return (
     <span
       className={cn(

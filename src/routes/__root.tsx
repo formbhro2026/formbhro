@@ -147,7 +147,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
             <button
               onClick={async () => {
                 if (typeof window !== "undefined") {
-                  sessionStorage.removeItem("chunk_reload_attempt");
+                  sessionStorage.clear();
                   try {
                     if ("caches" in window) {
                       const keys = await caches.keys();
@@ -166,7 +166,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
                   reset();
                 }
               }}
-              className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 cursor-pointer"
             >
               Try again
             </button>
@@ -174,10 +174,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
               href="/"
               onClick={() => {
                 if (typeof window !== "undefined") {
-                  sessionStorage.removeItem("chunk_reload_attempt");
+                  sessionStorage.clear();
                 }
               }}
-              className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+              className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent cursor-pointer"
             >
               Go home
             </a>

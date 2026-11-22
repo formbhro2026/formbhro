@@ -1,4 +1,4 @@
-import { Download, Eye, Trash2 } from "lucide-react";
+import { Download, Eye, Trash2, File } from "lucide-react";
 import type { TeamDocument } from "@/data/team-module";
 import { downloadDocument } from "@/lib/team-files";
 import { useTeamDocumentUrl } from "@/lib/use-team-document-url";
@@ -17,7 +17,7 @@ export function MessageAttachment({
   onPreview: (id: string) => void;
   onDelete?: (id: string, storagePath: string) => void;
 }) {
-  const Icon = DOC_ICONS[doc.kind];
+  const Icon = (DOC_ICONS as Record<string, any>)[doc.kind] ?? File;
   const imageUrl = useTeamDocumentUrl(doc.kind === "image" ? doc : null);
 
   const handleDelete = (e: React.MouseEvent) => {

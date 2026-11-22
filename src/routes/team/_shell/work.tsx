@@ -309,11 +309,14 @@ function WorkArea() {
     });
     out = out
       .slice()
-      .sort((a, b) =>
-        sort === "oldest"
-          ? a.createdOn.localeCompare(b.createdOn)
-          : b.createdOn.localeCompare(a.createdOn),
-      );
+      .sort((a, b) => {
+        const timeA = new Date(a.lastActivityAt || a.createdAt || a.assignedAtRaw || 0).getTime();
+        const timeB = new Date(b.lastActivityAt || b.createdAt || b.assignedAtRaw || 0).getTime();
+        if (sort === "oldest") {
+          return timeA - timeB;
+        }
+        return timeB - timeA;
+      });
     return out;
   }, [userRequests, query, state, priority, userFilter, typeFilter, tagFilter, ridFilter, sort, dateRange, customDate]);
 
@@ -2198,212 +2201,212 @@ function Conversation({
           onSubmit={submit}
           className="sticky bottom-0 border-t border-white/10 bg-bg/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl"
         >
-        <div className="mx-auto flex max-w-2xl items-end gap-2">
-          <input
-            ref={fileRef}
-            type="file"
-            multiple
-            className="sr-only"
-            onChange={(e) => {
-              const files = Array.from(e.target.files ?? []);
-              files.forEach((file) => {
-                const isImage = file.type.startsWith("image/");
-                let previewUrl: string | undefined;
-                if (isImage) {
-                  previewUrl = URL.createObjectURL(file);
-                  objectUrls.current.push(previewUrl);
-                }
-                onAttach({
-                  name: file.name,
-                  size: formatBytes(file.size),
-                  kind: kindFromFile(file),
-                  previewUrl,
-                  blob: file,
+          <div className="mx-auto flex max-w-2xl items-end gap-2">
+            <input
+              ref={fileRef}
+              type="file"
+              multiple
+              className="sr-only"
+              onChange={(e) => {
+                const files = Array.from(e.target.files ?? []);
+                files.forEach((file) => {
+                  const isImage = file.type.startsWith("image/");
+                  let previewUrl: string | undefined;
+                  if (isImage) {
+                    previewUrl = URL.createObjectURL(file);
+                    objectUrls.current.push(previewUrl);
+                  }
+                  onAttach({
+                    name: file.name,
+                    size: formatBytes(file.size),
+                    kind: kindFromFile(file),
+                    previewUrl,
+                    blob: file,
+                  });
                 });
-              });
-              e.target.value = "";
-            }}
-          />
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            aria-label="Attach files or documents"
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3"
-          >
-            <Paperclip className="h-4 w-4" aria-hidden="true" />
-          </button>
-          <div className="relative" ref={quickRepliesRef}>
+                e.target.value = "";
+              }}
+            />
             <button
               type="button"
-              onClick={() => setShowQuickReplies(!showQuickReplies)}
-              aria-label="Insert quick reply"
-              className={cn(
-                "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text transition-colors",
-                showQuickReplies || text.startsWith("/")
-                  ? "bg-surface-3 text-brand"
-                  : "hover:bg-surface-3",
-              )}
+              onClick={() => fileRef.current?.click()}
+              aria-label="Attach files or documents"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text hover:bg-surface-3"
             >
-              <Zap className="h-4 w-4" aria-hidden="true" />
+              <Paperclip className="h-4 w-4" aria-hidden="true" />
             </button>
-            {(showQuickReplies || text.startsWith("/")) && quickReplies.length > 0 && (
-              <div className="absolute bottom-full left-0 mb-2 w-[min(22rem,calc(100vw-3rem))] max-h-72 overflow-y-auto rounded-xl border border-border-subtle bg-surface-1 p-2 shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
-                <div className="mb-2 px-2 pb-2 pt-1 text-[11px] font-semibold text-text-muted border-b border-border-subtle flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-1.5 font-bold text-white shrink-0">
-                    <Zap className="h-3.5 w-3.5 text-brand" /> Quick Replies
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    {text.startsWith("/") && (
-                      <span className="text-[10px] text-brand-light font-mono hidden sm:inline">
-                        Type to filter
-                      </span>
-                    )}
-                    <label
-                      className={cn(
-                        "inline-flex items-center gap-1 rounded-lg bg-brand/15 hover:bg-brand text-brand hover:text-black border border-brand/30 text-[10px] px-2 py-0.5 font-bold transition-all cursor-pointer shadow-xs",
-                        uploadingQuickImage && "opacity-50 cursor-not-allowed",
+            <div className="relative" ref={quickRepliesRef}>
+              <button
+                type="button"
+                onClick={() => setShowQuickReplies(!showQuickReplies)}
+                aria-label="Insert quick reply"
+                className={cn(
+                  "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-text transition-colors",
+                  showQuickReplies || text.startsWith("/")
+                    ? "bg-surface-3 text-brand"
+                    : "hover:bg-surface-3",
+                )}
+              >
+                <Zap className="h-4 w-4" aria-hidden="true" />
+              </button>
+              {(showQuickReplies || text.startsWith("/")) && quickReplies.length > 0 && (
+                <div className="absolute bottom-full left-0 mb-2 w-[min(22rem,calc(100vw-3rem))] max-h-72 overflow-y-auto rounded-xl border border-border-subtle bg-surface-1 p-2 shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                  <div className="mb-2 px-2 pb-2 pt-1 text-[11px] font-semibold text-text-muted border-b border-border-subtle flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1.5 font-bold text-white shrink-0">
+                      <Zap className="h-3.5 w-3.5 text-brand" /> Quick Replies
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {text.startsWith("/") && (
+                        <span className="text-[10px] text-brand-light font-mono hidden sm:inline">
+                          Type to filter
+                        </span>
                       )}
-                      title="Upload and send image directly through Quick Replies"
-                    >
-                      {uploadingQuickImage ? (
-                        <Loader2 className="h-3 w-3 animate-spin text-brand" />
-                      ) : (
-                        <ImageIcon className="h-3 w-3" />
-                      )}
-                      <span>{uploadingQuickImage ? "Sending…" : "Send Image"}</span>
-                      <input
-                        ref={quickImageFileRef}
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        disabled={uploadingQuickImage}
-                        onChange={(e) => {
-                          const f = e.target.files?.[0];
-                          if (f) void handleSendQuickImage(f);
-                          e.target.value = "";
-                        }}
-                      />
-                    </label>
-                  </div>
-                </div>
-                {(() => {
-                  const query = text.startsWith("/") ? text.slice(1).trim().toLowerCase() : "";
-                  const filtered = query
-                    ? quickReplies.filter(
-                      (qr) =>
-                        qr.title.toLowerCase().includes(query) ||
-                        qr.body.toLowerCase().includes(query),
-                    )
-                    : quickReplies;
-
-                  if (filtered.length === 0) {
-                    return (
-                      <div className="p-3 text-center text-xs text-text-muted">
-                        No quick replies match "{query}"
-                      </div>
-                    );
-                  }
-
-                  return filtered.map((qr) => {
-                    const { imageUrl, cleanBody } = extractQuickReplyImage(qr.body);
-                    return (
-                      <div
-                        key={qr.id}
-                        className="w-full text-left rounded-lg px-2.5 py-2 text-sm text-text hover:bg-surface-2 transition-colors mb-1 group flex items-start gap-2.5 cursor-pointer"
-                        onClick={() => {
-                          setText(qr.body);
-                          setShowQuickReplies(false);
-                          document.getElementById("team-composer")?.focus();
-                        }}
-                      >
-                        {imageUrl && (
-                          <img
-                            src={imageUrl}
-                            alt=""
-                            className="h-10 w-10 shrink-0 rounded-md object-cover border border-white/10 bg-black/40 mt-0.5"
-                          />
+                      <label
+                        className={cn(
+                          "inline-flex items-center gap-1 rounded-lg bg-brand/15 hover:bg-brand text-brand hover:text-black border border-brand/30 text-[10px] px-2 py-0.5 font-bold transition-all cursor-pointer shadow-xs",
+                          uploadingQuickImage && "opacity-50 cursor-not-allowed",
                         )}
-                        <div className="min-w-0 flex-1">
-                          <div className="font-medium truncate text-xs text-white group-hover:text-brand transition-colors flex items-center justify-between gap-1.5">
-                            <span className="truncate">{qr.title}</span>
-                            {imageUrl && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  sendQuickReplyDirect(qr.body);
-                                }}
-                                className="inline-flex items-center gap-1 rounded bg-brand/20 hover:bg-brand text-brand hover:text-black border border-brand/40 px-2 py-0.5 text-[10px] font-bold transition-all shrink-0"
-                                title="Send image immediately to chat"
-                              >
-                                <Send className="h-2.5 w-2.5" />
-                                <span>Send Image</span>
-                              </button>
-                            )}
-                          </div>
-                          <div className="text-[11px] text-text-muted truncate mt-0.5 leading-tight">
-                            {cleanBody}
+                        title="Upload and send image directly through Quick Replies"
+                      >
+                        {uploadingQuickImage ? (
+                          <Loader2 className="h-3 w-3 animate-spin text-brand" />
+                        ) : (
+                          <ImageIcon className="h-3 w-3" />
+                        )}
+                        <span>{uploadingQuickImage ? "Sending…" : "Send Image"}</span>
+                        <input
+                          ref={quickImageFileRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={uploadingQuickImage}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) void handleSendQuickImage(f);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                  {(() => {
+                    const query = text.startsWith("/") ? text.slice(1).trim().toLowerCase() : "";
+                    const filtered = query
+                      ? quickReplies.filter(
+                        (qr) =>
+                          qr.title.toLowerCase().includes(query) ||
+                          qr.body.toLowerCase().includes(query),
+                      )
+                      : quickReplies;
+
+                    if (filtered.length === 0) {
+                      return (
+                        <div className="p-3 text-center text-xs text-text-muted">
+                          No quick replies match "{query}"
+                        </div>
+                      );
+                    }
+
+                    return filtered.map((qr) => {
+                      const { imageUrl, cleanBody } = extractQuickReplyImage(qr.body);
+                      return (
+                        <div
+                          key={qr.id}
+                          className="w-full text-left rounded-lg px-2.5 py-2 text-sm text-text hover:bg-surface-2 transition-colors mb-1 group flex items-start gap-2.5 cursor-pointer"
+                          onClick={() => {
+                            setText(qr.body);
+                            setShowQuickReplies(false);
+                            document.getElementById("team-composer")?.focus();
+                          }}
+                        >
+                          {imageUrl && (
+                            <img
+                              src={imageUrl}
+                              alt=""
+                              className="h-10 w-10 shrink-0 rounded-md object-cover border border-white/10 bg-black/40 mt-0.5"
+                            />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium truncate text-xs text-white group-hover:text-brand transition-colors flex items-center justify-between gap-1.5">
+                              <span className="truncate">{qr.title}</span>
+                              {imageUrl && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    sendQuickReplyDirect(qr.body);
+                                  }}
+                                  className="inline-flex items-center gap-1 rounded bg-brand/20 hover:bg-brand text-brand hover:text-black border border-brand/40 px-2 py-0.5 text-[10px] font-bold transition-all shrink-0"
+                                  title="Send image immediately to chat"
+                                >
+                                  <Send className="h-2.5 w-2.5" />
+                                  <span>Send Image</span>
+                                </button>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-text-muted truncate mt-0.5 leading-tight">
+                              {cleanBody}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  });
-                })()}
-              </div>
-            )}
-          </div>
-          <label htmlFor="team-composer" className="sr-only">
-            Write a message
-          </label>
-          <textarea
-            id="team-composer"
-            rows={1}
-            value={text}
-            onChange={(e) => {
-              setText(e.target.value);
-              notifyTyping(r.id);
-              if (r.assigneeId === "Awaiting assignment") {
-                // Auto-assign on first typing/message
-                void assignToMe(r.id);
-              }
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                setShowQuickReplies(false);
-              }
-              if (e.key === "Enter" && !e.shiftKey) {
-                const query = text.startsWith("/") ? text.slice(1).trim().toLowerCase() : "";
-                if (text.startsWith("/")) {
-                  const filtered = query
-                    ? quickReplies.filter(
-                      (qr) =>
-                        qr.title.toLowerCase().includes(query) ||
-                        qr.body.toLowerCase().includes(query),
-                    )
-                    : quickReplies;
-                  if (filtered.length > 0) {
-                    e.preventDefault();
-                    setText(filtered[0].body);
-                    setShowQuickReplies(false);
-                    return;
-                  }
+                      );
+                    });
+                  })()}
+                </div>
+              )}
+            </div>
+            <label htmlFor="team-composer" className="sr-only">
+              Write a message
+            </label>
+            <textarea
+              id="team-composer"
+              rows={1}
+              value={text}
+              onChange={(e) => {
+                setText(e.target.value);
+                notifyTyping(r.id);
+                if (r.assigneeId === "Awaiting assignment") {
+                  // Auto-assign on first typing/message
+                  void assignToMe(r.id);
                 }
-                e.preventDefault();
-                submit(e);
-              }
-            }}
-            placeholder="Write a reply (or type '/' for quick replies)…"
-            className="max-h-32 min-h-11 w-full resize-none rounded-xl border border-border-subtle bg-surface-2 px-3 py-3 text-[11px] text-text placeholder:text-text-muted focus:border-brand/50 outline-none"
-          />
-          <button
-            type="submit"
-            aria-label="Send message"
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand text-white active:scale-95"
-          >
-            <Send className="h-4 w-4" aria-hidden="true" />
-          </button>
-        </div>
-      </form>
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setShowQuickReplies(false);
+                }
+                if (e.key === "Enter" && !e.shiftKey) {
+                  const query = text.startsWith("/") ? text.slice(1).trim().toLowerCase() : "";
+                  if (text.startsWith("/")) {
+                    const filtered = query
+                      ? quickReplies.filter(
+                        (qr) =>
+                          qr.title.toLowerCase().includes(query) ||
+                          qr.body.toLowerCase().includes(query),
+                      )
+                      : quickReplies;
+                    if (filtered.length > 0) {
+                      e.preventDefault();
+                      setText(filtered[0].body);
+                      setShowQuickReplies(false);
+                      return;
+                    }
+                  }
+                  e.preventDefault();
+                  submit(e);
+                }
+              }}
+              placeholder="Write a reply (or type '/' for quick replies)…"
+              className="max-h-32 min-h-11 w-full resize-none rounded-xl border border-border-subtle bg-surface-2 px-3 py-3 text-[11px] text-text placeholder:text-text-muted focus:border-brand/50 outline-none"
+            />
+            <button
+              type="submit"
+              aria-label="Send message"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand text-white active:scale-95"
+            >
+              <Send className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        </form>
       )}
     </>
   );

@@ -65,51 +65,51 @@ export function mapTeamRequest(
   userName: string,
   chatRoomId?: string | null,
 ): TeamRequest {
-    const paymentFromTag = Array.isArray(row.tags)
-      ? (row.tags.find((t) => t.startsWith("payment:"))?.replace("payment:", "") as any)
-      : undefined;
-    const paymentStatus = (row.payment_status || paymentFromTag || "pending");
+  const paymentFromTag = Array.isArray(row.tags)
+    ? (row.tags.find((t) => t.startsWith("payment:"))?.replace("payment:", "") as any)
+    : undefined;
+  const paymentStatus = (row.payment_status || paymentFromTag || "pending");
 
-    const paymentNoteFromTag = Array.isArray(row.tags)
-      ? row.tags.find((t) => t.startsWith("pnote:"))?.slice(6)
-      : undefined;
-    const paymentNote = (row as any).payment_notes || (paymentNoteFromTag ? decodeURIComponent(paymentNoteFromTag) : "");
+  const paymentNoteFromTag = Array.isArray(row.tags)
+    ? row.tags.find((t) => t.startsWith("pnote:"))?.slice(6)
+    : undefined;
+  const paymentNote = (row as any).payment_notes || (paymentNoteFromTag ? decodeURIComponent(paymentNoteFromTag) : "");
 
-    const escFromTag = Array.isArray(row.tags)
-      ? row.tags.find((t) => t.startsWith("esc_note:"))?.slice(9)
-      : undefined;
-    const escalationReason = (row as any).escalation_reason || (escFromTag ? decodeURIComponent(escFromTag) : "");
+  const escFromTag = Array.isArray(row.tags)
+    ? row.tags.find((t) => t.startsWith("esc_note:"))?.slice(9)
+    : undefined;
+  const escalationReason = (row as any).escalation_reason || (escFromTag ? decodeURIComponent(escFromTag) : "");
 
-    return {
-      id: row.reference || row.id,
-      requestUuid: row.id,
-      chatRoomId: chatRoomId ?? null,
-      title: row.title,
-      category: row.category ?? "Government Form",
-      userName,
-      userInitials: initialsOf(userName),
-      userId: row.user_id,
-      status: DB_TO_TEAM_STATUS[row.status] ?? "pending",
-      priority: (row.priority ?? "medium") as Priority,
-      paymentStatus: paymentStatus as any,
-      paymentNote,
-      escalationReason,
-      createdOn: dayLabel(row.created_at),
-      assignedAt: stamp(row.assigned_at ?? row.created_at),
-      lastUpdated: stamp(row.last_activity_at ?? row.created_at),
-      lastMessage: row.last_message ?? "No messages yet.",
-      unread: 0,
-      progress: row.progress ?? 0,
-      assigneeId: row.assigned_team_id || "",
-      timeline: [{ label: "Request created", time: stamp(row.created_at) }],
-      isEscalated: row.is_escalated ?? false,
-      tags: Array.isArray(row.tags) ? row.tags : [],
-      assignedAtRaw: row.assigned_at ?? row.created_at ?? null,
-      lastActivityAt: row.last_activity_at ?? row.created_at ?? null,
-      completedAt: row.completed_at ?? null,
-      createdAt: row.created_at,
-    };
-  }
+  return {
+    id: row.reference || row.id,
+    requestUuid: row.id,
+    chatRoomId: chatRoomId ?? null,
+    title: row.title,
+    category: row.category ?? "Government Form",
+    userName,
+    userInitials: initialsOf(userName),
+    userId: row.user_id,
+    status: DB_TO_TEAM_STATUS[row.status] ?? "pending",
+    priority: (row.priority ?? "medium") as Priority,
+    paymentStatus: paymentStatus as any,
+    paymentNote,
+    escalationReason,
+    createdOn: dayLabel(row.created_at),
+    assignedAt: stamp(row.assigned_at ?? row.created_at),
+    lastUpdated: stamp(row.last_activity_at ?? row.created_at),
+    lastMessage: row.last_message ?? "No messages yet.",
+    unread: 0,
+    progress: row.progress ?? 0,
+    assigneeId: row.assigned_team_id || "",
+    timeline: [{ label: "Request created", time: stamp(row.created_at) }],
+    isEscalated: row.is_escalated ?? false,
+    tags: Array.isArray(row.tags) ? row.tags : [],
+    assignedAtRaw: row.assigned_at ?? row.created_at ?? null,
+    lastActivityAt: row.last_activity_at ?? row.created_at ?? null,
+    completedAt: row.completed_at ?? null,
+    createdAt: row.created_at,
+  };
+}
 
 export function mapTeamMessage(
   row: MessageRow & { attachment?: DocumentRow | null },
@@ -177,7 +177,7 @@ export async function loadTeamSnapshot(
 ): Promise<LiveTeamSnapshot> {
   // Load both assigned and unassigned (pool) requests
   const limit = 20;
-  
+
   // 1. Load the team member's own assigned requests (active + completed)
   const { data: myRequests } = await supabase
     .from("requests")
@@ -225,7 +225,7 @@ export async function loadTeamSnapshot(
   const activeRequestIds = (allRequests ?? []).map((r) => r.id);
   const rowIds = rows.map((r) => r.id);
   const allRequestIds = Array.from(new Set([...activeRequestIds, ...rowIds]));
-  
+
   const { data: allRooms } = await supabase
     .from("chat_rooms")
     .select("id, request_id")
@@ -289,33 +289,33 @@ export async function loadTeamSnapshot(
 
   const docsPromise = docQueries.length
     ? Promise.all(docQueries).then((results) => {
-        const seen = new Set<string>();
-        const combined: DocumentRow[] = [];
-        for (const res of results) {
-          if (res.error) console.error("[loadTeamSnapshot] docs fetch error:", res.error);
-          for (const d of res.data ?? []) {
-            if (!seen.has(d.id)) {
-              seen.add(d.id);
-              combined.push(d);
-            }
+      const seen = new Set<string>();
+      const combined: DocumentRow[] = [];
+      for (const res of results) {
+        if (res.error) console.error("[loadTeamSnapshot] docs fetch error:", res.error);
+        for (const d of res.data ?? []) {
+          if (!seen.has(d.id)) {
+            seen.add(d.id);
+            combined.push(d);
           }
         }
-        return { data: combined };
-      }).catch((err) => {
-        console.error("[loadTeamSnapshot] docs fetch failed:", err);
-        return { data: [] };
-      })
+      }
+      return { data: combined };
+    }).catch((err) => {
+      console.error("[loadTeamSnapshot] docs fetch failed:", err);
+      return { data: [] };
+    })
     : Promise.resolve({ data: [] });
 
   // 2. Fetch messages, documents, and notifications in a single parallel batch
   const [messagesResult, docsResult, notes] = await Promise.all([
     chatRoomIds.length
       ? supabase
-          .from("messages")
-          .select("*, attachment:documents(*)")
-          .in("chat_room_id", chatRoomIds)
-          .order("created_at", { ascending: true })
-          .limit(300)
+        .from("messages")
+        .select("*, attachment:documents(*)")
+        .in("chat_room_id", chatRoomIds)
+        .order("created_at", { ascending: true })
+        .limit(300)
       : Promise.resolve({ data: [] }),
     docsPromise,
     notificationsApi.listNotifications(30),
@@ -353,10 +353,10 @@ export async function loadTeamSnapshot(
     notifications: notes.map((n) =>
       mapTeamNotification(
         n,
-        Object.fromEntries(Object.entries(rooms).map(([ref, r]) => [r.requestId, ref])),
+        reqIdToRef,
       ),
     ),
     rooms,
-    refByRequestId: Object.fromEntries(Object.entries(rooms).map(([ref, r]) => [r.requestId, ref])),
+    refByRequestId: reqIdToRef,
   };
 }

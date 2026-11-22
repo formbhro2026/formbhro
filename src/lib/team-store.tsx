@@ -1061,20 +1061,23 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           .catch(() => { });
       }
 
+      const targetChatRoomId = room?.chatRoomId?.toLowerCase();
+      const targetReqUuid = (matchedUuid || roomReqId || reqUuidFromReq)?.toLowerCase();
+
       const filtered = visibleMessages.filter((m) => {
-        const req = m.requestId?.toLowerCase();
-        const reqUuid = m.requestUuid?.toLowerCase();
-        const msgRoomId = m.chatRoomId?.toLowerCase();
-        const roomId = room?.chatRoomId?.toLowerCase();
-        return (
-          req === cleanId ||
-          req === ref ||
-          (matchedUuid && (req === matchedUuid || reqUuid === matchedUuid)) ||
-          (roomReqId && (req === roomReqId || reqUuid === roomReqId)) ||
-          (reqUuidFromReq && (req === reqUuidFromReq || reqUuid === reqUuidFromReq)) ||
-          (reqUuid && (reqUuid === cleanId || reqUuid === ref || reqUuid === roomReqId)) ||
-          (msgRoomId && (msgRoomId === cleanId || (roomId && msgRoomId === roomId)))
-        );
+        const mRoomId = m.chatRoomId?.toLowerCase();
+        const mReqUuid = m.requestUuid?.toLowerCase();
+        const mReqId = m.requestId?.toLowerCase();
+
+        // 1. Direct room ID match (highest precision)
+        if (targetChatRoomId && mRoomId && mRoomId === targetChatRoomId) return true;
+        // 2. Direct request UUID match
+        if (targetReqUuid && mReqUuid && mReqUuid === targetReqUuid) return true;
+        // 3. Human reference match
+        if (mReqId && (mReqId === cleanId || mReqId === ref)) return true;
+        if (mReqUuid && (mReqUuid === cleanId || mReqUuid === ref)) return true;
+
+        return false;
       });
 
       // Strict chronological sort to prevent disarranged messages
@@ -1426,14 +1429,19 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     async (requestId: string, text: string) => {
       const name = member?.name ?? "Support";
       const id = uid("msg");
+      const r = requestsRef.current.find((req) => req.id === requestId || req.requestUuid === requestId);
+      const targetRoom = rooms.current[requestId] || (r?.id ? rooms.current[r.id] : undefined);
       setMessages((prev) => [
         ...prev,
         {
           id,
           requestId,
+          requestUuid: r?.requestUuid || targetRoom?.requestId,
+          chatRoomId: (r?.chatRoomId || targetRoom?.chatRoomId) ?? undefined,
           author: "team",
           authorName: name,
           time: nowTime(),
+          createdAt: new Date().toISOString(),
           text,
           read: false,
           delivery: "sending",
@@ -1441,7 +1449,6 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       ]);
       touch(requestId, { lastMessage: text });
 
-      const r = requestsRef.current.find((req) => req.id === requestId);
       if (r && !r.assigneeId) {
         try {
           await assignToMe(requestId);
@@ -1469,11 +1476,14 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
     ) => {
       const id = uid("doc");
       const messageId = uid("msg");
+      const r = requestsRef.current.find((req) => req.id === requestId || req.requestUuid === requestId);
+      const targetRoom = rooms.current[requestId] || (r?.id ? rooms.current[r.id] : undefined);
       setDocuments((prev) => [
         ...prev,
         {
           id,
           requestId,
+          requestUuid: r?.requestUuid || targetRoom?.requestId,
           name: file.name,
           size: file.size,
           kind: file.kind,
@@ -1487,9 +1497,12 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
         {
           id: messageId,
           requestId,
+          requestUuid: r?.requestUuid || targetRoom?.requestId,
+          chatRoomId: (r?.chatRoomId || targetRoom?.chatRoomId) ?? undefined,
           author: "team",
           authorName: member?.name ?? "Support",
           time: nowTime(),
+          createdAt: new Date().toISOString(),
           documentId: id,
           read: false,
           delivery: "sending",
@@ -1877,11 +1890,31 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!live || !member?.id) return;
     const memberName = member.name;
-    const entries = Object.entries(rooms.current).filter(([, r]) => r.chatRoomId);
-    const offs = entries.map(([reference, room]) =>
-      subscribeToRoom(room.chatRoomId as string, {
+
+    // Deduplicate rooms by chatRoomId to ensure exactly ONE listener per room
+    const uniqueRooms = new Map<string, { ref: string; chatRoomId: string; requestId?: string }>();
+    for (const [key, r] of Object.entries(rooms.current)) {
+      if (r?.chatRoomId && !uniqueRooms.has(r.chatRoomId)) {
+        const canonicalRef =
+          (r.requestId ? refByRequestId.current[r.requestId] : undefined) ||
+          refByRequestId.current[key] ||
+          key;
+        uniqueRooms.set(r.chatRoomId, {
+          ref: canonicalRef,
+          chatRoomId: r.chatRoomId,
+          requestId: r.requestId,
+        });
+      }
+    }
+
+    const offs = Array.from(uniqueRooms.values()).map(({ ref: reference, chatRoomId }) =>
+      subscribeToRoom(chatRoomId, {
         onMessage: (row) => {
           const isUserMsg = row.sender_role === "user";
+          const rowChatRoomId = row.chat_room_id;
+          const rowReqId = row.request_id;
+          const canonicalRef = refByRequestId.current[rowReqId] || reference;
+
           setMessages((prev) => {
             if (prev.some((m) => m.id === row.id)) return prev;
 
@@ -1890,10 +1923,15 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
                 m.delivery === "sending" &&
                 m.author === (row.sender_role === "user" ? "user" : "team") &&
                 (m.text || "").trim() === (row.body || "").trim() &&
-                (m.requestId === reference || m.requestId === row.request_id),
+                (
+                  (m.chatRoomId && m.chatRoomId === rowChatRoomId) ||
+                  (m.requestUuid && m.requestUuid === rowReqId) ||
+                  m.requestId === canonicalRef ||
+                  m.requestId === reference
+                ),
             );
 
-            const mapped = mapTeamMessage(row, reference, memberName);
+            const mapped = mapTeamMessage(row, canonicalRef, memberName);
             if (optIdx >= 0) {
               const copy = [...prev];
               copy[optIdx] = mapped;
@@ -1906,31 +1944,40 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
           // Synchronize requests list in real time
           setRequests((prev) => {
             const index = prev.findIndex(
-              (r) => r.id === reference || (row.request_id && r.id === row.request_id),
+              (r) =>
+                r.id === canonicalRef ||
+                r.id === reference ||
+                (rowReqId && (r.requestUuid === rowReqId || r.id === rowReqId)) ||
+                (rowChatRoomId && r.chatRoomId === rowChatRoomId),
             );
             if (index === -1) return prev;
+            const targetReq = prev[index];
             const isChatOpen =
               window.location.pathname.includes("/team/work") &&
-              new URLSearchParams(window.location.search).get("id") === reference;
+              (new URLSearchParams(window.location.search).get("id") === targetReq.id ||
+                new URLSearchParams(window.location.search).get("id") === targetReq.requestUuid);
             const updated = {
-              ...prev[index],
+              ...targetReq,
               lastMessage: row.body || "Attachment",
-              lastUpdate: nowTime(),
-              unread: isUserMsg && !isChatOpen ? (prev[index].unread || 0) + 1 : prev[index].unread,
+              lastActivityAt: row.created_at || new Date().toISOString(),
+              lastUpdated: nowTime(),
+              unread: isUserMsg && !isChatOpen ? (targetReq.unread || 0) + 1 : targetReq.unread,
             };
             return [updated, ...prev.filter((_, i) => i !== index)];
           });
         },
         onMessageUpdate: (row) => {
+          const canonicalRef = refByRequestId.current[row.request_id] || reference;
           setMessages((prev) =>
             prev.map((m) =>
-              m.id === row.id ? { ...m, ...mapTeamMessage(row, reference, memberName) } : m,
+              m.id === row.id ? { ...m, ...mapTeamMessage(row, canonicalRef, memberName) } : m,
             ),
           );
         },
         onDocument: (row) => {
+          const canonicalRef = (row.request_id ? refByRequestId.current[row.request_id] : undefined) || reference;
           setDocuments((prev) =>
-            prev.some((d) => d.id === row.id) ? prev : [mapTeamDocument(row, reference), ...prev],
+            prev.some((d) => d.id === row.id) ? prev : [mapTeamDocument(row, canonicalRef), ...prev],
           );
           // Bell notification for new document too
           const isUserDoc = row.uploader_role === "user";
@@ -1942,7 +1989,7 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
                 text: `Document uploaded: ${row.file_name}`,
                 time: nowTime(),
                 read: false,
-                requestId: reference,
+                requestId: canonicalRef,
               },
               ...prev.filter((n) => n.id !== `doc-notif-${row.id}`),
             ]);
@@ -1958,6 +2005,117 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       offs.forEach((off) => off());
     };
   }, [live, member?.id, roomsVersion, startTyping]);
+
+  // 5-second background sync safety net: Ensures new incoming requests or transferred chats
+  // are received immediately even if the WebSocket dropped or reconnected.
+  useEffect(() => {
+    if (!live || !member?.id) return;
+    const memberId = member.id;
+    let cancelled = false;
+
+    const syncPendingRequests = async () => {
+      try {
+        const { data: latestRows, error } = await supabase
+          .from("requests")
+          .select("*, profiles:user_id(full_name, email)")
+          .or(`assigned_team_id.is.null,assigned_team_id.eq.${memberId}`)
+          .order("last_activity_at", { ascending: false })
+          .limit(50);
+
+        if (error || !latestRows || cancelled) return;
+
+        let hasNewRooms = false;
+
+        setRequests((prev) => {
+          const prevMap = new Map(prev.map((r) => [r.id, r]));
+          const prevUuidMap = new Map(prev.filter((r) => r.requestUuid).map((r) => [r.requestUuid!, r]));
+
+          let changed = false;
+          const merged = [...prev];
+
+          for (const row of latestRows) {
+            // Skip admin direct chat
+            if (
+              row.category === "Team Direct Report" ||
+              (row.reference && row.reference.startsWith("ADM-TM")) ||
+              (row.title && row.title.toLowerCase().startsWith("direct chat"))
+            ) {
+              continue;
+            }
+
+            const ref = row.reference || row.id;
+            refByRequestId.current[row.id] = ref;
+
+            if (!rooms.current[ref]?.chatRoomId || !rooms.current[row.id]?.chatRoomId) {
+              hasNewRooms = true;
+              void requestsApi
+                .getOrCreateChatRoom(row.id)
+                .then((rm) => {
+                  if (rm?.id) {
+                    rooms.current[ref] = { requestId: row.id, chatRoomId: rm.id };
+                    rooms.current[row.id] = { requestId: row.id, chatRoomId: rm.id };
+                    setRoomsVersion((v) => v + 1);
+                  }
+                })
+                .catch(() => undefined);
+            }
+
+            const existing = prevMap.get(ref) || prevUuidMap.get(row.id);
+            const userName =
+              (row.profiles as any)?.full_name ||
+              (row.profiles as any)?.email?.split("@")[0] ||
+              existing?.userName ||
+              "User";
+
+            const mapped = mapTeamRequest(row, memberId, userName);
+
+            if (!existing) {
+              merged.unshift(mapped);
+              changed = true;
+            } else {
+              // Check if any critical field updated
+              if (
+                existing.status !== mapped.status ||
+                existing.lastMessage !== mapped.lastMessage ||
+                existing.assigneeId !== mapped.assigneeId ||
+                existing.isEscalated !== mapped.isEscalated
+              ) {
+                const idx = merged.findIndex((r) => r.id === existing.id);
+                if (idx !== -1) {
+                  merged[idx] = {
+                    ...mapped,
+                    unread: existing.unread,
+                    timeline: existing.timeline,
+                  };
+                  changed = true;
+                }
+              }
+            }
+          }
+
+          if (!changed) return prev;
+          // Sort strictly by latest activity
+          return merged.sort((a, b) => {
+            const timeA = new Date(a.lastActivityAt || a.createdAt || a.assignedAtRaw || 0).getTime();
+            const timeB = new Date(b.lastActivityAt || b.createdAt || b.assignedAtRaw || 0).getTime();
+            return timeB - timeA;
+          });
+        });
+
+        if (hasNewRooms) {
+          setRoomsVersion((v) => v + 1);
+        }
+      } catch (err) {
+        console.warn("[TeamStore] Background sync error:", err);
+      }
+    };
+
+    const interval = setInterval(syncPendingRequests, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [live, member?.id]);
 
   // Active chat dedicated realtime streaming listener
   useEffect(() => {

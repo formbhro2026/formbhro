@@ -83,7 +83,7 @@ export function MessageComposer({
   const objectUrlsRef = useRef<string[]>([]);
 
   useEffect(() => {
-    void listQuickReplies().then(setQuickReplies).catch(() => {});
+    void listQuickReplies().then(setQuickReplies).catch(() => { });
   }, []);
 
   useEffect(
@@ -104,10 +104,10 @@ export function MessageComposer({
         const exists = prev.some((u) => u.id === upload.id);
         return exists
           ? prev.map((u) =>
-              u.id === upload.id
-                ? { ...upload, progress: 0, status: "uploading", error: undefined }
-                : u,
-            )
+            u.id === upload.id
+              ? { ...upload, progress: 0, status: "uploading", error: undefined }
+              : u,
+          )
           : [...prev, upload];
       });
 
@@ -222,9 +222,8 @@ export function MessageComposer({
         setDragging(false);
         if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files);
       }}
-      className={`sticky bottom-0 z-20 px-3 pb-[max(0.75rem,calc(env(safe-area-inset-bottom)+0.75rem))] pt-3 bg-surface-1/95 backdrop-blur-sm border-t border-border-subtle transition-colors duration-200 sm:px-4 ${
-        dragging ? "bg-surface-2" : ""
-      }`}
+      className={`sticky bottom-0 z-20 px-3 pb-[max(0.75rem,calc(env(safe-area-inset-bottom)+0.75rem))] pt-3 bg-surface-1/95 backdrop-blur-sm border-t border-border-subtle transition-colors duration-200 sm:px-4 ${dragging ? "bg-surface-2" : ""
+        }`}
     >
       <input
         ref={fileInputRef}
@@ -257,17 +256,16 @@ export function MessageComposer({
       {uploads.length > 0 && (
         <ul aria-live="polite" className="mb-3 space-y-2">
           {uploads.map((u) => {
-            const Icon = KIND_ICON[u.kind];
+            const Icon = KIND_ICON[u.kind] ?? File;
             return (
               <li
                 key={u.id}
-                className={`rounded-2xl border p-3 transition-colors duration-200 ${
-                  u.status === "error"
+                className={`rounded-2xl border p-3 transition-colors duration-200 ${u.status === "error"
                     ? "border-danger/40 bg-danger/5"
                     : u.status === "success"
                       ? "border-success/40 bg-success/5"
                       : "border-border-subtle bg-surface-2"
-                }`}
+                  }`}
               >
                 <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
                   <span className="relative grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl border border-border-subtle bg-surface-3">
@@ -335,9 +333,8 @@ export function MessageComposer({
                 {u.status !== "error" && (
                   <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-surface-3">
                     <div
-                      className={`h-full rounded-full transition-[width] duration-200 ${
-                        u.status === "success" ? "bg-success" : "bg-brand"
-                      }`}
+                      className={`h-full rounded-full transition-[width] duration-200 ${u.status === "success" ? "bg-success" : "bg-brand"
+                        }`}
                       style={{ width: `${u.progress}%` }}
                     />
                   </div>
@@ -394,10 +391,10 @@ export function MessageComposer({
               const query = text.startsWith("/") ? text.slice(1).trim().toLowerCase() : "";
               const filtered = query
                 ? quickReplies.filter(
-                    (qr) =>
-                      qr.title.toLowerCase().includes(query) ||
-                      qr.body.toLowerCase().includes(query),
-                  )
+                  (qr) =>
+                    qr.title.toLowerCase().includes(query) ||
+                    qr.body.toLowerCase().includes(query),
+                )
                 : quickReplies;
 
               if (filtered.length === 0) {
@@ -477,10 +474,10 @@ export function MessageComposer({
               if (text.startsWith("/")) {
                 const filtered = query
                   ? quickReplies.filter(
-                      (qr) =>
-                        qr.title.toLowerCase().includes(query) ||
-                        qr.body.toLowerCase().includes(query),
-                    )
+                    (qr) =>
+                      qr.title.toLowerCase().includes(query) ||
+                      qr.body.toLowerCase().includes(query),
+                  )
                   : quickReplies;
                 if (filtered.length > 0) {
                   e.preventDefault();

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Download, ExternalLink, Maximize2, Minimize2, Trash2, X, ZoomIn, ZoomOut } from "lucide-react";
+import { Download, ExternalLink, Maximize2, Minimize2, Trash2, X, ZoomIn, ZoomOut, File } from "lucide-react";
 import type { TeamDocument } from "@/data/team-module";
 import { downloadDocument, openDocumentInNewTab } from "@/lib/team-files";
 import { useTeamDocumentUrl } from "@/lib/use-team-document-url";
@@ -20,7 +20,7 @@ export function TeamDocumentPreview({
   const panelRef = useDialogA11y<HTMLDivElement>(onClose);
   const [zoom, setZoom] = useState(1);
   const [expanded, setExpanded] = useState(false);
-  const Icon = DOC_ICONS[doc.kind];
+  const Icon = (DOC_ICONS as Record<string, any>)[doc.kind] ?? File;
   const fileUrl = useTeamDocumentUrl(doc);
 
   const htmlSrcDoc = useMemo(
