@@ -936,8 +936,8 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
               notification_type: "call",
               is_group_call: false,
               is_support_call: false,
-              title: `Incoming ${type === "video" ? "Video" : "Voice"} Call`,
-              body: "Tap to answer the call",
+              title: callerName ? `${callerName} (${type === "video" ? "Video" : "Voice"} Call)` : `Incoming ${type === "video" ? "Video" : "Voice"} Call`,
+              body: `${callerName || "User"} is calling... Tap to answer`,
               request_id: resolved.requestUuid,
               caller_id: user.id,
               caller_name: callerName,
@@ -1168,7 +1168,7 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
   );
 
   const hangup = useCallback(
-    async (errorMessage?: string) => {
+    (errorMessage?: string) => {
       const currentSid = callDetailsRef.current?.callSessionId;
       if (currentSid) {
         terminalSessionsRef.current.add(currentSid);
@@ -1187,6 +1187,10 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
         noAnswerTimeoutRef.current = null;
       }
 
+      // Synchronously clean up local state, media tracks, and reset overlay in 0ms
+      cleanup(typeof errorMessage === "string" ? errorMessage : undefined);
+
+      // Fire and forget hangup signal asynchronously so local UI never lags or hangs
       try {
         const activeRoom = canonicalRoomIdRef.current || chatRoomId;
         if (activeRoom && myIdRef.current) {
@@ -1197,23 +1201,18 @@ export function useWebRTCCall(chatRoomId: string | undefined) {
             console.log(
               `[CALL][TRACE][HANGUP] Sending hangup signal: callSessionId=${currentSid} canonicalRoomId=${activeRoom} target=${targetUserId} timestamp=${Date.now()}`,
             );
-            await Promise.race([
-              sendSignal(activeRoom, {
-                type: "hangup",
-                from: myIdRef.current,
-                target: targetUserId,
-                data: { sessionId: currentSid, targetUserId },
-              }),
-              new Promise((resolve) => setTimeout(resolve, 800)),
-            ]).catch((err) => {
-              console.warn("[CALL][HANGUP] Signal send failed or timed out:", err);
+            void sendSignal(activeRoom, {
+              type: "hangup",
+              from: myIdRef.current,
+              target: targetUserId,
+              data: { sessionId: currentSid, targetUserId },
+            }).catch((err) => {
+              console.warn("[CALL][HANGUP] Signal send failed:", err);
             });
           }
         }
       } catch (err) {
-        console.warn("[CALL][HANGUP] Signal error, continuing with cleanup:", err);
-      } finally {
-        cleanup(typeof errorMessage === "string" ? errorMessage : undefined);
+        console.warn("[CALL][HANGUP] Signal error:", err);
       }
     },
     [chatRoomId, cleanup],

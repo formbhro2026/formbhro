@@ -995,6 +995,27 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
   const visibleDocuments = useMemo(() => documents, [documents]);
   const visibleMessages = useMemo(() => messages, [messages]);
 
+function getSafeMessageTimestamp(m: { createdAt?: string | null; time?: string | null; id?: string }): number {
+  if (m.createdAt) {
+    const raw = String(m.createdAt).trim();
+    if (raw) {
+      const norm = raw.includes(" ") && !raw.includes("T") ? raw.replace(" ", "T") : raw;
+      const t = new Date(norm).getTime();
+      if (!isNaN(t) && t > 946684800000) {
+        return t;
+      }
+    }
+  }
+  if (m.id && typeof m.id === "string") {
+    const match = m.id.match(/temp_(\d+)/);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (!isNaN(num) && num > 946684800000) return num;
+    }
+  }
+  return Date.now();
+}
+
   const getRequest = useCallback((id: string) => assigned.find((r) => r.id === id), [assigned]);
   const messagesFor = useCallback(
     (id: string) => {
@@ -1068,26 +1089,35 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       const targetChatRoomId = room?.chatRoomId?.toLowerCase();
       const targetReqUuid = (matchedUuid || roomReqId || reqUuidFromReq)?.toLowerCase();
 
+      // Collect all known aliases for this conversation into a lookup Set
+      const knownKeys = new Set<string>();
+      if (cleanId) knownKeys.add(cleanId);
+      if (ref) knownKeys.add(ref);
+      if (matchedUuid) knownKeys.add(matchedUuid);
+      if (targetChatRoomId) knownKeys.add(targetChatRoomId);
+      if (targetReqUuid) knownKeys.add(targetReqUuid);
+      if (roomReqId) knownKeys.add(roomReqId);
+      if (reqUuidFromReq) knownKeys.add(reqUuidFromReq);
+      if (room?.chatRoomId) knownKeys.add(room.chatRoomId.toLowerCase());
+      if (reqObj?.id) knownKeys.add(reqObj.id.toLowerCase());
+      if (reqObj?.chatRoomId) knownKeys.add(reqObj.chatRoomId.toLowerCase());
+
       const filtered = visibleMessages.filter((m) => {
         const mRoomId = m.chatRoomId?.toLowerCase();
         const mReqUuid = m.requestUuid?.toLowerCase();
         const mReqId = m.requestId?.toLowerCase();
 
-        // 1. Direct room ID match (highest precision)
-        if (targetChatRoomId && mRoomId && mRoomId === targetChatRoomId) return true;
-        // 2. Direct request UUID match
-        if (targetReqUuid && mReqUuid && mReqUuid === targetReqUuid) return true;
-        // 3. Human reference match
-        if (mReqId && (mReqId === cleanId || mReqId === ref)) return true;
-        if (mReqUuid && (mReqUuid === cleanId || mReqUuid === ref)) return true;
-
-        return false;
+        return (
+          (mRoomId && knownKeys.has(mRoomId)) ||
+          (mReqUuid && knownKeys.has(mReqUuid)) ||
+          (mReqId && knownKeys.has(mReqId))
+        );
       });
 
-      // Strict chronological sort to prevent disarranged messages
+      // Strict WhatsApp-style chronological sort: never fall back to 0 (1970)
       return filtered.sort((a, b) => {
-        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        const timeA = getSafeMessageTimestamp(a);
+        const timeB = getSafeMessageTimestamp(b);
         if (timeA !== timeB) return timeA - timeB;
         return a.id.localeCompare(b.id);
       });
@@ -1105,20 +1135,19 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
       const room = rooms.current[id] || (ref ? rooms.current[ref] : undefined);
       const roomReqId = room?.requestId?.toLowerCase();
 
+      const knownKeys = new Set<string>();
+      if (cleanId) knownKeys.add(cleanId);
+      if (ref) knownKeys.add(ref);
+      if (matchedUuid) knownKeys.add(matchedUuid);
+      if (roomReqId) knownKeys.add(roomReqId);
+      if (room?.chatRoomId) knownKeys.add(room.chatRoomId.toLowerCase());
+
       return visibleDocuments.filter((d) => {
         const req = d.requestId?.trim().toLowerCase();
         const reqUuid = d.requestUuid?.trim().toLowerCase();
         return (
-          req === cleanId ||
-          req === ref ||
-          (matchedUuid && req === matchedUuid) ||
-          (roomReqId && req === roomReqId) ||
-          (reqUuid && (
-            reqUuid === cleanId ||
-            reqUuid === ref ||
-            (matchedUuid && reqUuid === matchedUuid) ||
-            (roomReqId && reqUuid === roomReqId)
-          ))
+          (req && knownKeys.has(req)) ||
+          (reqUuid && knownKeys.has(reqUuid))
         );
       });
     },
@@ -1956,10 +1985,12 @@ export function TeamStoreProvider({ children }: { children: ReactNode }) {
             );
             if (index === -1) return prev;
             const targetReq = prev[index];
+            const sp = new URLSearchParams(window.location.search);
+            const activeParam = (sp.get("r") || sp.get("id") || "").trim().toLowerCase();
             const isChatOpen =
               window.location.pathname.includes("/team/work") &&
-              (new URLSearchParams(window.location.search).get("id") === targetReq.id ||
-                new URLSearchParams(window.location.search).get("id") === targetReq.requestUuid);
+              (activeParam === targetReq.id.toLowerCase() ||
+                (targetReq.requestUuid && activeParam === targetReq.requestUuid.toLowerCase()));
             const updated = {
               ...targetReq,
               lastMessage: row.body || "Attachment",

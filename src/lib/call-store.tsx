@@ -151,10 +151,35 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
             console.log(
               `[CALL FORENSIC] role=TEAM event=INCOMING_ALERT_SET callSessionId=${sid} requestId=${notif.request_id} source=supabase_notifications timestamp=${Date.now()}`,
             );
+            let callerDisplayName = (notif as any).caller_name || "";
+            if (!callerDisplayName && notif.title && notif.title.includes("(")) {
+              callerDisplayName = notif.title.split("(")[0].trim();
+            } else if (!callerDisplayName && notif.title && notif.title.includes("is calling")) {
+              callerDisplayName = notif.title.replace("is calling...", "").replace("is calling", "").trim();
+            }
+
+            // Also asynchronously resolve client profile name if not present
+            if (!callerDisplayName && notif.request_id) {
+              void Promise.resolve(
+                supabase
+                  .from("requests")
+                  .select("profiles(full_name, email)")
+                  .or(`id.eq.${notif.request_id},reference.eq.${notif.request_id}`)
+                  .maybeSingle(),
+              )
+                .then(({ data }) => {
+                  const prof = (data as any)?.profiles;
+                  if (prof?.full_name) {
+                    setIncomingAlert((prev) => (prev ? { ...prev, title: prof.full_name } : null));
+                  }
+                })
+                .catch(() => { });
+            }
+
             setIncomingAlert({
               requestId: notif.request_id,
               callType,
-              title: notif.title,
+              title: callerDisplayName || notif.title || (callType === "video" ? "Incoming Video Call" : "Incoming Voice Call"),
               callSessionId: sid,
             });
             setCallRoomId(notif.request_id);
@@ -342,7 +367,7 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
         delete (window as any).__FORMBHARO_PENDING_CALL_ANSWER__;
         try {
           (window as any).FormbharoNativeBridge?.clearPendingCallAnswer?.();
-        } catch {}
+        } catch { }
 
         const sid = pending.callSessionId;
         if (sid && answeredCallSessionsRef.current.has(sid)) {
@@ -411,24 +436,24 @@ export function GlobalCallProvider({ children }: { children: ReactNode }) {
   const activeSession: CallSession =
     incomingAlert && !call.session.isActive
       ? {
-          isActive: true,
-          isIncoming: true,
-          isOutgoing: false,
-          isAccepted: false,
-          isScreenSharing: false,
-          callType: incomingAlert.callType,
-          remoteStream: null,
-          localStream: null,
-          error: null,
-          facingMode: "user",
-          callerName: incomingAlert.title,
-          requestId: incomingAlert.requestId,
-        }
+        isActive: true,
+        isIncoming: true,
+        isOutgoing: false,
+        isAccepted: false,
+        isScreenSharing: false,
+        callType: incomingAlert.callType,
+        remoteStream: null,
+        localStream: null,
+        error: null,
+        facingMode: "user",
+        callerName: incomingAlert.title,
+        requestId: incomingAlert.requestId,
+      }
       : {
-          ...call.session,
-          callerName: call.session.callerName || incomingAlert?.title,
-          requestId: call.session.requestId || incomingAlert?.requestId,
-        };
+        ...call.session,
+        callerName: call.session.callerName || incomingAlert?.title,
+        requestId: call.session.requestId || incomingAlert?.requestId,
+      };
 
   const handleAcceptFromOverlay = useCallback(() => {
     const target = incomingAlert?.requestId || callRoomId;
@@ -487,12 +512,12 @@ export function useGlobalCall() {
         error: null,
         facingMode: "user" as const,
       },
-      startCall: async () => {},
-      acceptCall: async () => {},
-      hangup: async () => {},
-      switchCamera: async () => {},
+      startCall: async () => { },
+      acceptCall: async () => { },
+      hangup: async () => { },
+      switchCamera: async () => { },
       activeRoomId: undefined,
-      setActiveRoomId: () => {},
+      setActiveRoomId: () => { },
     };
   }
   return ctx;

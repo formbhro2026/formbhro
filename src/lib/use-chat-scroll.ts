@@ -56,10 +56,13 @@ export function useChatScroll<T extends HTMLElement = HTMLDivElement>({
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     const el = containerRef.current;
     if (!el) return;
-    if (behavior === "auto") {
-      el.scrollTop = el.scrollHeight;
-    } else {
-      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    el.scrollTop = el.scrollHeight;
+    if (behavior === "smooth") {
+      requestAnimationFrame(() => {
+        if (containerRef.current) {
+          containerRef.current.scrollTo({ top: containerRef.current.scrollHeight, behavior: "smooth" });
+        }
+      });
     }
     isNearBottomRef.current = true;
     setIsAtBottom(true);
@@ -100,7 +103,20 @@ export function useChatScroll<T extends HTMLElement = HTMLDivElement>({
 
     if (!isNewItem) return;
 
-    if (isNearBottomRef.current) {
+    const lastItem = items[items.length - 1];
+    const isMine =
+      lastItem?.author === "user" ||
+      lastItem?.author === "team" ||
+      lastItem?.isMine ||
+      lastItem?.senderRole === "user" ||
+      lastItem?.senderRole === "team" ||
+      lastItem?.delivery === "sending";
+
+    if (isNearBottomRef.current || isMine) {
+      isNearBottomRef.current = true;
+      setIsAtBottom(true);
+      setHasNewUnseen(false);
+      el.scrollTop = el.scrollHeight;
       requestAnimationFrame(() => {
         if (containerRef.current) {
           containerRef.current.scrollTo({

@@ -701,6 +701,27 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
     [requests],
   );
 
+  function getSafeMessageTimestamp(m: { createdAt?: string | null; time?: string | null; id?: string }): number {
+    if (m.createdAt) {
+      const raw = String(m.createdAt).trim();
+      if (raw) {
+        const norm = raw.includes(" ") && !raw.includes("T") ? raw.replace(" ", "T") : raw;
+        const t = new Date(norm).getTime();
+        if (!isNaN(t) && t > 946684800000) {
+          return t;
+        }
+      }
+    }
+    if (m.id && typeof m.id === "string") {
+      const match = m.id.match(/temp_(\d+)/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (!isNaN(num) && num > 946684800000) return num;
+      }
+    }
+    return Date.now();
+  }
+
   const messagesFor = useCallback(
     (id: string) => {
       if (!id) return [];
@@ -712,6 +733,8 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       const room = rooms.current[ref] || rooms.current[cleanId];
       const roomId = room?.chatRoomId?.toLowerCase();
       const roomReqId = room?.requestId?.toLowerCase();
+      const reqObj = requests.find((r) => r.id === id || r.reference === id || r.id.toLowerCase() === cleanId);
+      const reqUuidFromReq = reqObj?.id?.toLowerCase();
 
       // On-demand message loading when messages are accessed for a specific chat
       if (!loadedRoomsRef.current.has(cleanId) && !loadedRoomsRef.current.has(ref)) {
@@ -720,32 +743,42 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
         void loadChat(ref || cleanId);
       }
       const targetChatRoomId = roomId?.toLowerCase();
-      const targetReqUuid = (matchedUuid || roomReqId)?.toLowerCase();
+      const targetReqUuid = (matchedUuid || roomReqId || reqUuidFromReq)?.toLowerCase();
 
-      return messages
-        .filter((m) => {
-          const mRoomId = m.chatRoomId?.toLowerCase();
-          const mReqUuid = m.requestUuid?.toLowerCase();
-          const mReqId = m.requestId?.toLowerCase();
+      // Collect all known aliases for this conversation into a lookup Set
+      const knownKeys = new Set<string>();
+      if (cleanId) knownKeys.add(cleanId);
+      if (ref) knownKeys.add(ref);
+      if (matchedUuid) knownKeys.add(matchedUuid);
+      if (targetChatRoomId) knownKeys.add(targetChatRoomId);
+      if (targetReqUuid) knownKeys.add(targetReqUuid);
+      if (roomReqId) knownKeys.add(roomReqId);
+      if (room?.chatRoomId) knownKeys.add(room.chatRoomId.toLowerCase());
+      if (reqObj?.id) knownKeys.add(reqObj.id.toLowerCase());
+      if (reqObj?.reference) knownKeys.add(reqObj.reference.toLowerCase());
+      if ((reqObj as any)?.chatRoomId) knownKeys.add((reqObj as any).chatRoomId.toLowerCase());
 
-          // 1. Direct room ID match (highest precision)
-          if (targetChatRoomId && mRoomId && mRoomId === targetChatRoomId) return true;
-          // 2. Direct request UUID match
-          if (targetReqUuid && mReqUuid && mReqUuid === targetReqUuid) return true;
-          // 3. Human reference match
-          if (mReqId && (mReqId === cleanId || mReqId === ref)) return true;
-          if (mReqUuid && (mReqUuid === cleanId || mReqUuid === ref)) return true;
+      const filtered = messages.filter((m) => {
+        const mRoomId = m.chatRoomId?.toLowerCase();
+        const mReqUuid = m.requestUuid?.toLowerCase();
+        const mReqId = m.requestId?.toLowerCase();
 
-          return false;
-        })
-        .sort((a, b) => {
-          const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          if (timeA !== timeB) return timeA - timeB;
-          return a.id.localeCompare(b.id);
-        });
+        return (
+          (mRoomId && knownKeys.has(mRoomId)) ||
+          (mReqUuid && knownKeys.has(mReqUuid)) ||
+          (mReqId && knownKeys.has(mReqId))
+        );
+      });
+
+      // Strict WhatsApp-style chronological sort: never fall back to 0 (1970)
+      return filtered.sort((a, b) => {
+        const timeA = getSafeMessageTimestamp(a);
+        const timeB = getSafeMessageTimestamp(b);
+        if (timeA !== timeB) return timeA - timeB;
+        return a.id.localeCompare(b.id);
+      });
     },
-    [messages, loadChat],
+    [messages, requests, loadChat],
   );
 
   const documentsFor = useCallback(
@@ -753,9 +786,27 @@ export function LiveUserStoreProvider({ children }: { children: ReactNode }) {
       if (!id) return [];
       const cleanId = id.trim().toLowerCase();
       const ref = (referenceById.current[id] || id).trim().toLowerCase();
-      return documents.filter(
-        (d) => d.requestId?.toLowerCase() === cleanId || d.requestId?.toLowerCase() === ref,
-      );
+      const matchedUuid = Object.entries(referenceById.current).find(
+        ([, r]) => r.toLowerCase() === cleanId,
+      )?.[0]?.toLowerCase();
+      const room = rooms.current[ref] || rooms.current[cleanId];
+      const roomReqId = room?.requestId?.toLowerCase();
+
+      const knownKeys = new Set<string>();
+      if (cleanId) knownKeys.add(cleanId);
+      if (ref) knownKeys.add(ref);
+      if (matchedUuid) knownKeys.add(matchedUuid);
+      if (roomReqId) knownKeys.add(roomReqId);
+      if (room?.chatRoomId) knownKeys.add(room.chatRoomId.toLowerCase());
+
+      return documents.filter((d) => {
+        const req = d.requestId?.trim().toLowerCase();
+        const reqUuid = (d as any).requestUuid?.trim().toLowerCase();
+        return (
+          (req && knownKeys.has(req)) ||
+          (reqUuid && knownKeys.has(reqUuid))
+        );
+      });
     },
     [documents],
   );

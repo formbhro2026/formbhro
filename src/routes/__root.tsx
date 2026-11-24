@@ -146,6 +146,16 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
               {errorMessage}
             </div>
           )}
+          {error?.stack && (
+            <details className="mt-3 text-left">
+              <summary className="text-[11px] text-muted-foreground hover:text-foreground cursor-pointer font-medium select-none">
+                Show technical stack trace
+              </summary>
+              <pre className="mt-2 p-2.5 rounded-lg bg-surface-2 border border-border-subtle text-[10px] text-text-muted font-mono whitespace-pre-wrap max-h-48 overflow-y-auto">
+                {error.stack}
+              </pre>
+            </details>
+          )}
           <div className="mt-6 flex flex-wrap justify-center gap-2">
             <button
               onClick={async () => {

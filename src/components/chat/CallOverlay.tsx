@@ -50,6 +50,24 @@ export function CallOverlay({
   const [isMaximized, setIsMaximized] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
 
+  const handleHangupImmediate = () => {
+    try {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.srcObject = null;
+      }
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.pause();
+        remoteVideoRef.current.srcObject = null;
+      }
+      if (localVideoRef.current) {
+        localVideoRef.current.pause();
+        localVideoRef.current.srcObject = null;
+      }
+    } catch (_) { }
+    onHangup();
+  };
+
   useEffect(() => {
     if (localVideoRef.current && session.localStream) {
       localVideoRef.current.srcObject = session.localStream;
@@ -169,7 +187,7 @@ export function CallOverlay({
             <p className="text-white font-semibold text-sm max-w-xs">{formatCallError(session.error)}</p>
             <button
               id="call-overlay-error-close"
-              onClick={() => onHangup()}
+              onClick={handleHangupImmediate}
               className="mt-2 text-xs text-text-muted hover:text-white underline cursor-pointer"
             >
               Dismiss
@@ -279,7 +297,7 @@ export function CallOverlay({
                     <span>Accept Call</span>
                   </button>
                   <button
-                    onClick={() => onHangup()}
+                    onClick={handleHangupImmediate}
                     className="flex items-center gap-2.5 px-6 py-3.5 rounded-full bg-red-500 text-white font-bold hover:bg-red-600 active:scale-95 transition-all shadow-xl shadow-red-500/30 cursor-pointer text-sm"
                     title="Decline Call"
                   >
@@ -290,7 +308,7 @@ export function CallOverlay({
               ) : (
                 <>
                   <button
-                    onClick={() => onHangup()}
+                    onClick={handleHangupImmediate}
                     className="h-14 w-14 rounded-full bg-red-500 flex items-center justify-center text-white hover:bg-red-600 active:scale-95 transition-all shadow-xl shadow-red-500/30 cursor-pointer"
                     title="End Call"
                   >

@@ -460,7 +460,10 @@ function ChatScreen() {
                 requestLabel={request.id}
                 onSend={(text) => {
                   sendMessage(requestId, text);
-                  scrollToBottom("smooth");
+                  scrollToBottom("auto");
+                  requestAnimationFrame(() => {
+                    scrollToBottom("smooth");
+                  });
                 }}
                 onUpload={(name, kind, size, preview, file) =>
                   attachFile(requestId, name, kind, size, preview, file)

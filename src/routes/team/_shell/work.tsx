@@ -1372,7 +1372,10 @@ function Conversation({
     if (!value) return;
     onSend(value);
     setText("");
-    scrollToBottom("smooth");
+    scrollToBottom("auto");
+    requestAnimationFrame(() => {
+      scrollToBottom("smooth");
+    });
   };
 
   return (
@@ -1380,7 +1383,7 @@ function Conversation({
       {/* ===== RESPONSIVE HEADER ===== */}
       <header className="relative z-40 border-b border-border-subtle bg-surface-1 pt-[env(safe-area-inset-top)] lg:pt-0 max-w-full overflow-visible">
         {/* Row 1: Back + User info + critical icon actions */}
-        <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 max-w-full overflow-hidden">
+        <div className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 max-w-full">
           <button
             type="button"
             onClick={() => {
@@ -1414,27 +1417,22 @@ function Conversation({
             </div>
             <div className="flex items-center gap-1.5 min-w-0 flex-nowrap overflow-hidden">
               <p className="truncate text-[10px] text-text-muted shrink-0">
-                {r.id} • {r.category}
+                {r.id}
               </p>
               {r.userId && (
                 <button
                   type="button"
                   onClick={() => {
                     void navigator.clipboard.writeText(r.userId || "");
-                    toast.success("User ID copied to clipboard: " + r.userId);
+                    toast.success("User ID copied: " + r.userId);
                   }}
                   title={`Click to copy full User ID: ${r.userId}`}
                   className="inline-flex items-center gap-1 rounded bg-surface-3 px-1.5 py-0.5 text-[9px] font-mono text-text hover:text-brand hover:border-brand/40 border border-border-subtle transition-colors shrink-0"
                 >
                   <User className="h-2.5 w-2.5 text-brand" />
-                  <span>UID: {r.userId.slice(0, 8)}...</span>
+                  <span className="max-w-[70px] truncate">{r.userId.slice(0, 8)}...</span>
                   <Copy className="h-2 w-2 opacity-60" />
                 </button>
-              )}
-              {r.tags && r.tags.length > 0 && (
-                <span className="sm:hidden text-[9px] font-semibold text-brand truncate max-w-[80px]">
-                  • {r.tags.join(", ")}
-                </span>
               )}
             </div>
           </div>

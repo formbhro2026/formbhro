@@ -24,7 +24,7 @@ export function ChatList({
   const [quickReplies, setQuickReplies] = useState<QuickReplyRow[]>([]);
 
   useEffect(() => {
-    void listQuickReplies().then(setQuickReplies).catch(() => {});
+    void listQuickReplies().then(setQuickReplies).catch(() => { });
   }, []);
 
   const isQuickMode = query.startsWith("/");
