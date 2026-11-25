@@ -101,12 +101,24 @@ function AdminLogin() {
 
           <form onSubmit={(e) => void onSubmit(e)} className="mt-6 space-y-4" noValidate>
             {error && (
-              <p
+              <div
                 role="alert"
-                className="rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-[11px] text-red-300"
+                className="rounded-xl border border-red-400/30 bg-red-400/10 p-3 text-[11px] text-red-300 space-y-1.5"
               >
-                {error}
-              </p>
+                <p className="font-semibold text-red-200">{error}</p>
+                {error.toLowerCase().includes("fetch") || error.toLowerCase().includes("network") ? (
+                  <p className="text-[10px] text-zinc-400 leading-normal">
+                    Tip: Ensure you are on{" "}
+                    <a
+                      href="https://www.formbhro.com/admin/login"
+                      className="text-brand-light underline hover:text-white"
+                    >
+                      https://www.formbhro.com/admin/login
+                    </a>{" "}
+                    (SSL secured) and that no browser extensions or ad-blockers are blocking Supabase network requests.
+                  </p>
+                ) : null}
+              </div>
             )}
 
             <Field label="Username">

@@ -207,6 +207,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       {
+        httpEquiv: "Content-Security-Policy",
+        content: "upgrade-insecure-requests",
+      },
+      {
         name: "viewport",
         content: "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover",
       },
@@ -301,6 +305,20 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const navigate = useNavigate();
   const [nativeAlert, setNativeAlert] = useState<{ open: boolean; type: "notification" | "battery" }>({ open: false, type: "notification" });
+
+  // Auto-upgrade to secure HTTPS on web production if accessed via insecure HTTP
+  useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      window.location.protocol === "http:" &&
+      !window.location.hostname.includes("localhost") &&
+      !window.location.hostname.includes("127.0.0.1")
+    ) {
+      window.location.replace(
+        "https://" + window.location.host + window.location.pathname + window.location.search + window.location.hash,
+      );
+    }
+  }, []);
 
   // Eagerly unregister any service worker or stale workbox cache in Capacitor APK
   useEffect(() => {

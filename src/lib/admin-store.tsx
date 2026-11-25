@@ -534,7 +534,16 @@ export function AdminProvider({ children }: { children: ReactNode }) {
           password: targetPassword,
         });
 
-        if (signInError) return { ok: false, error: signInError.message };
+        if (signInError) {
+          const msg = signInError.message || "";
+          if (msg.toLowerCase().includes("failed to fetch")) {
+            return {
+              ok: false,
+              error: "Network connection error. Please ensure you are on a secure HTTPS connection (https://www.formbhro.com) and check your internet connection.",
+            };
+          }
+          return { ok: false, error: msg };
+        }
 
         let ok = false;
         for (let i = 0; i < 5; i++) {
@@ -553,7 +562,14 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         }
         return { ok: false, error: "This account does not have admin access." };
       } catch (e) {
-        return { ok: false, error: e instanceof Error ? e.message : "Sign in failed." };
+        const msg = e instanceof Error ? e.message : "Sign in failed.";
+        if (msg.toLowerCase().includes("failed to fetch")) {
+          return {
+            ok: false,
+            error: "Network connection error (Failed to fetch). Please ensure you are using https://www.formbhro.com/admin/login and check your internet connection.",
+          };
+        }
+        return { ok: false, error: msg };
       }
     },
     [refresh],
