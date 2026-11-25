@@ -6,7 +6,7 @@
   "scripts": {
     "prebuild": "node -e \"const fs = require('fs'); if (!fs.existsSync('dist')) fs.mkdirSync('dist', { recursive: true });\"",
     "dev": "vite dev",
-    "build": "vite build",
+    "build": "vite build && node scripts/generate-spa-html.cjs",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",

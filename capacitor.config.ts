@@ -5,7 +5,8 @@ const config: CapacitorConfig = {
   appName: "Formbhro",
   webDir: "dist",
   server: {
-    url: "https://www.formbhro.com",
+    // Bundled local SPA assets served via https://localhost/ (Android WebViewAssetLoader)
+    // Ensures instant startup, full offline capability, and 100% compliance with Google Play policy
     allowNavigation: [
       "*.supabase.co",
       "*.supabase.io",

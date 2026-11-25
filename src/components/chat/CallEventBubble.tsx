@@ -43,13 +43,14 @@ export function CallEventBubble({
   }
 
   // Icon selection
-  const Icon = isVideo
-    ? Video
-    : isMissed
-      ? PhoneMissed
-      : isCaller
-        ? PhoneOutgoing
-        : PhoneIncoming;
+  const Icon =
+    (isVideo
+      ? Video
+      : isMissed
+        ? PhoneMissed
+        : isCaller
+          ? PhoneOutgoing
+          : PhoneIncoming) || Phone;
 
   const isFailedOrMissed = isMissed || isDeclined;
 

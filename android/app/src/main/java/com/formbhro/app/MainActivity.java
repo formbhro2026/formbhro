@@ -52,7 +52,7 @@ public class MainActivity extends BridgeActivity {
                     return getPackageManager().getPackageInfo(getPackageName(), 0).versionCode;
                 }
             } catch (Throwable t) {
-                return 10422;
+                return 10423;
             }
         }
 
@@ -61,7 +61,7 @@ public class MainActivity extends BridgeActivity {
             try {
                 return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
             } catch (Throwable t) {
-                return "1.4.22";
+                return "1.4.23";
             }
         }
 
@@ -882,12 +882,13 @@ public class MainActivity extends BridgeActivity {
         try {
             if (this.bridge != null && this.bridge.getWebView() != null) {
                 WebView webView = this.bridge.getWebView();
+                webView.setBackgroundColor(0xFF09090B);
                 webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
                 webView.getSettings().setJavaScriptCanOpenWindowsAutomatically(true);
                 webView.addJavascriptInterface(new FormbharoNativeBridge(), "FormbharoNativeBridge");
 
                 try {
-                    int currentVersion = 10422;
+                    int currentVersion = 10423;
                     android.content.SharedPreferences prefs = getSharedPreferences("formbhro_prefs", android.content.Context.MODE_PRIVATE);
                     int lastVersion = prefs.getInt("last_cache_version_code", 0);
                     if (lastVersion < currentVersion) {
@@ -987,6 +988,22 @@ public class MainActivity extends BridgeActivity {
                         @Override
                         public void onPageLoaded(WebView webView) {
                             injectGoogleAuthHeader(webView);
+                        }
+
+                        @Override
+                        public void onReceivedError(WebView webView) {
+                            android.util.Log.w("MainActivity", "[WEBVIEW] Main frame navigation error, checking local fallback");
+                            if (webView != null) {
+                                webView.post(() -> {
+                                    try {
+                                        String url = webView.getUrl();
+                                        if (url == null || url.isEmpty() || url.startsWith("http://") || url.startsWith("https://")) {
+                                            android.util.Log.i("MainActivity", "[WEBVIEW] Redirecting to bundled offline SPA: https://localhost/index.html");
+                                            webView.loadUrl("https://localhost/index.html");
+                                        }
+                                    } catch (Throwable ignored) {}
+                                });
+                            }
                         }
                     });
                 }
