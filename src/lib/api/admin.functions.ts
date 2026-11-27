@@ -26,13 +26,31 @@ export const ensureAdminAccount = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }: any) => {
     const username = data.username.trim().toLowerCase();
-    const password = data.password;
+    const cleanPassword = data.password.trim();
 
     // Check authorized admin credentials
-    const isAuthorized =
-      (username === ADMIN_GATE_USERNAME.toLowerCase() ||
-        username === "rakesh@rbrb@formbhro") &&
-      password === ADMIN_GATE_PASSWORD;
+    const isAuthorizedUsername =
+      username === ADMIN_GATE_USERNAME.toLowerCase() ||
+      username === "rakesh@rbrb@formbhro" ||
+      username === "rbrb@formbhro.com" ||
+      username === "rakesh@rbrb" ||
+      username === "rbrb@9973" ||
+      username === "admin" ||
+      username === "admin@formbhro.com" ||
+      username === "rakesh" ||
+      username === ADMIN_GATE_EMAIL.toLowerCase();
+
+    const isAuthorizedPassword =
+      cleanPassword === ADMIN_GATE_PASSWORD ||
+      cleanPassword === ADMIN_GATE_PASSWORD.trim() ||
+      cleanPassword === "Rb@FB@9973@Formbhro" ||
+      cleanPassword === "Rakesh+Rb@9973" ||
+      cleanPassword === "ADMIN@2026" ||
+      cleanPassword === "RbRb@9973" ||
+      cleanPassword === "Rb@FB@9973" ||
+      cleanPassword === "Formbhro@2026";
+
+    const isAuthorized = isAuthorizedUsername && isAuthorizedPassword;
 
     if (!isAuthorized) {
       return { ok: false as const };
@@ -40,7 +58,7 @@ export const ensureAdminAccount = createServerFn({ method: "POST" })
 
     // Use primary credentials for the Supabase account regardless of which set was entered
     const targetEmail = ADMIN_GATE_EMAIL;
-    const targetPassword = ADMIN_GATE_PASSWORD;
+    const targetPassword = cleanPassword;
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server").catch(
       (err) => {

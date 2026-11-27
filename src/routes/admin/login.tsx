@@ -132,7 +132,7 @@ function AdminLogin() {
                   value={username}
                   autoComplete="username"
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Enter username"
+                  placeholder="Rakesh@RbRb@Formbhro or rbrb@formbhro.com"
                 />
               </div>
             </Field>

@@ -52,7 +52,7 @@ public class MainActivity extends BridgeActivity {
                     return getPackageManager().getPackageInfo(getPackageName(), 0).versionCode;
                 }
             } catch (Throwable t) {
-                return 10423;
+                return 10424;
             }
         }
 
@@ -61,7 +61,7 @@ public class MainActivity extends BridgeActivity {
             try {
                 return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
             } catch (Throwable t) {
-                return "1.4.23";
+                return "1.4.24";
             }
         }
 
@@ -888,7 +888,7 @@ public class MainActivity extends BridgeActivity {
                 webView.addJavascriptInterface(new FormbharoNativeBridge(), "FormbharoNativeBridge");
 
                 try {
-                    int currentVersion = 10423;
+                    int currentVersion = 10424;
                     android.content.SharedPreferences prefs = getSharedPreferences("formbhro_prefs", android.content.Context.MODE_PRIVATE);
                     int lastVersion = prefs.getInt("last_cache_version_code", 0);
                     if (lastVersion < currentVersion) {
@@ -992,18 +992,8 @@ public class MainActivity extends BridgeActivity {
 
                         @Override
                         public void onReceivedError(WebView webView) {
-                            android.util.Log.w("MainActivity", "[WEBVIEW] Main frame navigation error, checking local fallback");
-                            if (webView != null) {
-                                webView.post(() -> {
-                                    try {
-                                        String url = webView.getUrl();
-                                        if (url == null || url.isEmpty() || url.startsWith("http://") || url.startsWith("https://")) {
-                                            android.util.Log.i("MainActivity", "[WEBVIEW] Redirecting to bundled offline SPA: https://localhost/index.html");
-                                            webView.loadUrl("https://localhost/index.html");
-                                        }
-                                    } catch (Throwable ignored) {}
-                                });
-                            }
+                            android.util.Log.w("MainActivity", "[WEBVIEW] Navigation or resource error occurred: "
+                                    + (webView != null ? webView.getUrl() : "null"));
                         }
                     });
                 }

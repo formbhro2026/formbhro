@@ -93,10 +93,10 @@ async function main() {
       },
     },
     matches: [
-      { i: '__root__ ', u: Date.now(), s: 'success', ssr: true },
-      { i: '  ', u: Date.now(), s: 'pending', ssr: false },
+      { i: '__root__', u: Date.now(), s: 'success', ssr: true },
+      { i: '/', u: Date.now(), s: 'success', ssr: true },
     ],
-    lastMatchId: '  ',
+    lastMatchId: '/',
   };
 
   const tsrBootstrapScript = `
@@ -114,7 +114,7 @@ document.currentScript && document.currentScript.remove();
   `.trim();
 
   const html = `<!DOCTYPE html>
-<html lang="en" class="light-theme">
+<html lang="en" class="dark">
 <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"/>
@@ -151,10 +151,10 @@ document.currentScript && document.currentScript.remove();
     <link rel="manifest" href="/manifest.webmanifest"/>
     <link rel="apple-touch-icon" sizes="180x180" href="/icon-192.png"/>
     <style>
-      body {
+      html, body {
         margin: 0;
         padding: 0;
-        background-color: #09090b;
+        background-color: #09090b !important;
         color: #f4f4f5;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         overflow-x: hidden;
@@ -222,16 +222,23 @@ document.currentScript && document.currentScript.remove();
     <script class="$tsr" id="$tsr-stream-barrier">${tsrBootstrapScript}</script>
     <script type="module" async="" src="/assets/${jsEntryFile}"></script>
     <script>
-      // Automatically hide the loading indicator once TanStack router mounts
-      window.addEventListener('load', function() {
-        setTimeout(function() {
-          var loader = document.getElementById('app-splash-loader');
-          if (loader) {
-            loader.style.opacity = '0';
-            setTimeout(function() { loader.remove(); }, 300);
-          }
-        }, 500);
-      });
+      // Cleanly dismiss the splash loader once TanStack router mounts or after timeout
+      function dismissSplash() {
+        var loader = document.getElementById('app-splash-loader');
+        if (loader) {
+          loader.style.opacity = '0';
+          setTimeout(function() {
+            if (loader && loader.parentNode) loader.parentNode.removeChild(loader);
+          }, 250);
+        }
+      }
+      if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        setTimeout(dismissSplash, 200);
+      } else {
+        window.addEventListener('load', function() { setTimeout(dismissSplash, 200); });
+        document.addEventListener('DOMContentLoaded', function() { setTimeout(dismissSplash, 400); });
+      }
+      setTimeout(dismissSplash, 1200);
     </script>
 </body>
 </html>`;

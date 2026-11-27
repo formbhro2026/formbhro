@@ -493,7 +493,7 @@ function RootComponent() {
             return;
           }
           const path = window.location.pathname;
-          if (path === "/app" || path === "/") {
+          if (path === "/app" || path === "/" || path === "/auth") {
             App.exitApp();
           } else if (path === "/admin/login" || path === "/team/login") {
             if (canGoBack && window.history.length > 1) {
