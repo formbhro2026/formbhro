@@ -52,7 +52,7 @@ public class MainActivity extends BridgeActivity {
                     return getPackageManager().getPackageInfo(getPackageName(), 0).versionCode;
                 }
             } catch (Throwable t) {
-                return 10424;
+                return 10425;
             }
         }
 
@@ -61,7 +61,7 @@ public class MainActivity extends BridgeActivity {
             try {
                 return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
             } catch (Throwable t) {
-                return "1.4.24";
+                return "1.4.25";
             }
         }
 
@@ -888,7 +888,7 @@ public class MainActivity extends BridgeActivity {
                 webView.addJavascriptInterface(new FormbharoNativeBridge(), "FormbharoNativeBridge");
 
                 try {
-                    int currentVersion = 10424;
+                    int currentVersion = 10425;
                     android.content.SharedPreferences prefs = getSharedPreferences("formbhro_prefs", android.content.Context.MODE_PRIVATE);
                     int lastVersion = prefs.getInt("last_cache_version_code", 0);
                     if (lastVersion < currentVersion) {

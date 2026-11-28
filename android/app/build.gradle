@@ -7,8 +7,8 @@ android {
         applicationId "com.formbhro.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 10424
-        versionName "1.4.24"
+        versionCode 10425
+        versionName "1.4.25"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
     androidResources {

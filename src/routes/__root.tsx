@@ -320,6 +320,13 @@ function RootComponent() {
     }
   }, []);
 
+  // Normalize /index.html to / for Capacitor Android asset loader
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.location.pathname.endsWith("/index.html")) {
+      window.history.replaceState(null, "", "/");
+    }
+  }, []);
+
   // Eagerly unregister any service worker or stale workbox cache in Capacitor APK
   useEffect(() => {
     if (typeof window !== "undefined" && isCapacitor()) {

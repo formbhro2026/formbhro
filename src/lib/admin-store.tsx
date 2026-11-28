@@ -520,23 +520,32 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         let targetEmail = isAdminAlias ? "rbrb@formbhro.com" : rawUser;
         let targetPassword = cleanPass;
 
-        try {
-          const res = await ensureAdminAccount({ data: { username: rawUser, password: cleanPass } });
-          if (res?.ok && res.email && res.password) {
-            targetEmail = res.email;
-            targetPassword = res.password;
-          }
-        } catch (serverFnErr) {
-          console.warn(
-            "[AdminStore] ensureAdminAccount server function unreachable, using direct fallback:",
-            serverFnErr,
-          );
-        }
-
+        // Try direct Supabase sign in first
         let { error: signInError } = await supabase.auth.signInWithPassword({
           email: targetEmail,
           password: targetPassword,
         });
+
+        // If direct sign in failed, try syncing account via ensureAdminAccount
+        if (signInError) {
+          try {
+            const res = await ensureAdminAccount({ data: { username: rawUser, password: cleanPass } });
+            if (res?.ok && res.email && res.password) {
+              targetEmail = res.email;
+              targetPassword = res.password;
+              const retryRes = await supabase.auth.signInWithPassword({
+                email: targetEmail,
+                password: targetPassword,
+              });
+              signInError = retryRes.error;
+            }
+          } catch (serverFnErr) {
+            console.warn(
+              "[AdminStore] ensureAdminAccount server function unreachable, using direct fallback:",
+              serverFnErr,
+            );
+          }
+        }
 
         // If sign in failed and password had untrimmed chars, retry with original password
         if (signInError && password !== cleanPass) {
